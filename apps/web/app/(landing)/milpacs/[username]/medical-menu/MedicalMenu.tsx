@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-    ACTIONS, TOOLS, TOOL_SEPS, actionTime, alarmFor, simulate,
+    ACTIONS, TOOLS, TOOL_SEPS, actionTime, alarmFor, simulate, visibleRows,
     type Action, type ActionRow, type LogKind, type ToolId,
 } from './actions'
 import { Monitor } from './audio'
@@ -170,6 +170,9 @@ function Bone({ at, splinted }: {
    is to be legible without reading it, and a photograph would swallow that if
    the tint went transparent.
 */
+/* Where the monitor's cuff sits on each upper arm. Mirrored, like the arm. */
+const MONITOR_BAND: Partial<Record<PartId, number>> = { armR: 71, armL: 191 }
+
 const HEAD_WASH: Record<string, number> = { '-1': .55, '0': 0, '1': .58, '2': .68, '3': .76 }
 
 const DOT_CLASS = { g: s.dotG, y: s.dotY, r: s.dotR, b: s.dotB }
@@ -371,12 +374,13 @@ export default function MedicalMenu({ roster, onClose }: {
     /* ---------- running a treatment --------------------------------------- */
 
     /** Applies the treatment. Called when the timer runs out, not on click. */
-    function applyAction(a: Action, ml = 0) {
+    function applyAction(a: Action, ml = 0): Patient {
         const next = structuredClone(live.current)
         const [msg, kind] = a.run(next, sel, ml)
         if (sel && a.needsPart) next.parts[sel].checked = true
         commit(next)
         if (msg) { pushLog(msg, kind); pushToast(msg) }
+        return next
     }
 
     function startAction(a: Action, ml = 0) {
@@ -392,11 +396,15 @@ export default function MedicalMenu({ roster, onClose }: {
         // The charge runs for the length of the action, so the tone finishing
         // *is* the cue that the thing is about to happen.
         if (a.sound === 'charge') monitor.current!.charge(seconds)
+        if (a.sound === 'analyse') monitor.current!.analysing(seconds)
         busyTimer.current = setTimeout(() => {
             busyTimer.current = null
             setBusy(null)
             if (a.sound === 'charge') monitor.current!.shock()
-            applyAction(a, ml)
+            const next = applyAction(a, ml)
+            // The verdict is the result, so it can only be played once there
+            // is one — shockable and not-shockable must never sound alike.
+            if (a.sound === 'analyse') monitor.current!.verdict(!!next.analysed?.advised)
         }, seconds * 1000)
     }
 
@@ -405,6 +413,7 @@ export default function MedicalMenu({ roster, onClose }: {
         if (busyTimer.current) clearTimeout(busyTimer.current)
         busyTimer.current = null
         pushLog(`${busy.label} — interrupted`, 'warn')
+        monitor.current?.stopAnalyse()
         setBusy(null)
     }
 
@@ -427,6 +436,16 @@ export default function MedicalMenu({ roster, onClose }: {
     }
 
     /* ---------- derived ---------------------------------------------------- */
+    /*
+       Only what is indicated, for what is selected.
+
+       A dressing offered for a limb with nothing open on it is noise, and
+       noise is what you read past while somebody bleeds. Sections whose rows
+       all dropped out go with them.
+    */
+    const selPart = sel ? patient.parts[sel] : null
+    const rows = tool === 'triage' ? [] : visibleRows(ACTIONS[tool], patient, selPart)
+
     const issues = stabilityIssues(patient)
     const bleeding = totalBleed(patient) > 0
     const [bw, bcls] = bloodWord(patient.blood)
@@ -527,7 +546,13 @@ export default function MedicalMenu({ roster, onClose }: {
                                         onPatch={patch}
                                     />
                                 ) : (
-                                    (ACTIONS[tool] as ActionRow[]).map((row, i) =>
+                                    rows.length === 0 ? (
+                                        <div className={s.nothing}>
+                                            {sel
+                                                ? `Nothing indicated for the ${pName(sel)}.`
+                                                : 'Select a body part to see what it needs.'}
+                                        </div>
+                                    ) : rows.map((row, i) =>
                                         row.sec !== undefined
                                             ? <div key={`s${i}`} className={s.sectlabel}>{row.sec}</div>
                                             : row.sizes ? (
@@ -682,6 +707,29 @@ export default function MedicalMenu({ roster, onClose }: {
                                                 </React.Fragment>
                                             )
                                         })}
+                                        {/* The cuff, where you put it. */}
+                                        {patient.monitorOn && MONITOR_BAND[patient.monitorOn] && (
+                                            <g>
+                                                <rect
+                                                    x={MONITOR_BAND[patient.monitorOn]!} y='146' width='38' height='15' rx='3'
+                                                    fill='#12181d' stroke='#56a8e0' strokeWidth='1.5' />
+                                                <circle
+                                                    className={s.cuffLed}
+                                                    cx={MONITOR_BAND[patient.monitorOn]! + 31} cy='153.5' r='2.6' fill='#56a8e0' />
+                                            </g>
+                                        )}
+
+                                        {/* Pads: right anterior, left lateral. */}
+                                        {patient.padsOn && (
+                                            <g>
+                                                <path d='M129,160 L171,208' stroke='#d9a441' strokeWidth='1' opacity='.45' fill='none' />
+                                                <rect x='114' y='138' width='30' height='22' rx='3'
+                                                    fill='#241d12' stroke='#d9a441' strokeWidth='1.5' />
+                                                <rect x='156' y='206' width='30' height='22' rx='3'
+                                                    fill='#241d12' stroke='#d9a441' strokeWidth='1.5' />
+                                            </g>
+                                        )}
+
                                         {/* Hands on the chest. It beats at the rate
                                             you are being asked to compress at, so the
                                             animation is the metronome. */}
@@ -722,11 +770,21 @@ export default function MedicalMenu({ roster, onClose }: {
                             <div className={s.panel}>
                                 {patient.cardiacArrest && (
                                     <div className={`${s.ovline} ${s.ovlineRed}`}>
-                                        CARDIAC ARREST — {RHYTHM_LABEL[patient.rhythm]}
+                                        CARDIAC ARREST — {patient.monitorOn ? RHYTHM_LABEL[patient.rhythm] : 'no monitor attached'}
                                     </div>
                                 )}
-                                {patient.rhythm === 'stemi' && (
+                                {patient.rhythm === 'stemi' && patient.monitorOn && (
                                     <div className={`${s.ovline} ${s.ovlineYel}`}>{RHYTHM_LABEL.stemi}</div>
+                                )}
+                                {!patient.monitorOn && (
+                                    <div className={`${s.ovline} ${s.ovlineYel}`}>
+                                        No vitals monitor — attach one to an arm
+                                    </div>
+                                )}
+                                {!patient.padsOn && patient.cardiacArrest && (
+                                    <div className={`${s.ovline} ${s.ovlineYel}`}>
+                                        No defibrillator pads — site them on the chest
+                                    </div>
                                 )}
                                 {/* Whether they are with you. First, because it changes
                                     what every other line on this panel means. */}
@@ -933,16 +991,23 @@ function Vitals({ patient: p }: { patient: Patient }) {
             <div className={s.v}>{v} <small>{u}</small></div>
         </div>
     )
+    /*
+       Four of these six are the monitor's, and without one on the casualty
+       they are not numbers you have — they are numbers a machine would have
+       told you. Temperature and volume stay: neither comes off a vitals
+       monitor, and the second is the estimate you are working from.
+    */
+    const off = !p.monitorOn
     return (
         <div className={s.vitals}>
-            {cell('HR', p.cardiacArrest ? '0' : jitter(p.hr, 2), 'bpm',
-                p.hr > 120 || p.hr < 50 || p.cardiacArrest ? s.vitCrit : p.hr > 100 ? s.vitWarn : '')}
-            {cell('BP', p.cardiacArrest ? '0/0' : `${jitter(p.sysBp, 3)}/${jitter(p.diaBp, 2)}`, 'mmHg',
-                p.sysBp < 90 ? s.vitCrit : p.sysBp < 105 ? s.vitWarn : '')}
-            {cell('SpO₂', p.cardiacArrest ? '--' : jitter(p.spo2, 1), '%',
-                p.spo2 < 90 ? s.vitCrit : p.spo2 < 95 ? s.vitWarn : '')}
-            {cell('RR', p.cardiacArrest ? '0' : jitter(p.rr, 1), '/min',
-                p.rr > 24 || p.rr < 8 ? s.vitWarn : '')}
+            {cell('HR', off ? '—' : p.cardiacArrest ? '0' : jitter(p.hr, 2), off ? '' : 'bpm',
+                off ? s.vitOff : p.hr > 120 || p.hr < 50 || p.cardiacArrest ? s.vitCrit : p.hr > 100 ? s.vitWarn : '')}
+            {cell('BP', off ? '—' : p.cardiacArrest ? '0/0' : `${jitter(p.sysBp, 3)}/${jitter(p.diaBp, 2)}`, off ? '' : 'mmHg',
+                off ? s.vitOff : p.sysBp < 90 ? s.vitCrit : p.sysBp < 105 ? s.vitWarn : '')}
+            {cell('SpO₂', off ? '—' : p.cardiacArrest ? '--' : jitter(p.spo2, 1), off ? '' : '%',
+                off ? s.vitOff : p.spo2 < 90 ? s.vitCrit : p.spo2 < 95 ? s.vitWarn : '')}
+            {cell('RR', off ? '—' : p.cardiacArrest ? '0' : jitter(p.rr, 1), off ? '' : '/min',
+                off ? s.vitOff : p.rr > 24 || p.rr < 8 ? s.vitWarn : '')}
             {cell('TEMP', p.temp.toFixed(1), '°C', p.temp < 35.5 ? s.vitWarn : '')}
             {cell('BLOOD', Math.round(p.blood), '%',
                 p.blood < 55 ? s.vitCrit : p.blood < 75 ? s.vitWarn : '')}
@@ -1061,6 +1126,15 @@ function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<
             ctx.lineWidth = 1
             for (let x = 0; x < W; x += 24) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke() }
             for (let y = 0; y < H; y += 18) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
+
+            // Nothing on the casualty, nothing on the screen. The grid is the
+            // machine being switched on; the trace is it being connected.
+            if (!p.monitorOn) {
+                ctx.fillStyle = 'rgba(255,255,255,.35)'
+                ctx.font = '11px sans-serif'
+                ctx.fillText('NO SIGNAL — ATTACH VITALS MONITOR', 8, H / 2)
+                return
+            }
 
             const trace = traceOf(p)
             ctx.strokeStyle = TRACE_COLOUR[trace]

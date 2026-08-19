@@ -2,7 +2,7 @@ import {
     BAG_SIZES, CPR_DOWNTIME_RATE, CPR_RATE, DEATH_DOWNTIME, EPI_WINDOW, FLUIDS,
     PRESSOR_LIFE, PRESSOR_MAX, RHYTHM_LABEL, SHOCKABLE,
     arrestHr, bleedFactor, clamp, isConscious, jitter, pName, setRhythm, stabilityIssues, totalBleed,
-    type FluidId, type Patient, type PartId,
+    type BodyPart, type FluidId, type Patient, type PartId,
 } from './model'
 
 /* ============================================================================
@@ -19,16 +19,15 @@ import {
 
 export type ToolId =
     | 'triage' | 'examine' | 'bandage' | 'medication'
-    | 'airway' | 'advanced' | 'splint'
+    | 'airway' | 'advanced'
 
 export const TOOLS: { id: ToolId, label: string }[] = [
     { id: 'triage',     label: 'Triage Card' },
     { id: 'examine',    label: 'Examine' },
-    { id: 'bandage',    label: 'Bandages' },
+    { id: 'bandage',    label: 'Bandages & Splints' },
     { id: 'medication', label: 'Medication' },
     { id: 'airway',     label: 'Airway & Chest' },
     { id: 'advanced',   label: 'Advanced Treatment' },
-    { id: 'splint',     label: 'Splints & Fractures' },
 ]
 
 /** A rule drawn after these, so the toolbar groups rather than runs on. */
@@ -47,7 +46,7 @@ export const TOOL_SEPS = new Set<ToolId>(['triage', 'advanced'])
 */
 const TOOL_TIME: Record<ToolId, number> = {
     triage: 0, examine: 3, bandage: 3, medication: 3,
-    airway: 4, advanced: 6, splint: 6,
+    airway: 4, advanced: 6,
 }
 
 const ACTION_TIME: Record<string, number> = {
@@ -55,7 +54,8 @@ const ACTION_TIME: Record<string, number> = {
     packing: 4, quik: 4, tq: 5, tqoff: 3, seal: 5,
     decom: 5, bvm: 2, oxy: 3,
     iv: 5, blood: 8, plasma: 8, saline: 8, analyse: 6, shock: 4, pak: 10, surg: 15,
-    realign: 4, sling: 4, blanket: 3, heat: 3,
+    monon: 5, monoff: 3, pads: 6,
+    splint: 6, realign: 4, sling: 4, blanket: 3, heat: 3,
 }
 
 /** Seconds this action takes, however it was specified. */
@@ -79,8 +79,8 @@ export interface Action {
     dot?: 'g' | 'y' | 'r' | 'b'
     /** Disabled until a body part is selected. */
     needsPart?: boolean
-    /** A cue for the UI to play — the defibrillator is the only thing with one. */
-    sound?: 'charge' | 'shock'
+    /** A cue for the UI to play. The defibrillator is all of them. */
+    sound?: 'charge' | 'analyse'
     /**
      * Offers a bag size instead of a single button, and hands the choice to
      * `run` as `ml`. Fluids are the only thing you pick an amount of.
@@ -90,11 +90,53 @@ export interface Action {
     labelFor?: (p: Patient) => string
     /** Whether the row is currently switched on, for the rows that latch. */
     onFor?: (p: Patient) => boolean
+    /**
+     * Whether this is indicated at all, right now, for what is selected.
+     *
+     * The list is a shelf you are looking at rather than a catalogue you are
+     * searching. A dressing offered for a limb with nothing open on it is
+     * noise, and noise is what you have to read past while somebody bleeds —
+     * so anything not indicated is not shown, rather than shown and refused.
+     *
+     * `pt` is null when no part is selected, which is why every limb-specific
+     * row starts by testing for one.
+     */
+    showFor?: (p: Patient, pt: BodyPart | null) => boolean
     run: (p: Patient, partId: PartId | null, ml: number) => [string, LogKind]
     sec?: undefined
 }
 
 export type ActionRow = Action | ActionSection
+
+/* ---------- what is indicated --------------------------------------------- */
+
+/** The four you can put a tourniquet or a cannula in. */
+const LIMBS: ReadonlySet<PartId> = new Set<PartId>(['armL', 'armR', 'legL', 'legR'])
+
+/** An open wound, dressed or not — a tourniqueted limb still has one. */
+const isOpen = (pt: BodyPart) => pt.wounds.some(w => !w.bandaged)
+
+const onChest = (_p: Patient, pt: BodyPart | null) => pt?.id === 'torso'
+const onHead  = (_p: Patient, pt: BodyPart | null) => pt?.id === 'head'
+const woundOn = (_p: Patient, pt: BodyPart | null) => !!pt && isOpen(pt)
+const brokenOn = (_p: Patient, pt: BodyPart | null) => !!pt && pt.fractured && !pt.splinted
+const hasLine = (_p: Patient, pt: BodyPart | null) => !!pt && pt.iv > 0 && !pt.tourniquet
+const onArm = (_p: Patient, pt: BodyPart | null) => !!pt && (pt.id === 'armL' || pt.id === 'armR')
+
+/**
+ * The rows worth drawing, with the headings of any section that emptied.
+ *
+ * Done here rather than in the component because what is indicated is a
+ * question about the casualty, and the component's job is to draw the answer.
+ */
+export function visibleRows(rows: ActionRow[], p: Patient, pt: BodyPart | null): ActionRow[] {
+    const kept = rows.filter(r => r.sec !== undefined || !r.showFor || r.showFor(p, pt))
+    return kept.filter((r, i) => {
+        if (r.sec === undefined) return true
+        const next = kept[i + 1]
+        return next !== undefined && next.sec === undefined
+    })
+}
 
 /* ---------- shared treatment effects -------------------------------------- */
 
@@ -209,17 +251,43 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
             p.bloodTypeKnown = true
             return ['Blood type identified — ' + p.bloodType, 'good']
         } },
+
+        { sec: 'Monitoring' },
+        {
+            id: 'monon', label: 'Attach Vitals Monitor', note: 'cuff & SpO₂ probe',
+            needsPart: true, dot: 'b', time: 5,
+            // An arm, and one the blood still reaches: a cuff below a
+            // tourniquet reads a limb rather than a casualty.
+            showFor: (p, pt) => !p.monitorOn && onArm(p, pt) && !pt!.tourniquet,
+            run: (p, id) => {
+                p.monitorOn = id
+                return ['Vitals monitor attached — ' + pName(id!) + ' · tracing', 'good']
+            },
+        },
+        {
+            id: 'monoff', label: 'Remove Vitals Monitor', needsPart: true, dot: 'y', time: 3,
+            showFor: (p, pt) => !!pt && p.monitorOn === pt.id,
+            run: p => {
+                p.monitorOn = null
+                return ['Vitals monitor removed — no live trace', 'warn']
+            },
+        },
     ],
 
     bandage: [
         { sec: 'Dressings' },
-        { id: 'field',   label: 'Field Dressing',   needsPart: true, dot: 'g', run: (p, id) => bandage(p, id!, 'Field Dressing', 1) },
-        { id: 'elastic', label: 'Elastic Bandage',  needsPart: true, dot: 'g', run: (p, id) => bandage(p, id!, 'Elastic Bandage', 1) },
-        { id: 'packing', label: 'Packing Bandage',  needsPart: true, dot: 'g', run: (p, id) => bandage(p, id!, 'Packing Bandage', 2) },
-        { id: 'quik',    label: 'QuikClot',         needsPart: true, dot: 'g', run: (p, id) => bandage(p, id!, 'QuikClot', 3) },
+        { id: 'field',   label: 'Field Dressing',   needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => bandage(p, id!, 'Field Dressing', 1) },
+        { id: 'elastic', label: 'Elastic Bandage',  needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => bandage(p, id!, 'Elastic Bandage', 1) },
+        { id: 'packing', label: 'Packing Bandage',  needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => bandage(p, id!, 'Packing Bandage', 2) },
+        { id: 'quik',    label: 'QuikClot',         needsPart: true, showFor: woundOn, dot: 'g', run: (p, id) => bandage(p, id!, 'QuikClot', 3) },
 
         { sec: 'Haemorrhage Control' },
-        { id: 'tq', label: 'Apply Tourniquet (CAT)', needsPart: true, dot: 'r', run: (p, id) => {
+        {
+            id: 'tq', label: 'Apply Tourniquet (CAT)', needsPart: true, dot: 'r',
+            // A strap on a limb that is not losing anything is a limb you have
+            // taken out of the circulation for nothing.
+            showFor: (_p, pt) => !!pt && LIMBS.has(pt.id) && !pt.tourniquet && isOpen(pt),
+            run: (p, id) => {
             const pt = p.parts[id!]
             if (id === 'head' || id === 'torso') return ['Cannot apply a tourniquet to the ' + pName(id), 'bad']
             if (pt.tourniquet) return ['Tourniquet already in place on ' + pName(id!), 'warn']
@@ -236,15 +304,44 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
                 return [`Tourniquet applied — ${pName(id!)} · line cut off, ${lost} ml lost`, 'bad']
             }
             return ['Tourniquet applied — ' + pName(id!) + ' · time noted', 'warn']
-        } },
-        { id: 'tqoff', label: 'Remove Tourniquet', needsPart: true, dot: 'y', run: (p, id) => {
-            const pt = p.parts[id!]
-            if (!pt.tourniquet) return ['No tourniquet on ' + pName(id!), 'warn']
-            pt.tourniquet = false; p.tqCount = Math.max(0, p.tqCount - 1)
-            return ['Tourniquet released — ' + pName(id!), '']
-        } },
-        { id: 'seal', label: 'Chest Seal (Vented)', dot: 'g', run: () =>
-            ['Chest seal applied — occlusive dressing sited', 'good'] },
+            },
+        },
+        {
+            id: 'tqoff', label: 'Remove Tourniquet', needsPart: true, dot: 'y',
+            showFor: (_p, pt) => !!pt && pt.tourniquet,
+            run: (p, id) => {
+                const pt = p.parts[id!]
+                pt.tourniquet = false; p.tqCount = Math.max(0, p.tqCount - 1)
+                return ['Tourniquet released — ' + pName(id!), '']
+            },
+        },
+        {
+            id: 'seal', label: 'Chest Seal (Vented)', needsPart: true, dot: 'g',
+            showFor: (p, pt) => onChest(p, pt) && isOpen(pt!),
+            run: () => ['Chest seal applied — occlusive dressing sited', 'good'],
+        },
+
+        { sec: 'Fractures' },
+        {
+            id: 'splint', label: 'Apply Splint', needsPart: true, dot: 'g', showFor: brokenOn,
+            run: (p, id) => {
+                const pt = p.parts[id!]
+                pt.splinted = true; p.pain = clamp(p.pain - 10, 0, 100)
+                return ['Splint applied — ' + pName(id!) + ' immobilised', 'good']
+            },
+        },
+        {
+            id: 'realign', label: 'Realign Limb', needsPart: true, note: 'painful', dot: 'y', showFor: brokenOn,
+            run: (p, id) => {
+                p.pain = clamp(p.pain + 20, 0, 100)
+                return ['Limb realigned — ' + pName(id!) + ' · casualty screaming', 'warn']
+            },
+        },
+        {
+            id: 'sling', label: 'Improvised Sling', needsPart: true, dot: 'g',
+            showFor: (_p, pt) => !!pt && (pt.id === 'armL' || pt.id === 'armR') && pt.fractured,
+            run: (_p, id) => ['Sling applied — ' + pName(id!) + ' supported', 'good'],
+        },
     ],
 
     medication: [
@@ -293,21 +390,23 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
 
     airway: [
         { sec: 'Airway' },
-        { id: 'npa',   label: 'Nasopharyngeal Tube',   dot: 'g', run: p => airway(p, 'NPA') },
-        { id: 'opa',   label: 'Guedel (OPA)',          dot: 'g', run: p => airway(p, 'OPA') },
-        { id: 'king',  label: 'King LT Supraglottic',  dot: 'g', run: p => airway(p, 'King LT') },
+        // Everything that goes in the mouth or over the face is a thing you do
+        // to the head, and asks you to have selected it.
+        { id: 'npa',   label: 'Nasopharyngeal Tube',   needsPart: true, showFor: onHead, dot: 'g', run: p => airway(p, 'NPA') },
+        { id: 'opa',   label: 'Guedel (OPA)',          needsPart: true, showFor: onHead, dot: 'g', run: p => airway(p, 'OPA') },
+        { id: 'king',  label: 'King LT Supraglottic',  needsPart: true, showFor: onHead, dot: 'g', run: p => airway(p, 'King LT') },
         { id: 'recov', label: 'Recovery Position',     dot: 'g', run: () => ['Casualty placed in recovery position', 'good'] },
 
         { sec: 'Chest' },
-        { id: 'decom', label: 'Chest Decompression', note: '14G needle', dot: 'r', run: p => {
+        { id: 'decom', label: 'Chest Decompression', note: '14G needle', needsPart: true, showFor: onChest, dot: 'r', run: p => {
             p.spo2 = clamp(p.spo2 + 7, 0, 100); p.rr = clamp(p.rr - 4, 4, 40)
             return ['Needle decompression — 2nd ICS MCL · rush of air', 'good']
         } },
-        { id: 'bvm', label: 'Bag-Valve Mask', note: '12/min', dot: 'g', run: p => {
+        { id: 'bvm', label: 'Bag-Valve Mask', note: '12/min', needsPart: true, showFor: onHead, dot: 'g', run: p => {
             p.spo2 = clamp(p.spo2 + 5, 0, 100)
             return ['Ventilating with BVM — 12/min', 'good']
         } },
-        { id: 'oxy', label: 'Oxygen Tank', note: '15 L NRB', dot: 'g', run: p => {
+        { id: 'oxy', label: 'Oxygen Tank', note: '15 L NRB', needsPart: true, showFor: onHead, dot: 'g', run: p => {
             p.spo2 = clamp(p.spo2 + 6, 0, 100)
             return ['O₂ via non-rebreather at 15 L/min', 'good']
         } },
@@ -315,17 +414,25 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
 
     advanced: [
         { sec: 'IV Access & Fluids' },
-        { id: 'iv', label: 'IV Cannula 18G', needsPart: true, dot: 'b', run: (p, id) => {
-            p.parts[id!].iv++
-            return ['IV access established — ' + pName(id!), 'good']
-        } },
-        { id: 'blood',  label: 'Whole Blood', note: 'O neg', dot: 'r', needsPart: true, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'blood', ml, id!) },
-        { id: 'plasma', label: 'Plasma',      note: 'FFP',   dot: 'y', needsPart: true, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'plasma', ml, id!) },
-        { id: 'saline', label: 'Saline 0.9%', note: 'crystalloid', dot: 'b', needsPart: true, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'saline', ml, id!) },
+        {
+            id: 'iv', label: 'IV Cannula 18G', needsPart: true, dot: 'b',
+            // A vein you can reach and one the heart can reach: a cannula below
+            // a tourniquet goes into a limb that is out of the circulation.
+            showFor: (_p, pt) => !!pt && LIMBS.has(pt.id) && !pt.tourniquet && !pt.iv,
+            run: (p, id) => {
+                p.parts[id!].iv++
+                return ['IV access established — ' + pName(id!), 'good']
+            },
+        },
+        // The bags appear once there is somewhere to run them into, which is
+        // what finally gives the cannula above a job.
+        { id: 'blood',  label: 'Whole Blood', note: 'O neg', dot: 'r', needsPart: true, showFor: hasLine, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'blood', ml, id!) },
+        { id: 'plasma', label: 'Plasma',      note: 'FFP',   dot: 'y', needsPart: true, showFor: hasLine, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'plasma', ml, id!) },
+        { id: 'saline', label: 'Saline 0.9%', note: 'crystalloid', dot: 'b', needsPart: true, showFor: hasLine, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'saline', ml, id!) },
 
         { sec: 'Resuscitation' },
         {
-            id: 'cpr', note: `${CPR_RATE}/min`, dot: 'r', time: 0,
+            id: 'cpr', note: `${CPR_RATE}/min`, dot: 'r', time: 0, needsPart: true, showFor: onChest,
             label: 'Start Compressions',
             labelFor: p => p.cprActive ? 'Stop Compressions' : 'Start Compressions',
             onFor: p => p.cprActive,
@@ -350,14 +457,25 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
                 return [`Compressions started — ${CPR_RATE} per minute`, 'good']
             },
         },
-        { id: 'analyse', label: 'Analyse Rhythm', note: 'stand clear', dot: 'r', run: p => {
+        // The pads go on the chest, so the chest is where the defibrillator is
+        // — and it is nothing at all until they are on.
+        {
+            id: 'pads', label: 'Attach Defibrillator Pads', note: 'ant / lat',
+            needsPart: true, dot: 'r', time: 6,
+            showFor: (p, pt) => onChest(p, pt) && !p.padsOn,
+            run: p => {
+                p.padsOn = true
+                return ['Pads sited — right anterior, left lateral', 'good']
+            },
+        },
+        { id: 'analyse', label: 'Analyse Rhythm', note: 'stand clear', needsPart: true, sound: 'analyse', showFor: (p, pt) => onChest(p, pt) && p.padsOn, dot: 'r', run: p => {
             p.analysed = { rhythm: p.rhythm, advised: SHOCKABLE.has(p.rhythm) }
             const found = RHYTHM_LABEL[p.rhythm]
             return p.analysed.advised
                 ? [`Analysis — ${found}. SHOCK ADVISED`, 'bad']
                 : [`Analysis — ${found}. No shock advised`, 'warn']
         } },
-        { id: 'shock', label: 'Deliver Shock', note: '200 J', dot: 'r', sound: 'charge', run: p => {
+        { id: 'shock', label: 'Deliver Shock', note: '200 J', needsPart: true, showFor: (p, pt) => onChest(p, pt) && p.padsOn, dot: 'r', sound: 'charge', run: p => {
             // The analysis is the interlock, and it is keyed to the rhythm it
             // was taken from: a heart that has moved since is a heart the
             // reading no longer describes.
@@ -376,33 +494,14 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
             p.pain = clamp(p.pain - 25, 0, 100)
             return ['PAK used — all wounds dressed, casualty stabilised', 'good']
         } },
-        { id: 'surg', label: 'Surgical Kit — Stitch', needsPart: true, note: '~15s', dot: 'g', run: (p, id) => {
-            const pt = p.parts[id!]; const n = pt.wounds.length
-            if (!n) return ['No wounds to suture on ' + pName(id!), 'warn']
-            pt.wounds = []
-            return [`Sutured ${n} wound site(s) — ${pName(id!)}`, 'good']
-        } },
-    ],
-
-    splint: [
-        { sec: 'Fractures' },
-        { id: 'splint', label: 'Apply Splint', needsPart: true, dot: 'g', run: (p, id) => {
-            const pt = p.parts[id!]
-            if (!pt.fractured) return ['No fracture detected in the ' + pName(id!), 'warn']
-            if (pt.splinted) return [pName(id!) + ' is already splinted', 'warn']
-            pt.splinted = true; p.pain = clamp(p.pain - 10, 0, 100)
-            return ['Splint applied — ' + pName(id!) + ' immobilised', 'good']
-        } },
-        { id: 'realign', label: 'Realign Limb', needsPart: true, note: 'painful', dot: 'y', run: (p, id) => {
-            const pt = p.parts[id!]
-            if (!pt.fractured) return ['Nothing to realign — ' + pName(id!), 'warn']
-            p.pain = clamp(p.pain + 20, 0, 100)
-            return ['Limb realigned — ' + pName(id!) + ' · casualty screaming', 'warn']
-        } },
-        { id: 'sling', label: 'Improvised Sling', needsPart: true, dot: 'g', run: (p, id) =>
-            (id === 'armL' || id === 'armR')
-                ? ['Sling applied — ' + pName(id) + ' supported', 'good']
-                : ['A sling will not help the ' + pName(id!), 'warn'] },
+        { id: 'surg', label: 'Surgical Kit — Stitch', needsPart: true, note: '~15s', dot: 'g',
+            showFor: (_p, pt) => !!pt && pt.wounds.length > 0,
+            run: (p, id) => {
+                const pt = p.parts[id!]; const n = pt.wounds.length
+                pt.wounds = []
+                return [`Sutured ${n} wound site(s) — ${pName(id!)}`, 'good']
+            },
+        },
 
         { sec: 'Environment' },
         { id: 'blanket', label: 'Emergency Blanket', dot: 'g', run: p => {
@@ -414,6 +513,7 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
             return ['Heat packs sited — axilla & groin', 'good']
         } },
     ],
+
 }
 
 /* ---------- the tick ------------------------------------------------------ */
@@ -562,6 +662,9 @@ function kill(p: Patient, cause: string) {
 
 /** What the monitor should be making a noise about. */
 export function alarmFor(p: Patient): 'none' | 'urgent' | 'flatline' {
+    // An alarm is the monitor's, and a monitor nobody attached has nothing to
+    // alarm about.
+    if (!p.monitorOn) return 'none'
     if (p.rhythm === 'asystole') return 'flatline'
     if (p.cardiacArrest) return 'urgent'
     return 'none'

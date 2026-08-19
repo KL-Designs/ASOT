@@ -12,7 +12,6 @@ const Bandage = () => <svg viewBox='0 0 24 24' {...P}><rect x='2.5' y='8' width=
 const Medication = () => <svg viewBox='0 0 24 24' {...P}><rect x='6' y='7' width='12' height='14' rx='2' /><path d='M9 4h6v3H9z' /><path d='M12 11v6M9 14h6' /></svg>
 const Airway = () => <svg viewBox='0 0 24 24' {...P}><circle cx='12' cy='6' r='3' /><path d='M12 9v6M8.5 12h7M9 21l1.5-6M15 21l-1.5-6' /></svg>
 const Advanced = () => <svg viewBox='0 0 24 24' {...P}><path d='M2 12h4l2-6 4 12 2.5-8 1.8 4H22' /></svg>
-const Splint = () => <svg viewBox='0 0 24 24' {...P}><path d='M5 19 19 5' /><path d='M4 6l3-3 3 3-3 3z' /><path d='M14 18l3-3 3 3-3 3z' /></svg>
 
 export const TOOL_ICONS: Record<ToolId, () => React.JSX.Element> = {
     triage: Triage,
@@ -21,5 +20,4 @@ export const TOOL_ICONS: Record<ToolId, () => React.JSX.Element> = {
     medication: Medication,
     airway: Airway,
     advanced: Advanced,
-    splint: Splint,
 }

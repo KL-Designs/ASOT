@@ -446,6 +446,15 @@
 .sizebtn:active:not(:disabled) { transform: translateY(1px) }
 .sizebtn:disabled { opacity: .34; cursor: not-allowed }
 
+/* Nothing to offer: either nothing is selected, or the part is not asking
+   for anything this tool carries. */
+.nothing {
+    padding: 22px 4px;
+    font-size: 13px;
+    color: var(--txt-mute);
+    letter-spacing: .3px;
+}
+
 /* A row that has latched on — compressions are running until you say stop. */
 .trowOn {
     background: rgba(224, 59, 49, .18);
@@ -524,6 +533,9 @@
     45%      { transform: translateY(3px) }
 }
 
+/* The cuff's own light, so an attached monitor reads as a live one. */
+.cuffLed { animation: drip 1.6s ease-in-out infinite }
+
 /* What the casualty is saying. */
 .bubble { animation: fade .3s ease }
 .bubble text { font-family: inherit; letter-spacing: .2px }
@@ -546,6 +558,7 @@
 .vit .v small { font-size: 11px; font-weight: 600; color: var(--txt-dim); letter-spacing: 1px }
 .vitWarn .v { color: var(--yellow) }
 .vitCrit .v { color: var(--red) }
+.vitOff .v { color: var(--txt-mute); font-weight: 400 }
 
 .ecg {
     width: 100%;

@@ -183,6 +183,17 @@ export interface Patient {
     hrTarget: number | null
     /** Seconds until they could come round. Set by a return of circulation. */
     wake: number
+    /**
+     * The arm the vitals monitor is strapped to, or null for no monitor.
+     *
+     * Nothing on the screen is free. A trace, a heart rate and a saturation
+     * are things a machine is telling you, and the machine has to be on the
+     * casualty first — which makes putting it there the first thing you do
+     * rather than something the menu did for you before you arrived.
+     */
+    monitorOn: PartId | null
+    /** Defibrillator pads sited on the chest. The AED does nothing without them. */
+    padsOn: boolean
     /** Lines up and running. Drained by the sim, not by the treatment. */
     infusions: Infusion[]
     /** Ids for the bags, so React can key them and the log can name them. */
@@ -306,6 +317,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         conscious: true, rhythm: 'sinus', analysed: null, cardiacArrest: false, airway: 'clear',
         meds: [], tqCount: 0,
         pressor: 0, epi: 0, hrTarget: null, wake: 0,
+        monitorOn: null, padsOn: false,
         infusions: [], infusionSeq: 0,
         downtime: 0, outcome: 'active', cause: '',
         triage: 'none', triageEntries: [],

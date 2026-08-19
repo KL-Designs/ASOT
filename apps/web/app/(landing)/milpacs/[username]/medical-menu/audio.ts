@@ -25,6 +25,8 @@ export class Monitor {
     private alarm: Alarm = 'none'
     private alarmTimer: ReturnType<typeof setInterval> | null = null
     private alarmNodes: { osc: OscillatorNode, gain: GainNode } | null = null
+    /** The analysis tone, held so aborting the action can cut it short. */
+    private analyseOsc: OscillatorNode | null = null
 
     private muted = false
 
@@ -71,6 +73,7 @@ export class Monitor {
 
     close() {
         this.setAlarm('none')
+        this.stopAnalyse()
         try { void this.ctx?.close() } catch { /* already gone */ }
         this.ctx = null
         this.master = null
@@ -104,6 +107,56 @@ export class Monitor {
         const clamped = Math.max(60, Math.min(100, spo2))
         const freq = 420 + (clamped - 60) * 13   // 60% → 420Hz, 100% → 940Hz
         this.blip(freq, ctx.currentTime, 0.075, 0.09)
+    }
+
+    /**
+     * The machine thinking.
+     *
+     * One oscillator pulsed on a schedule rather than a timer firing blips,
+     * so aborting the analysis can stop it — a tone that outlives the action
+     * that started it is worse than no tone at all.
+     */
+    analysing(seconds: number) {
+        const ctx = this.wake()
+        if (!ctx || this.muted) return
+        this.stopAnalyse()
+        const t = ctx.currentTime
+        const osc = ctx.createOscillator()
+        const g = ctx.createGain()
+        osc.type = 'sine'
+        osc.frequency.setValueAtTime(660, t)
+        g.gain.setValueAtTime(0.0001, t)
+        for (let i = 0; i * 0.42 < seconds; i++) {
+            const at = t + i * 0.42
+            g.gain.setValueAtTime(0.0001, at)
+            g.gain.linearRampToValueAtTime(0.032, at + 0.02)
+            g.gain.exponentialRampToValueAtTime(0.0001, at + 0.2)
+        }
+        osc.connect(g); g.connect(this.master!)
+        osc.start(t); osc.stop(t + seconds + 0.1)
+        this.analyseOsc = osc
+    }
+
+    stopAnalyse() {
+        if (!this.analyseOsc) return
+        try { this.analyseOsc.stop() } catch { /* already stopped */ }
+        this.analyseOsc = null
+    }
+
+    /** What the analysis found. The two answers should not sound alike. */
+    verdict(shockable: boolean) {
+        const ctx = this.wake()
+        if (!ctx || this.muted) return
+        this.stopAnalyse()
+        const t = ctx.currentTime
+        if (shockable) {
+            // Rising and insistent — the machine telling you to stand clear.
+            for (const [i, f] of [880, 1046, 1318].entries()) this.blip(f, t + i * 0.16, 0.16, 0.075, 'square')
+            return
+        }
+        // Two notes down, and done. Nothing here for this box.
+        this.blip(587, t, 0.22, 0.055, 'triangle')
+        this.blip(440, t + 0.24, 0.36, 0.055, 'triangle')
     }
 
     /** The defibrillator winding up. Returns when it is charged. */
