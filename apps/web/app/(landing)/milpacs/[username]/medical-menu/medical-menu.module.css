@@ -523,17 +523,6 @@
     from { opacity: 0; transform: translateX(12px) }
 }
 
-.footnote {
-    position: absolute;
-    right: 10px;
-    bottom: 4px;
-    z-index: 40;
-    font-size: 10px;
-    letter-spacing: 1.2px;
-    color: rgba(255, 255, 255, .28);
-    pointer-events: none;
-}
-
 @media (max-width: 1180px) {
     .grid { grid-template-columns: 1fr 1fr }
     .colOverview { grid-column: 1/-1 }

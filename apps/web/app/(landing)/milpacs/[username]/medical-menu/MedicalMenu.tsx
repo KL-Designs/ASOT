@@ -473,7 +473,6 @@ export default function MedicalMenu({ onClose }: { onClose: () => void }) {
                 <div className={s.toastwrap}>
                     {toasts.map(t => <div key={t.id} className={s.toast}>{t.text}</div>)}
                 </div>
-                <div className={s.footnote}>MOCKUP — NOT A LIVE PATIENT RECORD</div>
             </div>
         </div>
     )
