@@ -591,15 +591,26 @@ export default function StaffSidebar({
     const sectionKeys: (keyof typeof expanded)[] = ['departments', 'personnel', 'unit']
 
     return (
-        <nav className='flex flex-col h-full overflow-y-auto' style={{ paddingBottom: 40 }}>
+        <nav className='flex flex-col h-full overflow-y-auto' style={{ paddingTop: 14, paddingBottom: 40 }}>
 
             {/* ── Header ─────────────────────────────────────────────────── */}
+            {/*
+               Inset rather than flush to the top edge.
+
+               Full-bleed, this block's dark band and its corner brackets butted
+               straight into the navbar's own dark band — two frames stacked with
+               nothing between them, so the brackets read as part of the navbar
+               rather than as this panel's own. Held off the edges it reads as
+               what it is: the card that identifies who is signed in.
+            */}
             <div
                 style={{
                     position: 'relative',
-                    padding: '18px 16px 16px',
-                    borderBottom: '1px solid var(--line-2)',
-                    background: 'rgba(0,0,0,0.25)',
+                    margin: '0 12px 12px',
+                    padding: '14px 14px 12px',
+                    border: '1px solid var(--line-1)',
+                    borderRadius: 'var(--r)',
+                    background: 'var(--ink-2)',
                 }}
             >
                 <CornerBrackets />
