@@ -664,6 +664,39 @@ not the whole page.
 #### components/wip-page.tsx
 - Default export `WipPage()` — "Under Development" placeholder page with a bypass button that appends `?bypass_wip=1` and reloads. Paired with `middleware.ts`'s `WIP_PATHS` rewrite (see §4).
 
+### components/dashboard/* — the staff portal's kit
+
+The dashboard's own layer on top of the Command Strip vocabulary. **Look here
+before writing anything inside `/dashboard`.** Styles live in
+`styles/dashboard.module.css`, scoped to `.dash` on `StaffDashboardShell`'s root
+so every screen inherits the tokens without importing them.
+
+It exists to fix one systemic problem: every panel on the dashboard was outlined
+in red, so container, primary action, destructive action and alert state all
+carried the same weight. Depth now comes from a four-step surface scale
+(`--ink-1`..`--ink-4`) and red is spent only on action, active state and alert.
+The status washes are mixed from the site's `--red`/`--amber`/`--live` with
+`color-mix`, so those tokens stay the single source.
+
+- `surfaces.tsx` — `Panel` (+ `tone`: alert/live/warn, an inset bar rather than a
+  full border), `PanelHeader`/`Body`/`Footer`, `SectionLabel` (the `// LABEL`
+  rule), `PageHead`, `Grid2`/`Grid3`/`Stack`.
+- `controls.tsx` — `Button` in four volumes plus a separate destructive track
+  (destructive stays outlined until hover), `Chip` (a toggle that *is* the
+  input), `Switch`, `Field`/`Input`/`Textarea`/`Select`, `Stepper`, `PointsLine`.
+- `status.tsx` — `Badge` on one palette (live/warn/alert/info/muted), `Meter`
+  (promotion, sign-on, course completion — figure first, bar second), `Stats`/`Stat`.
+- `data.tsx` — `ListRow` (state as a 3px left edge *and* a badge), `Rows`,
+  `Thumb`, `Table`/`TableScroll`/`cell`, `Identity`, `EmptyState`, `Tabs`.
+- `tools.tsx` — `ToolCard` tiered by consequence (standard/caution/danger/safe)
+  + `ToolGrid`. Pair `danger` with a typed `ConfirmDialog`, always.
+- `feedback.tsx` — `ConfirmDialog` (`confirmWord` gates the button),
+  `ToastProvider`/`useToast` (one host, in the shell), `SaveBar`.
+- `icons.tsx` — the kit's own line icons, so no component waits on an icon prop.
+
+Density: every measurement is a variable, so `.dense` on the root drops padding
+and row height by about a third without touching any layout.
+
 ### components/ui/* — the shared design system
 
 The Command Strip vocabulary, factored out of the navbar so the landing page,
