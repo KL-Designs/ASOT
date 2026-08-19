@@ -1,7 +1,7 @@
 import {
     ADJUNCT_LABEL, APNOEA_AT, APNOEA_OUT, BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE,
     DEATH_DOWNTIME, DEPRESSED_RR, DRUGS, FATAL_SPO2, FLUIDS, OBSTRUCTION_LABEL,
-    RHYTHM_LABEL, SHOCKABLE, STEMI_CLEARS, VOMIT_ON_COLLAPSE, WOUND_TYPES,
+    RHYTHM_LABEL, SHOCKABLE, STEMI_CLEARS, SUTURE_PER_WOUND, VOMIT_ON_COLLAPSE, WOUND_TYPES,
     BAGGING_SLOWDOWN, FREES_HANDS, REBOA_FATAL, REBOA_OCCLUSION, REBOA_WARN,
     airwayOpen, arrestHr, bleedBelowBalloon, bestBandage, bleedFactor, breathing, clamp, dressingLife,
     handsFull, intensity, partBleeding,
@@ -61,7 +61,7 @@ const ACTION_TIME: Record<string, number> = {
     full: 8, bt: 4,
     packing: 4, quik: 4, tq: 5, tqoff: 3, seal: 5,
     decom: 5, bvm: 2, oxy: 3,
-    iv: 5, blood: 8, plasma: 8, saline: 8, analyse: 6, shock: 4, pak: 10, surg: 15,
+    iv: 5, blood: 8, plasma: 8, saline: 8, analyse: 6, shock: 4, pak: 10,
     monon: 5, monoff: 3, pads: 6,
     look: 3, tilt: 3, turn: 4, suction: 5, recov: 5, reboa: 20, reboaDown: 8,
     splint: 6, realign: 4, sling: 4, blanket: 3, heat: 3,
@@ -76,7 +76,10 @@ const ACTION_TIME: Record<string, number> = {
  */
 export function blockedBy(p: Patient, a: Action): string | null {
     const hands = handsFull(p)
-    if (hands && !FREES_HANDS.has(a.id)) return hands
+    // A machine is not a pair of hands. The pads read the rhythm whatever you
+    // are doing on top of the chest, which is the whole argument for letting
+    // it run while you carry on.
+    if (hands && !FREES_HANDS.has(a.id) && !a.machine) return hands
     return null
 }
 
@@ -87,9 +90,11 @@ export function blockedBy(p: Patient, a: Action): string | null {
  * `BAGGING_SLOWDOWN`. The menu shows the number this returns rather than the
  * one in the table, so what the row promises is what the row costs.
  */
-export function actionTime(tool: ToolId, a: Action, p?: Patient): number {
-    const base = a.time ?? ACTION_TIME[a.id] ?? TOOL_TIME[tool]
-    return p?.bagging ? base * BAGGING_SLOWDOWN : base
+export function actionTime(tool: ToolId, a: Action, p?: Patient, pt?: BodyPart | null): number {
+    const base = (p && a.timeFor ? a.timeFor(p, pt ?? null) : undefined)
+        ?? a.time ?? ACTION_TIME[a.id] ?? TOOL_TIME[tool]
+    // A bag costs you a hand, and a machine was never using one.
+    return p?.bagging && !a.machine ? base * BAGGING_SLOWDOWN : base
 }
 
 /**
@@ -182,6 +187,23 @@ export interface Action {
     needsPart?: boolean
     /** A cue for the UI to play. The defibrillator is all of them. */
     sound?: 'charge' | 'analyse'
+    /**
+     * The device does this one, not your hands.
+     *
+     * It runs in its own slot, so you can start it and get on with something
+     * else while it thinks; it is not slowed by a bag, because a bag is your
+     * hands and this is not; and compressions do not block it, because the
+     * pads are on the chest either way. Everything else in the menu is you.
+     */
+    machine?: true
+    /**
+     * Seconds, worked out from what is actually in front of you.
+     *
+     * Overrides the tables when present. Suturing is the reason it exists: a
+     * limb with four holes in it is four times the work of a limb with one,
+     * and a flat fifteen seconds said otherwise.
+     */
+    timeFor?: (p: Patient, pt: BodyPart | null) => number
     /**
      * Offers a bag size instead of a single button, and hands the choice to
      * `run` as `ml`. Fluids are the only thing you pick an amount of.
@@ -875,7 +897,7 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
                 return ['Pads sited — right anterior, left lateral', 'good']
             },
         },
-        { id: 'analyse', label: 'Analyse Rhythm', note: 'stand clear', needsPart: true, sound: 'analyse', showFor: (p, pt) => onChest(p, pt) && p.padsOn, dot: 'r', run: p => {
+        { id: 'analyse', label: 'Analyse Rhythm', note: 'reading', needsPart: true, sound: 'analyse', machine: true, showFor: (p, pt) => onChest(p, pt) && p.padsOn, dot: 'r', run: p => {
             p.analysed = { rhythm: p.rhythm, advised: SHOCKABLE.has(p.rhythm) }
             const found = RHYTHM_LABEL[p.rhythm]
             return p.analysed.advised
@@ -948,6 +970,10 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
             // Dressed first. You do not stitch something that is still filling
             // up, and it makes the order of the job the order of the menu.
             showFor: (_p, pt) => !!pt && pt.wounds.length > 0 && !isOpen(pt),
+            // Per hole, not per limb. A leg with four in it is four times the
+            // work, and a flat fifteen seconds made the arm you had bothered to
+            // dress properly cost the same as the one you had not.
+            timeFor: (_p, pt) => Math.max(SUTURE_PER_WOUND, (pt?.wounds.length ?? 1) * SUTURE_PER_WOUND),
             run: (p, id) => {
                 const pt = p.parts[id!]; const n = pt.wounds.length
                 pt.wounds = []

@@ -212,9 +212,24 @@ export default function MedicalMenu({ roster, onClose }: {
        work, so *what you reach for first* is the decision this menu is asking
        you to make. Everything else is disabled until it finishes or you abort.
     */
-    const [busy, setBusy] = useState<{ id: string, label: string, seconds: number } | null>(null)
+    /*
+       Two slots, because two different things are working.
+
+       `busy` is your hands and there is only one pair of them. `bg` is the
+       kit — the pads reading a rhythm — which does not need them and so gets
+       a slot of its own: start the analysis and carry on dressing a leg, and
+       both progress bars run at once. Everything downstream picks a slot with
+       `a.machine` and is otherwise identical, which is the point.
+    */
+    type Running = { id: string, label: string, seconds: number }
+    const [busy, setBusy] = useState<Running | null>(null)
+    const [bg, setBg] = useState<Running | null>(null)
     const busyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-    useEffect(() => () => { if (busyTimer.current) clearTimeout(busyTimer.current) }, [])
+    const bgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    useEffect(() => () => {
+        if (busyTimer.current) clearTimeout(busyTimer.current)
+        if (bgTimer.current) clearTimeout(bgTimer.current)
+    }, [])
 
     // Chosen once per open, in the initialiser rather than an effect: picking
     // in an effect would render the fallback first and swap the name out from
@@ -351,12 +366,15 @@ export default function MedicalMenu({ roster, onClose }: {
     useEffect(() => {
         if (!over) return
         if (busyTimer.current) clearTimeout(busyTimer.current)
+        if (bgTimer.current) clearTimeout(bgTimer.current)
         busyTimer.current = null
+        bgTimer.current = null
         monitor.current?.stopAnalyse()
         monitor.current?.stopWork()
         monitor.current?.stopLoops()
         monitor.current?.setHiss(false)
         setBusy(null)
+        setBg(null)
     }, [over])
 
     // Announce a rhythm change in the log — it is the one thing that can happen
@@ -383,8 +401,12 @@ export default function MedicalMenu({ roster, onClose }: {
     function resetPatient(d: Difficulty) {
         // Whatever was underway was being done to the last casualty.
         if (busyTimer.current) clearTimeout(busyTimer.current)
+        if (bgTimer.current) clearTimeout(bgTimer.current)
         busyTimer.current = null
+        bgTimer.current = null
+        monitor.current?.stopAnalyse()
         setBusy(null)
+        setBg(null)
 
         setDismissed(false)
         const next = newPatient(drawCasualty(roster), d)
@@ -406,9 +428,11 @@ export default function MedicalMenu({ roster, onClose }: {
     const cancelRef = useRef<() => boolean>(() => false)
     useEffect(() => {
         cancelRef.current = () => {
-            if (!busy) return false
-            cancelAction()
-            return true
+            // Your hands first — that is what you meant by Esc. The machine only
+            // if there is nothing else to put down.
+            if (busy) { cancelAction(); return true }
+            if (bg) { cancelAction(true); return true }
+            return false
         }
     })
 
@@ -528,15 +552,19 @@ export default function MedicalMenu({ roster, onClose }: {
     }
 
     function startAction(a: Action, ml = 0) {
-        if (busy || patient.outcome !== 'active') return
+        // Only against its own slot: the machine does not care that your hands
+        // are full, and your hands do not care that it is thinking.
+        if ((a.machine ? bg : busy) || patient.outcome !== 'active') return
         if (blockedBy(patient, a)) return
-        const seconds = actionTime(tool, a, patient)
+        const seconds = actionTime(tool, a, patient, sel ? patient.parts[sel] : null)
         // The size is part of what you are doing, so it belongs in what the
         // progress bar and the log say you are doing.
         const label = ml ? `${a.label} ${ml} ml` : a.label
         if (seconds <= 0) { applyAction(a, ml); return }
 
-        setBusy({ id: a.id, label, seconds })
+        const set = a.machine ? setBg : setBusy
+        const timer = a.machine ? bgTimer : busyTimer
+        set({ id: a.id, label, seconds })
         pushLog(`${label} — started`, '')
         // The charge runs for the length of the action, so the tone finishing
         // *is* the cue that the thing is about to happen.
@@ -546,10 +574,10 @@ export default function MedicalMenu({ roster, onClose }: {
         // bar takes — which is twice as long if you are holding a bag.
         const w = actionWork(a)
         if (w) monitor.current!.work(w[0], w[1], seconds)
-        busyTimer.current = setTimeout(() => {
-            busyTimer.current = null
-            setBusy(null)
-            monitor.current?.stopWork()
+        timer.current = setTimeout(() => {
+            timer.current = null
+            set(null)
+            if (!a.machine) monitor.current?.stopWork()
             if (a.sound === 'charge') monitor.current!.shock()
             const next = applyAction(a, ml)
             // The verdict is the result, so it can only be played once there
@@ -558,14 +586,17 @@ export default function MedicalMenu({ roster, onClose }: {
         }, seconds * 1000)
     }
 
-    function cancelAction() {
-        if (!busy) return
-        if (busyTimer.current) clearTimeout(busyTimer.current)
-        busyTimer.current = null
-        pushLog(`${busy.label} — interrupted`, 'warn')
-        monitor.current?.stopAnalyse()
-        monitor.current?.stopWork()
-        setBusy(null)
+    /** Aborts one slot. Which one is decided by what is in it. */
+    function cancelAction(machine = false) {
+        const run = machine ? bg : busy
+        const timer = machine ? bgTimer : busyTimer
+        if (!run) return
+        if (timer.current) clearTimeout(timer.current)
+        timer.current = null
+        pushLog(`${run.label} — interrupted`, 'warn')
+        if (machine) monitor.current?.stopAnalyse()
+        else monitor.current?.stopWork()
+        ;(machine ? setBg : setBusy)(null)
     }
 
     function setTriage(t: Triage) {
@@ -703,8 +734,17 @@ export default function MedicalMenu({ roster, onClose }: {
                             {busy && !rows.some(r => r.id === busy.id) && (
                                 <div className={s.progress}>
                                     <span className={s.progressLabel}>{busy.label}</span>
-                                    <button type='button' className={s.progressX} onClick={cancelAction}>Abort</button>
+                                    <button type='button' className={s.progressX} onClick={() => cancelAction()}>Abort</button>
                                     <i style={{ animationDuration: `${busy.seconds}s` }} />
+                                </div>
+                            )}
+                            {/* The machine keeps working while you look at a leg, so
+                                its bar has to follow you off the chest. */}
+                            {bg && !rows.some(r => r.id === bg.id) && (
+                                <div className={`${s.progress} ${s.progressBg}`}>
+                                    <span className={s.progressLabel}>{bg.label}</span>
+                                    <button type='button' className={s.progressX} onClick={() => cancelAction(true)}>Abort</button>
+                                    <i style={{ animationDuration: `${bg.seconds}s` }} />
                                 </div>
                             )}
 
@@ -762,14 +802,14 @@ export default function MedicalMenu({ roster, onClose }: {
                                                     <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
                                                     <span>{busy?.id === row.id ? busy.label : row.label}</span>
                                                     {busy?.id === row.id ? (
-                                                        <button type='button' className={`${s.qty} ${s.rowAbort}`} onClick={cancelAction}>
+                                                        <button type='button' className={`${s.qty} ${s.rowAbort}`} onClick={() => cancelAction()}>
                                                             ABORT
                                                         </button>
                                                     ) : (
                                                         <span className={s.qty}>
                                                             {row.needsPart && !sel
                                                                 ? 'SELECT A LIMB'
-                                                                : [row.note, `${actionTime(tool, row, patient)}s to hook up`].filter(Boolean).join(' · ')}
+                                                                : [row.note, `${actionTime(tool, row, patient, selPart)}s to hook up`].filter(Boolean).join(' · ')}
                                                         </span>
                                                     )}
                                                     <div className={s.sizes}>
@@ -787,6 +827,15 @@ export default function MedicalMenu({ roster, onClose }: {
                                                     </div>
                                                 </div>
                                             ) : (
+                                                (() => {
+                                                    /* Which slot this row runs in, and whether it is
+                                                       running now. A machine row and a hands row can
+                                                       both be filling at the same time, so neither
+                                                       may ask about the other's. */
+                                                    const slot = row.machine ? bg : busy
+                                                    const run = slot?.id === row.id ? slot : null
+                                                    const secs = actionTime(tool, row, patient, selPart)
+                                                    return (
                                                 <button
                                                     key={row.id}
                                                     type='button'
@@ -794,31 +843,34 @@ export default function MedicalMenu({ roster, onClose }: {
                                                         s.trow,
                                                         row.onFor?.(patient) ? s.trowOn : '',
                                                         row.bandage && row.bandage === bestPick ? s.trowBest : '',
-                                                        busy?.id === row.id ? s.trowBusy : '',
+                                                        run ? s.trowBusy : '',
+                                                        run && row.machine ? s.trowMachine : '',
                                                     ].filter(Boolean).join(' ')}
                                                     // The row you are waiting on is the row you abort with.
-                                                    disabled={busy
-                                                        ? busy.id !== row.id
+                                                    disabled={slot
+                                                        ? slot.id !== row.id
                                                         : patient.outcome !== 'active' || !!blockedBy(patient, row) || (row.needsPart && !sel)}
-                                                    onClick={() => busy?.id === row.id ? cancelAction() : startAction(row)}
+                                                    onClick={() => run ? cancelAction(!!row.machine) : startAction(row)}
                                                 >
-                                                    {busy?.id === row.id && (
-                                                        <i className={s.trowFill} style={{ animationDuration: `${busy.seconds}s` }} />
+                                                    {run && (
+                                                        <i className={s.trowFill} style={{ animationDuration: `${run.seconds}s` }} />
                                                     )}
                                                     <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
-                                                    <span>{busy?.id === row.id ? busy.label : row.labelFor ? row.labelFor(patient) : row.label}</span>
+                                                    <span>{run ? run.label : row.labelFor ? row.labelFor(patient) : row.label}</span>
                                                     {!busy && row.bandage && row.bandage === bestPick && <span className={s.bestTag}>BEST</span>}
-                                                    <span className={`${s.qty} ${busy?.id === row.id ? s.rowAbort : ''}`}>
-                                                        {busy?.id === row.id
+                                                    <span className={`${s.qty} ${run ? s.rowAbort : ''}`}>
+                                                        {run
                                                             ? 'ABORT'
                                                             : blockedBy(patient, row)
                                                                 ? 'HANDS FULL'
                                                                 : row.needsPart && !sel
                                                                 ? 'SELECT A LIMB'
-                                                                : [row.note, actionTime(tool, row, patient) > 0 && `${actionTime(tool, row, patient)}s`]
+                                                                : [row.note, secs > 0 && `${secs}s`]
                                                                     .filter(Boolean).join(' · ')}
                                                     </span>
                                                 </button>
+                                                    )
+                                                })()
                                             ))
                                 )}
                             </div>

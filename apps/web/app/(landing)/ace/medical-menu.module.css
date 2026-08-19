@@ -472,6 +472,17 @@
     to { width: 100% }
 }
 
+/* The machine's own bar. Blue rather than the unit's red, because it is the
+   one thing on this panel that is not you — and it can be filling at the same
+   time as one that is. */
+.progressBg {
+    background: rgba(86, 168, 224, .10);
+    border-color: rgba(86, 168, 224, .45);
+}
+
+.progressBg .progressLabel { color: var(--blue) }
+.progressBg > i { background: var(--blue) }
+
 /* ---------- panels ---------- */
 .panel {
     background: var(--panel);
@@ -683,6 +694,11 @@
 }
 
 .trowBusy:disabled { opacity: 1; cursor: pointer }
+
+/* The machine's row, filling in its own colour so a glance can tell which of
+   the two bars on screen is the one your hands are waiting on. */
+.trowMachine { border-color: rgba(86, 168, 224, .6) }
+.trowMachine .trowFill { background: rgba(86, 168, 224, .2); border-right-color: var(--blue) }
 .trowBusy > span, .trowBusy > div, .trowBusy > button { position: relative; z-index: 1 }
 
 .trowFill {

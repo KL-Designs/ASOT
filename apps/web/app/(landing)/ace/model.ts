@@ -623,6 +623,9 @@ export function arrestHr(r: Rhythm): number {
 /** Five minutes without an output. */
 export const DEATH_DOWNTIME = 300
 
+/** Seconds of suturing per hole. A limb is however many of these it has. */
+export const SUTURE_PER_WOUND = 4
+
 /** The rate a casualty is allowed to leave on, either side. */
 export const HR_OK: readonly [number, number] = [50, 110]
 
