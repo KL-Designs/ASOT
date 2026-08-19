@@ -34,7 +34,7 @@ const PLATOONS = [
     {
         id: 'support', number: '1-3', role: 'Support', image: Mike1440,
         body: 'The support platoon — combat engineering, indirect fire, rotary air support, medical and armoured cavalry. Specialised teams that give every mission its operational flexibility.',
-        recruiting: 'Limited',
+        recruiting: 'Open',
     },
 ]
 
