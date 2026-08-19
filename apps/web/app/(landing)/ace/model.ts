@@ -623,6 +623,9 @@ export function arrestHr(r: Rhythm): number {
 /** Five minutes without an output. */
 export const DEATH_DOWNTIME = 300
 
+/** The drive a casualty settles back to with nothing acting on it. */
+export const RR_BASELINE = 15
+
 /** Seconds of suturing per hole. A limb is however many of these it has. */
 export const SUTURE_PER_WOUND = 4
 
@@ -855,11 +858,15 @@ export const overdosed = (p: Patient) => p.doses.filter(d => d.over).length
  * disagreement that had a conscious casualty reading minus two, and the cheap
  * way to stay out of it is to let the drug have the rate while it has it.
  */
-export const rateHeld = (p: Patient) => p.doses.some(d => {
-    if (d.hrApplied <= 0.01) return false
+export const vitalHeld = (p: Patient, key: VitalKey) => p.doses.some(d => {
+    // Rate keeps its own ledger, because an arrest and a pair of hands both
+    // assign it outright; everything else shares the one.
+    if ((key === 'hr' ? d.hrApplied : d.applied) <= 0.01) return false
     const drug = DRUGS[d.drug]
-    return (drug.effect.hr ?? 0) !== 0 || (d.over && (drug.toxic?.effect?.hr ?? 0) !== 0)
+    return (drug.effect[key] ?? 0) !== 0 || (d.over && (drug.toxic?.effect?.[key] ?? 0) !== 0)
 })
+
+export const rateHeld = (p: Patient) => vitalHeld(p, 'hr')
 
 /** Whether a drug is actually working, as opposed to merely having been given. */
 export const onBoard = (p: Patient, drug: DrugId) =>

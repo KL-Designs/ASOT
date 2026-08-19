@@ -1,11 +1,12 @@
 import {
     ADJUNCT_LABEL, APNOEA_AT, APNOEA_OUT, BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE,
     DEATH_DOWNTIME, DEPRESSED_RR, DRUGS, FATAL_SPO2, FLUIDS, OBSTRUCTION_LABEL,
-    RHYTHM_LABEL, SHOCKABLE, STEMI_CLEARS, SUTURE_PER_WOUND, VOMIT_ON_COLLAPSE, WOUND_TYPES,
+    RHYTHM_LABEL, RR_BASELINE, SHOCKABLE, STEMI_CLEARS, SUTURE_PER_WOUND, VOMIT_ON_COLLAPSE, WOUND_TYPES,
     BAGGING_SLOWDOWN, FREES_HANDS, REBOA_FATAL, REBOA_OCCLUSION, REBOA_WARN,
     airwayOpen, arrestHr, bleedBelowBalloon, bestBandage, bleedFactor, breathing, clamp, dressingLife,
     handsFull, intensity, partBleeding,
     isConscious, jitter, nextWound, onBoard, pName, rateHeld, reopenChance, setRhythm, shownBp, shownSpo2,
+    vitalHeld,
     stabilityIssues,
     totalBleed, ventilating,
     type Adjunct, type BandageId, type BodyPart, type Dose, type DrugId, type FluidId,
@@ -1088,7 +1089,10 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     if (p.spontaneous && p.spo2 <= APNOEA_AT) {
         p.spontaneous = false
         event = ['Casualty has stopped breathing — get a bag on them', 'bad']
-    } else if (!p.spontaneous && p.spo2 >= APNOEA_OUT && p.rr > DEPRESSED_RR + 2) {
+    } else if (!p.spontaneous && p.rr > DEPRESSED_RR + 2 && (p.spo2 >= APNOEA_OUT || p.conscious)) {
+        // Awake counts on its own. Nobody is lying there talking to you and
+        // not breathing, and the monitor telling you both at once is the
+        // contradiction this whole pair of numbers exists to avoid.
         p.spontaneous = true
         event = ['Casualty is breathing on their own again', 'good']
     }
@@ -1099,17 +1103,43 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         // Oxygen sitting on the face of somebody who is not moving any still
         // buys a little — it diffuses — and a little is all it buys.
         p.spo2 = clamp(p.spo2 - dt * (open && p.oxygen ? 0.13 : 0.2), 0, 100)
-        // Trying and failing looks like effort. Not trying at all looks like
-        // nothing, which is the reading that should frighten you.
-        p.rr = breathing(p) ? clamp(p.rr + dt * 0.35, 0, 46) : 0
+        /*
+           Working harder against something in the way.
+
+           `p.rr` is the *drive* — how hard they are trying — and `shownRr` is
+           what actually comes out of the chest, which is nothing when they
+           have stopped and twelve when somebody is squeezing a bag. Writing
+           either of those readings back into the drive was wrong twice over:
+           it threw away the opioid ledger's share of the number, and it pinned
+           the one value the way back out of apnoea asks about, so a casualty
+           who stopped breathing could only ever start again if you bagged
+           them — including one who had just got a pulse back and was being
+           told to bag a casualty who was perfectly capable of breathing.
+        */
+        if (breathing(p)) p.rr = clamp(p.rr + dt * 0.35, 0, 46)
     } else if (!breathing(p)) {
-        // Somebody else's hands doing the work.
+        // Somebody else's hands doing the work. It does nothing to the drive;
+        // `shownRr` is what reads twelve.
         const ceiling = p.oxygen ? 99 : 96
         if (p.spo2 < ceiling) p.spo2 = clamp(p.spo2 + dt * (p.oxygen ? 0.7 : 0.5), 0, ceiling)
-        p.rr = 12
     } else if (!p.pneumo) {
         const ceiling = p.oxygen ? 99 : 97
         if (p.spo2 < ceiling) p.spo2 = clamp(p.spo2 + dt * (p.oxygen ? 0.9 : 0.5), 0, ceiling)
+        /*
+           The drive, settling, now that nothing is in the way of it.
+
+           Needed because the ledger cannot always give back exactly what it
+           took: enough opioid to drive the number below zero is clamped there,
+           and the reversal then hands back the whole nominal dose — which left
+           a casualty you had saved with naloxone panting at forty for the rest
+           of the run. Skipped while a drug still has a share of the number,
+           for the same reason the heart rate's is: two writers on one vital.
+        */
+        if (!vitalHeld(p, 'rr')) {
+            const settled = RR_BASELINE + Math.max(0, 70 - p.blood) * 0.12
+            if (p.rr > settled) p.rr = Math.max(settled, p.rr - dt * 0.5)
+            else if (p.rr < settled) p.rr = Math.min(settled, p.rr + dt * 0.3)
+        }
     }
 
     // A chest filling with air that cannot get out.
