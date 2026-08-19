@@ -1,0 +1,1545 @@
+/* ============================================================================
+   ASOT — Dashboard component kit
+   ----------------------------------------------------------------------------
+   The staff portal's own layer on top of the site palette.
+
+   The systemic problem this exists to fix: **every panel on the dashboard is
+   outlined in red.** When the container, the primary action, the destructive
+   action and the alert state are all the same colour, none of them read as
+   urgent — a DISCHARGE MEMBER button carries exactly the weight of VIEW.
+
+   So depth comes from a surface scale, and red is spent only on action, active
+   state and alert. That single change is most of the redesign; everything else
+   here is the vocabulary needed to hold the line consistently.
+
+   Scoped to `.dash`, which the shell puts on its root. The extra tokens are
+   declared there rather than in globals.css because they are the dashboard's
+   own vocabulary — the public site has no use for a four-step surface scale or
+   an "in development" blue.
+   ========================================================================== */
+
+.dash {
+    /* Surfaces, sunken → raised. Depth lives here, not in border colour. */
+    --ink-4: #1e222a;
+    /* input / pressed */
+    --line-3: #3a4049;
+    --txt-4: #4a5058;
+
+    /*
+       Status washes and dim edges, mixed from the site tokens rather than
+       hard-coded, so a change to --red or --amber carries through instead of
+       leaving five near-matches behind. --amber is the unit's gold, not the
+       mockup's yellow.
+    */
+    --red-wash: color-mix(in srgb, var(--red) 10%, transparent);
+    --amber-dim: color-mix(in srgb, var(--amber) 42%, #000);
+    --amber-wash: color-mix(in srgb, var(--amber) 10%, transparent);
+    --live-dim: color-mix(in srgb, var(--live) 38%, #000);
+    --live-wash: color-mix(in srgb, var(--live) 10%, transparent);
+
+    /* Blue-grey: neutral and informational. The department tables' role chips
+       currently sit outside any palette at all; this is where they land. */
+    --info: #7aa7d9;
+    --info-dim: #2b4763;
+    --info-wash: color-mix(in srgb, #7aa7d9 10%, transparent);
+
+    --r: 3px;
+    --gap: 16px;
+    --pad: 20px;
+    --row: 44px;
+
+    background: var(--ink-0);
+    color: var(--txt-1);
+    font-family: var(--font-ui);
+    font-size: 14px;
+}
+
+/*
+   Staff on the mastersheet and ORBAT screens are power users reading hundreds
+   of rows. Compact drops padding and row height by about a third without
+   touching the layout — every measurement above is a variable for this reason.
+*/
+.dense {
+    --gap: 12px;
+    --pad: 14px;
+    --row: 36px;
+}
+
+.dash :focus-visible {
+    outline: 2px solid var(--red);
+    outline-offset: 2px;
+}
+
+/* ---------- layout -------------------------------------------------------- */
+
+.pagehead {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 2px 2px 0;
+}
+
+.pagehead .k {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+}
+
+.pagehead h2 {
+    font-family: var(--font-disp);
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    margin: 7px 0 0;
+    line-height: 1;
+    color: var(--txt-1);
+}
+
+.pagehead .r {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.grid2 {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: var(--gap);
+    align-items: start;
+}
+
+.grid3 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--gap);
+    align-items: start;
+}
+
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    min-width: 0;
+}
+
+/* ---------- surfaces ------------------------------------------------------ */
+
+.panel {
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    border-radius: var(--r);
+    overflow: hidden;
+}
+
+.panelSunken {
+    background: var(--ink-1);
+}
+
+/*
+   A panel earns a coloured edge only when its *state* warrants one — an
+   inset bar rather than a full border, so it reads as a flag on the container
+   instead of turning the container itself into the alert.
+*/
+.panelAlert {
+    border-color: var(--red-dim);
+    box-shadow: inset 3px 0 0 var(--red);
+}
+
+.panelLive {
+    border-color: var(--live-dim);
+    box-shadow: inset 3px 0 0 var(--live);
+}
+
+.panelWarn {
+    border-color: var(--amber-dim);
+    box-shadow: inset 3px 0 0 var(--amber);
+}
+
+.panelH {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px var(--pad);
+    border-bottom: 1px solid var(--line-1);
+    min-height: 46px;
+    flex-wrap: wrap;
+}
+
+.panelH .t {
+    font-family: var(--font-cond);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+}
+
+.panelH .sub {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .14em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+}
+
+.panelH .r {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.panelB {
+    padding: var(--pad);
+}
+
+.panelBFlush {
+    padding: 0;
+}
+
+.panelF {
+    padding: 11px var(--pad);
+    border-top: 1px solid var(--line-1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--ink-1);
+    flex-wrap: wrap;
+}
+
+.panelF .r {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+
+/* The "// FAVOURITES" pattern the dashboard already uses, made legible: the
+   slashes stay as a red tick, the label gets contrast, the rule fills. */
+.seclabel {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin: 0 0 12px;
+}
+
+.seclabel .k {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+    white-space: nowrap;
+}
+
+.seclabel .k::before {
+    content: '// ';
+    color: var(--red);
+}
+
+.seclabel .line {
+    flex: 1;
+    height: 1px;
+    background: var(--line-1);
+}
+
+.seclabel .r {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ---------- buttons ------------------------------------------------------- */
+
+/*
+   Four volumes plus a separate destructive track. One primary per view.
+
+   Destructive stays *outlined* until hover, so a discharge never sits at the
+   same weight as a save — today every REMOVE on the J7 members table is a
+   filled red button, repeated fourteen times down the page.
+*/
+.btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 34px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--r);
+    white-space: nowrap;
+    background: none;
+    font-family: var(--font-cond);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background .16s var(--nav-ease), border-color .16s var(--nav-ease), color .16s var(--nav-ease), box-shadow .16s var(--nav-ease);
+}
+
+.btn svg {
+    width: 14px;
+    height: 14px;
+    flex: none;
+}
+
+.btnSm {
+    height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+}
+
+.btnLg {
+    height: 40px;
+    padding: 0 20px;
+    font-size: 14px;
+}
+
+.btnPrimary {
+    background: var(--red);
+    color: #fff;
+}
+
+.btnPrimary:hover {
+    background: var(--red-hi);
+    box-shadow: 0 0 18px -6px var(--red-glow);
+}
+
+.btnGhost {
+    border: 1px solid var(--line-2);
+    color: var(--txt-1);
+}
+
+.btnGhost:hover {
+    border-color: var(--line-3);
+    background: var(--ink-3);
+}
+
+.btnSubtle {
+    color: var(--txt-2);
+}
+
+.btnSubtle:hover {
+    background: var(--ink-3);
+    color: var(--txt-1);
+}
+
+.btnLink {
+    height: auto;
+    padding: 0;
+    color: var(--txt-2);
+    letter-spacing: .14em;
+    font-size: 12px;
+}
+
+.btnLink:hover {
+    color: var(--red);
+}
+
+.btnDanger {
+    border: 1px solid var(--red-dim);
+    color: var(--red-hi);
+}
+
+.btnDanger:hover {
+    background: var(--red);
+    border-color: var(--red);
+    color: #fff;
+}
+
+.btnDisabled {
+    opacity: .38;
+    pointer-events: none;
+}
+
+.btnIcon {
+    width: 34px;
+    padding: 0;
+}
+
+.btnIcon.btnSm {
+    width: 28px;
+}
+
+/* ---------- status -------------------------------------------------------- */
+
+/*
+   One vocabulary for every state in the app.
+
+   Green = healthy or live. Amber = upcoming, warning, dev-mode. Red = needs
+   action or destructive. Blue-grey = neutral or informational. Grey = inactive.
+*/
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 8px;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+    white-space: nowrap;
+}
+
+.badge svg {
+    width: 10px;
+    height: 10px;
+}
+
+.bdot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: none;
+}
+
+.badgeLive {
+    color: var(--live);
+    background: var(--live-wash);
+    border-color: var(--live-dim);
+}
+
+.badgeWarn {
+    color: var(--amber);
+    background: var(--amber-wash);
+    border-color: var(--amber-dim);
+}
+
+.badgeAlert {
+    color: var(--red-hi);
+    background: var(--red-wash);
+    border-color: var(--red-dim);
+}
+
+.badgeInfo {
+    color: var(--info);
+    background: var(--info-wash);
+    border-color: var(--info-dim);
+}
+
+.badgeMuted {
+    color: var(--txt-3);
+    background: var(--ink-3);
+    border-color: var(--line-2);
+}
+
+.badgeSm {
+    height: 18px;
+}
+
+/* ---------- stat tiles ---------------------------------------------------- */
+
+/* Hairline-separated so a row reads as one instrument rather than three
+   unrelated cards. */
+.stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1px;
+    background: var(--line-1);
+}
+
+.stat {
+    background: var(--ink-2);
+    padding: 16px var(--pad);
+    position: relative;
+}
+
+.stat .l {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .19em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+}
+
+.stat .v {
+    font-family: var(--font-disp);
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+    margin-top: 9px;
+    letter-spacing: .01em;
+    color: var(--txt-1);
+    font-variant-numeric: tabular-nums;
+}
+
+.stat .u {
+    font-size: 16px;
+}
+
+.stat .d {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .12em;
+    margin-top: 8px;
+    color: var(--txt-3);
+}
+
+.statUp {
+    color: var(--live);
+}
+
+.statDown {
+    color: var(--red-hi);
+}
+
+.statAccent .v {
+    color: var(--amber);
+}
+
+.statSmall .v {
+    font-size: 20px;
+}
+
+/* ---------- meter --------------------------------------------------------- */
+
+/*
+   The most ASOT-specific component here. One shape covers promotion progress,
+   operation sign-on and course completion.
+
+   The number leads and the bar follows: a bar alone cannot be read precisely,
+   and "290 / 451" is the thing a member actually wants off this component.
+*/
+.meter {
+    --pct: 0%;
+}
+
+.meterTop {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 9px;
+    flex-wrap: wrap;
+}
+
+.meter .now {
+    font-family: var(--font-disp);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--txt-1);
+    font-variant-numeric: tabular-nums;
+}
+
+.meter .goal {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .13em;
+    color: var(--txt-3);
+}
+
+.meter .to {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .13em;
+    color: var(--amber);
+}
+
+.meter .track {
+    height: 6px;
+    background: var(--ink-4);
+    border-radius: 99px;
+    overflow: hidden;
+    position: relative;
+}
+
+.meter .track i {
+    display: block;
+    height: 100%;
+    width: var(--pct);
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--red), var(--amber));
+    transition: width .5s var(--nav-ease);
+}
+
+.meter .ticks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .12em;
+    color: var(--txt-4);
+    gap: 10px;
+}
+
+/* ---------- list rows ----------------------------------------------------- */
+
+/*
+   Status lives in a 3px left bar *and* a badge, so scanning down the left edge
+   tells you the state of everything without reading a word. Actions align right
+   at their own width so they never jump between rows.
+*/
+.rows {
+    display: flex;
+    flex-direction: column;
+}
+
+.lrow {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    min-height: var(--row);
+    padding: 10px var(--pad);
+    border-bottom: 1px solid var(--line-1);
+    transition: background .14s;
+    position: relative;
+    text-align: left;
+    width: 100%;
+    background: none;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    color: inherit;
+}
+
+.lrow:last-child {
+    border-bottom: 0;
+}
+
+.lrow:hover {
+    background: var(--ink-3);
+}
+
+.lrow>svg {
+    width: 16px;
+    height: 16px;
+    color: var(--txt-3);
+    flex: none;
+}
+
+.lead {
+    width: 3px;
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    border-radius: 0 2px 2px 0;
+    background: transparent;
+}
+
+.isLive .lead {
+    background: var(--live);
+}
+
+.isWarn .lead {
+    background: var(--amber);
+}
+
+.isAlert .lead {
+    background: var(--red);
+}
+
+.lrow .main {
+    min-width: 0;
+    flex: 1;
+    display: block;
+}
+
+.lrow .t {
+    display: block;
+    font-family: var(--font-cond);
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--txt-1);
+}
+
+.lrow .m {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .12em;
+    color: var(--txt-3);
+    margin-top: 5px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    text-transform: uppercase;
+    align-items: center;
+}
+
+.lrow .m b {
+    color: var(--txt-2);
+    font-weight: 500;
+}
+
+.lrow .acts {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex: none;
+}
+
+.lrow .acts>svg {
+    width: 13px;
+    height: 13px;
+    color: var(--txt-4);
+}
+
+.thumb {
+    width: 52px;
+    height: 32px;
+    border-radius: 2px;
+    flex: none;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(160deg, #2a2116, #12161c);
+}
+
+.thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* ---------- data table ---------------------------------------------------- */
+
+.dt {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.dt th {
+    text-align: left;
+    padding: 10px var(--pad);
+    border-bottom: 1px solid var(--line-1);
+    background: var(--ink-1);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .19em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+    font-weight: 500;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.dt td {
+    padding: 9px var(--pad);
+    border-bottom: 1px solid var(--line-1);
+    vertical-align: middle;
+}
+
+.dt tbody tr {
+    transition: background .14s;
+}
+
+.dt tbody tr:hover {
+    background: var(--ink-3);
+}
+
+.dt tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.dt td>svg {
+    width: 13px;
+    height: 13px;
+}
+
+.num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.nw {
+    white-space: nowrap;
+}
+
+.tight {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.muted {
+    color: var(--txt-4);
+}
+
+.scrollX {
+    overflow-x: auto;
+}
+
+/* identity cell */
+.ident {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.av {
+    width: 28px;
+    height: 28px;
+    border-radius: 2px;
+    flex: none;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(150deg, #3a2340, #1d2438);
+    border: 1px solid var(--line-2);
+}
+
+.av img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.av span {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: #c9b6d6;
+}
+
+.avLg {
+    width: 44px;
+    height: 44px;
+}
+
+.avLg span {
+    font-size: 13px;
+}
+
+.ident .n {
+    font-weight: 500;
+    font-size: 13.5px;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--txt-1);
+}
+
+.ident .r {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .13em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+    margin-top: 3px;
+    display: block;
+}
+
+/* ---------- chips, fields, steppers --------------------------------------- */
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 2px;
+    border: 1px solid var(--line-2);
+    background: var(--ink-1);
+    color: var(--txt-3);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    transition: border-color .14s, color .14s, background .14s;
+    cursor: pointer;
+    position: relative;
+}
+
+.chip svg {
+    width: 9px;
+    height: 9px;
+    flex: none;
+}
+
+.chip:hover {
+    border-color: var(--line-3);
+    color: var(--txt-1);
+}
+
+.chipOn {
+    background: var(--info-wash);
+    border-color: var(--info-dim);
+    color: var(--info);
+}
+
+.chipOn.chipAmber {
+    background: var(--amber-wash);
+    border-color: var(--amber-dim);
+    color: var(--amber);
+}
+
+.chipOn.chipLive {
+    background: var(--live-wash);
+    border-color: var(--live-dim);
+    color: var(--live);
+}
+
+.chipRow {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    min-width: 0;
+}
+
+.field>label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .19em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+}
+
+.inp {
+    height: 36px;
+    padding: 0 11px;
+    background: var(--ink-1);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    font-size: 13.5px;
+    font-family: var(--font-ui);
+    color: var(--txt-1);
+    width: 100%;
+    transition: border-color .14s, background .14s;
+}
+
+.inp:hover {
+    border-color: var(--line-3);
+}
+
+.inp:focus {
+    outline: none;
+    border-color: var(--red);
+    background: var(--ink-4);
+}
+
+textarea.inp {
+    height: auto;
+    padding: 10px 11px;
+    line-height: 1.55;
+    resize: vertical;
+}
+
+.sel {
+    position: relative;
+}
+
+.sel select {
+    appearance: none;
+    padding-right: 32px;
+}
+
+.sel .cv {
+    position: absolute;
+    right: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    color: var(--txt-3);
+    pointer-events: none;
+}
+
+.hint {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    color: var(--txt-4);
+}
+
+/*
+   Steppers replace the unlabelled zero fields on the billet form. The numbers
+   there are small integers you nudge, not values you type — and a bare text box
+   containing "0" gives no hint which of those it wants.
+*/
+.stepper {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    background: var(--ink-1);
+    overflow: hidden;
+    width: 112px;
+    flex: none;
+}
+
+.stepper button {
+    width: 30px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    color: var(--txt-3);
+    background: none;
+    border: 0;
+    transition: background .14s, color .14s;
+    cursor: pointer;
+}
+
+.stepper button:hover {
+    background: var(--ink-3);
+    color: #fff;
+}
+
+.stepper svg {
+    width: 11px;
+    height: 11px;
+}
+
+.stepper input {
+    flex: 1;
+    width: 0;
+    height: 32px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: none;
+    border: 0;
+    border-left: 1px solid var(--line-1);
+    border-right: 1px solid var(--line-1);
+    color: var(--txt-1);
+    font-variant-numeric: tabular-nums;
+}
+
+.stepper input:focus {
+    outline: none;
+    background: var(--ink-4);
+}
+
+.stepperZero input {
+    color: var(--txt-4);
+}
+
+/* Label, stepper, live value — the billet points row. */
+.pline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line-1);
+    flex-wrap: wrap;
+}
+
+.pline:last-child {
+    border-bottom: 0;
+}
+
+.pline .l {
+    flex: 1;
+    min-width: 0;
+    font-size: 13.5px;
+    color: var(--txt-2);
+}
+
+.pline .l small {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .11em;
+    color: var(--txt-4);
+    margin-top: 3px;
+    text-transform: uppercase;
+}
+
+.pline .v {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    width: 52px;
+    text-align: right;
+    color: var(--txt-4);
+    font-variant-numeric: tabular-nums;
+}
+
+.pline .v.pos {
+    color: var(--live);
+}
+
+.plineLocked .l {
+    color: var(--txt-3);
+}
+
+/* switch */
+.sw {
+    display: block;
+    position: relative;
+    width: 38px;
+    height: 20px;
+    border-radius: 99px;
+    background: var(--ink-4);
+    border: 1px solid var(--line-2);
+    transition: background .18s, border-color .18s;
+    flex: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.sw i {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--txt-3);
+    transition: left .2s var(--nav-ease), background .2s;
+}
+
+.swOn {
+    background: var(--amber-wash);
+    border-color: var(--amber);
+}
+
+.swOn i {
+    left: 20px;
+    background: var(--amber);
+}
+
+/* ---------- empty states, tabs -------------------------------------------- */
+
+/*
+   An empty state should be the size of its content and should offer the action
+   that fills it. Favourites and Quick Links currently render as full-width
+   boxes at the very top of the dashboard announcing that they are empty.
+*/
+.empty {
+    padding: 34px 24px;
+    text-align: center;
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r);
+    background: var(--ink-1);
+}
+
+.emptyInline {
+    padding: 20px;
+}
+
+.empty .ic {
+    width: 30px;
+    height: 30px;
+    margin: 0 auto 12px;
+    color: var(--txt-4);
+}
+
+.empty .ic svg {
+    width: 100%;
+    height: 100%;
+}
+
+.empty .t {
+    font-family: var(--font-cond);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+}
+
+.empty p {
+    margin: 8px auto 0;
+    max-width: 44ch;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--txt-4);
+}
+
+.empty .btn {
+    margin-top: 16px;
+}
+
+.tabs {
+    display: flex;
+    border-bottom: 1px solid var(--line-1);
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.tab {
+    position: relative;
+    padding: 12px 16px;
+    white-space: nowrap;
+    color: var(--txt-3);
+    background: none;
+    border: 0;
+    transition: color .16s;
+    font-family: var(--font-cond);
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.tab:hover {
+    color: var(--txt-1);
+}
+
+.tabOn {
+    color: #fff;
+}
+
+.tabOn::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--red);
+}
+
+.tab .n {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    color: var(--txt-4);
+    margin-left: 7px;
+}
+
+/* ---------- tool cards ---------------------------------------------------- */
+
+/*
+   Tiered by consequence, which is the highest-value fix on the J4 tools screen:
+   today DISCHARGE MEMBER and CPU PROFILE are identical rectangles side by side,
+   and there is nothing to slow your hand down between them.
+*/
+.tools {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+    gap: var(--gap);
+}
+
+.tool {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    border: 1px solid var(--line-1);
+    border-radius: var(--r);
+    background: var(--ink-2);
+    text-align: left;
+    transition: background .16s var(--nav-ease), border-color .16s var(--nav-ease), transform .16s var(--nav-ease);
+    position: relative;
+    min-height: 124px;
+    cursor: pointer;
+    color: inherit;
+    width: 100%;
+}
+
+.tool:hover {
+    background: var(--ink-3);
+    border-color: var(--line-2);
+    transform: translateY(-1px);
+}
+
+.tool .ic {
+    width: 22px;
+    height: 22px;
+    color: var(--txt-2);
+    margin-bottom: 13px;
+}
+
+.tool .ic svg {
+    width: 100%;
+    height: 100%;
+}
+
+.tool .t {
+    font-family: var(--font-cond);
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    color: var(--txt-1);
+}
+
+.tool .d {
+    font-size: 12.2px;
+    line-height: 1.5;
+    color: var(--txt-3);
+    margin-top: 7px;
+}
+
+.tool .foot {
+    margin-top: auto;
+    padding-top: 13px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tool .flag {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+}
+
+.toolDanger {
+    border-color: var(--red-dim);
+}
+
+.toolDanger .ic {
+    color: var(--red-hi);
+}
+
+.toolDanger:hover {
+    background: color-mix(in srgb, var(--red) 6%, transparent);
+    border-color: var(--red);
+}
+
+.toolCaution {
+    border-color: var(--amber-dim);
+}
+
+.toolCaution .ic {
+    color: var(--amber);
+}
+
+.toolCaution:hover {
+    background: color-mix(in srgb, var(--amber) 5%, transparent);
+    border-color: var(--amber);
+}
+
+.toolSafe .t {
+    color: var(--live);
+}
+
+/* ---------- confirm dialog ------------------------------------------------ */
+
+.scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    background: rgba(5, 6, 7, .78);
+    backdrop-filter: blur(4px);
+    display: grid;
+    place-items: center;
+    padding: 24px;
+}
+
+.dialog {
+    width: 100%;
+    max-width: 440px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-2);
+    border-top: 2px solid var(--red);
+    border-radius: var(--r);
+    box-shadow: 0 30px 70px -18px #000;
+}
+
+.dialogH {
+    padding: 18px 20px 0;
+    display: flex;
+    gap: 13px;
+}
+
+.dialogH .ic {
+    width: 32px;
+    height: 32px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: var(--r);
+    background: var(--red-wash);
+    color: var(--red-hi);
+}
+
+.dialogH .ic svg {
+    width: 17px;
+    height: 17px;
+}
+
+.dialogH .t {
+    font-family: var(--font-disp);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    line-height: 1.15;
+    color: var(--txt-1);
+}
+
+.dialogB {
+    padding: 14px 20px 0 65px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--txt-2);
+}
+
+.dialogB .warn {
+    margin-top: 13px;
+    padding: 11px 13px;
+    border: 1px solid var(--red-dim);
+    background: var(--red-wash);
+    border-radius: var(--r);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    color: var(--txt-1);
+    line-height: 1.6;
+}
+
+.dialogB .warn b {
+    color: var(--red-hi);
+}
+
+.dialogF {
+    padding: 18px 20px 20px;
+    display: flex;
+    gap: 9px;
+    justify-content: flex-end;
+    margin-top: 6px;
+}
+
+/* ---------- toast --------------------------------------------------------- */
+
+.toast {
+    position: fixed;
+    right: 22px;
+    bottom: 22px;
+    z-index: 1600;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 13px 16px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-2);
+    border-left: 3px solid var(--live);
+    border-radius: var(--r);
+    box-shadow: 0 18px 40px -12px #000;
+    transform: translateY(140%);
+    transition: transform .34s var(--nav-ease);
+}
+
+.toastOn {
+    transform: translateY(0);
+}
+
+.toastErr {
+    border-left-color: var(--red);
+}
+
+.toast svg {
+    width: 16px;
+    height: 16px;
+    color: var(--live);
+    flex: none;
+}
+
+.toastErr svg {
+    color: var(--red-hi);
+}
+
+.toast .t {
+    display: block;
+    font-size: 13px;
+    color: var(--txt-1);
+}
+
+.toast .s {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .12em;
+    color: var(--txt-3);
+    margin-top: 3px;
+    text-transform: uppercase;
+}
+
+/* ---------- sticky save bar ----------------------------------------------- */
+
+/*
+   The member editor's SAVE CHANGES currently sits at the very top of a long
+   scrolling form: edit the promotion history at the bottom and the button is
+   off-screen. This appears once something is dirty and says how much is pending.
+*/
+.savebar {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    margin: 0 calc(var(--gap) * -1) calc(var(--gap) * -1);
+    padding: 12px var(--gap);
+    background: rgba(11, 12, 14, .95);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line-1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.savebar .s {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .14em;
+    color: var(--amber);
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.savebar .s svg {
+    width: 12px;
+    height: 12px;
+}
+
+.savebar .r {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+}
+
+/* ---------- responsive ---------------------------------------------------- */
+
+@media (max-width: 1240px) {
+
+    .grid2,
+    .grid3 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .tool,
+    .toast,
+    .meter .track i,
+    .sw i {
+        transition: none;
+    }
+
+    .tool:hover {
+        transform: none;
+    }
+}
