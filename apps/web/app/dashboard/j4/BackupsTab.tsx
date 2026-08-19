@@ -152,7 +152,7 @@ function ConfirmDialog({ open, title, body, danger, onConfirm, onCancel }: {
 
 // ── Storage donut ─────────────────────────────────────────────────────────────
 
-const STORAGE_PALETTE = { database: '#00c3ff', gallery: '#db001d', uploads: '#f59e0b' }
+const STORAGE_PALETTE = { database: '#00c3ff', gallery: '#db001d', uploads: 'var(--amber)' }
 const storageTooltipStyle = {
     contentStyle: { background: '#111', border: '1px solid rgba(219,0,29,0.32)', borderRadius: 0, fontSize: '0.78rem', color: '#ededed' },
     cursor: { fill: 'rgba(255,255,255,0.04)' },
@@ -648,7 +648,6 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                 style={{
                     position: 'relative',
                     border: '1px solid var(--line-2)',
-                    borderTop: '1px solid var(--line-2)',
                     background: 'rgba(255,255,255,0.04)',
                     padding: '16px 20px',
                     display: 'flex',

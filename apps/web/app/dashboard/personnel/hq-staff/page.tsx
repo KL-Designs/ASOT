@@ -17,7 +17,6 @@ export default async function Page() {
                 className='flex flex-col px-5 py-4'
                 style={{
                     border: '1px solid var(--line-2)',
-                    borderTop: '1px solid var(--line-2)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
             >

@@ -107,11 +107,11 @@ function formatSize(bytes: number) {
 }
 
 function extBadgeColor(ext: string): string {
-    if (['.pbo'].includes(ext)) return '#10b981' // teal for PBOs
-    if (['.pdf'].includes(ext)) return '#ef4444'
-    if (['.zip', '.rar', '.7z'].includes(ext)) return '#f59e0b'
+    if (['.pbo'].includes(ext)) return 'var(--live)' // teal for PBOs
+    if (['.pdf'].includes(ext)) return 'var(--red)'
+    if (['.zip', '.rar', '.7z'].includes(ext)) return 'var(--amber)'
     if (['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext)) return '#8b5cf6'
-    if (['.doc', '.docx', '.txt', '.md'].includes(ext)) return '#3b82f6'
+    if (['.doc', '.docx', '.txt', '.md'].includes(ext)) return 'var(--info)'
     return 'rgba(237,237,237,0.3)'
 }
 
@@ -545,7 +545,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                     {([{ v: vA, side: 'A' }, { v: vB, side: 'B' }] as { v: DocVersion; side: string }[]).map(({ v, side }) => (
                         <div key={side} style={{ display: 'flex', flexDirection: 'column', borderRight: side === 'A' ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
                             <div style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: side === 'A' ? '#3b82f6' : '#8b5cf6' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: side === 'A' ? 'var(--info)' : '#8b5cf6' }}>
                                     {side === 'A' ? 'Version A' : 'Version B'}
                                 </div>
                                 <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.6)', marginTop: 2 }}>
@@ -561,7 +561,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                         <div key={i} style={{
                                             padding: '1px 4px',
                                             background: added ? 'rgba(16,185,129,0.12)' : changed ? 'rgba(245,158,11,0.1)' : 'transparent',
-                                            color: added ? '#10b981' : changed ? '#f59e0b' : 'rgba(237,237,237,0.65)',
+                                            color: added ? 'var(--live)' : changed ? 'var(--amber)' : 'rgba(237,237,237,0.65)',
                                             whiteSpace: 'pre-wrap',
                                         }}>
                                             {line || <span style={{ opacity: 0.2 }}>—</span>}
@@ -712,7 +712,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(139,92,246,0.6)', marginTop: 3 }}>Replaces this document with the selected version. Version history is preserved.</div>
                                 </button>
                                 <button onClick={() => handleRestore(restoreTarget, 'copy')} disabled={restoring}
-                                    style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981', cursor: 'pointer' }}>
+                                    style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--live)', cursor: 'pointer' }}>
                                     Restore As Copy
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(16,185,129,0.6)', marginTop: 3 }}>Creates a new document from this version. Current document is not changed.</div>
                                 </button>
@@ -1146,7 +1146,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                             const isFile = log.action.includes('.file.')
                                             const isDoc  = log.action.includes('.doc.')
                                             const isVer  = log.action.includes('.version.')
-                                            const color  = isVer ? '#8b5cf6' : isDoc ? '#3b82f6' : isFile ? '#10b981' : 'rgba(237,237,237,0.4)'
+                                            const color  = isVer ? '#8b5cf6' : isDoc ? 'var(--info)' : isFile ? 'var(--live)' : 'rgba(237,237,237,0.4)'
                                             return (
                                                 <div key={log._id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 12, alignItems: 'center', padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderLeft: `2px solid ${color}55` }}>
                                                     <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', padding: '2px 7px', background: `${color}18`, border: `1px solid ${color}44`, color, whiteSpace: 'nowrap' }}>

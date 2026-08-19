@@ -81,7 +81,6 @@ export default function J3Panel({ displayName, userId, canManageMembers, canMana
                 style={{
                     position: 'relative',
                     border: '1px solid var(--line-2)',
-                    borderTop: '1px solid var(--line-2)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
             >

@@ -245,7 +245,7 @@ export default function RetiredMembersImportPage() {
                         <span style={{ color: 'rgba(237,237,237,0.35)', fontSize: '0.6rem', letterSpacing: 2, textTransform: 'uppercase' }}>Skipped</span>
                         <span style={{ fontWeight: 700, fontSize: '1rem' }}>{result.total}</span>
                         <span style={{ fontWeight: 700, fontSize: '1rem', color: '#00c364' }}>{result.inserted}</span>
-                        <span style={{ fontWeight: 700, fontSize: '1rem', color: '#f59e0b' }}>{result.updated}</span>
+                        <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--amber)' }}>{result.updated}</span>
                         <span style={{ fontWeight: 700, fontSize: '1rem', color: 'rgba(237,237,237,0.35)' }}>{result.skipped}</span>
                     </div>
                     <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>
@@ -329,7 +329,7 @@ export default function RetiredMembersImportPage() {
                 {patchResult && (
                     <div style={{ padding: '12px 16px', background: 'rgba(0,195,100,0.06)', border: '1px solid rgba(0,195,100,0.25)', borderLeft: '3px solid #00c364', fontSize: '0.78rem', color: '#00c364', display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><CheckCircle style={{ fontSize: 16 }} /> {patchResult.patched} record{patchResult.patched !== 1 ? 's' : ''} patched successfully</div>
-                        {patchResult.errors?.map((e, i) => <div key={i} style={{ color: '#ef4444', fontSize: '0.72rem' }}>{e}</div>)}
+                        {patchResult.errors?.map((e, i) => <div key={i} style={{ color: 'var(--red)', fontSize: '0.72rem' }}>{e}</div>)}
                     </div>
                 )}
                 {patchError && <Alert severity='error' sx={{ borderRadius: 0, fontSize: '0.75rem' }}>{patchError}</Alert>}

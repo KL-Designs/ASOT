@@ -114,12 +114,12 @@ function normalizeAge(raw: number | string | undefined): string | null {
 const RED   = '#db001d'
 const GREEN = '#00c364'
 const BLUE  = '#00c3ff'
-const AMBER = '#f59e0b'
+const AMBER = 'var(--amber)'
 
 const PALETTE = [
-    '#db001d', '#00c3ff', '#00c364', '#f59e0b',
-    '#a855f7', '#f97316', '#06b6d4', '#84cc16',
-    '#ec4899', '#6366f1', '#14b8a6', '#eab308',
+    '#db001d', '#00c3ff', '#00c364', 'var(--amber)',
+    '#a855f7', 'var(--amber)', '#06b6d4', '#84cc16',
+    '#ec4899', '#6366f1', '#14b8a6', 'var(--amber)',
 ]
 
 const NIGHTS_ORDER = ['Saturday', 'Sunday', 'Both', 'Flexible']

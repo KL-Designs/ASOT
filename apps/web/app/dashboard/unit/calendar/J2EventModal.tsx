@@ -130,7 +130,7 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
 
     const isUnavailability = mode === 'unavailability'
 
-    const accentColor = isUnavailability ? '#ef4444' : '#3b82f6'
+    const accentColor = isUnavailability ? 'var(--red)' : 'var(--info)'
     const titleText = isUnavailability ? 'Block Unavailability' : 'Request Mission Check'
     const TitleIcon = isUnavailability ? Block : AssignmentLate
 

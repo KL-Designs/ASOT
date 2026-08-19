@@ -24,8 +24,8 @@ const TEXT    = 'rgba(237,237,237,0.9)'
 const MUTED   = 'rgba(237,237,237,0.4)'
 
 const SECTION_COLORS = [
-    '#db001d', '#3b82f6', '#22c55e', '#f59e0b',
-    '#8b5cf6', '#06b6d4', '#f97316', '#ec4899',
+    '#db001d', 'var(--info)', 'var(--live)', 'var(--amber)',
+    '#8b5cf6', '#06b6d4', 'var(--amber)', '#ec4899',
 ]
 
 function fmtTime(s: number): string {

@@ -95,8 +95,8 @@ type FieldSource = 'website' | 'imported' | 'calculated'
 
 const SOURCE_STYLE: Record<FieldSource, { bg: string; color: string; label: string }> = {
     website:    { bg: 'rgba(0,195,100,0.12)',   color: 'rgb(0,195,100)',  label: 'WEBSITE'  },
-    imported:   { bg: 'rgba(245,158,11,0.12)',  color: '#f59e0b',         label: 'IMPORTED' },
-    calculated: { bg: 'rgba(96,165,250,0.12)',  color: '#60a5fa',         label: 'CALC'     },
+    imported:   { bg: 'rgba(245,158,11,0.12)',  color: 'var(--amber)',         label: 'IMPORTED' },
+    calculated: { bg: 'rgba(96,165,250,0.12)',  color: 'var(--info)',         label: 'CALC'     },
 }
 
 function SourceBadge({ source }: { source: FieldSource }) {
@@ -115,7 +115,7 @@ function FieldSourcePanel({ fieldSources }: { fieldSources: FieldSourceDef[] }) 
     return (
         <div style={{ border: '1px solid rgba(245,158,11,0.18)', background: 'rgba(245,158,11,0.03)', flexShrink: 0 }}>
             <button onClick={() => setOpen(p => !p)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px' }}>
-                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: '#f59e0b' }}>{open ? '−' : '+'} Field Source Map</span>
+                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--amber)' }}>{open ? '−' : '+'} Field Source Map</span>
                 <span style={{ fontSize: '0.56rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.05em' }}>J4 / CHQ only — shows where each column's data originates</span>
             </button>
             {open && (
@@ -195,12 +195,12 @@ function EmailPopup({ memberId, memberName, currentEmail, emailHistory, onClose,
 
                 {!editMode ? (
                     <>
-                        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '10px 12px', marginBottom: 12, fontSize: '0.78rem', color: currentEmail ? '#60a5fa' : 'rgba(237,237,237,0.3)', fontFamily: 'monospace' }}>
+                        <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', padding: '10px 12px', marginBottom: 12, fontSize: '0.78rem', color: currentEmail ? 'var(--info)' : 'rgba(237,237,237,0.3)', fontFamily: 'monospace' }}>
                             {currentEmail ?? 'No email on file'}
                         </div>
                         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                             {currentEmail && (
-                                <button onClick={copyEmail} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '5px 14px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)', color: copied ? 'rgb(0,195,100)' : '#60a5fa', cursor: 'pointer' }}>
+                                <button onClick={copyEmail} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '5px 14px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)', color: copied ? 'rgb(0,195,100)' : 'var(--info)', cursor: 'pointer' }}>
                                     {copied ? 'Copied!' : 'Copy'}
                                 </button>
                             )}
@@ -276,8 +276,8 @@ function ConfBadge({ conf }: { conf: Confidence }) {
     const styles: Record<Confidence, { bg: string; color: string }> = {
         exact:      { bg: 'rgba(0,195,100,0.12)',  color: 'rgb(0,195,100)' },
         normalized: { bg: 'rgba(0,195,100,0.08)',  color: 'rgb(0,195,100)' },
-        partial:    { bg: 'rgba(96,165,250,0.12)', color: '#60a5fa' },
-        fuzzy:      { bg: 'rgba(245,158,11,0.12)', color: '#f59e0b' },
+        partial:    { bg: 'rgba(96,165,250,0.12)', color: 'var(--info)' },
+        fuzzy:      { bg: 'rgba(245,158,11,0.12)', color: 'var(--amber)' },
     }
     const s = styles[conf]
     return (
@@ -384,7 +384,7 @@ function EmailImportReviewModal({ dryRun, onClose, onDone }: {
                     {/* Uncertain section */}
                     {dryRun.uncertain.length > 0 && (
                         <div style={{ border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.02)' }}>
-                            <div style={{ padding: '8px 12px 6px', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#f59e0b', borderBottom: '1px solid rgba(245,158,11,0.12)' }}>
+                            <div style={{ padding: '8px 12px 6px', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--amber)', borderBottom: '1px solid rgba(245,158,11,0.12)' }}>
                                 Needs Review — {undecidedCount > 0 ? `${undecidedCount} undecided` : 'all reviewed'}
                             </div>
                             <div style={{ maxHeight: 320, overflowY: 'auto' }}>
@@ -396,7 +396,7 @@ function EmailImportReviewModal({ dryRun, onClose, onDone }: {
                                                 <div style={{ minWidth: 80 }}>
                                                     <div style={{ fontSize: '0.68rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)' }}>{r.csvName}</div>
                                                     {r.emails.map((e, ei) => (
-                                                        <div key={ei} style={{ fontSize: '0.58rem', color: '#60a5fa', fontFamily: 'monospace' }}>{e}</div>
+                                                        <div key={ei} style={{ fontSize: '0.58rem', color: 'var(--info)', fontFamily: 'monospace' }}>{e}</div>
                                                     ))}
                                                 </div>
                                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -456,11 +456,11 @@ function EmailImportReviewModal({ dryRun, onClose, onDone }: {
                 <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)' }}>
                         Will import {totalToImport} email{totalToImport !== 1 ? 's' : ''} for {dryRun.confirmed.length + acceptedCount} member{dryRun.confirmed.length + acceptedCount !== 1 ? 's' : ''}
-                        {undecidedCount > 0 && <span style={{ color: '#f59e0b' }}> · {undecidedCount} uncertain still undecided</span>}
+                        {undecidedCount > 0 && <span style={{ color: 'var(--amber)' }}> · {undecidedCount} uncertain still undecided</span>}
                     </span>
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                         <button onClick={onClose} disabled={confirming} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '5px 14px', background: 'none', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.5)', cursor: 'pointer' }}>Cancel</button>
-                        <button onClick={handleImport} disabled={confirming || totalToImport === 0} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '5px 14px', background: totalToImport > 0 ? 'rgba(96,165,250,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${totalToImport > 0 ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}`, color: confirming || totalToImport === 0 ? 'rgba(237,237,237,0.3)' : '#60a5fa', cursor: confirming || totalToImport === 0 ? 'default' : 'pointer' }}>
+                        <button onClick={handleImport} disabled={confirming || totalToImport === 0} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '5px 14px', background: totalToImport > 0 ? 'rgba(96,165,250,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${totalToImport > 0 ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}`, color: confirming || totalToImport === 0 ? 'rgba(237,237,237,0.3)' : 'var(--info)', cursor: confirming || totalToImport === 0 ? 'default' : 'pointer' }}>
                             {confirming ? 'Importing…' : `Import ${totalToImport} Email${totalToImport !== 1 ? 's' : ''}`}
                         </button>
                     </div>
@@ -517,18 +517,18 @@ function ImportPanel({ extrasImported, unmatchedExtras, onImported }: { extrasIm
                     {loading ? 'Importing…' : 'Import Billet CSV'}
                 </button>
                 <input ref={inputRef} type='file' accept='.csv' style={{ display: 'none' }} onChange={handleChange} />
-                <button onClick={() => emailInputRef.current?.click()} disabled={emailLoading} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 14px', cursor: emailLoading ? 'default' : 'pointer', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)', color: emailLoading ? 'rgba(237,237,237,0.35)' : '#60a5fa', opacity: emailLoading ? 0.6 : 1 }}>
+                <button onClick={() => emailInputRef.current?.click()} disabled={emailLoading} style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 14px', cursor: emailLoading ? 'default' : 'pointer', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.3)', color: emailLoading ? 'rgba(237,237,237,0.35)' : 'var(--info)', opacity: emailLoading ? 0.6 : 1 }}>
                     {emailLoading ? 'Analysing…' : 'Import Emails CSV'}
                 </button>
                 <input ref={emailInputRef} type='file' accept='.csv' style={{ display: 'none' }} onChange={handleEmailChange} />
-                {extrasImported && !importResult && <span style={{ fontSize: '0.62rem', color: unmatchedExtras > 0 ? '#f59e0b' : 'rgb(0,195,100)' }}>Imported — {unmatchedExtras > 0 ? `${unmatchedExtras} unmatched` : 'all matched'}</span>}
+                {extrasImported && !importResult && <span style={{ fontSize: '0.62rem', color: unmatchedExtras > 0 ? 'var(--amber)' : 'rgb(0,195,100)' }}>Imported — {unmatchedExtras > 0 ? `${unmatchedExtras} unmatched` : 'all matched'}</span>}
                 {!extrasImported && !importResult && <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.25)' }}>No billet extras imported — Billet / Up To Date columns will show —</span>}
                 {err && <span style={{ fontSize: '0.68rem', color: 'var(--red)' }}>{err}</span>}
                 {importResult && (
-                    <span style={{ fontSize: '0.68rem', color: importResult.unmatched > 0 ? '#f59e0b' : 'rgb(0,195,100)' }}>
+                    <span style={{ fontSize: '0.68rem', color: importResult.unmatched > 0 ? 'var(--amber)' : 'rgb(0,195,100)' }}>
                         Imported {importResult.imported} ({importResult.importedActive} active, {importResult.importedDischarged} discharged) — {importResult.matched} matched
                         {importResult.unmatched > 0 && (
-                            <> · <button onClick={() => setShowUnmatched(p => !p)} style={{ background: 'none', border: 'none', color: '#f59e0b', cursor: 'pointer', padding: 0, fontSize: '0.68rem', textDecoration: 'underline' }}>{importResult.unmatched} unmatched</button></>
+                            <> · <button onClick={() => setShowUnmatched(p => !p)} style={{ background: 'none', border: 'none', color: 'var(--amber)', cursor: 'pointer', padding: 0, fontSize: '0.68rem', textDecoration: 'underline' }}>{importResult.unmatched} unmatched</button></>
                         )}
                     </span>
                 )}
@@ -537,7 +537,7 @@ function ImportPanel({ extrasImported, unmatchedExtras, onImported }: { extrasIm
             </div>
             {showUnmatched && importResult && importResult.unmatchedNames.length > 0 && (
                 <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', padding: '8px 12px', maxHeight: 140, overflowY: 'auto' }}>
-                    <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#f59e0b', marginBottom: 6 }}>Unmatched Names — no matching member found</div>
+                    <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--amber)', marginBottom: 6 }}>Unmatched Names — no matching member found</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
                         {importResult.unmatchedNames.map((n, i) => <span key={i} style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.5)', fontFamily: 'monospace' }}>{n}</span>)}
                     </div>
@@ -680,7 +680,7 @@ function EditCell({
                     onChange={e => setVal(e.target.value)}
                     onBlur={() => onEndEdit(val, displayValue)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onEndEdit(val, displayValue) } if (e.key === 'Escape') onEndEdit(String(displayValue ?? ''), displayValue) }}
-                    style={{ background: 'none', border: 'none', outline: 'none', color: '#f59e0b', fontSize: '0.7rem', width: '100%', padding: 0 }}
+                    style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--amber)', fontSize: '0.7rem', width: '100%', padding: 0 }}
                 />
             </td>
         )
@@ -964,7 +964,7 @@ export default function BilletMastersheetTab() {
                 value={current}
                 onChange={e => setLabel(colKey, e.target.value)}
                 onClick={e => e.stopPropagation()}
-                style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.3)', color: '#60a5fa', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', width: '100%', padding: '1px 3px', outline: 'none', textAlign: 'center' }}
+                style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.3)', color: 'var(--info)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', width: '100%', padding: '1px 3px', outline: 'none', textAlign: 'center' }}
             />
         )
     }
@@ -1004,10 +1004,10 @@ export default function BilletMastersheetTab() {
                     </button>
                 ))}
 
-                <button onClick={() => setEditingLabels(p => !p)} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: editingLabels ? 'rgba(96,165,250,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${editingLabels ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}`, color: editingLabels ? '#60a5fa' : 'rgba(237,237,237,0.4)' }}>
+                <button onClick={() => setEditingLabels(p => !p)} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: editingLabels ? 'rgba(96,165,250,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${editingLabels ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}`, color: editingLabels ? 'var(--info)' : 'rgba(237,237,237,0.4)' }}>
                     {editingLabels ? 'Done Editing Labels' : 'Edit Labels'}
                 </button>
-                <button onClick={() => setDiagnosticMode(p => !p)} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: diagnosticMode ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${diagnosticMode ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, color: diagnosticMode ? '#f59e0b' : 'rgba(237,237,237,0.4)' }}>
+                <button onClick={() => setDiagnosticMode(p => !p)} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: diagnosticMode ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${diagnosticMode ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, color: diagnosticMode ? 'var(--amber)' : 'rgba(237,237,237,0.4)' }}>
                     {diagnosticMode ? '× Diagnose' : 'Diagnose'}
                 </button>
 
@@ -1031,7 +1031,7 @@ export default function BilletMastersheetTab() {
             {/* Diagnostic view */}
             {diagnosticMode && (
                 <div style={{ flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.02)' }}>
-                    <div style={{ padding: '8px 12px', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#f59e0b', borderBottom: '1px solid rgba(245,158,11,0.15)' }}>
+                    <div style={{ padding: '8px 12px', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--amber)', borderBottom: '1px solid rgba(245,158,11,0.15)' }}>
                         Classification Diagnostic — {displayRows.length} member{displayRows.length !== 1 ? 's' : ''} shown
                     </div>
                     <table style={{ borderCollapse: 'collapse', width: '100%' }}>
@@ -1103,9 +1103,9 @@ export default function BilletMastersheetTab() {
                                 <th onClick={() => handleSort('j4Points')} style={mkSortHdr('J4 Pts', 'j4Points', { ...numHdr, color: sort.key === 'j4Points' ? '#ededed' : 'rgba(245,158,11,0.7)' })}><LblText colKey='j4Points' def='J4 Pts' />{sort.key === 'j4Points' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
 
                                 {/* Billet (imported + editable) */}
-                                <th onClick={() => handleSort('billet')} style={mkSortHdr('Billet', 'billet', { ...numHdr, minWidth: 58, color: sort.key === 'billet' ? '#ededed' : '#f59e0b' })}><LblText colKey='billet' def='Billet' />{sort.key === 'billet' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
-                                <th style={{ ...numHdr, minWidth: 54, color: '#f59e0b' }}><LblText colKey='upToDate' def='Status' /></th>
-                                <th style={{ ...numHdr, minWidth: 74, color: '#f59e0b' }}><LblText colKey='lastUpdate' def='Last Upd' /></th>
+                                <th onClick={() => handleSort('billet')} style={mkSortHdr('Billet', 'billet', { ...numHdr, minWidth: 58, color: sort.key === 'billet' ? '#ededed' : 'var(--amber)' })}><LblText colKey='billet' def='Billet' />{sort.key === 'billet' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
+                                <th style={{ ...numHdr, minWidth: 54, color: 'var(--amber)' }}><LblText colKey='upToDate' def='Status' /></th>
+                                <th style={{ ...numHdr, minWidth: 74, color: 'var(--amber)' }}><LblText colKey='lastUpdate' def='Last Upd' /></th>
 
                                 {/* Attendance */}
                                 {(['primaryNightOps','secondaryNightOps','primaryNightFTX','secondaryNightFTX','platoonTraining','sectionTraining','meetings','campaignMedals'] as SortKey[]).map((sk, i) => {
@@ -1169,7 +1169,7 @@ export default function BilletMastersheetTab() {
                                                     {r.name}
                                                 </button>
                                                 {r.hasEmail && (
-                                                    <button onClick={() => setEmailPopup({ row: r })} style={{ fontSize: '0.52rem', fontWeight: 700, padding: '1px 4px', background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.35)', color: '#60a5fa', cursor: 'pointer', flexShrink: 0, letterSpacing: '0.05em' }} title={r.currentEmail ?? ''}>E</button>
+                                                    <button onClick={() => setEmailPopup({ row: r })} style={{ fontSize: '0.52rem', fontWeight: 700, padding: '1px 4px', background: 'rgba(96,165,250,0.15)', border: '1px solid rgba(96,165,250,0.35)', color: 'var(--info)', cursor: 'pointer', flexShrink: 0, letterSpacing: '0.05em' }} title={r.currentEmail ?? ''}>E</button>
                                                 )}
                                                 {!r.hasEmail && (
                                                     <button onClick={() => setEmailPopup({ row: r })} style={{ fontSize: '0.52rem', fontWeight: 700, padding: '1px 4px', background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.2)', cursor: 'pointer', flexShrink: 0 }} title='Add email'>+</button>
@@ -1194,15 +1194,15 @@ export default function BilletMastersheetTab() {
                                         </td>
                                         <td onClick={() => r.username && setEditingCell({ rowId: r.id, field: 'j4Points' })} style={{ ...cellBase, background: bg, textAlign: 'center', cursor: r.username ? 'pointer' : 'default' }} title={r.username ? 'Click to edit J4 points' : undefined}>
                                             {editingCell?.rowId === r.id && editingCell.field === 'j4Points' ? (
-                                                <input autoFocus type='number' defaultValue={r.j4Points || 0} onBlur={e => handleMilpacEdit(r.id, r.username, 'j4Points', e.target.value)} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} onClick={e => e.stopPropagation()} style={{ background: 'none', border: 'none', outline: 'none', color: '#f59e0b', fontSize: '0.72rem', fontWeight: 700, width: '100%', textAlign: 'center', padding: 0 }} />
-                                            ) : <span style={{ fontWeight: 700, fontSize: '0.72rem', color: r.j4Points > 0 ? '#f59e0b' : 'rgba(255,255,255,0.15)' }}>{r.j4Points || '—'}</span>}
+                                                <input autoFocus type='number' defaultValue={r.j4Points || 0} onBlur={e => handleMilpacEdit(r.id, r.username, 'j4Points', e.target.value)} onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }} onClick={e => e.stopPropagation()} style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--amber)', fontSize: '0.72rem', fontWeight: 700, width: '100%', textAlign: 'center', padding: 0 }} />
+                                            ) : <span style={{ fontWeight: 700, fontSize: '0.72rem', color: r.j4Points > 0 ? 'var(--amber)' : 'rgba(255,255,255,0.15)' }}>{r.j4Points || '—'}</span>}
                                         </td>
 
                                         {/* Billet — editable */}
                                         <td
                                             data-field='billet'
                                             onClick={() => setEditingCell({ rowId: r.id, field: 'billet' })}
-                                            style={{ ...cellBase, background: billetPending ? 'rgba(245,158,11,0.05)' : bg, textAlign: 'center', fontSize: '0.65rem', color: billetVal ? '#f59e0b' : 'rgba(237,237,237,0.2)', cursor: 'pointer', border: (isJump && ctx.jumpTarget?.field === 'billet') ? '1px solid rgba(96,165,250,0.5)' : billetPending ? '1px solid rgba(245,158,11,0.3)' : undefined, minWidth: 58 }}
+                                            style={{ ...cellBase, background: billetPending ? 'rgba(245,158,11,0.05)' : bg, textAlign: 'center', fontSize: '0.65rem', color: billetVal ? 'var(--amber)' : 'rgba(237,237,237,0.2)', cursor: 'pointer', border: (isJump && ctx.jumpTarget?.field === 'billet') ? '1px solid rgba(96,165,250,0.5)' : billetPending ? '1px solid rgba(245,158,11,0.3)' : undefined, minWidth: 58 }}
                                             title='Click to edit'
                                         >
                                             {editingCell?.rowId === r.id && editingCell.field === 'billet' ? (
@@ -1211,7 +1211,7 @@ export default function BilletMastersheetTab() {
                                                     defaultValue={String(billetVal ?? '')}
                                                     onBlur={e => handleEndEdit(r.id, 'billet', 'Billet', r.name, e.target.value, r.billet)}
                                                     onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
-                                                    style={{ background: 'none', border: 'none', outline: 'none', color: '#f59e0b', fontSize: '0.7rem', width: '100%', textAlign: 'center', padding: 0 }}
+                                                    style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--amber)', fontSize: '0.7rem', width: '100%', textAlign: 'center', padding: 0 }}
                                                     onClick={e => e.stopPropagation()}
                                                 />
                                             ) : String(billetVal ?? '—')}
@@ -1247,7 +1247,7 @@ export default function BilletMastersheetTab() {
                                                     defaultValue={String(lastUpdVal ?? '')}
                                                     onBlur={e => handleEndEdit(r.id, 'lastUpdate', 'Last Update', r.name, e.target.value, r.lastUpdate)}
                                                     onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur() }}
-                                                    style={{ background: 'none', border: 'none', outline: 'none', color: '#f59e0b', fontSize: '0.58rem', width: '100%', textAlign: 'center', padding: 0 }}
+                                                    style={{ background: 'none', border: 'none', outline: 'none', color: 'var(--amber)', fontSize: '0.58rem', width: '100%', textAlign: 'center', padding: 0 }}
                                                     onClick={e => e.stopPropagation()}
                                                 />
                                             ) : String(lastUpdVal ?? '—')}

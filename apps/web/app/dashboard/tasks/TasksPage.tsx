@@ -623,7 +623,7 @@ function TaskCard({
 
                                     {task.status !== 'completed' && (
                                         <>
-                                            {task.status === 'pending' && <ActionBtn label='Start' color='#f59e0b' onClick={() => onAction(task._id, 'start')} />}
+                                            {task.status === 'pending' && <ActionBtn label='Start' color='var(--amber)' onClick={() => onAction(task._id, 'start')} />}
                                             <ActionBtn label='Complete' color='var(--live)' onClick={() => setConfirmingComplete(true)} />
 
                                             {/* Creator: direct extend */}

@@ -41,11 +41,11 @@ const COURSE_STATUS_STYLE: Record<string, { color: string; border: string }> = {
 }
 
 export const DEPT_COLORS: Record<string, string> = {
-    j1: '#3b82f6',
+    j1: 'var(--info)',
     j2: '#8b5cf6',
-    j3: '#10b981',
-    j4: '#ef4444',
-    j6: '#f59e0b',
+    j3: 'var(--live)',
+    j4: 'var(--red)',
+    j6: 'var(--amber)',
     j7: '#06b6d4',
     unit: 'rgba(219,0,29,0.85)',
 }
@@ -760,7 +760,7 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                         This action cannot be undone.
                     </div>
                     {error && (
-                        <div style={{ fontSize: '0.75rem', color: '#ef4444', padding: '8px 10px', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.25)' }}>{error}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--red)', padding: '8px 10px', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.25)' }}>{error}</div>
                     )}
                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                         <button onClick={() => setDeleteConfirming(false)}

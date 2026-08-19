@@ -120,7 +120,6 @@ export default function CalendarPanel({ userId, displayName, isJ4, canWrite }: {
                 className='flex items-center justify-between px-5 py-4 mx-6 mt-6'
                 style={{
                     border: '1px solid var(--line-2)',
-                    borderTop: '1px solid var(--line-2)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
             >

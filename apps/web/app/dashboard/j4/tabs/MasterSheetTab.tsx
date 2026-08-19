@@ -50,7 +50,7 @@ function ReturnBadge({ value }: { value: string }) {
     const v = value?.trim().toUpperCase()
     let bg = 'rgba(255,255,255,0.06)', color = 'rgba(237,237,237,0.4)'
     if (v === 'YES')         { bg = 'rgba(0,195,100,0.12)';   color = 'rgb(0,195,100)' }
-    else if (v === 'REVIEW') { bg = 'rgba(245,158,11,0.12)';  color = '#f59e0b' }
+    else if (v === 'REVIEW') { bg = 'rgba(245,158,11,0.12)';  color = 'var(--amber)' }
     else if (v === 'NO')     { bg = 'rgba(219,0,29,0.12)';    color = 'var(--red)' }
     else if (v === 'INDEFINITE') { bg = 'rgba(139,92,246,0.12)'; color = '#a78bfa' }
     return (
@@ -64,7 +64,7 @@ function TypeBadge({ value }: { value: string }) {
     const v = value?.trim().toUpperCase()
     let color = 'rgba(237,237,237,0.4)'
     if (v === 'GD') color = 'rgb(0,195,100)'
-    else if (v === 'HD') color = '#60a5fa'
+    else if (v === 'HD') color = 'var(--info)'
     else if (v === 'DD') color = 'var(--red)'
     return <span style={{ fontSize: '0.65rem', fontWeight: 700, color }}>{v || '—'}</span>
 }
@@ -72,10 +72,10 @@ function TypeBadge({ value }: { value: string }) {
 function DisciplineLevelBadge({ value }: { value: string }) {
     const v = value?.trim()
     let bg = 'rgba(255,255,255,0.06)', color = 'rgba(237,237,237,0.45)'
-    if (v === 'Verbal Warning')       { bg = 'rgba(245,158,11,0.08)';  color = '#f59e0b' }
+    if (v === 'Verbal Warning')       { bg = 'rgba(245,158,11,0.08)';  color = 'var(--amber)' }
     if (v === 'Formal Warning')       { bg = 'rgba(251,146,60,0.1)';   color = '#fb923c' }
     if (v === 'First Strike')         { bg = 'rgba(219,0,29,0.1)';     color = '#f87171' }
-    if (v === 'Second Strike')        { bg = 'rgba(219,0,29,0.18)';    color = '#ef4444' }
+    if (v === 'Second Strike')        { bg = 'rgba(219,0,29,0.18)';    color = 'var(--red)' }
     if (v === 'Removal from Section') { bg = 'rgba(139,92,246,0.1)';   color = '#a78bfa' }
     if (v === 'Removal from Unit')    { bg = 'rgba(219,0,29,0.25)';    color = 'var(--red)' }
     return (
@@ -252,9 +252,9 @@ type RecycleBinItem = {
 }
 
 const TAB_BADGE: Record<string, { label: string; color: string }> = {
-    billet:     { label: 'Billet',     color: '#60a5fa' },
+    billet:     { label: 'Billet',     color: 'var(--info)' },
     leaving:    { label: 'Leaving',    color: '#a78bfa' },
-    denied:     { label: 'Denied',     color: '#f59e0b' },
+    denied:     { label: 'Denied',     color: 'var(--amber)' },
     discipline: { label: 'Discipline', color: 'var(--red)' },
 }
 
