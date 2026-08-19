@@ -2,7 +2,7 @@ import {
     ADJUNCT_LABEL, APNOEA_AT, APNOEA_OUT, BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE,
     DEATH_DOWNTIME, DEPRESSED_RR, DRUGS, FATAL_SPO2, FLUIDS, OBSTRUCTION_LABEL,
     RHYTHM_LABEL, RR_BASELINE, SHOCKABLE, STEMI_CLEARS, SUTURE_PER_WOUND, VOMIT_ON_COLLAPSE, WOUND_TYPES,
-    BAGGING_SLOWDOWN, FREES_HANDS, REBOA_FATAL, REBOA_OCCLUSION, REBOA_WARN,
+    FREES_HANDS, ONE_HAND_SLOWDOWN, REBOA_FATAL, REBOA_OCCLUSION, REBOA_WARN,
     airwayOpen, arrestHr, bleedBelowBalloon, bestBandage, bleedFactor, breathing, clamp, dressingLife,
     handsFull, intensity, partBleeding,
     isConscious, jitter, nextWound, onBoard, pName, rateHeld, reopenChance, setRhythm, shownBp, shownSpo2,
@@ -80,7 +80,7 @@ export function blockedBy(p: Patient, a: Action): string | null {
     // A machine is not a pair of hands. The pads read the rhythm whatever you
     // are doing on top of the chest, which is the whole argument for letting
     // it run while you carry on.
-    if (hands && !FREES_HANDS.has(a.id) && !a.machine) return hands
+    if (hands && !FREES_HANDS.has(a.id) && !a.machine && !a.oneHand) return hands
     return null
 }
 
@@ -94,8 +94,11 @@ export function blockedBy(p: Patient, a: Action): string | null {
 export function actionTime(tool: ToolId, a: Action, p?: Patient, pt?: BodyPart | null): number {
     const base = (p && a.timeFor ? a.timeFor(p, pt ?? null) : undefined)
         ?? a.time ?? ACTION_TIME[a.id] ?? TOOL_TIME[tool]
-    // A bag costs you a hand, and a machine was never using one.
-    return p?.bagging && !a.machine ? base * BAGGING_SLOWDOWN : base
+    // A bag costs you a hand; so does keeping the other one on the chest. A
+    // machine was never using either.
+    if (a.machine || !p) return base
+    const halfOn = p.bagging || (p.cprActive && a.oneHand)
+    return halfOn ? base * ONE_HAND_SLOWDOWN : base
 }
 
 /**
@@ -197,6 +200,14 @@ export interface Action {
      * pads are on the chest either way. Everything else in the menu is you.
      */
     machine?: true
+    /**
+     * One hand does this, so compressions do not have to stop for it.
+     *
+     * It still costs you: drawing up between pushes takes twice as long, the
+     * same as everything does with a bag in your other hand. What it does not
+     * cost you any more is the chest going quiet while you do it.
+     */
+    oneHand?: true
     /**
      * Seconds, worked out from what is actually in front of you.
      *
@@ -613,31 +624,39 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
     ],
 
     medication: [
+        /* Every one of these is a syringe, and a syringe is one hand — so none of
+           them stop compressions. You draw up between pushes, it takes twice as
+           long, and the chest never goes quiet. Adrenaline is the case that
+           made the old rule absurd: the drug whose whole job is multiplying the
+           odds of a rhythm coming back was only available if you stopped
+           generating them. */
         { sec: 'Analgesia · all three depress breathing' },
-        { id: 'morph', label: DRUGS.morphine.label,   note: DRUGS.morphine.dose,   dot: 'y', run: p => give(p, 'morphine') },
-        { id: 'nalb',  label: DRUGS.nalbuphine.label, note: DRUGS.nalbuphine.dose, dot: 'y', run: p => give(p, 'nalbuphine') },
-        { id: 'fent',  label: DRUGS.fentanyl.label,   note: DRUGS.fentanyl.dose,   dot: 'y', run: p => give(p, 'fentanyl') },
+        { id: 'morph', label: DRUGS.morphine.label,   note: DRUGS.morphine.dose,   dot: 'y', oneHand: true, run: p => give(p, 'morphine') },
+        { id: 'nalb',  label: DRUGS.nalbuphine.label, note: DRUGS.nalbuphine.dose, dot: 'y', oneHand: true, run: p => give(p, 'nalbuphine') },
+        { id: 'fent',  label: DRUGS.fentanyl.label,   note: DRUGS.fentanyl.dose,   dot: 'y', oneHand: true, run: p => give(p, 'fentanyl') },
 
         { sec: 'Cardiac / Resus' },
         // In an arrest adrenaline is not a pressor — it is what makes the next
         // two minutes of compressions worth doing, and it does none of that on
-        // its own. You still have to be pushing on the chest.
-        { id: 'epi',   label: DRUGS.epi.label,           note: DRUGS.epi.dose,           dot: 'r', run: p => give(p, 'epi') },
-        { id: 'atro',  label: DRUGS.atropine.label,      note: DRUGS.atropine.dose,      dot: 'r', run: p => give(p, 'atropine') },
-        { id: 'amio',  label: DRUGS.amiodarone.label,    note: DRUGS.amiodarone.dose,    dot: 'r', run: p => give(p, 'amiodarone') },
-        { id: 'phen',  label: DRUGS.phenylephrine.label, note: DRUGS.phenylephrine.dose, dot: 'r', run: p => give(p, 'phenylephrine') },
+        // its own. You still have to be pushing on the chest, which you now can
+        // be while it goes in: the boost is live within half a second of the
+        // ampoule landing, so every roll from there on is the improved one.
+        { id: 'epi',   label: DRUGS.epi.label,           note: DRUGS.epi.dose,           dot: 'r', oneHand: true, run: p => give(p, 'epi') },
+        { id: 'atro',  label: DRUGS.atropine.label,      note: DRUGS.atropine.dose,      dot: 'r', oneHand: true, run: p => give(p, 'atropine') },
+        { id: 'amio',  label: DRUGS.amiodarone.label,    note: DRUGS.amiodarone.dose,    dot: 'r', oneHand: true, run: p => give(p, 'amiodarone') },
+        { id: 'phen',  label: DRUGS.phenylephrine.label, note: DRUGS.phenylephrine.dose, dot: 'r', oneHand: true, run: p => give(p, 'phenylephrine') },
 
         { sec: 'Acute coronary · for ST elevation' },
         // Both, or neither does anything. Aspirin thins the blood and GTN
         // drops the pressure, so on a casualty who is still bleeding this is a
         // genuine argument rather than two more buttons.
-        { id: 'asp', label: DRUGS.aspirin.label, note: DRUGS.aspirin.dose, dot: 'r', run: p => give(p, 'aspirin') },
-        { id: 'gtn', label: DRUGS.gtn.label,     note: DRUGS.gtn.dose,     dot: 'r', run: p => give(p, 'gtn') },
+        { id: 'asp', label: DRUGS.aspirin.label, note: DRUGS.aspirin.dose, dot: 'r', oneHand: true, run: p => give(p, 'aspirin') },
+        { id: 'gtn', label: DRUGS.gtn.label,     note: DRUGS.gtn.dose,     dot: 'r', oneHand: true, run: p => give(p, 'gtn') },
 
         { sec: 'Adjuncts' },
-        { id: 'txa',   label: DRUGS.txa.label,      note: DRUGS.txa.dose,      dot: 'b', run: p => give(p, 'txa') },
-        { id: 'nalox', label: DRUGS.naloxone.label, note: 'reverses opioids',  dot: 'b', run: p => give(p, 'naloxone') },
-        { id: 'carb',  label: DRUGS.caffeine.label, note: DRUGS.caffeine.dose, dot: 'b', run: p => give(p, 'caffeine') },
+        { id: 'txa',   label: DRUGS.txa.label,      note: DRUGS.txa.dose,      dot: 'b', oneHand: true, run: p => give(p, 'txa') },
+        { id: 'nalox', label: DRUGS.naloxone.label, note: 'reverses opioids',  dot: 'b', oneHand: true, run: p => give(p, 'naloxone') },
+        { id: 'carb',  label: DRUGS.caffeine.label, note: DRUGS.caffeine.dose, dot: 'b', oneHand: true, run: p => give(p, 'caffeine') },
     ],
 
     airway: [

@@ -9,7 +9,7 @@ import { Monitor } from './audio'
 import {
     ADJUNCT_LABEL, BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, DRUGS, FALLBACK_CASUALTY, FATAL_SPO2,
     FLUIDS, OBSTRUCTION_LABEL, PARTS, RHYTHM_LABEL, WOUND_TYPES,
-    BAGGING_SLOWDOWN, REBOA_FATAL, REBOA_WARN,
+    ONE_HAND_SLOWDOWN, REBOA_FATAL, REBOA_WARN,
     airwayOpen, arrestHr, bestBandage, bleedFactor, bloodWord, breathing, chatter, clamp, handover, handsFull,
     intensity, jitter,
     newPatient, nextWound, painWord, partBleeding, partSeverity, pName, shownBp, shownRr, shownSpo2,
@@ -750,14 +750,14 @@ export default function MedicalMenu({ roster, onClose }: {
 
                             {hands && !busy && (
                                 <div className={s.hands}>
-                                    <span>{hands} running — both hands are on the casualty</span>
+                                    <span>{hands} running — a syringe still fits, at {ONE_HAND_SLOWDOWN}×. Nothing else does.</span>
                                     <button type='button' className={s.handsStop} onClick={freeHands}>Stop</button>
                                 </div>
                             )}
                             {/* A bag is one hand. You keep working, slowly. */}
                             {patient.bagging && !hands && (
                                 <div className={s.oneHand}>
-                                    <span>Bagging — one hand free, everything takes {BAGGING_SLOWDOWN}× as long</span>
+                                    <span>Bagging — one hand free, everything takes {ONE_HAND_SLOWDOWN}× as long</span>
                                     <button type='button' className={s.oneHandStop} onClick={freeHands}>Stop</button>
                                 </div>
                             )}

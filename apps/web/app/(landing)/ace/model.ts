@@ -947,14 +947,19 @@ export function handsFull(p: Patient): 'Compressions' | null {
 export const FREES_HANDS: ReadonlySet<string> = new Set(['cpr'])
 
 /**
- * What everything else is multiplied by while you are bagging.
+ * What a job costs when you are only half on it.
  *
- * A bag is one hand, not two. You can carry on working with the other one and
- * everything takes twice as long, which is a real choice rather than a wall:
- * the casualty keeps breathing and the dressing takes eight seconds instead of
- * four. Compressions are still both hands and still stop everything.
+ * Two things put you here and they work the same way. A bag is one hand, not
+ * two, so you can carry on working with the other and everything takes twice
+ * as long — a real choice rather than a wall. And a syringe is one hand as
+ * well, which is why compressions no longer stop you giving one: you draw it
+ * up between pushes, it takes twice as long, and the chest never goes quiet.
+ *
+ * That last one matters more than it looks. Adrenaline is the thing that makes
+ * compressions work, and making you stop compressing to give it meant the drug
+ * cost you the very rolls it was multiplying.
  */
-export const BAGGING_SLOWDOWN = 2
+export const ONE_HAND_SLOWDOWN = 2
 
 export function ventilating(p: Patient): boolean {
     return airwayOpen(p) && (breathing(p) || p.bagging)
