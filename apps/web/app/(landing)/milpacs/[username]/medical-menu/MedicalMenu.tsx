@@ -8,7 +8,7 @@ import {
 } from './actions'
 import { Monitor } from './audio'
 import {
-    DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, PARTS, RHYTHM_LABEL, WOUND_TYPES,
+    DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, FLUIDS, PARTS, RHYTHM_LABEL, WOUND_TYPES,
     bloodWord, clamp, handover, jitter, newPatient, painWord, partBleeding, partSeverity, pName,
     stabilityIssues, stampFrom, totalBleed,
     type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
@@ -371,21 +371,24 @@ export default function MedicalMenu({ roster, onClose }: {
     /* ---------- running a treatment --------------------------------------- */
 
     /** Applies the treatment. Called when the timer runs out, not on click. */
-    function applyAction(a: Action) {
+    function applyAction(a: Action, ml = 0) {
         const next = structuredClone(live.current)
-        const [msg, kind] = a.run(next, sel)
+        const [msg, kind] = a.run(next, sel, ml)
         if (sel && a.needsPart) next.parts[sel].checked = true
         commit(next)
         if (msg) { pushLog(msg, kind); pushToast(msg) }
     }
 
-    function startAction(a: Action) {
+    function startAction(a: Action, ml = 0) {
         if (busy || patient.outcome !== 'active') return
         const seconds = actionTime(tool, a)
-        if (seconds <= 0) { applyAction(a); return }
+        // The size is part of what you are doing, so it belongs in what the
+        // progress bar and the log say you are doing.
+        const label = ml ? `${a.label} ${ml} ml` : a.label
+        if (seconds <= 0) { applyAction(a, ml); return }
 
-        setBusy({ label: a.label, seconds })
-        pushLog(`${a.label} — started`, '')
+        setBusy({ label, seconds })
+        pushLog(`${label} — started`, '')
         // The charge runs for the length of the action, so the tone finishing
         // *is* the cue that the thing is about to happen.
         if (a.sound === 'charge') monitor.current!.charge(seconds)
@@ -393,7 +396,7 @@ export default function MedicalMenu({ roster, onClose }: {
             busyTimer.current = null
             setBusy(null)
             if (a.sound === 'charge') monitor.current!.shock()
-            applyAction(a)
+            applyAction(a, ml)
         }, seconds * 1000)
     }
 
@@ -527,7 +530,31 @@ export default function MedicalMenu({ roster, onClose }: {
                                     (ACTIONS[tool] as ActionRow[]).map((row, i) =>
                                         row.sec !== undefined
                                             ? <div key={`s${i}`} className={s.sectlabel}>{row.sec}</div>
-                                            : (
+                                            : row.sizes ? (
+                                                /* A bag is a choice of size, so the row
+                                                   is the shelf and each button is what
+                                                   you take off it. */
+                                                <div key={row.id} className={`${s.trow} ${s.trowSizes}`}>
+                                                    <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
+                                                    <span>{row.label}</span>
+                                                    <span className={s.qty}>
+                                                        {[row.note, `${actionTime(tool, row)}s to hook up`].filter(Boolean).join(' · ')}
+                                                    </span>
+                                                    <div className={s.sizes}>
+                                                        {row.sizes.map(ml => (
+                                                            <button
+                                                                key={ml}
+                                                                type='button'
+                                                                className={s.sizebtn}
+                                                                disabled={!!busy || patient.outcome !== 'active'}
+                                                                onClick={() => startAction(row, ml)}
+                                                            >
+                                                                {ml} ml
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
                                                 <button
                                                     key={row.id}
                                                     type='button'
@@ -711,6 +738,22 @@ export default function MedicalMenu({ roster, onClose }: {
                                 <Ecg patient={patient} monitor={monitor} />
                                 <div className={s.bloodbar}><i style={{ width: `${patient.blood}%` }} /></div>
 
+                                {/* Lines running. Sited under the volume bar because
+                                    that is the bar they are filling, and left up while
+                                    you are on any other tool — the whole point of an
+                                    infusion is that you walked away from it. */}
+                                {patient.infusions.map(inf => {
+                                    const f = FLUIDS[inf.fluid]
+                                    return (
+                                        <div key={inf.id} className={s.infusion}>
+                                            <span className={s.infusionDrip} style={{ background: f.colour }} />
+                                            <span>{f.label} {inf.volume} ml</span>
+                                            <b>{Math.ceil(inf.left)} ml</b>
+                                            <i style={{ width: `${inf.left / inf.volume * 100}%`, background: f.colour }} />
+                                        </div>
+                                    )
+                                })}
+
                                 {PARTS.map(({ id, name }) => {
                                     const pt = patient.parts[id]
                                     if (!pt.wounds.length && !pt.fractured && !pt.tourniquet && !pt.iv) return null
@@ -878,6 +921,13 @@ function Vitals({ patient: p }: { patient: Patient }) {
  * it separately on a heart-rate interval would have been simpler and would have
  * drifted out of step with the trace within a few beats, which on a monitor is
  * the one thing you would notice.
+ *
+ * `beatPhase` is how far into the current beat we are, accumulated. It used to
+ * be derived — `floor(phase / beatWidth)` — which is not a count of beats but a
+ * ratio, and rescaling it re-dates every beat already played: a change in heart
+ * rate would jump the index and fire a beep on top of the one just sounded.
+ * Slow drift made the beeps stumble; the step changes (an arrest slamming the
+ * rate to 0, a ROSC putting it back) made them audibly double.
  */
 function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<Monitor | null> }) {
     const ref = useRef<HTMLCanvasElement>(null)
@@ -887,12 +937,13 @@ function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<
     useEffect(() => {
         let frame = 0
         let phase = 0
+        let beatPhase = 0
         let last = performance.now()
-        let beats = 0
 
         const draw = (now: number) => {
             frame = requestAnimationFrame(draw)
-            phase += (now - last) * 0.09
+            const advance = (now - last) * 0.09
+            phase += advance
             last = now
 
             const c = ref.current
@@ -914,8 +965,17 @@ function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<
             const mid = H * 0.58
             const beatW = beatWidth(p)
 
+            // Where the beep lands and where the R wave is drawn are the same
+            // number, so the two can never disagree.
+            beatPhase += advance
+            let beat = false
+            if (beatPhase >= beatW) {
+                beatPhase %= beatW
+                beat = true
+            }
+
             for (let x = 0; x < W; x++) {
-                const t = ((x + phase) % beatW) / beatW
+                const t = ((x + beatPhase) % beatW) / beatW
                 const y = sample(p.rhythm, t, x + phase) + (Math.random() - 0.5) * 0.02
                 const py = mid - y * (H * 0.42)
                 if (x === 0) ctx.moveTo(0, py); else ctx.lineTo(x, py)
@@ -923,13 +983,7 @@ function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<
             ctx.stroke()
 
             // One beep per R wave, and only for rhythms that produce one.
-            if (AUDIBLE.has(p.rhythm)) {
-                const n = Math.floor(phase / beatW)
-                if (n !== beats) {
-                    beats = n
-                    monitor.current?.beat(p.spo2)
-                }
-            }
+            if (beat && AUDIBLE.has(p.rhythm)) monitor.current?.beat(p.spo2)
 
             ctx.fillStyle = 'rgba(255,255,255,.5)'
             ctx.font = '11px sans-serif'

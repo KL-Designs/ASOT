@@ -49,6 +49,54 @@ export interface BodyPart {
 
 export type Triage = 'none' | 'minor' | 'delayed' | 'immediate' | 'deceased'
 
+/* ---------- fluids --------------------------------------------------------- */
+
+export type FluidId = 'blood' | 'plasma' | 'saline'
+
+/**
+ * What is on the shelf.
+ *
+ * `potency` is volume percentage points per ml, and it is what separates the
+ * three: a unit of blood is worth four and a half bags of saline, which is the
+ * whole argument for carrying it. `rate` is how fast the bag runs through once
+ * it is hung, in ml per second of casualty time.
+ */
+export const FLUIDS: Record<FluidId, {
+    label: string
+    potency: number
+    rate: number
+    dot: 'r' | 'y' | 'b'
+    colour: string
+}> = {
+    blood:  { label: 'Whole Blood', potency: 0.018, rate: 20, dot: 'r', colour: '#d2352c' },
+    plasma: { label: 'Plasma',      potency: 0.012, rate: 25, dot: 'y', colour: '#e8c343' },
+    saline: { label: 'Saline 0.9%', potency: 0.004, rate: 35, dot: 'b', colour: '#56a8e0' },
+}
+
+/** Bag sizes, in ml. */
+export const BAG_SIZES = [250, 500, 1000, 2000] as const
+
+/**
+ * A bag that is up and running.
+ *
+ * Hanging one is the treatment; what it gives back arrives over the next half
+ * minute or so, which is the point — you hook it up and go and do something
+ * about the reason they needed it.
+ */
+export interface Infusion {
+    id: number
+    fluid: FluidId
+    /** ml the bag held when it went up. */
+    volume: number
+    /** ml still to run. */
+    left: number
+}
+
+/** Everything still in a bag, across every line. */
+export function mlRunning(p: Patient): number {
+    return p.infusions.reduce((n, i) => n + i.left, 0)
+}
+
 /**
  * What the monitor is showing.
  *
@@ -113,6 +161,10 @@ export interface Patient {
     airway: string
     meds: string[]
     tqCount: number
+    /** Lines up and running. Drained by the sim, not by the treatment. */
+    infusions: Infusion[]
+    /** Ids for the bags, so React can key them and the log can name them. */
+    infusionSeq: number
     /**
      * Seconds this casualty has spent without an output.
      *
@@ -233,6 +285,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         temp: Math.round((36.8 - Math.random() * 1.4) * 10) / 10,
         conscious: true, rhythm: 'sinus', analysed: null, cardiacArrest: false, airway: 'clear',
         meds: [], tqCount: 0,
+        infusions: [], infusionSeq: 0,
         downtime: 0, cprHold: 0, outcome: 'active', cause: '',
         triage: 'none', triageEntries: [],
         cprActive: false,
@@ -359,17 +412,17 @@ export function stabilityIssues(p: Patient): string[] {
     const unsplinted = Object.values(p.parts).filter(pt => pt.fractured && !pt.splinted).length
     if (unsplinted > 0) out.push(`${unsplinted} fracture${unsplinted === 1 ? '' : 's'} unsplinted`)
 
-    if (p.blood < 70) out.push(`Volume ${Math.round(p.blood)}% — needs fluids`)
+    if (p.blood < 70) {
+        // A bag already running is not an outstanding job, so say so rather
+        // than telling you to go and hang the one you just hung.
+        const running = mlRunning(p)
+        out.push(running > 0
+            ? `Volume ${Math.round(p.blood)}% — ${Math.ceil(running)} ml still running`
+            : `Volume ${Math.round(p.blood)}% — needs fluids`)
+    }
     if (p.spo2 < 92) out.push(`SpO₂ ${Math.round(p.spo2)}% — needs oxygen`)
     if (p.pain > 30) out.push('In pain — needs analgesia')
     return out
-}
-
-function die(p: Patient, cause: string) {
-    p.outcome = 'dead'
-    p.cause = cause
-    p.cprActive = false
-    p.cprHold = 0
 }
 
 /**

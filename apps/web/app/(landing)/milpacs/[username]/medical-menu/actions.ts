@@ -1,7 +1,7 @@
 import {
-    CPR_DOWNTIME_RATE, CPR_HOLD, DEATH_DOWNTIME,
+    BAG_SIZES, CPR_DOWNTIME_RATE, CPR_HOLD, DEATH_DOWNTIME, FLUIDS,
     RHYTHM_LABEL, SHOCKABLE, clamp, jitter, pName, setRhythm, stabilityIssues, totalBleed,
-    type Patient, type PartId,
+    type FluidId, type Patient, type PartId,
 } from './model'
 
 /* ============================================================================
@@ -55,7 +55,7 @@ const ACTION_TIME: Record<string, number> = {
     full: 8, bt: 4,
     packing: 4, quik: 4, tq: 5, tqoff: 3, seal: 5,
     decom: 5, bvm: 2, oxy: 3,
-    iv: 5, blood500: 9, plasma: 8, saline: 8, cpr: 6, analyse: 6, shock: 4, pak: 10, surg: 15,
+    iv: 5, blood: 8, plasma: 8, saline: 8, cpr: 6, analyse: 6, shock: 4, pak: 10, surg: 15,
     realign: 4, sling: 4, blanket: 3, heat: 3,
     stretch: 6, veh: 6, bag: 8,
     medevac: 4, handover: 5,
@@ -84,7 +84,12 @@ export interface Action {
     needsPart?: boolean
     /** A cue for the UI to play — the defibrillator is the only thing with one. */
     sound?: 'charge' | 'shock'
-    run: (p: Patient, partId: PartId | null) => [string, LogKind]
+    /**
+     * Offers a bag size instead of a single button, and hands the choice to
+     * `run` as `ml`. Fluids are the only thing you pick an amount of.
+     */
+    sizes?: readonly number[]
+    run: (p: Patient, partId: PartId | null, ml: number) => [string, LogKind]
     sec?: undefined
 }
 
@@ -124,11 +129,21 @@ function med(p: Patient, name: string, eff: Partial<Record<keyof Patient, number
     return [`${name} administered`, 'good']
 }
 
-function fluid(p: Patient, name: string, gain: number): [string, LogKind] {
-    p.blood = clamp(p.blood + gain, 0, 100)
-    p.sysBp = clamp(p.sysBp + gain, 0, 200)
-    p.diaBp = clamp(p.diaBp + Math.round(gain * 0.6), 0, 140)
-    return [`${name} transfused — volume ${Math.round(p.blood)}%`, 'good']
+/**
+ * Hang a bag.
+ *
+ * The eight seconds are the line: finding the vein, spiking the bag, getting it
+ * running. What is in the bag arrives afterwards, on the sim's clock, and needs
+ * nothing further from you — which is the entire reason to reach for fluids
+ * early and go and deal with the hole they are coming out of.
+ */
+function hang(p: Patient, fluid: FluidId, ml: number): [string, LogKind] {
+    // Three lines is as many as you have hands and cannulae for, and it stops
+    // the answer to every casualty being another four bags of blood.
+    if (p.infusions.length >= 3) return ['No free line — three already running', 'warn']
+    const f = FLUIDS[fluid]
+    p.infusions.push({ id: p.infusionSeq++, fluid, volume: ml, left: ml })
+    return [`${f.label} ${ml} ml hung — ${Math.round(ml / f.rate)}s to run through`, 'good']
 }
 
 function airway(p: Patient, kind: string): [string, LogKind] {
@@ -254,9 +269,9 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
             p.parts[id!].iv++
             return ['IV access established — ' + pName(id!), 'good']
         } },
-        { id: 'blood500', label: 'Whole Blood 500 ml',  dot: 'r', run: p => fluid(p, 'Whole Blood 500 ml', 9) },
-        { id: 'plasma',   label: 'Plasma 500 ml',       dot: 'y', run: p => fluid(p, 'Plasma 500 ml', 6) },
-        { id: 'saline',   label: 'Saline 0.9% 1000 ml', dot: 'b', run: p => fluid(p, 'Saline 1000 ml', 4) },
+        { id: 'blood',  label: 'Whole Blood', note: 'O neg', dot: 'r', sizes: BAG_SIZES, run: (p, _id, ml) => hang(p, 'blood', ml) },
+        { id: 'plasma', label: 'Plasma',      note: 'FFP',   dot: 'y', sizes: BAG_SIZES, run: (p, _id, ml) => hang(p, 'plasma', ml) },
+        { id: 'saline', label: 'Saline 0.9%', note: 'crystalloid', dot: 'b', sizes: BAG_SIZES, run: (p, _id, ml) => hang(p, 'saline', ml) },
 
         { sec: 'Resuscitation' },
         { id: 'cpr', label: 'Perform CPR', note: '30:2', dot: 'r', run: p => {
@@ -394,6 +409,24 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     }
     p.pain = clamp(p.pain - dt * 0.25, 0, 100)
 
+    // Whatever is hanging, running in. Announced only when a bag empties —
+    // a line quietly working is not news, a line that has stopped is.
+    let event: [string, LogKind] | null = null
+    if (p.infusions.length) {
+        const emptied: string[] = []
+        for (const inf of p.infusions) {
+            const f = FLUIDS[inf.fluid]
+            const ml = Math.min(inf.left, f.rate * dt)
+            inf.left -= ml
+            p.blood  = clamp(p.blood + ml * f.potency, 0, 100)
+            p.sysBp  = clamp(p.sysBp + ml * f.potency, 0, 200)
+            p.diaBp  = clamp(p.diaBp + ml * f.potency * 0.6, 0, 140)
+            if (inf.left <= 0.001) emptied.push(`${f.label} ${inf.volume} ml`)
+        }
+        p.infusions = p.infusions.filter(i => i.left > 0.001)
+        if (emptied.length) event = [`${emptied.join(', ')} — bag empty, line run through`, 'warn']
+    }
+
     // Compressions run for a while after the action and then stop, so keeping
     // the clock slow means going back and doing it again.
     if (p.cprHold > 0) {
@@ -401,6 +434,7 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         p.cprActive = p.cprHold > 0
     }
 
+    // Everything below decides the casualty, and outranks a bag running out.
     if (p.blood <= 0) {
         kill(p, 'Exsanguination — no circulating volume left')
         return ['CASUALTY HAS BLED OUT — declared dead', 'bad']
@@ -427,14 +461,25 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         return ['CASUALTY STABLE — ready for transport', 'good']
     }
 
-    return null
+    return event
 }
 
 function kill(p: Patient, cause: string) {
+    /*
+       Asystole, explicitly.
+
+       Leaving the rhythm they died in on the screen is what had the monitor
+       beeping over a corpse and — for anyone who arrested first — sounding the
+       red alarm across the top of it. A stopped heart is a flat trace, the
+       flatline tone, and no QRS beep, and every one of those falls out of the
+       rhythm rather than needing the monitor to know what `outcome` means.
+    */
+    setRhythm(p, 'asystole')
+    p.sysBp = 0
+    p.diaBp = 0
+    p.spo2 = 0
     p.outcome = 'dead'
     p.cause = cause
-    p.cprActive = false
-    p.cprHold = 0
 }
 
 /** What the monitor should be making a noise about. */
