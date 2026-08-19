@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Tooltip } from '@mui/material'
-import { Language, Storage, Backup, Forum, Headset, MilitaryTech, Warning } from '@mui/icons-material'
 import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
     type DragEndEvent,
@@ -67,88 +65,6 @@ function LocalClock() {
             <div className={s.hint} style={{ marginTop: 4, textTransform: 'uppercase' }}>
                 {tz || '─────────'}
             </div>
-        </div>
-    )
-}
-
-// ── Service status icons ──────────────────────────────────────────────────────
-
-type ServiceStatus = { online: boolean; devMode?: boolean }
-type StatusResponse = {
-    website: ServiceStatus
-    database: ServiceStatus
-    backups: ServiceStatus
-    discord: ServiceStatus
-    teamspeak: ServiceStatus
-    milpac: ServiceStatus
-}
-
-const ALL_OFFLINE: StatusResponse = {
-    website: { online: false },
-    database: { online: false },
-    backups: { online: false },
-    discord: { online: false },
-    teamspeak: { online: false },
-    milpac: { online: false },
-}
-
-/* On the status palette now rather than four unrelated rgba() values: green is
-   healthy, amber is dev-mode, red is down, blue-grey is dev-mode-but-connected
-   — which is informational rather than a problem. */
-function statusColor(status: ServiceStatus): string {
-    if (status.devMode) return status.online ? 'var(--info)' : 'var(--amber)'
-    return status.online ? 'var(--live)' : 'var(--red-hi)'
-}
-
-function statusLabel(name: string, status: ServiceStatus): string {
-    if (status.devMode) return status.online ? `${name}: Dev mode (connected)` : `${name}: Dev mode — OFFLINE`
-    return `${name}: ${status.online ? 'Online' : 'Offline'}`
-}
-
-function ServiceIcon({ name, status, Icon }: { name: string; status: ServiceStatus; Icon: typeof Language }) {
-    const showWarning = !!status.devMode && !status.online
-    return (
-        <Tooltip title={statusLabel(name, status)}>
-            <div style={{ position: 'relative', display: 'inline-flex', lineHeight: 0 }}>
-                <Icon sx={{ fontSize: 15, color: statusColor(status) }} />
-                {showWarning && (
-                    <Warning sx={{ fontSize: 9, color: 'var(--amber)', position: 'absolute', bottom: -3, right: -4 }} />
-                )}
-            </div>
-        </Tooltip>
-    )
-}
-
-function ServiceStatusIcons() {
-    const [status, setStatus] = useState<StatusResponse | null>(null)
-
-    useEffect(() => {
-        let cancelled = false
-        async function poll() {
-            try {
-                const res = await fetch('/api/dashboard/status')
-                if (!res.ok) throw new Error('bad response')
-                const data: StatusResponse = await res.json()
-                if (!cancelled) setStatus(data)
-            } catch {
-                if (!cancelled) setStatus(ALL_OFFLINE)
-            }
-        }
-        poll()
-        const id = setInterval(poll, 30_000)
-        return () => { cancelled = true; clearInterval(id) }
-    }, [])
-
-    if (!status) return null
-
-    return (
-        <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
-            <ServiceIcon name='Website' status={status.website} Icon={Language} />
-            <ServiceIcon name='Database' status={status.database} Icon={Storage} />
-            <ServiceIcon name='Backups' status={status.backups} Icon={Backup} />
-            <ServiceIcon name='Discord' status={status.discord} Icon={Forum} />
-            <ServiceIcon name='TeamSpeak' status={status.teamspeak} Icon={Headset} />
-            <ServiceIcon name='MilPac' status={status.milpac} Icon={MilitaryTech} />
         </div>
     )
 }
@@ -599,8 +515,10 @@ export default function DashboardOverview({
                 kicker={<>ASOT // Unit</>}
                 title='Dashboard'
                 right={
+                    /* Service status moved to the sidebar's identity card,
+                       where it is on screen for every dashboard route rather
+                       than only this one. */
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                        <ServiceStatusIcons />
                         <LocalClock />
                         <span className={s.hint}>{today}</span>
                     </div>

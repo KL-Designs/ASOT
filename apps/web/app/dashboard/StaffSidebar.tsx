@@ -14,6 +14,7 @@ import type { DashboardPermissions } from './StaffDashboardShell'
 import { useLockout } from './StaffDashboardShell'
 import { useFavourites } from '@/hooks/useFavourites'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
+import { ServiceStatusList } from '@/app/dashboard/_components/ServiceStatus'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -633,16 +634,15 @@ export default function StaffSidebar({
                 {/* Divider */}
                 <div style={{ height: 1, background: 'var(--line-1)', marginBottom: 10 }} />
 
-                {/* User + status */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', letterSpacing: '0.06em', fontFamily: 'monospace' }}>
-                        {permissions.displayName || '—'}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.52rem', color: 'rgba(0,200,80,0.6)', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(0,200,80,0.7)', flexShrink: 0, boxShadow: '0 0 4px rgba(0,200,80,0.5)' }} />
-                        ONLINE
-                    </span>
-                </div>
+                {/*
+                   Service status, in place of the "Koda · ONLINE" line this card
+                   used to end on. That line only ever said one thing, and whether
+                   *you* are online is not news to someone reading their own
+                   screen. Whether the bot, TeamSpeak and the milpac renderer are
+                   is the thing staff actually chase — and it was six unlabelled
+                   glyphs at the far corner of one screen until now.
+                */}
+                <ServiceStatusList />
             </div>
 
             {/* ── Home button ─────────────────────────────────────────────── */}
