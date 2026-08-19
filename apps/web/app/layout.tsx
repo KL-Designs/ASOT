@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Montserrat, Barlow_Condensed, Oswald, JetBrains_Mono, Inter } from "next/font/google"
 import "@/styles/globals.css"
+import "@/styles/command.css"
 import { headers } from "next/headers"
 
 

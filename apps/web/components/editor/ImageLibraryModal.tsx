@@ -61,7 +61,7 @@ export default function ImageLibraryModal({ onSelect, onClose }: Props) {
                     </button>
                 </div>
 
-                <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
+                <div className='thin-scroll' style={{ flex: 1, overflowY: 'auto', padding: 14 }}>
                     {loading ? (
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 200, color: 'rgba(237,237,237,0.3)', fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                             Loading…

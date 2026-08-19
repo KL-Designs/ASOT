@@ -3,7 +3,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import * as Y from 'yjs'
-import { Delete, Description, DragIndicator, Article, HorizontalRule, ContentCopy } from '@mui/icons-material'
+import { Delete, DragIndicator, HorizontalRule, ContentCopy } from '@mui/icons-material'
+import { useThinScrollFade } from './useThinScrollFade'
 
 interface PageEntry {
     id: string
@@ -16,6 +17,17 @@ interface PageEntry {
 
 const STAFF_SECTION_PRESETS = ['HQ Orders', '1 PLT Orders', '2 PLT Orders', '3 PLT Orders'] as const
 
+/** Shape both `presenceUser` and each entry of `presencePeers` share — just
+ * enough identity to render an avatar (visual-fixes FIX 3). `id` is a
+ * Y.js/Hocuspocus awareness clientID for peers, or the literal 'self' for
+ * the local user; either way it's only ever used as a React key here. */
+interface PresencePerson {
+    id: string | number
+    name: string
+    color: string
+    avatar: string | null
+}
+
 interface Props {
     ydoc: Y.Doc
     activePage: string
@@ -24,6 +36,14 @@ interface Props {
     orientation?: 'sidebar' | 'top'
     synced?: boolean
     allowedTypes?: string[]
+    readOnly?: boolean
+    /** The local user and everyone else currently in the document — both
+     * read off the same Hocuspocus awareness state the collaborative cursors
+     * already use (ActiveEditor's own `user`/`peers`), not a second channel.
+     * Drives the rail footer's "EDITING" indicator (visual-fixes FIX 3),
+     * which replaces the old current-user-only footer. */
+    presenceUser?: PresencePerson
+    presencePeers?: PresencePerson[]
 }
 
 function hexToRgb(hex: string) {
@@ -35,7 +55,7 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor, orientation = 'sidebar', synced = false, allowedTypes }: Props) {
+export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor, orientation = 'sidebar', synced = false, allowedTypes, readOnly = false, presenceUser, presencePeers = [] }: Props) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
@@ -61,6 +81,8 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     const dragSrcRef = useRef<number>(-1)
     const renameInputRef = useRef<HTMLInputElement>(null)
     const defaultInitRef = useRef(false)
+    const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
+    const listFadeRef = useThinScrollFade<HTMLDivElement>()
 
     // Restore system cursor over modals (globals.css sets cursor:none !important for custom cursor)
     useEffect(() => {
@@ -480,31 +502,48 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     // ── Sidebar (desktop) orientation ─────────────────────────────────────────
     return (
         <div style={{
-            width: 200,
+            width: 208,
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
-            gap: 2,
-            paddingRight: 12,
-            borderRight: `1px solid rgba(255,255,255,0.07)`,
-            marginRight: 8,
+            borderRight: '1px solid var(--line)',
+            background: 'linear-gradient(180deg, var(--s1), var(--bg))',
             position: 'sticky',
-            top: 24,
-            alignSelf: 'flex-start',
-            maxHeight: 'calc(100vh - 120px)',
-            overflowY: 'auto',
+            top: 0,
+            // Flex-driven, not viewport maths (visual-fixes FIX 3): this row's
+            // parent (CollabEditor's ActiveEditor root) sets `height: '100%'`
+            // — a real `height`, not `minHeight` — resolved against
+            // EditorShell's own definite wrapper. That's what lets this
+            // `height: '100%'` here resolve to an actual pixel value instead
+            // of falling back to this element's own (short) content height;
+            // an ancestor whose only sizing is `min-height` never counts as
+            // "definite" for a percentage-height descendant to resolve
+            // against, which is what made the rail stop a quarter of the way
+            // What keeps the rail on screen through a long document is not
+            // this `sticky` but the fact that CollabEditor confines the
+            // scroll to the editor column beside it, so this row never
+            // scrolls at all - see that file's comment on the column div.
+            // Sticky is kept only as a harmless backstop should an ancestor
+            // ever scroll again; on its own it could not do the job, because
+            // a sticky box may only travel within its containing block and
+            // that block is exactly one viewport tall.
+            height: '100%',
         }}>
             <div style={{
-                fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase',
-                color: 'rgba(237,237,237,0.25)', marginBottom: 6, paddingLeft: 2,
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase',
+                color: 'var(--ink)', padding: '14px 18px',
+                borderBottom: '1px solid var(--line)', flexShrink: 0,
             }}>
                 Documents
             </div>
 
+            <div ref={listFadeRef} className='thin-scroll' style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '6px 0' }}>
             {pages.map((page, idx) => {
                 const isActive = page.id === activePage
                 const isRenaming = renamingId === page.id
                 const isConfirmingDelete = confirmingDeleteId === page.id
+                const isRowHovered = hoveredRowId === page.id
+                const showRowActions = isRowHovered || isConfirmingDelete || confirmingDuplicateId === page.id
 
                 // ── Separator ─────────────────────────────────────────────────
                 if (page.pageType === 'separator') {
@@ -517,10 +556,12 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             onDragLeave={() => setDragInsertIdx(null)}
                             onDrop={() => { let t = idx; if (dragSrcRef.current < t) t--; movePage(dragSrcRef.current, t); setDragInsertIdx(null) }}
                             onDragEnd={() => setDragInsertIdx(null)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 2px', cursor: 'default', marginTop: 4 }}
+                            onMouseEnter={() => setHoveredRowId(page.id)}
+                            onMouseLeave={() => setHoveredRowId(null)}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', cursor: 'default' }}
                         >
-                            <DragIndicator style={{ fontSize: 12, color: 'rgba(237,237,237,0.12)', cursor: 'grab', flexShrink: 0 }} />
-                            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.09)' }} />
+                            <DragIndicator style={{ fontSize: 12, color: 'var(--ink-3)', opacity: isRowHovered ? 0.6 : 0, cursor: 'grab', flexShrink: 0, transition: 'opacity 0.12s' }} />
+                            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
                             {isRenaming ? (
                                 <input
                                     ref={renameInputRef}
@@ -529,11 +570,11 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     onBlur={commitRename}
                                     onKeyDown={e => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') setRenamingId(null); e.stopPropagation() }}
                                     onClick={e => e.stopPropagation()}
-                                    style={{ width: 80, background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.2)', outline: 'none', color: 'rgba(237,237,237,0.5)', fontSize: '0.55rem', fontWeight: 600, padding: '1px 2px', letterSpacing: '0.12em', textTransform: 'uppercase' }}
+                                    style={{ width: 80, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', outline: 'none', color: 'var(--ink-2)', fontSize: '0.6rem', fontWeight: 600, padding: '1px 2px', letterSpacing: '0.12em', textTransform: 'uppercase' }}
                                 />
                             ) : page.title && page.title !== '──────────' ? (
                                 <span
-                                    style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)', whiteSpace: 'nowrap', flexShrink: 0 }}
+                                    style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--ink-3)', whiteSpace: 'nowrap', flexShrink: 0 }}
                                     onDoubleClick={e => { e.stopPropagation(); startRename(page.id, page.title === '──────────' ? '' : page.title) }}
                                     title='Double-click to add label'
                                 >
@@ -541,7 +582,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 </span>
                             ) : (
                                 <span
-                                    style={{ fontSize: '0.52rem', color: 'rgba(237,237,237,0.08)', cursor: 'default', flexShrink: 0 }}
+                                    style={{ fontSize: '0.58rem', color: 'var(--ink-3)', opacity: 0.4, cursor: 'default', flexShrink: 0 }}
                                     onDoubleClick={e => { e.stopPropagation(); startRename(page.id, '') }}
                                     title='Double-click to add label'
                                 >
@@ -551,14 +592,14 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             {!isRenaming && (
                                 isConfirmingDelete ? (
                                     <div style={{ display: 'flex', gap: 2 }} onClick={e => e.stopPropagation()}>
-                                        <button type='button' onClick={() => deletePage(page.id)} style={{ padding: '1px 5px', fontSize: '0.55rem', fontWeight: 700, background: 'rgba(200,40,40,0.7)', border: '1px solid rgba(200,40,40,0.9)', color: '#fff', cursor: 'pointer', borderRadius: 3 }}>Del</button>
-                                        <button type='button' onClick={() => setConfirmingDeleteId(null)} style={{ padding: '1px 5px', fontSize: '0.55rem', fontWeight: 700, background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.5)', cursor: 'pointer', borderRadius: 3 }}>✕</button>
+                                        <button type='button' onClick={() => deletePage(page.id)} style={{ padding: '1px 5px', fontSize: '0.55rem', fontWeight: 700, background: 'var(--crit)', border: '1px solid var(--crit)', color: '#fff', cursor: 'pointer', borderRadius: 'var(--r)' }}>Del</button>
+                                        <button type='button' onClick={() => setConfirmingDeleteId(null)} style={{ padding: '1px 5px', fontSize: '0.55rem', fontWeight: 700, background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--ink-3)', cursor: 'pointer', borderRadius: 'var(--r)' }}>✕</button>
                                     </div>
                                 ) : (
                                     <button type='button' onClick={e => { e.stopPropagation(); setConfirmingDeleteId(page.id) }}
-                                        style={{ background: 'transparent', border: 'none', padding: 1, cursor: 'pointer', color: 'rgba(237,237,237,0.15)', display: 'flex', alignItems: 'center', borderRadius: 2, flexShrink: 0 }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(220,60,60,0.7)' }}
-                                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.15)' }}
+                                        style={{ background: 'transparent', border: 'none', padding: 1, cursor: 'pointer', color: 'var(--ink-3)', opacity: showRowActions ? 0.7 : 0, display: 'flex', alignItems: 'center', borderRadius: 2, flexShrink: 0, transition: 'opacity 0.12s, color 0.12s' }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--crit)' }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink-3)' }}
                                     >
                                         <Delete style={{ fontSize: 11 }} />
                                     </button>
@@ -568,36 +609,26 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                     )
                 }
 
-                // Per-page-type accent colors (only applied when active)
-                const accent = page.pageType === 'zeus'
-                    ? { bg: 'rgba(0,195,255,0.08)', border: 'rgba(0,195,255,0.25)', left: '2px solid rgba(0,195,255,0.7)', icon: isActive ? 'rgba(0,195,255,0.85)' : 'rgba(0,195,255,0.4)', text: isActive ? 'rgba(0,195,255,0.9)' : 'rgba(0,195,255,0.5)' }
-                    : page.pageType === 'ocap'
-                    ? { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', left: '2px solid rgba(16,185,129,0.7)', icon: isActive ? 'rgba(16,185,129,0.85)' : 'rgba(16,185,129,0.4)', text: isActive ? 'rgba(16,185,129,0.9)' : 'rgba(16,185,129,0.5)' }
-                    : page.pageType === 'staff_orders'
-                    ? ((): { bg: string; border: string; left: string; icon: string; text: string } => {
-                        const hex = page.pageColor || '#22c55e'
-                        const { r: sr, g: sg, b: sb } = hexToRgb(hex)
-                        const rc = (a: number) => `rgba(${sr},${sg},${sb},${a})`
-                        return { bg: rc(0.04), border: rc(0.25), left: `2px solid ${rc(0.7)}`, icon: isActive ? rc(0.85) : rc(0.4), text: isActive ? rc(0.92) : rc(0.55) }
-                    })()
-                    : page.pageType === 'aar'
-                    ? { bg: 'rgba(99,102,241,0.03)', border: 'rgba(99,102,241,0.25)', left: '2px solid rgba(99,102,241,0.7)', icon: isActive ? 'rgba(99,102,241,0.85)' : 'rgba(99,102,241,0.4)', text: isActive ? 'rgba(139,140,255,0.95)' : 'rgba(99,102,241,0.55)' }
-                    : { bg: c(0.12), border: c(0.3), left: `2px solid ${c(0.85)}`, icon: isActive ? c(0.85) : c(0.4), text: isActive ? 'rgba(237,237,237,0.9)' : c(0.6) }
-
-                const pageIcon = page.pageType === 'staff_orders'
-                    ? <Article style={{ fontSize: 13, color: accent.icon, flexShrink: 0 }} />
-                    : <Description style={{ fontSize: 13, color: accent.icon, flexShrink: 0 }} />
+                // Per-page-type dot colour — a functional legend (document kind),
+                // not a themeable surface, so these stay literal hex rather than
+                // design tokens; 'orders'/'main' (the common case) uses the
+                // operation's own accent instead of a fixed colour.
+                const dotColor = page.pageType === 'zeus' ? '#00c3ff'
+                    : page.pageType === 'ocap' ? '#10b981'
+                    : page.pageType === 'staff_orders' ? (page.pageColor || '#22c55e')
+                    : page.pageType === 'aar' ? '#6366f1'
+                    : 'var(--acc)'
 
                 const isNestTarget = dragNestTargetId === page.id
 
                 return (
                     <div
                         key={page.id}
-                        style={{ paddingLeft: page.parentId ? 16 : 0 }}
+                        style={page.parentId ? { paddingLeft: 14, marginLeft: 10, borderLeft: '1px solid var(--line)' } : undefined}
                     >
                     {/* Drag insert line before this item */}
                     {dragInsertIdx === idx && dragSrcRef.current !== idx && (
-                        <div style={{ height: 2, background: c(0.8), borderRadius: 1, margin: '2px 0', pointerEvents: 'none' }} />
+                        <div style={{ height: 2, background: 'var(--acc)', margin: '2px 10px', pointerEvents: 'none' }} />
                     )}
                     <div
                         draggable
@@ -631,29 +662,20 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             setDragNestTargetId(null)
                         }}
                         onDragEnd={() => { setDragInsertIdx(null); setDragNestTargetId(null) }}
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: 4,
-                            padding: '6px 8px',
-                            borderRadius: 4,
-                            background: isNestTarget ? c(0.08) : isActive ? accent.bg : 'transparent',
-                            borderTop: isActive ? `1px solid ${accent.border}` : isNestTarget ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            borderRight: isActive ? `1px solid ${accent.border}` : isNestTarget ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            borderBottom: isActive ? `1px solid ${accent.border}` : isNestTarget ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            borderLeft: isActive ? accent.left : isNestTarget ? `1px solid ${c(0.2)}` : '1px solid transparent',
-                            cursor: 'pointer',
-                            transition: 'all 0.1s',
-                            position: 'relative',
-                        }}
                         onClick={() => { if (!isRenaming) onSelectPage(page.id) }}
-                        onMouseEnter={e => {
-                            if (!isActive) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.04)'
-                        }}
-                        onMouseLeave={e => {
-                            if (!isActive) (e.currentTarget as HTMLDivElement).style.background = isNestTarget ? 'rgba(255,255,255,0.07)' : 'transparent'
+                        onMouseEnter={() => setHoveredRowId(page.id)}
+                        onMouseLeave={() => setHoveredRowId(null)}
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: 7,
+                            padding: '8px 10px',
+                            background: isNestTarget ? 'var(--s3)' : isActive ? 'var(--s2)' : 'transparent',
+                            borderLeft: isActive ? '2px solid var(--acc)' : '2px solid transparent',
+                            cursor: 'pointer',
+                            transition: 'background 0.1s',
                         }}
                     >
-                        <DragIndicator style={{ fontSize: 14, flexShrink: 0, color: 'rgba(237,237,237,0.15)', cursor: 'grab' }} />
-                        {pageIcon}
+                        <DragIndicator style={{ fontSize: 13, flexShrink: 0, color: 'var(--ink-3)', opacity: isRowHovered ? 0.5 : 0, cursor: 'grab', transition: 'opacity 0.12s' }} />
+                        <span style={{ width: 5, height: 5, flexShrink: 0, background: dotColor }} />
 
                         {isRenaming ? (
                             <input
@@ -671,9 +693,9 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     flex: 1, minWidth: 0,
                                     background: 'transparent',
                                     border: 'none',
-                                    borderBottom: `1px solid ${c(0.5)}`,
+                                    borderBottom: '1px solid var(--line-2)',
                                     outline: 'none',
-                                    color: 'rgba(237,237,237,0.9)',
+                                    color: 'var(--ink)',
                                     fontSize: '0.72rem',
                                     fontWeight: 600,
                                     padding: '1px 2px',
@@ -683,10 +705,9 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             <span
                                 style={{
                                     flex: 1, minWidth: 0,
-                                    fontSize: '0.72rem', fontWeight: isActive ? 700 : 500,
-                                    color: accent.text,
+                                    fontSize: 12.5, fontWeight: isActive ? 700 : 500,
+                                    color: isActive ? 'var(--ink)' : 'var(--ink-2)',
                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                    letterSpacing: '0.02em',
                                 }}
                                 onDoubleClick={e => { e.stopPropagation(); startRename(page.id, page.title) }}
                                 title={`${page.title}${page.pageType === 'intel' ? ' (Intel Package)' : page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : page.pageType === 'ocap' ? ' (OCAP)' : page.pageType === 'staff_orders' ? ' (Staff Orders)' : page.pageType === 'aar' ? ' (After Action Review)' : ''} (double-click to rename)`}
@@ -699,50 +720,47 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             isConfirmingDelete ? (
                                 <div style={{ display: 'flex', gap: 3 }} onClick={e => e.stopPropagation()}>
                                     <button type='button' onClick={() => deletePage(page.id)}
-                                        style={{ padding: '1px 5px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em', background: 'rgba(200,40,40,0.7)', border: '1px solid rgba(200,40,40,0.9)', color: '#fff', cursor: 'pointer', borderRadius: 3 }}>
+                                        style={{ padding: '1px 5px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.06em', background: 'var(--crit)', border: '1px solid var(--crit)', color: '#fff', cursor: 'pointer', borderRadius: 'var(--r)' }}>
                                         Del
                                     </button>
                                     <button type='button' onClick={() => setConfirmingDeleteId(null)}
-                                        style={{ padding: '1px 5px', fontSize: '0.6rem', fontWeight: 700, background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.5)', cursor: 'pointer', borderRadius: 3 }}>
+                                        style={{ padding: '1px 5px', fontSize: '0.6rem', fontWeight: 700, background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--ink-3)', cursor: 'pointer', borderRadius: 'var(--r)' }}>
                                         ✕
                                     </button>
                                 </div>
                             ) : confirmingDuplicateId === page.id ? (
                                 <div style={{ display: 'flex', gap: 2 }} onClick={e => e.stopPropagation()}>
                                     <button type='button' onClick={() => { duplicatePage(page.id); setConfirmingDuplicateId(null) }}
-                                        style={{ padding: '1px 5px', fontSize: '0.55rem', fontWeight: 700, background: 'rgba(60,130,200,0.6)', border: '1px solid rgba(100,180,237,0.7)', color: '#fff', cursor: 'pointer', borderRadius: 3 }}>Dup</button>
+                                        style={{ padding: '1px 5px', fontSize: '0.55rem', fontWeight: 700, background: 'var(--s3)', border: '1px solid var(--line-2)', color: 'var(--ink)', cursor: 'pointer', borderRadius: 'var(--r)' }}>Dup</button>
                                     <button type='button' onClick={() => setConfirmingDuplicateId(null)}
-                                        style={{ padding: '1px 5px', fontSize: '0.55rem', fontWeight: 700, background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.5)', cursor: 'pointer', borderRadius: 3 }}>✕</button>
+                                        style={{ padding: '1px 5px', fontSize: '0.55rem', fontWeight: 700, background: 'transparent', border: '1px solid var(--line-2)', color: 'var(--ink-3)', cursor: 'pointer', borderRadius: 'var(--r)' }}>✕</button>
                                 </div>
                             ) : (
-                                <div style={{ display: 'flex', gap: 1, opacity: isActive ? 1 : 0, transition: 'opacity 0.12s' }}
-                                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.opacity = '1' }}
-                                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.opacity = isActive ? '1' : '0' }}
-                                >
+                                <div style={{ display: 'flex', gap: 1, opacity: showRowActions ? 1 : 0, transition: 'opacity 0.12s', flexShrink: 0 }}>
                                     {page.pageType === 'staff_orders' ? (
                                         <button type='button' title='Import sections from another document'
                                             onClick={e => { e.stopPropagation(); setImportTargetId(page.id); setImportSourceId(''); setImportSelected(new Set()) }}
-                                            style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'rgba(237,237,237,0.2)', display: 'flex', alignItems: 'center', borderRadius: 3, transition: 'color 0.12s' }}
-                                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(245,158,11,0.8)' }}
-                                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.2)' }}
+                                            style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--ink-3)', display: 'flex', alignItems: 'center', borderRadius: 2, transition: 'color 0.12s' }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--warn)' }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink-3)' }}
                                         >
                                             <ContentCopy style={{ fontSize: 11 }} />
                                         </button>
                                     ) : (
                                     <button type='button' title='Duplicate page'
                                         onClick={e => { e.stopPropagation(); duplicatePage(page.id) }}
-                                        style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'rgba(237,237,237,0.2)', display: 'flex', alignItems: 'center', borderRadius: 3, transition: 'color 0.12s' }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(100,180,237,0.8)' }}
-                                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.2)' }}
+                                        style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--ink-3)', display: 'flex', alignItems: 'center', borderRadius: 2, transition: 'color 0.12s' }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink)' }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink-3)' }}
                                     >
                                         <ContentCopy style={{ fontSize: 11 }} />
                                     </button>
                                     )}
                                     <button type='button' title='Delete page'
                                         onClick={e => { e.stopPropagation(); setConfirmingDeleteId(page.id) }}
-                                        style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'rgba(237,237,237,0.2)', display: 'flex', alignItems: 'center', borderRadius: 3, transition: 'color 0.12s' }}
-                                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(220,60,60,0.8)' }}
-                                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'rgba(237,237,237,0.2)' }}
+                                        style={{ background: 'transparent', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--ink-3)', display: 'flex', alignItems: 'center', borderRadius: 2, transition: 'color 0.12s' }}
+                                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--crit)' }}
+                                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--ink-3)' }}
                                     >
                                         <Delete style={{ fontSize: 13 }} />
                                     </button>
@@ -756,23 +774,73 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
 
             {/* Drag insert line after last item */}
             {dragInsertIdx === pages.length && dragSrcRef.current !== pages.length - 1 && (
-                <div style={{ height: 2, background: c(0.8), borderRadius: 1, margin: '2px 0', pointerEvents: 'none' }} />
+                <div style={{ height: 2, background: 'var(--acc)', margin: '2px 10px', pointerEvents: 'none' }} />
             )}
 
             <button type='button' onClick={() => { setShowTypeModal(true); setTypeModalStep('type') }}
                 style={{
-                    marginTop: 8, padding: '6px 8px',
+                    display: 'block', margin: '6px 10px 4px', padding: '6px 8px',
                     background: 'transparent',
-                    border: `1px dashed ${c(0.25)}`,
-                    color: c(0.45),
+                    border: 'none',
+                    color: 'var(--ink-3)',
                     fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                    cursor: 'pointer', transition: 'all 0.15s', borderRadius: 4, width: '100%',
+                    cursor: 'pointer', transition: 'color 0.15s', textAlign: 'left',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = c(0.6); e.currentTarget.style.color = c(0.85) }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = c(0.25); e.currentTarget.style.color = c(0.45) }}
+                onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+                onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-3)' }}
             >
                 + Add Document
             </button>
+            </div>
+
+            {/* Footer — collaborator presence (visual-fixes FIX 3). Replaces the
+                old current-user-only footer; the "EDITING" indicator that used
+                to float at the top-right of the editor column now lives here
+                instead, reusing the same `presenceUser`/`presencePeers` identity
+                ActiveEditor already derives from the Hocuspocus awareness state
+                for the collaborative cursors — no second presence channel. */}
+            <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+                padding: '10px 14px',
+                borderTop: '1px solid var(--line)',
+            }}>
+                {presenceUser && (() => {
+                    const shown = [presenceUser, ...presencePeers].slice(0, 6)
+                    const overflowCount = presenceUser ? 1 + presencePeers.length - shown.length : 0
+                    return (
+                        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                            {shown.map((p, i) => (
+                                <div key={p.id} title={p.name} style={{
+                                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0, overflow: 'hidden',
+                                    background: p.color, border: '1.5px solid var(--bg)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 8.5, fontWeight: 700, color: '#fff', textTransform: 'uppercase',
+                                    marginLeft: i === 0 ? 0 : -6, position: 'relative', zIndex: shown.length - i,
+                                }}>
+                                    {p.avatar ? <img src={p.avatar} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} /> : p.name.charAt(0)}
+                                </div>
+                            ))}
+                            {overflowCount > 0 && (
+                                <div style={{
+                                    width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                                    background: 'var(--s3)', border: '1.5px solid var(--bg)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 8, fontWeight: 700, color: 'var(--ink-2)',
+                                    marginLeft: -6, position: 'relative', zIndex: 0,
+                                }}>
+                                    +{overflowCount}
+                                </div>
+                            )}
+                        </div>
+                    )
+                })()}
+                <span style={{
+                    fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                    color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                    {!presenceUser ? 'Connecting…' : presencePeers.length === 0 ? 'Only you' : readOnly ? 'Viewing' : 'Editing'}
+                </span>
+            </div>
 
             {/* Section import modal */}
             {importTargetId && (
@@ -800,7 +868,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
 
                         {/* Section checklist */}
                         {importSourceId && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', padding: '4px 0' }}>
+                            <div className='thin-scroll' style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto', padding: '4px 0' }}>
                                 {importSectionList.length === 0 ? (
                                     <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic' }}>No sections found in this document.</div>
                                 ) : (

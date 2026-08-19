@@ -263,7 +263,7 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 
 	return (
 		<div
-			className={s.shell}
+			className={`command ${s.shell}`}
 			// The member's own Discord accent, everything else neutral. ensureVisible
 			// lifts a near-black accent off the background; the triplet has to be
 			// derived from the same value or the text colour and its tints disagree.

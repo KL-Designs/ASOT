@@ -381,7 +381,7 @@ export default function SimpleEditor({ initialContent = '', onChange, readOnly =
                 </div>
             )}
 
-            <div style={{ minHeight, padding: readOnly ? 0 : '16px 20px', background: readOnly ? 'transparent' : 'rgba(255,255,255,0.015)', overflowX: 'auto' }}>
+            <div className='thin-scroll' style={{ minHeight, padding: readOnly ? 0 : '16px 20px', background: readOnly ? 'transparent' : 'rgba(255,255,255,0.015)', overflowX: 'auto' }}>
                 <EditorContent editor={editor} />
             </div>
         </div>

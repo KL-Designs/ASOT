@@ -222,7 +222,7 @@ export default function ActivityLog({ operationId, onClose }: { operationId: str
             </div>
 
             {/* Log list */}
-            <div style={{ flex: 1, overflowY: 'auto' }}>
+            <div className='thin-scroll' style={{ flex: 1, overflowY: 'auto' }}>
                 {loading && (
                     <div style={{ padding: '24px 12px', textAlign: 'center', fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)', letterSpacing: '0.1em' }}>
                         Loading…
