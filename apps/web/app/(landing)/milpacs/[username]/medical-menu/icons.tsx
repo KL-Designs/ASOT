@@ -13,8 +13,6 @@ const Medication = () => <svg viewBox='0 0 24 24' {...P}><rect x='6' y='7' width
 const Airway = () => <svg viewBox='0 0 24 24' {...P}><circle cx='12' cy='6' r='3' /><path d='M12 9v6M8.5 12h7M9 21l1.5-6M15 21l-1.5-6' /></svg>
 const Advanced = () => <svg viewBox='0 0 24 24' {...P}><path d='M2 12h4l2-6 4 12 2.5-8 1.8 4H22' /></svg>
 const Splint = () => <svg viewBox='0 0 24 24' {...P}><path d='M5 19 19 5' /><path d='M4 6l3-3 3 3-3 3z' /><path d='M14 18l3-3 3 3-3 3z' /></svg>
-const Drag = () => <svg viewBox='0 0 24 24' {...P}><circle cx='9' cy='4.5' r='2' /><path d='M9 7l-2 5 3 3 1 6M9 12l-4 2M12 10l4 2' /><path d='M17 20h4' /></svg>
-const Transfer = () => <svg viewBox='0 0 24 24' {...P}><circle cx='7' cy='7' r='2.6' /><circle cx='17' cy='7' r='2.6' /><path d='M3 19c0-3 2-5 4-5s4 2 4 5M13 19c0-3 2-5 4-5s4 2 4 5' /></svg>
 
 export const TOOL_ICONS: Record<ToolId, () => React.JSX.Element> = {
     triage: Triage,
@@ -24,6 +22,4 @@ export const TOOL_ICONS: Record<ToolId, () => React.JSX.Element> = {
     airway: Airway,
     advanced: Advanced,
     splint: Splint,
-    drag: Drag,
-    transfer: Transfer,
 }

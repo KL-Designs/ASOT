@@ -163,6 +163,26 @@ export interface Patient {
     airway: string
     meds: string[]
     tqCount: number
+    /**
+     * Doses of phenylephrine on board, decaying.
+     *
+     * The one drug in the drawer that stacks: each dose tightens the vessels
+     * further and the bleeding slows with them. A fraction rather than a count
+     * because it wears off continuously.
+     */
+    pressor: number
+    /** Seconds of epinephrine left in the casualty. Compressions work on it. */
+    epi: number
+    /**
+     * Where the heart rate is climbing to, or null if it is not climbing.
+     *
+     * A heart that has just restarted does not restart at seventy. It comes
+     * back slow and works its way up, and watching it do that is most of how
+     * you know the return was real.
+     */
+    hrTarget: number | null
+    /** Seconds until they could come round. Set by a return of circulation. */
+    wake: number
     /** Lines up and running. Drained by the sim, not by the treatment. */
     infusions: Infusion[]
     /** Ids for the bags, so React can key them and the log can name them. */
@@ -175,8 +195,6 @@ export interface Patient {
      * monitor says afterwards.
      */
     downtime: number
-    /** Seconds of compressions still running. CPR tops this up; the sim burns it. */
-    cprHold: number
     /** Decided once. `active` is the only state the sim keeps running in. */
     outcome: 'active' | 'stable' | 'dead'
     /** Why they died, for the board. Empty unless `outcome` is 'dead'. */
@@ -287,8 +305,9 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         temp: Math.round((36.8 - Math.random() * 1.4) * 10) / 10,
         conscious: true, rhythm: 'sinus', analysed: null, cardiacArrest: false, airway: 'clear',
         meds: [], tqCount: 0,
+        pressor: 0, epi: 0, hrTarget: null, wake: 0,
         infusions: [], infusionSeq: 0,
-        downtime: 0, cprHold: 0, outcome: 'active', cause: '',
+        downtime: 0, outcome: 'active', cause: '',
         triage: 'none', triageEntries: [],
         cprActive: false,
     }
@@ -357,26 +376,44 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
  * the monitor to disagree with itself when they were set by hand.
  */
 export function setRhythm(p: Patient, r: Rhythm) {
+    const wasArrested = p.cardiacArrest
     p.rhythm = r
     p.analysed = null
     p.cardiacArrest = ARRESTED.has(r)
+    p.cprActive = false
 
     if (p.cardiacArrest) {
         p.conscious = false
-        p.cprActive = false
-        p.cprHold = 0
-        if (r === 'asystole') p.hr = 0
-        else if (r === 'vf') p.hr = 0
-        else if (r === 'vt') p.hr = 190
-        else p.hr = 40                      // PEA: complexes, no output
-    } else {
-        p.conscious = true
-        // An output is an output: the clock only runs while there is none, so
-        // getting one back stops it and clears what it had counted.
-        p.downtime = 0
-        p.cprHold = 0
-        p.cprActive = false
+        p.hr = arrestHr(r)
+        return
     }
+
+    // An output is an output: the clock only runs while there is none, so
+    // getting one back stops it and clears what it had counted.
+    p.downtime = 0
+    p.hrTarget = null
+
+    if (!wasArrested) { p.conscious = true; return }
+
+    /*
+       A return of circulation, which is not the same thing as a casualty.
+
+       They stay under, and the rate comes back at forty and climbs from
+       there. Both of those are the honest version and both are the version
+       worth showing: a heart that restarts at seventy with the patient
+       talking would teach you that the hard part was over.
+    */
+    p.conscious = false
+    p.wake = WAKE_DELAY
+    p.hr = 40
+    p.hrTarget = 68 + Math.round(Math.random() * 14)
+}
+
+/** What the monitor reads for an arrested rhythm with nobody compressing. */
+export function arrestHr(r: Rhythm): number {
+    if (r === 'vt') return 190
+    if (r === 'pea') return 40      // complexes, no output
+    return 0                        // asystole, VF
 }
 
 /* ---------- winning and losing -------------------------------------------- */
@@ -393,8 +430,72 @@ export const DEATH_DOWNTIME = 300
  */
 export const CPR_DOWNTIME_RATE = 0.28
 
-/** How long one round of compressions keeps running for. */
-export const CPR_HOLD = 12
+/** Compressions, in beats per minute. What the monitor reads while you work. */
+export const CPR_RATE = 118
+
+/** How long a casualty stays under after their heart restarts. */
+export const WAKE_DELAY = 22
+
+/** How long 1 mg of epinephrine keeps working, in seconds. */
+export const EPI_WINDOW = 120
+
+/* ---------- vasoconstriction ---------------------------------------------- */
+
+/** Seconds one dose of phenylephrine holds for. */
+export const PRESSOR_LIFE = 50
+
+/** Doses worth giving. Past this the vessels are as tight as they will go. */
+export const PRESSOR_MAX = 4
+
+/**
+ * What the bleeding is multiplied by, for the phenylephrine on board.
+ *
+ * Deliberately floored well above zero. Squeezing the vessels shut buys time
+ * and buys it at a price the casualty pays later — it is not a dressing, and a
+ * drug that could stop a haemorrhage outright would teach the wrong thing.
+ * `totalBleed` is left alone for the same reason a tourniqueted limb keeps its
+ * colour: the wound is exactly as open as it was.
+ */
+export function bleedFactor(p: Patient): number {
+    return Math.max(0.3, 1 - 0.2 * Math.min(p.pressor, PRESSOR_MAX))
+}
+
+/* ---------- consciousness -------------------------------------------------- */
+
+/**
+ * Whether the casualty is with you, given everything else about them.
+ *
+ * Two sets of thresholds rather than one, because a single line would have
+ * them flickering four times a second the moment they sat on it. Losing
+ * consciousness is easier than getting it back, which is both how it works and
+ * what makes going under feel like something that happened to them.
+ */
+export function isConscious(p: Patient): boolean {
+    if (p.cardiacArrest || p.wake > 0) return false
+    return p.conscious
+        ? !(p.blood < 42 || p.pain > 84 || p.spo2 < 78)
+        : (p.blood > 50 && p.pain < 72 && p.spo2 > 85)
+}
+
+/**
+ * What they say, given how they are.
+ *
+ * Drawn from their state rather than a script, so the casualty telling you
+ * they are cold is a casualty who has actually lost the volume for it. They go
+ * quiet when they go under, which is its own indicator.
+ */
+export function chatter(p: Patient): string[] {
+    const out: string[] = []
+    if (p.pain > 72)      out.push('Aaah — that really hurts', 'Please, something for the pain', "I can't take much more of this")
+    else if (p.pain > 38) out.push('That stings like hell', 'Careful — careful', 'It hurts when you touch it')
+    if (p.blood < 58)     out.push("I'm freezing", "I'm so thirsty", 'Everything has gone grey')
+    if (p.blood < 44)     out.push("I don't feel right", 'Am I going to be alright?', "I can't feel my hands")
+    if (p.spo2 < 92)      out.push("I can't get a breath", 'My chest is tight')
+    if (totalBleed(p) > 0) out.push("I'm still bleeding, aren't I", "Don't let go of it")
+    if (p.tqCount > 0)    out.push("That strap is agony", 'Am I keeping the leg?')
+    if (!out.length)      out.push("How's it looking?", 'I can walk it off', 'Just get me out of here', "Cheers — I owe you one", "Tell them I'm alright")
+    return out
+}
 
 /**
  * What is still wrong, in the order you would fix it.

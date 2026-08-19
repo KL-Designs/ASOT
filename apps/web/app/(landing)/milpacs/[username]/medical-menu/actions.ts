@@ -1,6 +1,7 @@
 import {
-    BAG_SIZES, CPR_DOWNTIME_RATE, CPR_HOLD, DEATH_DOWNTIME, FLUIDS,
-    RHYTHM_LABEL, SHOCKABLE, clamp, jitter, pName, setRhythm, stabilityIssues, totalBleed,
+    BAG_SIZES, CPR_DOWNTIME_RATE, CPR_RATE, DEATH_DOWNTIME, EPI_WINDOW, FLUIDS,
+    PRESSOR_LIFE, PRESSOR_MAX, RHYTHM_LABEL, SHOCKABLE,
+    arrestHr, bleedFactor, clamp, isConscious, jitter, pName, setRhythm, stabilityIssues, totalBleed,
     type FluidId, type Patient, type PartId,
 } from './model'
 
@@ -18,7 +19,7 @@ import {
 
 export type ToolId =
     | 'triage' | 'examine' | 'bandage' | 'medication'
-    | 'airway' | 'advanced' | 'splint' | 'drag' | 'transfer'
+    | 'airway' | 'advanced' | 'splint'
 
 export const TOOLS: { id: ToolId, label: string }[] = [
     { id: 'triage',     label: 'Triage Card' },
@@ -28,8 +29,6 @@ export const TOOLS: { id: ToolId, label: string }[] = [
     { id: 'airway',     label: 'Airway & Chest' },
     { id: 'advanced',   label: 'Advanced Treatment' },
     { id: 'splint',     label: 'Splints & Fractures' },
-    { id: 'drag',       label: 'Drag / Carry' },
-    { id: 'transfer',   label: 'Handover / Transfer' },
 ]
 
 /** A rule drawn after these, so the toolbar groups rather than runs on. */
@@ -48,17 +47,15 @@ export const TOOL_SEPS = new Set<ToolId>(['triage', 'advanced'])
 */
 const TOOL_TIME: Record<ToolId, number> = {
     triage: 0, examine: 3, bandage: 3, medication: 3,
-    airway: 4, advanced: 6, splint: 6, drag: 4, transfer: 3,
+    airway: 4, advanced: 6, splint: 6,
 }
 
 const ACTION_TIME: Record<string, number> = {
     full: 8, bt: 4,
     packing: 4, quik: 4, tq: 5, tqoff: 3, seal: 5,
     decom: 5, bvm: 2, oxy: 3,
-    iv: 5, blood: 8, plasma: 8, saline: 8, cpr: 6, analyse: 6, shock: 4, pak: 10, surg: 15,
+    iv: 5, blood: 8, plasma: 8, saline: 8, analyse: 6, shock: 4, pak: 10, surg: 15,
     realign: 4, sling: 4, blanket: 3, heat: 3,
-    stretch: 6, veh: 6, bag: 8,
-    medevac: 4, handover: 5,
 }
 
 /** Seconds this action takes, however it was specified. */
@@ -89,6 +86,10 @@ export interface Action {
      * `run` as `ml`. Fluids are the only thing you pick an amount of.
      */
     sizes?: readonly number[]
+    /** Overrides the label from the casualty's state — CPR reads start or stop. */
+    labelFor?: (p: Patient) => string
+    /** Whether the row is currently switched on, for the rows that latch. */
+    onFor?: (p: Patient) => boolean
     run: (p: Patient, partId: PartId | null, ml: number) => [string, LogKind]
     sec?: undefined
 }
@@ -97,14 +98,20 @@ export type ActionRow = Action | ActionSection
 
 /* ---------- shared treatment effects -------------------------------------- */
 
-/** Return of spontaneous circulation: a rhythm, and the vitals to go with it. */
-function rosc(p: Patient, hr: number) {
+/**
+ * Return of spontaneous circulation.
+ *
+ * `setRhythm` does the work — forty beats a minute, still under, climbing.
+ * All this adds is where it is climbing to and a pressure that is back but
+ * nowhere near good, because the casualty at the end of a resuscitation is
+ * not a casualty you have finished with.
+ */
+function rosc(p: Patient, target: number) {
     setRhythm(p, 'sinus')
-    p.hr = hr
-    p.sysBp = clamp(Math.max(p.sysBp, 92), 0, 200)
-    p.diaBp = clamp(Math.max(p.diaBp, 54), 0, 140)
-    p.spo2 = clamp(Math.max(p.spo2, 88), 0, 100)
-    p.cprActive = false
+    p.hrTarget = target
+    p.sysBp = clamp(Math.max(p.sysBp, 74), 0, 200)
+    p.diaBp = clamp(Math.max(p.diaBp, 44), 0, 140)
+    p.spo2 = clamp(Math.max(p.spo2, 84), 0, 100)
 }
 
 function bandage(p: Patient, id: PartId, kind: string, power: number): [string, LogKind] {
@@ -118,9 +125,10 @@ function bandage(p: Patient, id: PartId, kind: string, power: number): [string, 
     return [`${kind} applied — ${pName(id)} · ${Math.min(done, open.length)} wound(s) dressed`, 'good']
 }
 
-function med(p: Patient, name: string, eff: Partial<Record<keyof Patient, number>>): [string, LogKind] {
+function med(p: Patient, name: string, eff: Partial<Record<keyof Patient, number>>, stack = false): [string, LogKind] {
     // Three doses is the ceiling. Refusing is the safety behaviour worth having.
-    if (p.meds.filter(m => m === name).length >= 3) return [name + ' — max dose reached, refused', 'bad']
+    // A drug you are meant to titrate to effect is exempt.
+    if (!stack && p.meds.filter(m => m === name).length >= 3) return [name + ' — max dose reached, refused', 'bad']
     p.meds.push(name)
     for (const k in eff) {
         const key = k as 'pain' | 'hr' | 'sysBp' | 'diaBp' | 'rr' | 'spo2'
@@ -246,19 +254,36 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         { id: 'fent',  label: 'Fentanyl Lozenge',  note: '800 µg',   dot: 'y', run: p => med(p, 'Fentanyl',   { pain: -38, rr: -2 }) },
 
         { sec: 'Cardiac / Resus' },
-        { id: 'epi', label: 'Epinephrine', note: '1 mg', dot: 'r', run: p => {
+        { id: 'epi', label: 'Epinephrine', note: '1 mg · 2 min', dot: 'r', run: p => {
             const out = med(p, 'Epinephrine', p.cardiacArrest ? {} : { hr: +22, sysBp: +18, diaBp: +8 })
-            // In an arrest it is not a pressor, it is a coin flip on coarsening
-            // asystole into something the defibrillator can work with.
-            if (out[1] === 'good' && p.rhythm === 'asystole' && Math.random() < 0.35) {
-                setRhythm(p, 'vf')
-                return ['Epinephrine administered — rhythm coarsened to VF', 'warn']
-            }
-            return out
+            if (out[1] !== 'good') return out
+            /*
+               In an arrest it is not a pressor, it is what makes the next two
+               minutes of compressions worth doing: coronary perfusion good
+               enough that the heart might take an output back, and asystole
+               coarse enough that it might turn into something the pads can
+               work with. It does none of that on its own — you still have to
+               be pushing on the chest.
+            */
+            p.epi = EPI_WINDOW
+            return p.cardiacArrest
+                ? ['Epinephrine 1 mg — compressions will bite for the next two minutes', 'good']
+                : out
         } },
         { id: 'atro',  label: 'Atropine',      note: '0.5 mg', dot: 'r', run: p => med(p, 'Atropine',      { hr: +16 }) },
         { id: 'amio',  label: 'Amiodarone',    note: '300 mg', dot: 'r', run: p => med(p, 'Amiodarone',    { hr: -14 }) },
-        { id: 'phen',  label: 'Phenylephrine', note: '100 µg', dot: 'r', run: p => med(p, 'Phenylephrine', { sysBp: +14, diaBp: +9, hr: -6 }) },
+        { id: 'phen', label: 'Phenylephrine', note: '100 µg · stacks', dot: 'r', run: p => {
+            // A pressor doing what a pressor does: the vessels clamp down, the
+            // pressure comes up, and less comes out of the holes. It stacks
+            // because you titrate it to effect, and it wears off because it is
+            // borrowing against perfusion rather than fixing anything.
+            const capped = p.pressor >= PRESSOR_MAX
+            med(p, 'Phenylephrine', { sysBp: +14, diaBp: +9, hr: -6 }, true)
+            p.pressor = Math.min(p.pressor + 1, PRESSOR_MAX)
+            return capped
+                ? ['Phenylephrine — already maximally vasoconstricted', 'warn']
+                : [`Phenylephrine administered — bleeding down to ${Math.round(bleedFactor(p) * 100)}%`, 'good']
+        } },
 
         { sec: 'Adjuncts' },
         { id: 'txa',   label: 'TXA',          note: '1 g slow IV', dot: 'b', run: p => med(p, 'TXA', {}) },
@@ -299,19 +324,32 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         { id: 'saline', label: 'Saline 0.9%', note: 'crystalloid', dot: 'b', needsPart: true, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'saline', ml, id!) },
 
         { sec: 'Resuscitation' },
-        { id: 'cpr', label: 'Perform CPR', note: '30:2', dot: 'r', run: p => {
-            if (!p.cardiacArrest) return ['CPR not indicated — pulse present', 'warn']
-            p.cprActive = true
-            p.cprHold = CPR_HOLD
-            // Compressions are perfusion, not a cure. They buy time, they can
-            // coarsen a fibrillating heart back into something worth shocking,
-            // and just occasionally they get an output back on their own.
-            const roll = Math.random()
-            if (p.rhythm === 'pea' && roll < 0.3) { rosc(p, 62); return ['ROSC — output restored after CPR', 'good'] }
-            if (p.rhythm === 'asystole' && roll < 0.12) { setRhythm(p, 'vf'); p.cprActive = true; return ['Rhythm change — coarse VF on the monitor', 'warn'] }
-            if (p.rhythm === 'vf' && roll < 0.08) { rosc(p, 58); return ['ROSC — output restored after CPR', 'good'] }
-            return ['CPR in progress — no ROSC, continuing compressions', 'bad']
-        } },
+        {
+            id: 'cpr', note: `${CPR_RATE}/min`, dot: 'r', time: 0,
+            label: 'Start Compressions',
+            labelFor: p => p.cprActive ? 'Stop Compressions' : 'Start Compressions',
+            onFor: p => p.cprActive,
+            /*
+               Instant, and then it keeps going.
+
+               Compressions were a six-second action that resolved once and
+               stopped, which is not what compressions are: you start them, you
+               do not stop them, and everything else you do happens over the
+               top. So the button is a switch and the sim does the pushing —
+               which is also what lets you give the adrenaline and go back to
+               it without the menu having to model your hands.
+            */
+            run: p => {
+                if (!p.cardiacArrest) return ['CPR not indicated — pulse present', 'warn']
+                if (p.cprActive) {
+                    p.cprActive = false
+                    p.hr = arrestHr(p.rhythm)
+                    return ['Compressions stopped', 'warn']
+                }
+                p.cprActive = true
+                return [`Compressions started — ${CPR_RATE} per minute`, 'good']
+            },
+        },
         { id: 'analyse', label: 'Analyse Rhythm', note: 'stand clear', dot: 'r', run: p => {
             p.analysed = { rhythm: p.rhythm, advised: SHOCKABLE.has(p.rhythm) }
             const found = RHYTHM_LABEL[p.rhythm]
@@ -376,34 +414,6 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
             return ['Heat packs sited — axilla & groin', 'good']
         } },
     ],
-
-    drag: [
-        { sec: 'Movement' },
-        { id: 'drag',    label: 'Drag Casualty',      dot: 'y', run: () => ['Dragging casualty to cover', ''] },
-        { id: 'carry',   label: 'Fireman Carry',      dot: 'y', run: () => ['Casualty lifted — fireman carry', ''] },
-        { id: 'stretch', label: 'Load onto Stretcher', dot: 'g', run: () => ['Casualty secured to stretcher', 'good'] },
-        { id: 'veh',     label: 'Load into Vehicle',   dot: 'g', run: () => ['Casualty loaded — 9-line pending', 'good'] },
-
-        { sec: 'Final' },
-        { id: 'bag', label: 'Place in Body Bag', dot: 'r', run: p => {
-            if (p.triage !== 'deceased') return ['Casualty is not confirmed deceased', 'warn']
-            return ['Remains bagged and tagged — KIA', 'bad']
-        } },
-    ],
-
-    transfer: [
-        { sec: 'Handover' },
-        { id: 'medevac',  label: 'Request MEDEVAC (9-Line)', dot: 'r', run: () => ['9-Line transmitted — ETA 6 min, LZ CHARLIE', 'good'] },
-        { id: 'casrep',   label: 'Send CASREP',              dot: 'y', run: () => ['CASREP sent to HQ NET', ''] },
-        { id: 'handover', label: 'Handover to Role 1',       dot: 'g', run: () => ['Handover given — MIST report passed', 'good'] },
-
-        { sec: 'Command' },
-        { id: 'swap', label: 'Transfer Patient to Another Medic', dot: 'b', run: () => ['Patient care transferred to DOC-2', ''] },
-        { id: 'stabilise', label: 'Mark as Stable for Transport', dot: 'g', run: p => {
-            const ok = p.blood > 70 && !p.cardiacArrest
-            return [ok ? 'Casualty marked STABLE for transport' : 'Refused — casualty is not stable enough', ok ? 'good' : 'bad']
-        } },
-    ],
 }
 
 /* ---------- the tick ------------------------------------------------------ */
@@ -425,7 +435,7 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
            the rate it did, which is why a casualty in arrest can be worked on
            for minutes without emptying.
         */
-        const rate = p.cardiacArrest ? 0.16 : 1
+        const rate = (p.cardiacArrest ? 0.38 : 1) * bleedFactor(p)
         p.blood = clamp(p.blood - bleed * dt * 0.12 * rate, 0, 100)
         if (!p.cardiacArrest) {
             p.hr    = clamp(p.hr + bleed * dt * 0.05, 40, 190)
@@ -433,6 +443,16 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         }
     }
     p.pain = clamp(p.pain - dt * 0.25, 0, 100)
+    // The drugs wearing off.
+    if (p.pressor > 0) p.pressor = Math.max(0, p.pressor - dt / PRESSOR_LIFE)
+    if (p.epi > 0)     p.epi = Math.max(0, p.epi - dt)
+    if (p.wake > 0)    p.wake = Math.max(0, p.wake - dt)
+
+    // A heart that has just restarted, working its way back up.
+    if (p.hrTarget !== null) {
+        p.hr = Math.min(p.hrTarget, p.hr + dt * 2.2)
+        if (p.hr >= p.hrTarget - 0.05) p.hrTarget = null
+    }
 
     // Whatever is hanging, running in. Announced only when a bag empties —
     // a line quietly working is not news, a line that has stopped is.
@@ -452,11 +472,34 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         if (emptied.length) event = [`${emptied.join(', ')} — bag empty, line run through`, 'warn']
     }
 
-    // Compressions run for a while after the action and then stop, so keeping
-    // the clock slow means going back and doing it again.
-    if (p.cprHold > 0) {
-        p.cprHold = Math.max(0, p.cprHold - dt)
-        p.cprActive = p.cprHold > 0
+    if (p.cprActive && p.cardiacArrest) {
+        // The rate on the monitor is your hands, not their heart.
+        p.hr = clamp(jitter(CPR_RATE, 7), 96, 136)
+
+        /*
+           What compressions are actually for.
+
+           Chances are per second and scaled by the tick, so the odds are the
+           same however often the sim runs. Epinephrine multiplies all of them
+           — that is the entire point of giving it, and the reason it is worth
+           interrupting compressions for the ten seconds it costs.
+        */
+        const boost = p.epi > 0 ? 3.4 : 1
+        const rolled = (perSecond: number) => Math.random() < perSecond * dt * boost
+
+        if (p.rhythm === 'pea' && rolled(0.020)) {
+            rosc(p, 66)
+            return ['ROSC — output restored, rate coming back up', 'good']
+        }
+        if (p.rhythm === 'asystole' && rolled(0.009)) {
+            setRhythm(p, 'vf')
+            p.cprActive = true
+            return ['Rhythm change — coarse VF, shockable', 'warn']
+        }
+        if ((p.rhythm === 'vf' || p.rhythm === 'vt') && rolled(0.004)) {
+            rosc(p, 62)
+            return ['ROSC — output restored on compressions alone', 'good']
+        }
     }
 
     // Everything below decides the casualty, and outranks a bag running out.
@@ -484,6 +527,16 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     if (stabilityIssues(p).length === 0) {
         p.outcome = 'stable'
         return ['CASUALTY STABLE — ready for transport', 'good']
+    }
+
+    // Going under and coming round are things that happen to them rather than
+    // things you do, so this is the sim's call and it outranks a bag emptying.
+    const awake = isConscious(p)
+    if (awake !== p.conscious) {
+        p.conscious = awake
+        event = awake
+            ? ['Casualty is coming round', 'good']
+            : ['Casualty has lost consciousness', 'bad']
     }
 
     return event

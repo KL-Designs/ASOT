@@ -446,6 +446,14 @@
 .sizebtn:active:not(:disabled) { transform: translateY(1px) }
 .sizebtn:disabled { opacity: .34; cursor: not-allowed }
 
+/* A row that has latched on — compressions are running until you say stop. */
+.trowOn {
+    background: rgba(224, 59, 49, .18);
+    border-color: rgba(224, 59, 49, .55);
+}
+
+.trowOn:hover:not(:disabled) { background: rgba(224, 59, 49, .26); border-color: rgba(224, 59, 49, .75) }
+
 /* ---------- body diagram ---------- */
 .bodywrap {
     flex: 1 1 auto;
@@ -495,11 +503,37 @@
     border: 1px solid rgba(0, 0, 0, .5);
 }
 
+/* Hands on the chest, beating at the rate you are being asked to compress at:
+   the animation is the metronome, so 118/min is 0.508s a cycle. */
+.cprRing,
+.cprHands {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: compress .508s ease-in-out infinite;
+}
+
+.cprHands { animation-name: compressHands }
+
+@keyframes compress {
+    0%, 100% { transform: scale(1);   opacity: .95 }
+    45%      { transform: scale(.84); opacity: .6 }
+}
+
+@keyframes compressHands {
+    0%, 100% { transform: translateY(0) }
+    45%      { transform: translateY(3px) }
+}
+
+/* What the casualty is saying. */
+.bubble { animation: fade .3s ease }
+.bubble text { font-family: inherit; letter-spacing: .2px }
+
 /* ---------- overview ---------- */
 .ovline { font-size: 16px; line-height: 1.34; letter-spacing: .2px }
 .ovlineRed { color: var(--red); font-weight: 700 }
 .ovlineYel { color: var(--yellow); font-weight: 700 }
 .ovlineDim { color: var(--txt-dim) }
+.ovlineGreen { color: var(--green); font-weight: 700 }
 .ovpart { margin-top: 14px }
 .ovpart h4 { margin: 0 0 1px; font-size: 16px; font-weight: 600; letter-spacing: .4px; color: #fff }
 .ovsub { font-size: 15px; color: var(--txt) }

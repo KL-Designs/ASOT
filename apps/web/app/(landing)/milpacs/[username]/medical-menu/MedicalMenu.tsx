@@ -8,8 +8,8 @@ import {
 } from './actions'
 import { Monitor } from './audio'
 import {
-    DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, FLUIDS, PARTS, RHYTHM_LABEL, WOUND_TYPES,
-    bloodWord, clamp, handover, jitter, newPatient, painWord, partBleeding, partSeverity, pName,
+    CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, FLUIDS, PARTS, RHYTHM_LABEL, WOUND_TYPES,
+    bleedFactor, bloodWord, chatter, clamp, handover, jitter, newPatient, painWord, partBleeding, partSeverity, pName,
     stabilityIssues, stampFrom, totalBleed,
     type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
 } from './model'
@@ -560,16 +560,17 @@ export default function MedicalMenu({ roster, onClose }: {
                                                 <button
                                                     key={row.id}
                                                     type='button'
-                                                    className={s.trow}
+                                                    className={`${s.trow} ${row.onFor?.(patient) ? s.trowOn : ''}`}
                                                     disabled={!!busy || patient.outcome !== 'active' || (row.needsPart && !sel)}
                                                     onClick={() => startAction(row)}
                                                 >
                                                     <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
-                                                    <span>{row.label}</span>
+                                                    <span>{row.labelFor ? row.labelFor(patient) : row.label}</span>
                                                     <span className={s.qty}>
                                                         {row.needsPart && !sel
                                                             ? 'SELECT A LIMB'
-                                                            : [row.note, `${actionTime(tool, row)}s`].filter(Boolean).join(' · ')}
+                                                            : [row.note, actionTime(tool, row) > 0 && `${actionTime(tool, row)}s`]
+                                                                .filter(Boolean).join(' · ')}
                                                     </span>
                                                 </button>
                                             ))
@@ -681,6 +682,22 @@ export default function MedicalMenu({ roster, onClose }: {
                                                 </React.Fragment>
                                             )
                                         })}
+                                        {/* Hands on the chest. It beats at the rate
+                                            you are being asked to compress at, so the
+                                            animation is the metronome. */}
+                                        {patient.cprActive && (
+                                            <g>
+                                                <circle className={s.cprRing} cx='150' cy='186' r='31'
+                                                    fill='rgba(224,59,49,.16)' stroke='#e03b31' strokeWidth='2' />
+                                                <path className={s.cprHands}
+                                                    d='M139,176 h22 v10 h-22 z M142,186 h16 v9 h-16 z'
+                                                    fill='#e03b31' opacity='.92' />
+                                                <text x='150' y='216' textAnchor='middle' fill='#e03b31'
+                                                    fontSize='12' fontWeight='700' letterSpacing='2.5'>CPR</text>
+                                            </g>
+                                        )}
+
+                                        <Chatter patient={patient} />
                                     </g>
                                 </svg>
                             </div>
@@ -711,12 +728,35 @@ export default function MedicalMenu({ roster, onClose }: {
                                 {patient.rhythm === 'stemi' && (
                                     <div className={`${s.ovline} ${s.ovlineYel}`}>{RHYTHM_LABEL.stemi}</div>
                                 )}
+                                {/* Whether they are with you. First, because it changes
+                                    what every other line on this panel means. */}
+                                <div className={`${s.ovline} ${patient.conscious ? s.ovlineGreen : s.ovlineYel}`}>
+                                    {patient.conscious
+                                        ? 'Conscious · responding'
+                                        : patient.cardiacArrest
+                                            ? 'Unresponsive · no output'
+                                            : patient.wake > 0
+                                                ? 'Unconscious · post-arrest'
+                                                : 'Unconscious · not responding'}
+                                </div>
+                                {patient.epi > 0 && (
+                                    <div className={`${s.ovline} ${s.ovlineYel}`}>
+                                        Epinephrine on board · {Math.ceil(patient.epi)}s
+                                    </div>
+                                )}
                                 {patient.analysed && patient.analysed.rhythm === patient.rhythm && (
                                     <div className={`${s.ovline} ${patient.analysed.advised ? s.ovlineRed : s.ovlineDim}`}>
                                         {patient.analysed.advised ? 'Shock advised' : 'No shock advised'}
                                     </div>
                                 )}
                                 {bleeding && <div className={`${s.ovline} ${s.ovlineRed}`}>Bleeding</div>}
+                                {/* Sat under the bleeding it is holding back, because
+                                    that is the only thing it is doing. */}
+                                {patient.pressor > 0 && (
+                                    <div className={`${s.ovline} ${s.ovlineYel}`}>
+                                        Phenylephrine ×{Math.ceil(patient.pressor)} · bleeding at {Math.round(bleedFactor(patient) * 100)}%
+                                    </div>
+                                )}
                                 {bw && <div className={`${s.ovline} ${bcls === 'red' ? s.ovlineRed : s.ovlineYel}`}>{bw}</div>}
                                 {pw && <div className={s.ovline}>{pw}</div>}
                                 {patient.tqCount > 0 && (
@@ -913,6 +953,67 @@ function Vitals({ patient: p }: { patient: Patient }) {
 /* ---------- ECG ----------------------------------------------------------- */
 
 /**
+ * What the casualty is telling you, if they are in any state to tell you.
+ *
+ * On its own timer rather than the sim's: they speak every few seconds, not
+ * four times a second, and what they say is drawn fresh from how they are when
+ * they say it. Going under stops them mid-sentence, which is the point — a
+ * casualty who has gone quiet has told you something.
+ */
+function Chatter({ patient }: { patient: Patient }) {
+    const live = useRef(patient)
+    live.current = patient
+    const [line, setLine] = useState<string | null>(null)
+
+    useEffect(() => {
+        const speak = () => {
+            const p = live.current
+            if (!p.conscious || p.outcome !== 'active') { setLine(null); return }
+            const lines = chatter(p)
+            setLine(lines[Math.floor(Math.random() * lines.length)])
+        }
+        speak()
+        const id = setInterval(speak, 7000)
+        return () => clearInterval(id)
+    }, [])
+
+    // Not on the interval: going under should shut them up immediately.
+    const quiet = !patient.conscious || patient.outcome !== 'active'
+    useEffect(() => { if (quiet) setLine(null) }, [quiet])
+
+    if (!line || quiet) return null
+    return <SpeechBubble text={line} />
+}
+
+/** Drawn in the body's own coordinates so it stays with the head at any size. */
+function SpeechBubble({ text }: { text: string }) {
+    const lines = wrapText(text, 18)
+    const h = 12 + lines.length * 13
+    return (
+        <g className={s.bubble}>
+            <path d={`M188,${h - 8} L172,${h + 14} L204,${h - 2} Z`} fill='rgba(10,12,11,.95)' />
+            <rect x='186' y='4' width='112' height={h} rx='5'
+                fill='rgba(10,12,11,.95)' stroke='#d9a441' strokeWidth='1.1' />
+            {lines.map((l, i) => (
+                <text key={i} x='192' y={4 + 16 + i * 13} fontSize='10.5' fill='#e6e9ec'>{l}</text>
+            ))}
+        </g>
+    )
+}
+
+/** Naive word wrap. SVG text has no box to flow inside, so we make one. */
+function wrapText(text: string, cols: number): string[] {
+    const out: string[] = []
+    let line = ''
+    for (const w of text.split(' ')) {
+        if (line && (line + ' ' + w).length > cols) { out.push(line); line = w }
+        else line = line ? line + ' ' + w : w
+    }
+    if (line) out.push(line)
+    return out.slice(0, 3)
+}
+
+/**
  * Lead II.
  *
  * One waveform function per rhythm, sampled across the canvas at a phase that
@@ -961,7 +1062,8 @@ function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<
             for (let x = 0; x < W; x += 24) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke() }
             for (let y = 0; y < H; y += 18) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
 
-            ctx.strokeStyle = TRACE_COLOUR[p.rhythm]
+            const trace = traceOf(p)
+            ctx.strokeStyle = TRACE_COLOUR[trace]
             ctx.lineWidth = 2
             ctx.beginPath()
             const mid = H * 0.58
@@ -978,14 +1080,14 @@ function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<
 
             for (let x = 0; x < W; x++) {
                 const t = ((x + beatPhase) % beatW) / beatW
-                const y = sample(p.rhythm, t, x + phase) + (Math.random() - 0.5) * 0.02
+                const y = sample(trace, t, x + phase) + (Math.random() - 0.5) * 0.02
                 const py = mid - y * (H * 0.42)
                 if (x === 0) ctx.moveTo(0, py); else ctx.lineTo(x, py)
             }
             ctx.stroke()
 
             // One beep per R wave, and only for rhythms that produce one.
-            if (beat && AUDIBLE.has(p.rhythm)) monitor.current?.beat(p.spo2)
+            if (beat && AUDIBLE.has(trace)) monitor.current?.beat(p.spo2)
 
             ctx.fillStyle = 'rgba(255,255,255,.5)'
             ctx.font = '11px sans-serif'
@@ -999,7 +1101,20 @@ function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<
     return <canvas ref={ref} className={s.ecg} width={600} height={112} />
 }
 
-const TRACE_COLOUR: Record<Rhythm, string> = {
+/**
+ * What the trace is showing, which is not always the rhythm.
+ *
+ * Compressions put a waveform on the screen that belongs to your hands rather
+ * than their heart, and it is the thing you are looking at while you do them.
+ */
+type Trace = Rhythm | 'cpr'
+
+function traceOf(p: Patient): Trace {
+    return p.cprActive && p.cardiacArrest ? 'cpr' : p.rhythm
+}
+
+const TRACE_COLOUR: Record<Trace, string> = {
+    cpr: '#e08a3c',
     sinus: '#5cbf62',
     stemi: '#e8c343',
     vt: '#e03b31',
@@ -1009,9 +1124,10 @@ const TRACE_COLOUR: Record<Rhythm, string> = {
 }
 
 /** Rhythms that make a noise. VF has no organised beat to beep on. */
-const AUDIBLE: ReadonlySet<Rhythm> = new Set<Rhythm>(['sinus', 'stemi', 'pea'])
+const AUDIBLE: ReadonlySet<Trace> = new Set<Trace>(['sinus', 'stemi', 'pea', 'cpr'])
 
 function beatWidth(p: Patient): number {
+    if (p.cprActive && p.cardiacArrest) return clamp(9000 / CPR_RATE, 40, 260)
     if (p.rhythm === 'vf') return 44
     if (p.rhythm === 'vt') return 52
     if (p.rhythm === 'asystole') return 200
@@ -1019,7 +1135,8 @@ function beatWidth(p: Patient): number {
 }
 
 function traceLabel(p: Patient): string {
-    if (p.rhythm === 'asystole') return p.cprActive ? 'CPR — COMPRESSIONS' : 'ASYSTOLE'
+    if (p.cprActive && p.cardiacArrest) return 'CPR — COMPRESSION ARTEFACT'
+    if (p.rhythm === 'asystole') return 'ASYSTOLE'
     if (p.rhythm === 'vf') return 'VF — SHOCKABLE'
     if (p.rhythm === 'vt') return 'VT — SHOCKABLE'
     if (p.rhythm === 'pea') return 'PEA — NO PULSE'
@@ -1034,8 +1151,16 @@ function traceLabel(p: Patient): string {
  * rhythms need: fibrillation has no beat to be a fraction of, so it is sampled
  * from position instead.
  */
-function sample(r: Rhythm, t: number, x: number): number {
+function sample(r: Trace, t: number, x: number): number {
     switch (r) {
+        case 'cpr':
+            // Not a rhythm — the chest moving. Broad, blunt and far too
+            // regular to be a heart, which is exactly how it reads on a real
+            // monitor and exactly why you stop to check underneath it.
+            return t < 0.55
+                ? Math.sin(t / 0.55 * Math.PI) * 0.62
+                : Math.sin(x * 0.3) * 0.03
+
         case 'asystole':
             // Not perfectly flat. A real flatline still has the patient in it.
             return Math.sin(x * 0.08) * 0.012
