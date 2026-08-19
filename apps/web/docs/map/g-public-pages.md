@@ -234,18 +234,46 @@ Client joke/meme page — grid of static images from `/public/thomo/`. Public, n
 ---
 
 ### /gallery — Operation Screenshot Gallery
+Public. Side rail of filters against a masonry grid, styled from `styles/gallery.module.css`.
+Data from `GET /api/gallery` (nested `years[].operations[].stages[].media[]`) plus
+`GET /api/gallery/sotm`; images served via `/api/gallery/fetch?...`, `/api/gallery/featured?img=`
+and `/api/gallery/sotm/image`.
+
+Storage holds years → operations → missions → filenames and nothing else, so there is no
+photographer, tag or like data anywhere on the page — those facets don't exist rather than
+rendering empty.
+
 #### app/(landing)/gallery/layout.tsx
-Sets banner/container chrome for the gallery route (title "GALLERY").
+Metadata only. Deliberately does **not** wrap the route in `Container` — the page renders its own
+banner, and it runs edge-to-edge so the featured strip can overflow the viewport.
 
 #### app/(landing)/gallery/page.tsx
-Client gallery browser: filter bar (Year → Operation → Mission/Stage), image grid, lightbox with
-keyboard nav, and a rotating "featured" carousel. Data from `GET /api/gallery` (returns nested
-`years[].operations[].stages[].media[]`), images served via `/api/gallery/fetch?...` and
-`/api/gallery/featured?img=`. Public.
+Client orchestrator (~200 lines): loads the archive + SOTM, owns filter/sort/view/paging state and
+the lightbox, composes the components below. Page size 48.
 
-#### app/(landing)/gallery/context.tsx
-Dead/commented-out file — an abandoned `GalleryContext` scaffold, all code commented out. No
-current usage.
+#### app/(landing)/gallery/gallery-data.ts
+Pure helpers, no React. `flatten()` turns the storage tree into a flat `Photo[]`;
+`splitOperation()` strips the `"1. "` ordering prefix off folder names (kept for sorting, never
+printed); `matches(photo, filters, skip)` — `skip` is what makes facet counts mean "how many if I
+tick this"; `sortPhotos`, `groupByOperation`, `archiveStats`.
+
+#### app/(landing)/gallery/_components/
+- `GalleryBanner.tsx` — half-height header: crumb, title, archive figures (photographs /
+  operations / missions / earliest year, all counted from the tree) and the screenshot of the
+  month. Drops the SOTM column entirely when none is set.
+- `FeaturedRail.tsx` — auto-scrolling featured strip. Drives `scrollLeft` on a real scroller via
+  rAF (not a CSS marquee) so the drift, the arrows and a trackpad swipe all move the same thing;
+  list rendered twice and wrapped at the halfway point for a seamless loop. Pauses on
+  hover/focus/pointer-down, off entirely under `prefers-reduced-motion`.
+- `Toolbar.tsx` — search, running result count, sort, view switcher, and active filters as
+  removable pills. Exports `GridView` / `SortKey`.
+- `FacetRail.tsx` — Year / Operation / Mission facets as checkbox rows with live counts.
+  Mission only appears once an operation is selected.
+- `PhotoGrid.tsx` — masonry / contact sheet / grouped-by-operation. Masonry spans are computed
+  from the measured column width and each image's real `naturalWidth/naturalHeight`; plain
+  lazy `<img>` rather than `next/image` (thousands of files, and the ratio is needed).
+- `Lightbox.tsx` — generic over archive photo / featured shot / SOTM. Download + copy link.
+- `icons.tsx` — the line icon set, kept off MUI so the toolbar reads as one kit.
 
 ---
 
