@@ -288,6 +288,35 @@ export default function MedicalMenu({ roster, onClose }: {
     const over = patient.outcome !== 'active'
 
     /*
+       Whether the board has been waved away.
+
+       Kept in the component rather than on the casualty because it is about
+       what you have read, not about them. It clears itself the moment the run
+       is live again, so the next casualty — or this one, taken apart again
+       after you carried on working — still gets a board of their own.
+    */
+    const [dismissed, setDismissed] = useState(false)
+    useEffect(() => { if (!over) setDismissed(false) }, [over])
+
+    /*
+       Carrying on with the casualty in front of you.
+
+       A saved one goes back to being live: `declared` is already set, so the
+       sim will not hand you the same board again on the next tick, and you can
+       finish the sutures or take the balloon down at your own pace. A dead one
+       does not — there is nothing to resume — so the board simply gets out of
+       the way and the header keeps the route to the next casualty.
+    */
+    const carryOn = useCallback(() => {
+        setDismissed(true)
+        if (live.current.outcome !== 'stable') return
+        const next = structuredClone(live.current)
+        next.outcome = 'active'
+        commit(next)
+        pushLog('Carrying on with the casualty', 'warn')
+    }, [commit, pushLog])
+
+    /*
        Compressions and a bag, heard rather than watched.
 
        Both are on their own timers at the rate the label promises, so the room
@@ -357,6 +386,7 @@ export default function MedicalMenu({ roster, onClose }: {
         busyTimer.current = null
         setBusy(null)
 
+        setDismissed(false)
         const next = newPatient(drawCasualty(roster), d)
         startedAt.current = Date.now()
         setElapsed(0)
@@ -603,6 +633,13 @@ export default function MedicalMenu({ roster, onClose }: {
                         <h1>Medical Menu</h1>
                         <span className={s.tag}>HZN-MED</span>
                         <span className={`${s.tag} ${s.tagAlt}`}>TRAINING</span>
+                        {/* Once the board is out of the way, this is the only
+                            thing left saying the run has been decided. */}
+                        {over && (
+                            <span className={`${s.tag} ${patient.outcome === 'stable' ? s.tagWin : s.tagDead}`}>
+                                {patient.outcome === 'stable' ? 'STABLE' : 'DECEASED'}
+                            </span>
+                        )}
                         <span className={s.spacer} />
 
                         <label className={s.diff}>
@@ -1215,7 +1252,7 @@ export default function MedicalMenu({ roster, onClose }: {
                     </div>
                 </div>
 
-                {patient.outcome !== 'active' && (
+                {over && !dismissed && (
                     <div className={`${s.board} ${patient.outcome === 'stable' ? s.boardWin : s.boardLose}`}>
                         <div className={s.boardCard}>
                             <div className={s.boardTag}>
@@ -1232,7 +1269,9 @@ export default function MedicalMenu({ roster, onClose }: {
                                 <button type='button' className={s.boardGo} onClick={() => resetPatient(difficulty)}>
                                     Next casualty
                                 </button>
-                                <button type='button' className={s.boardOut} onClick={onClose}>Leave</button>
+                                <button type='button' className={s.boardOut} onClick={carryOn}>
+                                    {patient.outcome === 'stable' ? 'Keep working on them' : 'Stay with them'}
+                                </button>
                             </div>
                         </div>
                     </div>

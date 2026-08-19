@@ -1,11 +1,11 @@
 import {
     ADJUNCT_LABEL, APNOEA_AT, APNOEA_OUT, BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE,
     DEATH_DOWNTIME, DEPRESSED_RR, DRUGS, FATAL_SPO2, FLUIDS, OBSTRUCTION_LABEL,
-    RHYTHM_LABEL, SHOCKABLE, VOMIT_ON_COLLAPSE, WOUND_TYPES,
+    RHYTHM_LABEL, SHOCKABLE, STEMI_CLEARS, VOMIT_ON_COLLAPSE, WOUND_TYPES,
     BAGGING_SLOWDOWN, FREES_HANDS, REBOA_FATAL, REBOA_OCCLUSION, REBOA_WARN,
     airwayOpen, arrestHr, bleedBelowBalloon, bestBandage, bleedFactor, breathing, clamp, dressingLife,
     handsFull, intensity, partBleeding,
-    isConscious, jitter, nextWound, onBoard, pName, reopenChance, setRhythm, shownBp, shownSpo2,
+    isConscious, jitter, nextWound, onBoard, pName, rateHeld, reopenChance, setRhythm, shownBp, shownSpo2,
     stabilityIssues,
     totalBleed, ventilating,
     type Adjunct, type BandageId, type BodyPart, type Dose, type DrugId, type FluidId,
@@ -116,6 +116,7 @@ const ACTION_SFX: Record<string, Sfx> = {
     morph: 'syringe', nalb: 'syringe', fent: 'syringe',
     epi: 'syringe', atro: 'syringe', amio: 'syringe', phen: 'syringe',
     txa: 'syringe', nalox: 'syringe', carb: 'syringe',
+    asp: 'chew', gtn: 'spray',
 
     blanket: 'roll', heat: 'roll',
 }
@@ -153,6 +154,7 @@ const ACTION_WORK: Record<string, [Sfx, number]> = {
     morph: ['workScrape', 560], nalb: ['workScrape', 560], fent: ['workScrape', 560],
     epi: ['workScrape', 560], atro: ['workScrape', 560], amio: ['workScrape', 560],
     phen: ['workScrape', 560], txa: ['workScrape', 600], nalox: ['workScrape', 560],
+    asp: ['workScrape', 620], gtn: ['workScrape', 540],
     carb: ['workScrape', 600],
 
     tilt: ['workCloth', 620], turn: ['workCloth', 560], recov: ['workCloth', 640],
@@ -602,6 +604,13 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         { id: 'amio',  label: DRUGS.amiodarone.label,    note: DRUGS.amiodarone.dose,    dot: 'r', run: p => give(p, 'amiodarone') },
         { id: 'phen',  label: DRUGS.phenylephrine.label, note: DRUGS.phenylephrine.dose, dot: 'r', run: p => give(p, 'phenylephrine') },
 
+        { sec: 'Acute coronary · for ST elevation' },
+        // Both, or neither does anything. Aspirin thins the blood and GTN
+        // drops the pressure, so on a casualty who is still bleeding this is a
+        // genuine argument rather than two more buttons.
+        { id: 'asp', label: DRUGS.aspirin.label, note: DRUGS.aspirin.dose, dot: 'r', run: p => give(p, 'aspirin') },
+        { id: 'gtn', label: DRUGS.gtn.label,     note: DRUGS.gtn.dose,     dot: 'r', run: p => give(p, 'gtn') },
+
         { sec: 'Adjuncts' },
         { id: 'txa',   label: DRUGS.txa.label,      note: DRUGS.txa.dose,      dot: 'b', run: p => give(p, 'txa') },
         { id: 'nalox', label: DRUGS.naloxone.label, note: 'reverses opioids',  dot: 'b', run: p => give(p, 'naloxone') },
@@ -1004,6 +1013,22 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
             p.hr    = clamp(p.hr + bleed * dt * 0.05, 0, 200)
             p.sysBp = clamp(p.sysBp - bleed * dt * 0.05, 30, 190)
         }
+    } else if (!p.cardiacArrest && !p.cprActive && p.hrTarget === null && !rateHeld(p)) {
+        /*
+           Compensation, uncompensating.
+
+           Nothing is bleeding any more, so the rate that went up to make up
+           for it comes back down — slowly, and only as far as what is left in
+           them allows. Without this a casualty who bled once stayed at 140 for
+           the rest of the run and there was no way to hand them over, which is
+           a poor answer to a rate you did nothing to cause.
+
+           Skipped entirely while a rate drug is working: this assigns `p.hr`,
+           and the ledger is holding a number for how much of it is the drug's.
+        */
+        const settled = 60 + Math.max(0, 70 - p.blood) * 1.6 + Math.max(0, p.pain - 30) * 0.5
+        if (p.hr > settled) p.hr = Math.max(settled, p.hr - dt * 1.1)
+        else if (p.hr < settled) p.hr = Math.min(settled, p.hr + dt * 0.6)
     }
     p.pain = clamp(p.pain - dt * 0.25, 0, 100)
     // Dressings giving way. A wound that reopens is one you have to find
@@ -1126,6 +1151,31 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         else p.hrTarget = null
     }
 
+    /*
+       ST elevation, treated rather than shocked.
+
+       The clock only runs while both are on board and gives ground when they
+       are not, so this is two drugs held together for a couple of minutes
+       rather than two buttons pressed. Consciousness is carried across by hand
+       because `setRhythm` assumes a rhythm change is news to the casualty —
+       here it is news to the monitor, and somebody unconscious from blood loss
+       should not sit up because their ECG improved.
+    */
+    if (p.rhythm === 'stemi') {
+        if (onBoard(p, 'aspirin') && onBoard(p, 'gtn')) {
+            p.stemiFixing += dt
+            if (p.stemiFixing >= STEMI_CLEARS) {
+                const wasAwake = p.conscious
+                setRhythm(p, 'sinus')
+                p.conscious = wasAwake
+                p.stemiFixing = 0
+                return ['ST segments have settled — sinus rhythm', 'good']
+            }
+        } else if (p.stemiFixing > 0) {
+            p.stemiFixing = Math.max(0, p.stemiFixing - dt * 0.6)
+        }
+    }
+
     // Whatever is hanging, running in. Announced only when a bag empties —
     // a line quietly working is not news, a line that has stopped is.
     if (p.infusions.length) {
@@ -1224,9 +1274,16 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     }
 
     if (stabilityIssues(p).length === 0) {
-        p.outcome = 'stable'
-        return ['CASUALTY STABLE — ready for transport', 'good']
-    }
+        // Once per state. Choosing to carry on working a casualty you have
+        // already saved would otherwise hand you the same board on the very
+        // next tick; anything going wrong with them again clears it, so a
+        // casualty who comes apart and is put back together is declared twice.
+        if (!p.declared) {
+            p.declared = true
+            p.outcome = 'stable'
+            return ['CASUALTY STABLE — ready for transport', 'good']
+        }
+    } else p.declared = false
 
     // Going under and coming round are things that happen to them rather than
     // things you do, so this is the sim's call and it outranks a bag emptying.

@@ -342,6 +342,23 @@ export interface Patient {
      * monitor says afterwards.
      */
     downtime: number
+    /**
+     * Seconds of aspirin and GTN together, against `STEMI_CLEARS`.
+     *
+     * Held on the casualty rather than worked out from the doses because it
+     * has to be able to go backwards: stop halfway and the segments creep back
+     * up, so one spray and a walk away gets you nowhere.
+     */
+    stemiFixing: number
+    /**
+     * Whether the stable board has already been shown for this state.
+     *
+     * Cleared the moment anything is wrong with them again, so a casualty who
+     * comes apart and is put back together is declared twice. Without it,
+     * choosing to carry on working a casualty you have already saved gets you
+     * the same board again on the very next tick.
+     */
+    declared: boolean
     /** Decided once. `active` is the only state the sim keeps running in. */
     outcome: 'active' | 'stable' | 'dead'
     /** Why they died, for the board. Empty unless `outcome` is 'dead'. */
@@ -464,7 +481,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         doses: [], doseSeq: 0, hrTarget: null, wake: 0,
         monitorOn: null, padsOn: false, woundSeq: 0,
         infusions: [], infusionSeq: 0,
-        downtime: 0, outcome: 'active', cause: '',
+        downtime: 0, stemiFixing: 0, declared: false, outcome: 'active', cause: '',
         triage: 'none', triageEntries: [],
         cprActive: false,
     }
@@ -606,6 +623,12 @@ export function arrestHr(r: Rhythm): number {
 /** Five minutes without an output. */
 export const DEATH_DOWNTIME = 300
 
+/** The rate a casualty is allowed to leave on, either side. */
+export const HR_OK: readonly [number, number] = [50, 110]
+
+/** Seconds of aspirin and GTN together before the ST segments settle. */
+export const STEMI_CLEARS = 100
+
 /**
  * Compressions do not stop the clock, they slow it.
  *
@@ -655,6 +678,7 @@ export const bleedBelowBalloon = (p: Patient) =>
 export type DrugId =
     | 'morphine' | 'nalbuphine' | 'fentanyl'
     | 'epi' | 'atropine' | 'amiodarone' | 'phenylephrine'
+    | 'aspirin' | 'gtn'
     | 'txa' | 'naloxone' | 'caffeine'
 
 export type VitalKey = 'pain' | 'hr' | 'sysBp' | 'diaBp' | 'rr' | 'spo2'
@@ -730,6 +754,25 @@ export const DRUGS: Record<DrugId, Drug> = {
     phenylephrine: { label: 'Phenylephrine', dose: '100 µg',  onset: 10, duration: 90,  fade: 30,  max: 4, effect: { sysBp: 16, diaBp: 10, hr: -6 }, bleedMul: 0.8,
         toxic: { effect: { sysBp: 26, diaBp: 16, hr: -14, spo2: -9 }, warn: 'Vessels clamped too hard — nothing is perfusing' } },
 
+    /*
+       The two that do anything about tombstones.
+
+       Neither of them is a defibrillator and neither is quick — aspirin stops
+       the clot growing, GTN opens what is still open, and between them the ST
+       segments come back down over a minute or two of both being on board.
+       One on its own does nothing, which is the entire reason there are two.
+
+       Both have a price, and both prices are the ones that matter here.
+       Aspirin thins the blood, which is the last thing you want in somebody
+       with holes in them. GTN drops the pressure, so giving it to a casualty
+       who is already empty is how you arrest them for a reason that was
+       entirely yours.
+    */
+    aspirin:       { label: 'Aspirin',       dose: '300 mg chewed', onset: 30, duration: 900, fade: 120, max: 1, effect: {}, bleedMul: 1.16,
+        toxic: { effect: { sysBp: -6 }, warn: 'Too much aspirin — every wound on them is thinner now' } },
+    gtn:           { label: 'GTN Spray',     dose: '400 µg SL', onset: 15, duration: 180, fade: 45,  max: 3, effect: { pain: -20, sysBp: -14, diaBp: -8, hr: 6 },
+        toxic: { effect: { sysBp: -26, diaBp: -14, hr: 16, spo2: -3 }, warn: 'GTN on an empty tank — the pressure has gone' } },
+
     txa:           { label: 'TXA',           dose: '1 g slow', onset: 45, duration: 600, fade: 120, max: 1, effect: {}, bleedMul: 0.78,
         toxic: { effect: { spo2: -6 }, warn: 'Too much TXA — clot where you did not want one' } },
     naloxone:      { label: 'Naloxone',      dose: '0.4 mg',   onset: 8,  duration: 150, fade: 40,  max: 3, effect: { rr: 4 },
@@ -799,6 +842,21 @@ export function intensity(d: Drug, age: number): number {
 
 /** Doses on board that are past the label. */
 export const overdosed = (p: Patient) => p.doses.filter(d => d.over).length
+
+/**
+ * Whether anything on board is holding the heart rate where it is.
+ *
+ * Asked before the rate is allowed to drift back towards its own baseline,
+ * because that drift *assigns* `p.hr` and the ledger is holding a number for
+ * how much of that vital belongs to a drug. Two writers on one number is the
+ * disagreement that had a conscious casualty reading minus two, and the cheap
+ * way to stay out of it is to let the drug have the rate while it has it.
+ */
+export const rateHeld = (p: Patient) => p.doses.some(d => {
+    if (d.hrApplied <= 0.01) return false
+    const drug = DRUGS[d.drug]
+    return (drug.effect.hr ?? 0) !== 0 || (d.over && (drug.toxic?.effect?.hr ?? 0) !== 0)
+})
 
 /** Whether a drug is actually working, as opposed to merely having been given. */
 export const onBoard = (p: Patient, drug: DrugId) =>
@@ -1030,6 +1088,10 @@ export function chatter(p: Patient): string[] {
     if (load('epi') > 0.5)      out.push("My heart is going like a machine gun", 'I can hear my own pulse')
     if (load('caffeine') > 0.6) out.push('I am extremely awake now', 'I could run the whole way back')
 
+    // The one thing the casualty knows that the monitor has not told you yet.
+    // Worth saying out loud, because tombstones with a blood pressure look
+    // like a casualty doing rather well from every other angle.
+    if (p.rhythm === 'stemi') out.push("There's something sitting on my chest", 'My left arm has gone numb', "It's like a band round my ribs")
     if (p.pain > 72)      out.push('Aaah — that really hurts', 'Please, something for the pain', "I can't take much more of this")
     else if (p.pain > 38) out.push('That stings like hell', 'Careful — careful', 'It hurts when you touch it')
     if (p.blood < 58)     out.push("I'm freezing", "I'm so thirsty", 'Everything has gone grey')
@@ -1052,6 +1114,16 @@ export function chatter(p: Patient): string[] {
 export function stabilityIssues(p: Patient): string[] {
     const out: string[] = []
     if (p.cardiacArrest) out.push('No cardiac output')
+    /*
+       A pulse is not a rhythm.
+
+       Tombstones with a blood pressure is a casualty having a heart attack
+       while you tidy up their leg, and they will read entirely well while it
+       happens — rate, pressure, saturation, all of it. Handing that over as
+       stable is how you find out too late, so the trace has to be right before
+       anybody is going anywhere.
+    */
+    else if (p.rhythm !== 'sinus') out.push(`${RHYTHM_LABEL[p.rhythm]} — rhythm not corrected`)
     if (totalBleed(p) > 0) out.push('Still bleeding')
 
     const undressed = Object.values(p.parts).reduce((n, pt) => n + pt.wounds.filter(w => !w.bandaged).length, 0)
@@ -1088,6 +1160,14 @@ export function stabilityIssues(p: Patient): string[] {
         out.push(running > 0
             ? `Volume ${Math.round(p.blood)}% — ${Math.ceil(running)} ml still running`
             : `Volume ${Math.round(p.blood)}% — needs fluids`)
+    }
+    if (!p.cardiacArrest) {
+        // The rate itself, not just the trace. A casualty running at 150 after
+        // a litre of adrenaline is compensating for something or being driven
+        // by something, and either way they are not finished.
+        const hr = Math.round(p.hr)
+        if (hr < HR_OK[0]) out.push(`Heart rate ${hr} — bradycardic`)
+        else if (hr > HR_OK[1]) out.push(`Heart rate ${hr} — tachycardic`)
     }
     if (p.spo2 < 92) out.push(`SpO₂ ${Math.round(p.spo2)}% — needs oxygen`)
     if (p.pain > 30) out.push('In pain — needs analgesia')

@@ -184,6 +184,10 @@
 
 .tagAlt { background: rgba(0, 0, 0, .18); color: #3a2d12 }
 
+/* How the run ended, for after the board has been waved away. */
+.tagWin { background: rgba(61, 220, 132, .85); color: #06301a }
+.tagDead { background: rgba(20, 20, 22, .82); color: #ff8b81; border-color: rgba(255, 106, 94, .55) }
+
 /* Rank sits in front of the name and needs to read as a separate word. */
 .rank {
     margin-right: .45em;

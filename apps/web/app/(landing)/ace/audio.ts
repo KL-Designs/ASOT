@@ -31,6 +31,7 @@ export type Sfx =
     | 'needle' | 'decompress' | 'fluid' | 'syringe' | 'suction'
     | 'tube' | 'seal' | 'pads' | 'cuff' | 'roll'
     | 'reboaUp' | 'reboaDown' | 'compress' | 'bag' | 'refuse'
+    | 'spray' | 'chew'
     /*
        The quiet half: one beat of the work rather than the finish of it.
 
@@ -481,6 +482,19 @@ export class Monitor {
 
             case 'workCloth':
                 this.burst(t, 0.28, { type: 'lowpass', f0: 700, f1: 240, gain: .05, rate: .7 })
+                break
+
+            case 'spray':
+                // One short shot of it, under the tongue.
+                this.burst(t, 0.13, { f0: 4200, f1: 2400, q: 1.1, gain: .16, rate: 1.7 })
+                this.tick(t, 0.06, 5200)
+                break
+
+            case 'chew':
+                // A tablet, being got through. Three dry crunches, no ring.
+                for (let i = 0; i < 3; i++) {
+                    this.burst(t + i * 0.17, 0.07, { f0: 1100 + i * 320, q: 2.4, gain: .075, rate: 1.2 })
+                }
                 break
 
             case 'refuse':
