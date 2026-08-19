@@ -32,7 +32,12 @@ import s from '@/styles/gallery.module.css'
    all three, and every one of them would have had to be invented.
    ========================================================================== */
 
-const PAGE_SIZE = 48
+/*
+   Paged per view, because the unit on screen changes with it. The flat grids
+   window a list of photographs; the grouped one windows a list of operations,
+   where 48 would be most of the archive in one go.
+*/
+const PAGE_SIZE: Record<GridView, number> = { masonry: 48, uniform: 48, grouped: 8 }
 
 export default function Page() {
     const [years, setYears] = useState<GalleryAPI['years']>([])
@@ -42,7 +47,7 @@ export default function Page() {
     const [filters, setFilters] = useState<Filters>(emptyFilters)
     const [sort, setSort] = useState<SortKey>('new')
     const [view, setView] = useState<GridView>('masonry')
-    const [shown, setShown] = useState(PAGE_SIZE)
+    const [shown, setShown] = useState(PAGE_SIZE.masonry)
 
     const [lightbox, setLightbox] = useState<{ list: Photo[], index: number } | null>(null)
     const [singleImage, setSingleImage] = useState<LightboxItem | null>(null)
@@ -89,8 +94,8 @@ export default function Page() {
             change(next)
             return next
         })
-        setShown(PAGE_SIZE)
-    }, [])
+        setShown(PAGE_SIZE[view])
+    }, [view])
 
     const toggleFacet = useCallback((facet: Facet, value: string, on: boolean) => {
         update(draft => {
@@ -113,8 +118,29 @@ export default function Page() {
 
     const clearAll = useCallback(() => {
         setFilters(emptyFilters())
-        setShown(PAGE_SIZE)
+        setShown(PAGE_SIZE[view])
+    }, [view])
+
+    // Switching view changes what a page *is*, so the window resets with it —
+    // 96 photographs deep is not 96 operations deep.
+    const changeView = useCallback((next: GridView) => {
+        setView(next)
+        setShown(PAGE_SIZE[next])
     }, [])
+
+    /* A group's "see all" is a filter, not a route: the archive's operation
+       folders are not the operations board's records, so there is nowhere else
+       to send someone. Year included because one folder name can appear under
+       more than one year. */
+    const showOperation = useCallback((year: string, operation: string) => {
+        update(draft => {
+            draft.year = new Set([year])
+            draft.operation = new Set([operation])
+            draft.mission.clear()
+        })
+        changeView('masonry')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+    }, [update, changeView])
 
     /* Operations are stored with an ordering prefix. The pills print the label,
        but they hold the raw folder name, which is the key everything filters on. */
@@ -190,7 +216,7 @@ export default function Page() {
                 view={view}
                 onSearch={q => update(draft => { draft.q = q })}
                 onSort={setSort}
-                onView={setView}
+                onView={changeView}
                 onRemove={removeFilter}
                 onClear={clearAll}
                 labelFor={labelFor}
@@ -204,9 +230,10 @@ export default function Page() {
                         photos={results}
                         view={view}
                         shown={shown}
-                        onShowMore={() => setShown(n => n + PAGE_SIZE)}
+                        onShowMore={() => setShown(n => n + PAGE_SIZE[view])}
                         onOpen={openPhoto}
                         onClear={clearAll}
+                        onShowOperation={showOperation}
                     />
                 </main>
             </div>

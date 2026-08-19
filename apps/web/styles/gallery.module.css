@@ -906,6 +906,26 @@
     font-weight: 500;
 }
 
+/* Only rendered when a group is holding photographs back. */
+.opgroupH .more {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+    background: none;
+    border: 0;
+    padding: 0;
+    transition: color .16s;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.opgroupH .more:hover {
+    color: var(--red);
+}
+
 /* ---------- empty / load more --------------------------------------------- */
 
 .empty {

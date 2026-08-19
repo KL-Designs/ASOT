@@ -124,14 +124,28 @@ export function sortPhotos(list: Photo[], sort: SortKey): Photo[] {
     return out
 }
 
-/** Groups for the by-operation view, in the order the sort already put them. */
-export function groupByOperation(list: Photo[]): { key: string, label: string, year: string, photos: Photo[] }[] {
-    const groups = new Map<string, { key: string, label: string, year: string, photos: Photo[] }>()
+export type OperationGroup = {
+    key: string
+    /** Raw folder name — what the operation facet filters on. */
+    operation: string
+    label: string
+    year: string
+    photos: Photo[]
+}
+
+/**
+ * Groups for the by-operation view, in the order the sort already put them.
+ *
+ * Keyed on year *and* folder, because the same operation name can appear under
+ * more than one year and they are not the same operation.
+ */
+export function groupByOperation(list: Photo[]): OperationGroup[] {
+    const groups = new Map<string, OperationGroup>()
     for (const p of list) {
         const key = `${p.year}/${p.operation}`
         let group = groups.get(key)
         if (!group) {
-            group = { key, label: p.opLabel, year: p.year, photos: [] }
+            group = { key, operation: p.operation, label: p.opLabel, year: p.year, photos: [] }
             groups.set(key, group)
         }
         group.photos.push(p)

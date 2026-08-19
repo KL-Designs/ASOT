@@ -16,9 +16,9 @@ import s from '@/styles/gallery.module.css'
  * drift, the arrow buttons, a trackpad swipe and the scrollbar are all moving
  * the same one thing and none of them fight.
  *
- * The list is still rendered twice. Once the first copy has passed, `scrollLeft`
- * jumps back by exactly half the scrollable width — which lands on a pixel
- * showing the identical frame, so the seam is invisible and the loop never ends.
+ * The list is still rendered twice. Once the first copy has passed, the position
+ * winds back by exactly one period — which lands on a frame showing the
+ * identical tiles, so the seam is invisible and the loop never ends.
  */
 export default function FeaturedRail({ images, onOpen }: {
     images: string[]
@@ -33,28 +33,56 @@ export default function FeaturedRail({ images, onOpen }: {
 
         // Someone who has asked for less motion is not asking for a strip of
         // photographs to slide past them indefinitely.
-        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)')
-        if (reduced.matches) return
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
-        let frame = 0
+        /*
+           The position is kept here rather than read back off the element every
+           frame, and this is the whole reason the strip moves at all.
+
+           At 45px a second a frame advances it by well under one pixel, and
+           browsers are free to round `scrollLeft` to whole pixels on write — so
+           `el.scrollLeft += 0.7` reads back as unchanged, the next frame adds
+           another 0.7 to the same rounded number, and the strip sits still
+           forever. Accumulating in a float and assigning the absolute value
+           means the fraction survives to cross the next pixel boundary.
+        */
+        let position = el.scrollLeft
+        let written = position
         let last = performance.now()
+        let frame = requestAnimationFrame(tick)
 
-        const tick = (now: number) => {
-            const dt = now - last
+        function tick(now: number) {
+            const dt = Math.min(now - last, 100)  // a backgrounded tab shouldn't lurch on return
             last = now
             frame = requestAnimationFrame(tick)
 
-            if (paused.current) return
+            if (paused.current || !el) return
 
-            // Per millisecond rather than per frame, so the strip travels at the
-            // same speed on a 144Hz monitor as on a 60Hz one.
-            el.scrollLeft += dt * 0.022
+            // If anything else moved the scroller — the arrows, a swipe, the
+            // keyboard — take its position as the new truth rather than
+            // snapping back to ours.
+            if (Math.abs(el.scrollLeft - written) > 2) position = el.scrollLeft
 
-            const half = el.scrollWidth / 2
-            if (half > 0 && el.scrollLeft >= half) el.scrollLeft -= half
+            // Per millisecond, not per frame, so the strip travels at the same
+            // speed on a 144Hz monitor as on a 60Hz one.
+            position += dt * 0.045
+
+            /*
+               One period is the distance from the first tile to its duplicate,
+               measured off the layout rather than computed. Half the scroll
+               width is close but not equal — the two copies share one gap
+               between them — and being a few pixels out puts a visible hitch in
+               a loop whose entire job is to have no seam.
+            */
+            const first = el.children[0] as HTMLElement | undefined
+            const repeat = el.children[images.length] as HTMLElement | undefined
+            const period = first && repeat ? repeat.offsetLeft - first.offsetLeft : 0
+            if (period > 0 && position >= period) position -= period
+
+            el.scrollLeft = position
+            written = el.scrollLeft
         }
 
-        frame = requestAnimationFrame(tick)
         return () => cancelAnimationFrame(frame)
     }, [images.length])
 
