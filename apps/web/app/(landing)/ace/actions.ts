@@ -1227,10 +1227,28 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
             rosc(p, 66)
             return ['ROSC — output restored, rate coming back up', 'good']
         }
-        if (p.rhythm === 'asystole' && rolled(0.0022)) {
-            setRhythm(p, 'vf')
-            p.cprActive = true
-            return ['Rhythm change — coarse VF, shockable', 'warn']
+        /*
+           The way up out of a flat trace.
+
+           Asystole used to have exactly one exit — degenerating into coarse VF
+           — which is both the rarer of the two in a real arrest and, here, a
+           dead end dressed as progress: it meant the answer to a non-shockable
+           rhythm was to wait for it to become a shockable one. Electrical
+           activity coming back before an output does is the usual step, and it
+           is the one adrenaline is actually given into. PEA is not a save, but
+           it is a rhythm with somewhere to go.
+        */
+        if (p.rhythm === 'asystole') {
+            if (rolled(0.0045)) {
+                setRhythm(p, 'pea')
+                p.cprActive = true
+                return ['Rhythm change — PEA, complexes with no output', 'warn']
+            }
+            if (rolled(0.0016)) {
+                setRhythm(p, 'vf')
+                p.cprActive = true
+                return ['Rhythm change — coarse VF, shockable', 'warn']
+            }
         }
         if ((p.rhythm === 'vf' || p.rhythm === 'vt') && rolled(0.0012)) {
             rosc(p, 62)
