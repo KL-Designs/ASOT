@@ -1520,6 +1520,33 @@ textarea.inp {
     gap: 8px;
 }
 
+/*
+   Quick link tile.
+
+   A bookmark, and nothing more — so it gets the same neutral edge every other
+   inert surface gets. The favicon is the only colour on it, which is the one
+   thing on the tile that actually identifies the destination.
+*/
+.qlink {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 8px 13px;
+    border: 1px solid var(--line-1);
+    border-radius: var(--r);
+    background: var(--ink-2);
+    color: var(--txt-2);
+    font-size: 12.5px;
+    text-decoration: none;
+    transition: border-color .14s, background .14s, color .14s;
+}
+
+.qlink:hover {
+    border-color: var(--line-3);
+    background: var(--ink-3);
+    color: var(--txt-1);
+}
+
 /* ---------- responsive ---------------------------------------------------- */
 
 @media (max-width: 1240px) {

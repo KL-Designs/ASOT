@@ -394,8 +394,8 @@ function PinnedSection({ onNavigate }: { onNavigate?: () => void }) {
                 className='w-full flex items-center justify-between px-4 py-2'
                 style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             >
-                <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ color: 'rgba(219,0,29,0.45)', fontFamily: 'monospace' }}>{'//'}</span>
+                <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ color: 'var(--txt-4)', fontFamily: 'monospace' }}>{'//'}</span>
                     PINNED
                 </span>
                 <span style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.25)', lineHeight: 1 }}>
@@ -598,7 +598,7 @@ export default function StaffSidebar({
                 style={{
                     position: 'relative',
                     padding: '18px 16px 16px',
-                    borderBottom: '1px solid rgba(219,0,29,0.42)',
+                    borderBottom: '1px solid var(--line-2)',
                     background: 'rgba(0,0,0,0.25)',
                 }}
             >
@@ -620,7 +620,7 @@ export default function StaffSidebar({
                 </div>
 
                 {/* Divider */}
-                <div style={{ height: 1, background: 'rgba(219,0,29,0.18)', marginBottom: 10 }} />
+                <div style={{ height: 1, background: 'var(--line-1)', marginBottom: 10 }} />
 
                 {/* User + status */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -706,7 +706,7 @@ export default function StaffSidebar({
             })}
 
             {/* ── Footer ──────────────────────────────────────────────────── */}
-            <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid rgba(219,0,29,0.22)' }}>
+            <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid var(--line-1)' }}>
                 <div style={{ fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '0.15em', color: 'rgba(237,237,237,0.12)', textTransform: 'uppercase', lineHeight: 1.8 }}>
                     <div>SYS // DASHBOARD</div>
                     <div>AUTH // DISCORD-SSO</div>
