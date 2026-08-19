@@ -568,6 +568,7 @@ export function setRhythm(p: Patient, r: Rhythm) {
     if (p.cardiacArrest) {
         p.conscious = false
         p.hr = arrestHr(r)
+        resetRateLedger(p)
         return
     }
 
@@ -589,6 +590,7 @@ export function setRhythm(p: Patient, r: Rhythm) {
     p.conscious = false
     p.wake = WAKE_DELAY
     p.hr = 40
+    resetRateLedger(p)
     p.hrTarget = 68 + Math.round(Math.random() * 14)
 }
 
@@ -771,6 +773,20 @@ export interface Dose {
      * stopped.
      */
     hrApplied: number
+}
+
+/**
+  * Forget what the drugs have done to the heart rate.
+  *
+  * Anything that assigns `p.hr` outright — an arrest, a return of circulation —
+  * has just thrown the ledger's contribution away along with everything else
+  * that was in that number. The ledger has to be told, because otherwise it
+  * subtracts the same contribution a second time as the dose fades and walks
+  * the rate down through zero. Five ampoules of adrenaline and a ROSC is how
+  * you end up looking at a conscious casualty at minus two.
+  */
+export function resetRateLedger(p: Patient) {
+    for (const d of p.doses) d.hrApplied = 0
 }
 
 /** How much of a dose is working, at that age. */
@@ -1080,8 +1096,14 @@ export function handover(p: Patient): { text: string, kind: 'bad' | 'warn' | '' 
 
 export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v))
 
-/** Simulated instrument noise. Vitals are never read twice the same. */
-export const jitter = (v: number, d: number) => Math.round(v + (Math.random() * 2 - 1) * d)
+/**
+  * Simulated instrument noise. Vitals are never read twice the same.
+  *
+  * Floored at zero: everything it is used on is a count of something, and a
+  * heart rate of nought jittered by two reads minus two, which is not a number
+  * any monitor has ever shown anybody.
+  */
+export const jitter = (v: number, d: number) => Math.max(0, Math.round(v + (Math.random() * 2 - 1) * d))
 
 export const pName = (id: PartId) => PARTS.find(p => p.id === id)?.name ?? id
 

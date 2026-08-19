@@ -369,6 +369,31 @@ function hang(p: Patient, fluid: FluidId, ml: number, id: PartId): [string, LogK
     return [`${f.label} ${ml} ml hung — ${pName(id)} · ${Math.round(ml / f.rate)}s to run through`, 'good']
 }
 
+/**
+ * Take it out again.
+ *
+ * Which gives you back whatever it was holding off. An unconscious casualty's
+ * tongue goes straight back where it was, and a supraglottic can bring the
+ * stomach up with it on the way out — so pulling one is a decision rather than
+ * an undo, and the airway reads unknown again afterwards either way.
+ */
+function pullAdjunct(p: Patient): [string, LogKind] {
+    const was = p.adjunct
+    p.adjunct = 'none'
+    p.airwayChecked = true
+    if (was === 'none') return ['Nothing sited', 'warn']
+
+    if (!p.conscious && was === 'king' && Math.random() < 0.25) {
+        p.airway = 'vomit'
+        return [`${ADJUNCT_LABEL[was]} out — and it has brought the stomach up with it`, 'bad']
+    }
+    if (!p.conscious && p.airway === 'none') {
+        p.airway = 'tongue'
+        return [`${ADJUNCT_LABEL[was]} out — the tongue has gone straight back`, 'warn']
+    }
+    return [`${ADJUNCT_LABEL[was]} removed`, '']
+}
+
 function siteAdjunct(p: Patient, a: Adjunct): [string, LogKind] {
     if (p.adjunct === a) return [ADJUNCT_LABEL[a] + ' already sited', 'warn']
     p.adjunct = a
@@ -599,16 +624,38 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         },
 
         { sec: 'Adjuncts' },
-        // Not into a mouth full of vomit. Clear it, then site one.
-        { id: 'npa',  label: 'Nasopharyngeal Tube',  needsPart: true, dot: 'g',
-            showFor: (p, pt) => onHead(p, pt) && p.airway !== 'vomit' && p.adjunct !== 'npa',
-            run: p => siteAdjunct(p, 'npa') },
-        { id: 'opa',  label: 'Guedel (OPA)',         needsPart: true, dot: 'g',
-            showFor: (p, pt) => onHead(p, pt) && p.airway !== 'vomit' && p.adjunct !== 'opa',
-            run: p => siteAdjunct(p, 'opa') },
-        { id: 'king', label: 'King LT Supraglottic', needsPart: true, dot: 'g', note: 'seals the airway',
-            showFor: (p, pt) => onHead(p, pt) && p.adjunct !== 'king',
-            run: p => siteAdjunct(p, 'king') },
+        /*
+           One in, one out. Each of these is a switch rather than a press,
+           because a tube you have put in is a tube you can take out again —
+           and only one can be in at a time, which the single `adjunct` field
+           says better than three booleans ever would.
+
+           Not into a mouth full of vomit, though: an NPA and a Guedel hold the
+           tongue out of the way and do nothing whatever about what is already
+           there. Clear it first. The King is exempt, because going past the
+           problem is the entire reason to reach for one.
+        */
+        {
+            id: 'npa', label: 'Nasopharyngeal Tube', needsPart: true, dot: 'g',
+            labelFor: p => p.adjunct === 'npa' ? 'Remove Nasopharyngeal Tube' : 'Nasopharyngeal Tube',
+            onFor: p => p.adjunct === 'npa',
+            showFor: (p, pt) => onHead(p, pt) && (p.adjunct === 'npa' || p.airway !== 'vomit'),
+            run: p => p.adjunct === 'npa' ? pullAdjunct(p) : siteAdjunct(p, 'npa'),
+        },
+        {
+            id: 'opa', label: 'Guedel (OPA)', needsPart: true, dot: 'g',
+            labelFor: p => p.adjunct === 'opa' ? 'Remove Guedel (OPA)' : 'Guedel (OPA)',
+            onFor: p => p.adjunct === 'opa',
+            showFor: (p, pt) => onHead(p, pt) && (p.adjunct === 'opa' || p.airway !== 'vomit'),
+            run: p => p.adjunct === 'opa' ? pullAdjunct(p) : siteAdjunct(p, 'opa'),
+        },
+        {
+            id: 'king', label: 'King LT Supraglottic', needsPart: true, dot: 'g', note: 'seals the airway',
+            labelFor: p => p.adjunct === 'king' ? 'Remove King LT' : 'King LT Supraglottic',
+            onFor: p => p.adjunct === 'king',
+            showFor: onHead,
+            run: p => p.adjunct === 'king' ? pullAdjunct(p) : siteAdjunct(p, 'king'),
+        },
 
         { sec: 'Chest' },
         { id: 'decom', label: 'Needle Decompression', note: '14G · 2nd ICS MCL', needsPart: true, showFor: onChest, dot: 'r', run: p => {
@@ -1087,6 +1134,19 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
             kill(p, 'Five minutes without an output')
             return ['DOWNTIME EXCEEDED — casualty declared dead', 'bad']
         }
+    }
+
+    /*
+       A rate that low is not a rate.
+
+       Enough of something that slows the heart and it stops being one, which
+       is both the honest end of that road and a floor under the number: there
+       is no state in which a casualty is walking around at four beats a minute
+       waiting for the drug to wear off.
+    */
+    if (!p.cardiacArrest && !p.cprActive && p.hr < 20) {
+        setRhythm(p, 'pea')
+        return ['CASUALTY IN CARDIAC ARREST — PEA, profound bradycardia', 'bad']
     }
 
     if (p.blood < 22 && !p.cardiacArrest) {
