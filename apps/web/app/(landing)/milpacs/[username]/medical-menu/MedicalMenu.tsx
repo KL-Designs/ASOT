@@ -3,14 +3,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-    ACTIONS, TOOLS, TOOL_SEPS, actionTime, simulate,
+    ACTIONS, TOOLS, TOOL_SEPS, actionTime, alarmFor, simulate,
     type Action, type ActionRow, type LogKind, type ToolId,
 } from './actions'
+import { Monitor } from './audio'
 import {
-    DIFFICULTIES, FALLBACK_CASUALTY, PARTS, WOUND_TYPES,
+    DIFFICULTIES, FALLBACK_CASUALTY, PARTS, RHYTHM_LABEL, WOUND_TYPES,
     bloodWord, clamp, handover, jitter, newPatient, painWord, partBleeding, partSeverity, pName,
     stampFrom, totalBleed,
-    type Casualty, type Difficulty, type PartId, type Patient, type Triage,
+    type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
 } from './model'
 import { TOOL_ICONS } from './icons'
 import s from './medical-menu.module.css'
@@ -182,6 +183,20 @@ export default function MedicalMenu({ roster, onClose }: {
     onClose: () => void
 }) {
     const [difficulty, setDifficulty] = useState<Difficulty>('moderate')
+    const [muted, setMuted] = useState(false)
+
+    // One monitor for the life of the menu. Created here rather than at module
+    // scope so two menus could never share an audio context, and torn down on
+    // close so an alarm cannot outlive the casualty sounding it.
+    const monitor = useRef<Monitor | null>(null)
+    if (!monitor.current) monitor.current = new Monitor()
+    useEffect(() => {
+        const m = monitor.current!
+        // The click that opened the menu is the gesture browsers want.
+        m.unlock()
+        return () => m.close()
+    }, [])
+    useEffect(() => { monitor.current!.setMuted(muted) }, [muted])
 
     /*
        The treatment underway, if any.
@@ -235,6 +250,20 @@ export default function MedicalMenu({ roster, onClose }: {
         setToasts(prev => [...prev, { id, text }])
         setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 2600)
     }, [])
+
+    /* ---------- the monitor's alarm --------------------------------------- */
+    const alarm = alarmFor(patient)
+    useEffect(() => { monitor.current!.setAlarm(alarm) }, [alarm])
+
+    // Announce a rhythm change in the log — it is the one thing that can happen
+    // to a casualty without anybody having done it.
+    const rhythm = patient.rhythm
+    const lastRhythm = useRef<Rhythm>(rhythm)
+    useEffect(() => {
+        if (lastRhythm.current === rhythm) return
+        lastRhythm.current = rhythm
+        pushLog(`Monitor — ${RHYTHM_LABEL[rhythm]}`, rhythm === 'sinus' ? 'good' : 'bad')
+    }, [rhythm, pushLog])
 
     /* ---------- boot ------------------------------------------------------ */
     // Guarded: StrictMode runs effects twice in development, and without this
@@ -344,9 +373,13 @@ export default function MedicalMenu({ roster, onClose }: {
 
         setBusy({ label: a.label, seconds })
         pushLog(`${a.label} — started`, '')
+        // The charge runs for the length of the action, so the tone finishing
+        // *is* the cue that the thing is about to happen.
+        if (a.sound === 'charge') monitor.current!.charge(seconds)
         busyTimer.current = setTimeout(() => {
             busyTimer.current = null
             setBusy(null)
+            if (a.sound === 'charge') monitor.current!.shock()
             applyAction(a)
         }, seconds * 1000)
     }
@@ -413,6 +446,15 @@ export default function MedicalMenu({ roster, onClose }: {
                         </label>
                         <button type='button' className={s.newbtn} onClick={() => resetPatient(difficulty)}>
                             New casualty
+                        </button>
+                        <button
+                            type='button'
+                            className={s.newbtn}
+                            aria-pressed={muted}
+                            title={muted ? 'Unmute the monitor' : 'Mute the monitor'}
+                            onClick={() => setMuted(m => !m)}
+                        >
+                            {muted ? 'Sound off' : 'Sound on'}
                         </button>
 
                         <span className={s.meta}>MISSION {clock}</span>
@@ -618,7 +660,19 @@ export default function MedicalMenu({ roster, onClose }: {
                         <div className={`${s.col} ${s.colOverview}`}>
                             <div className={s.colhead}>OVERVIEW</div>
                             <div className={s.panel}>
-                                {patient.cardiacArrest && <div className={`${s.ovline} ${s.ovlineRed}`}>CARDIAC ARREST</div>}
+                                {patient.cardiacArrest && (
+                                    <div className={`${s.ovline} ${s.ovlineRed}`}>
+                                        CARDIAC ARREST — {RHYTHM_LABEL[patient.rhythm]}
+                                    </div>
+                                )}
+                                {patient.rhythm === 'stemi' && (
+                                    <div className={`${s.ovline} ${s.ovlineYel}`}>{RHYTHM_LABEL.stemi}</div>
+                                )}
+                                {patient.analysed && patient.analysed.rhythm === patient.rhythm && (
+                                    <div className={`${s.ovline} ${patient.analysed.advised ? s.ovlineRed : s.ovlineDim}`}>
+                                        {patient.analysed.advised ? 'Shock advised' : 'No shock advised'}
+                                    </div>
+                                )}
                                 {bleeding && <div className={`${s.ovline} ${s.ovlineRed}`}>Bleeding</div>}
                                 {bw && <div className={`${s.ovline} ${bcls === 'red' ? s.ovlineRed : s.ovlineYel}`}>{bw}</div>}
                                 {pw && <div className={s.ovline}>{pw}</div>}
@@ -630,7 +684,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                 )}
 
                                 <Vitals patient={patient} />
-                                <Ecg patient={patient} />
+                                <Ecg patient={patient} monitor={monitor} />
                                 <div className={s.bloodbar}><i style={{ width: `${patient.blood}%` }} /></div>
 
                                 {PARTS.map(({ id, name }) => {
@@ -750,12 +804,18 @@ function Vitals({ patient: p }: { patient: Patient }) {
 /* ---------- ECG ----------------------------------------------------------- */
 
 /**
- * Lead II, drawn from the heart rate.
+ * Lead II.
  *
- * The trace runs on its own animation frame rather than React state — it
- * repaints at 60fps and nothing else on screen needs to know about it.
+ * One waveform function per rhythm, sampled across the canvas at a phase that
+ * advances every frame. Drawn on its own animation frame rather than from React
+ * state — it repaints at 60fps and nothing else on screen needs to know.
+ *
+ * The beep is fired from here too, at the moment the R wave crosses. Scheduling
+ * it separately on a heart-rate interval would have been simpler and would have
+ * drifted out of step with the trace within a few beats, which on a monitor is
+ * the one thing you would notice.
  */
-function Ecg({ patient }: { patient: Patient }) {
+function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<Monitor | null> }) {
     const ref = useRef<HTMLCanvasElement>(null)
     const live = useRef(patient)
     live.current = patient
@@ -764,6 +824,7 @@ function Ecg({ patient }: { patient: Patient }) {
         let frame = 0
         let phase = 0
         let last = performance.now()
+        let beats = 0
 
         const draw = (now: number) => {
             frame = requestAnimationFrame(draw)
@@ -783,42 +844,125 @@ function Ecg({ patient }: { patient: Patient }) {
             for (let x = 0; x < W; x += 24) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke() }
             for (let y = 0; y < H; y += 18) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
 
-            ctx.strokeStyle = p.cardiacArrest ? '#e03b31' : (p.hr > 120 ? '#e8c343' : '#5cbf62')
+            ctx.strokeStyle = TRACE_COLOUR[p.rhythm]
             ctx.lineWidth = 2
             ctx.beginPath()
             const mid = H * 0.58
+            const beatW = beatWidth(p)
 
-            if (p.cardiacArrest && !p.cprActive) {
-                ctx.moveTo(0, mid); ctx.lineTo(W, mid)   // flatline
-            } else {
-                const beatW = clamp(9000 / Math.max(p.hr, 30), 62, 260)
-                for (let x = 0; x < W; x++) {
-                    const t = ((x + phase) % beatW) / beatW
-                    let y = 0
-                    if (t < 0.10) y = Math.sin(t / 0.10 * Math.PI) * 0.14              // P
-                    else if (t < 0.16) y = 0
-                    else if (t < 0.19) y = -0.12 * ((t - 0.16) / 0.03)                 // Q
-                    else if (t < 0.23) y = 1.0 * ((t - 0.19) / 0.04) - 0.12            // R
-                    else if (t < 0.27) y = 0.88 - 1.25 * ((t - 0.23) / 0.04)           // S
-                    else if (t < 0.32) y = -0.37 + 0.37 * ((t - 0.27) / 0.05)
-                    else if (t < 0.55) y = Math.sin((t - 0.32) / 0.23 * Math.PI) * 0.26 // T
-                    y += (Math.random() - 0.5) * 0.02
-                    const py = mid - y * (H * 0.42)
-                    if (x === 0) ctx.moveTo(0, py); else ctx.lineTo(x, py)
-                }
+            for (let x = 0; x < W; x++) {
+                const t = ((x + phase) % beatW) / beatW
+                const y = sample(p.rhythm, t, x + phase) + (Math.random() - 0.5) * 0.02
+                const py = mid - y * (H * 0.42)
+                if (x === 0) ctx.moveTo(0, py); else ctx.lineTo(x, py)
             }
             ctx.stroke()
 
+            // One beep per R wave, and only for rhythms that produce one.
+            if (AUDIBLE.has(p.rhythm)) {
+                const n = Math.floor(phase / beatW)
+                if (n !== beats) {
+                    beats = n
+                    monitor.current?.beat(p.spo2)
+                }
+            }
+
             ctx.fillStyle = 'rgba(255,255,255,.5)'
             ctx.font = '11px sans-serif'
-            ctx.fillText(p.cardiacArrest ? (p.cprActive ? 'CPR — COMPRESSIONS' : 'ASYSTOLE') : 'LEAD II', 8, 14)
+            ctx.fillText(traceLabel(p), 8, 14)
         }
 
         frame = requestAnimationFrame(draw)
         return () => cancelAnimationFrame(frame)
-    }, [])
+    }, [monitor])
 
     return <canvas ref={ref} className={s.ecg} width={600} height={112} />
+}
+
+const TRACE_COLOUR: Record<Rhythm, string> = {
+    sinus: '#5cbf62',
+    stemi: '#e8c343',
+    vt: '#e03b31',
+    vf: '#e03b31',
+    pea: '#e8c343',
+    asystole: '#e03b31',
+}
+
+/** Rhythms that make a noise. VF has no organised beat to beep on. */
+const AUDIBLE: ReadonlySet<Rhythm> = new Set<Rhythm>(['sinus', 'stemi', 'pea'])
+
+function beatWidth(p: Patient): number {
+    if (p.rhythm === 'vf') return 44
+    if (p.rhythm === 'vt') return 52
+    if (p.rhythm === 'asystole') return 200
+    return clamp(9000 / Math.max(p.hr, 30), 62, 260)
+}
+
+function traceLabel(p: Patient): string {
+    if (p.rhythm === 'asystole') return p.cprActive ? 'CPR — COMPRESSIONS' : 'ASYSTOLE'
+    if (p.rhythm === 'vf') return 'VF — SHOCKABLE'
+    if (p.rhythm === 'vt') return 'VT — SHOCKABLE'
+    if (p.rhythm === 'pea') return 'PEA — NO PULSE'
+    if (p.rhythm === 'stemi') return 'ST ELEVATION'
+    return 'LEAD II'
+}
+
+/**
+ * The waveform, as a height in roughly -0.4 to 1.0 at a point through the beat.
+ *
+ * `x` is the absolute position along the trace, which only the disorganised
+ * rhythms need: fibrillation has no beat to be a fraction of, so it is sampled
+ * from position instead.
+ */
+function sample(r: Rhythm, t: number, x: number): number {
+    switch (r) {
+        case 'asystole':
+            // Not perfectly flat. A real flatline still has the patient in it.
+            return Math.sin(x * 0.08) * 0.012
+
+        case 'vf':
+            // Chaotic and coarse: several detuned waves beating against each
+            // other so no two screens-full look alike.
+            return (Math.sin(x * 0.22) * 0.34 + Math.sin(x * 0.51 + 1.1) * 0.22
+                + Math.sin(x * 0.13 + 2.3) * 0.18) * (0.85 + Math.sin(x * 0.03) * 0.3)
+
+        case 'vt': {
+            // Wide, regular, monomorphic — the sine-wave look.
+            const a = Math.sin(t * Math.PI * 2)
+            return a * 0.72
+        }
+
+        case 'pea':
+            // Organised and unremarkable. That is the whole trap: it looks like
+            // a rhythm you could leave alone.
+            return qrs(t) * 0.8
+
+        case 'stemi': {
+            // Tombstones: the ST segment lifts into a broad dome that runs
+            // straight out of the R wave instead of coming back to baseline.
+            const base = qrs(t)
+            if (t >= 0.23 && t < 0.62) {
+                const u = (t - 0.23) / 0.39
+                return 0.30 + Math.sin(u * Math.PI) * 0.42
+            }
+            return base
+        }
+
+        default:
+            return qrs(t)
+    }
+}
+
+/** A textbook PQRST complex over one beat. */
+function qrs(t: number): number {
+    if (t < 0.10) return Math.sin(t / 0.10 * Math.PI) * 0.14              // P
+    if (t < 0.16) return 0
+    if (t < 0.19) return -0.12 * ((t - 0.16) / 0.03)                      // Q
+    if (t < 0.23) return 1.0 * ((t - 0.19) / 0.04) - 0.12                 // R
+    if (t < 0.27) return 0.88 - 1.25 * ((t - 0.23) / 0.04)                // S
+    if (t < 0.32) return -0.37 + 0.37 * ((t - 0.27) / 0.05)
+    if (t < 0.55) return Math.sin((t - 0.32) / 0.23 * Math.PI) * 0.26     // T
+    return 0
 }
 
 /* ---------- triage card --------------------------------------------------- */
@@ -923,6 +1067,9 @@ function QuickView({ patient: p }: { patient: Patient }) {
                 <div className={s.chips}>
                     <span className={`${s.chip} ${triCls}`}>{p.triage === 'none' ? 'UNTAGGED' : p.triage.toUpperCase()}</span>
                     <span className={`${s.chip} ${s.chipB}`}>{p.bloodTypeKnown ? p.bloodType : 'BLOOD TYPE UNKNOWN'}</span>
+                    <span className={`${s.chip} ${p.cardiacArrest ? s.chipR : p.rhythm === 'stemi' ? s.chipY : s.chipG}`}>
+                        {RHYTHM_LABEL[p.rhythm].toUpperCase()}
+                    </span>
                     <span className={s.chip}>{p.airway === 'clear' ? 'AIRWAY CLEAR' : p.airway.toUpperCase() + ' SITED'}</span>
                     {p.meds.length > 0 && <span className={`${s.chip} ${s.chipY}`}>{p.meds.length}× MEDS GIVEN</span>}
                 </div>

@@ -1,6 +1,6 @@
 import {
-    clamp, jitter, pName, totalBleed,
-    type Patient, type PartId,
+    RHYTHM_LABEL, SHOCKABLE, clamp, jitter, pName, setRhythm, totalBleed,
+    type Patient, type PartId, type Rhythm,
 } from './model'
 
 /* ============================================================================
@@ -54,7 +54,7 @@ const ACTION_TIME: Record<string, number> = {
     full: 8, bt: 4,
     packing: 4, quik: 4, tq: 5, tqoff: 3, seal: 5,
     decom: 5, bvm: 2, oxy: 3,
-    iv: 5, blood500: 9, plasma: 8, saline: 8, cpr: 6, aed: 5, pak: 10, surg: 15,
+    iv: 5, blood500: 9, plasma: 8, saline: 8, cpr: 6, analyse: 6, shock: 4, pak: 10, surg: 15,
     realign: 4, sling: 4, blanket: 3, heat: 3,
     stretch: 6, veh: 6, bag: 8,
     medevac: 4, handover: 5,
@@ -81,6 +81,8 @@ export interface Action {
     dot?: 'g' | 'y' | 'r' | 'b'
     /** Disabled until a body part is selected. */
     needsPart?: boolean
+    /** A cue for the UI to play — the defibrillator is the only thing with one. */
+    sound?: 'charge' | 'shock'
     run: (p: Patient, partId: PartId | null) => [string, LogKind]
     sec?: undefined
 }
@@ -88,6 +90,16 @@ export interface Action {
 export type ActionRow = Action | ActionSection
 
 /* ---------- shared treatment effects -------------------------------------- */
+
+/** Return of spontaneous circulation: a rhythm, and the vitals to go with it. */
+function rosc(p: Patient, hr: number) {
+    setRhythm(p, 'sinus')
+    p.hr = hr
+    p.sysBp = clamp(Math.max(p.sysBp, 92), 0, 200)
+    p.diaBp = clamp(Math.max(p.diaBp, 54), 0, 140)
+    p.spo2 = clamp(Math.max(p.spo2, 88), 0, 100)
+    p.cprActive = false
+}
 
 function bandage(p: Patient, id: PartId, kind: string, power: number): [string, LogKind] {
     const pt = p.parts[id]
@@ -193,7 +205,16 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         { id: 'fent',  label: 'Fentanyl Lozenge',  note: '800 µg',   dot: 'y', run: p => med(p, 'Fentanyl',   { pain: -38, rr: -2 }) },
 
         { sec: 'Cardiac / Resus' },
-        { id: 'epi',   label: 'Epinephrine',   note: '1 mg',   dot: 'r', run: p => med(p, 'Epinephrine',   { hr: +22, sysBp: +18, diaBp: +8 }) },
+        { id: 'epi', label: 'Epinephrine', note: '1 mg', dot: 'r', run: p => {
+            const out = med(p, 'Epinephrine', p.cardiacArrest ? {} : { hr: +22, sysBp: +18, diaBp: +8 })
+            // In an arrest it is not a pressor, it is a coin flip on coarsening
+            // asystole into something the defibrillator can work with.
+            if (out[1] === 'good' && p.rhythm === 'asystole' && Math.random() < 0.35) {
+                setRhythm(p, 'vf')
+                return ['Epinephrine administered — rhythm coarsened to VF', 'warn']
+            }
+            return out
+        } },
         { id: 'atro',  label: 'Atropine',      note: '0.5 mg', dot: 'r', run: p => med(p, 'Atropine',      { hr: +16 }) },
         { id: 'amio',  label: 'Amiodarone',    note: '300 mg', dot: 'r', run: p => med(p, 'Amiodarone',    { hr: -14 }) },
         { id: 'phen',  label: 'Phenylephrine', note: '100 µg', dot: 'r', run: p => med(p, 'Phenylephrine', { sysBp: +14, diaBp: +9, hr: -6 }) },
@@ -240,18 +261,34 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
         { id: 'cpr', label: 'Perform CPR', note: '30:2', dot: 'r', run: p => {
             if (!p.cardiacArrest) return ['CPR not indicated — pulse present', 'warn']
             p.cprActive = true
-            if (Math.random() < 0.45) {
-                p.cardiacArrest = false; p.hr = 64; p.sysBp = 92; p.diaBp = 54; p.spo2 = 90
-                return ['ROSC — pulse returned after CPR', 'good']
-            }
+            // Compressions are perfusion, not a cure. They buy time, they can
+            // coarsen a fibrillating heart back into something worth shocking,
+            // and just occasionally they get an output back on their own.
+            const roll = Math.random()
+            if (p.rhythm === 'pea' && roll < 0.3) { rosc(p, 62); return ['ROSC — output restored after CPR', 'good'] }
+            if (p.rhythm === 'asystole' && roll < 0.12) { setRhythm(p, 'vf'); p.cprActive = true; return ['Rhythm change — coarse VF on the monitor', 'warn'] }
+            if (p.rhythm === 'vf' && roll < 0.08) { rosc(p, 58); return ['ROSC — output restored after CPR', 'good'] }
             return ['CPR in progress — no ROSC, continuing compressions', 'bad']
         } },
-        { id: 'aed', label: 'AED / Defibrillator', note: '200 J', dot: 'r', run: p => {
-            if (!p.cardiacArrest) return ['AED advises: NO SHOCK — organised rhythm', 'warn']
-            if (Math.random() < 0.5) {
-                p.cardiacArrest = false; p.hr = 72; p.sysBp = 98; p.diaBp = 60
-                return ['Shock delivered — rhythm restored', 'good']
-            }
+        { id: 'analyse', label: 'Analyse Rhythm', note: 'stand clear', dot: 'r', run: p => {
+            p.analysed = { rhythm: p.rhythm, advised: SHOCKABLE.has(p.rhythm) }
+            const found = RHYTHM_LABEL[p.rhythm]
+            return p.analysed.advised
+                ? [`Analysis — ${found}. SHOCK ADVISED`, 'bad']
+                : [`Analysis — ${found}. No shock advised`, 'warn']
+        } },
+        { id: 'shock', label: 'Deliver Shock', note: '200 J', dot: 'r', sound: 'charge', run: p => {
+            // The analysis is the interlock, and it is keyed to the rhythm it
+            // was taken from: a heart that has moved since is a heart the
+            // reading no longer describes.
+            if (!p.analysed) return ['Defibrillator will not charge — analyse the rhythm first', 'warn']
+            if (p.analysed.rhythm !== p.rhythm) return ['Rhythm has changed since analysis — re-analyse', 'warn']
+            if (!p.analysed.advised) return ['Defibrillator will not charge — no shockable rhythm', 'warn']
+
+            p.analysed = null
+            const roll = Math.random()
+            if (roll < 0.55) { rosc(p, p.rhythm === 'vt' ? 78 : 70); return ['Shock delivered — sinus rhythm restored', 'good'] }
+            if (roll < 0.72) { setRhythm(p, 'asystole'); return ['Shock delivered — rhythm has gone to asystole', 'bad'] }
             return ['Shock delivered — no change, resume compressions', 'bad']
         } },
         { id: 'pak', label: 'Personal Aid Kit (PAK)', note: 'stabilise', dot: 'g', run: p => {
@@ -345,10 +382,19 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     p.pain = clamp(p.pain - dt * 0.25, 0, 100)
 
     if (p.blood < 22 && !p.cardiacArrest) {
-        p.cardiacArrest = true
-        p.cprActive = false
-        return ['CASUALTY IN CARDIAC ARREST — hypovolaemic', 'bad']
+        // Bleeding out arrests as PEA — the heart is still trying, there is
+        // simply nothing left in it to pump. Notably not shockable, which is
+        // the lesson: the treatment for this is the haemorrhage, not the pads.
+        setRhythm(p, 'pea')
+        return ['CASUALTY IN CARDIAC ARREST — PEA, hypovolaemic', 'bad']
     }
     return null
+}
+
+/** What the monitor should be making a noise about. */
+export function alarmFor(p: Patient): 'none' | 'urgent' | 'flatline' {
+    if (p.rhythm === 'asystole') return 'flatline'
+    if (p.cardiacArrest) return 'urgent'
+    return 'none'
 }
 

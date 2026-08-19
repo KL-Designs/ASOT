@@ -49,6 +49,31 @@ export interface BodyPart {
 
 export type Triage = 'none' | 'minor' | 'delayed' | 'immediate' | 'deceased'
 
+/**
+ * What the monitor is showing.
+ *
+ * `pea` is the one worth knowing about: organised complexes marching across the
+ * screen with no pulse behind them. It looks survivable and is not shockable,
+ * which is exactly why analysing before shocking is a step rather than a
+ * formality.
+ */
+export type Rhythm = 'sinus' | 'stemi' | 'vt' | 'vf' | 'pea' | 'asystole'
+
+export const RHYTHM_LABEL: Record<Rhythm, string> = {
+    sinus:    'Sinus rhythm',
+    stemi:    'ST elevation — tombstones',
+    vt:       'Ventricular tachycardia',
+    vf:       'Ventricular fibrillation',
+    pea:      'Pulseless electrical activity',
+    asystole: 'Asystole',
+}
+
+/** The two a defibrillator can do anything about. */
+export const SHOCKABLE: ReadonlySet<Rhythm> = new Set<Rhythm>(['vt', 'vf'])
+
+/** Rhythms with no cardiac output — the casualty is in arrest. */
+export const ARRESTED: ReadonlySet<Rhythm> = new Set<Rhythm>(['vt', 'vf', 'pea', 'asystole'])
+
 export interface Patient {
     name: string
     /** Rank abbreviation, or '' for a member the roster has none for. */
@@ -74,6 +99,16 @@ export interface Patient {
     etco2: number
     temp: number
     conscious: boolean
+    rhythm: Rhythm
+    /**
+     * What the last analysis found, and whether it advised a shock.
+     *
+     * Kept against the rhythm it was taken from: the moment the rhythm moves,
+     * the reading is stale and the defibrillator asks for a fresh one. That is
+     * the behaviour the real device has and the reason you cannot simply hold
+     * the button down.
+     */
+    analysed: { rhythm: Rhythm, advised: boolean } | null
     cardiacArrest: boolean
     airway: string
     meds: string[]
@@ -182,7 +217,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         pain: randInt(...cfg.pain),
         hr: 80, sysBp: 118, diaBp: 74, spo2: 98, rr: 16, etco2: 36,
         temp: Math.round((36.8 - Math.random() * 1.4) * 10) / 10,
-        conscious: true, cardiacArrest: false, airway: 'clear',
+        conscious: true, rhythm: 'sinus', analysed: null, cardiacArrest: false, airway: 'clear',
         meds: [], tqCount: 0,
         triage: 'none', triageEntries: [],
         cprActive: false,
@@ -222,11 +257,40 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
     p.rr = clamp(Math.round(15 + lost * 0.16 + randInt(-2, 2)), 8, 40)
 
     if (Math.random() < cfg.arrest) {
-        p.cardiacArrest = true
-        p.conscious = false
+        // Weighted the way an arrest actually presents: VF is the common one
+        // you can do something about, asystole the one you mostly cannot.
+        setRhythm(p, pick(['vf', 'vf', 'vt', 'pea', 'asystole'] as const))
+    } else if (difficulty !== 'easy' && Math.random() < 0.12) {
+        // A casualty with a pulse and a very bad ECG. Analysing finds it;
+        // shocking does nothing for it.
+        setRhythm(p, 'stemi')
     }
 
     return p
+}
+
+/**
+ * Move the casualty to a rhythm, and settle everything that follows from it.
+ *
+ * The arrest flag, the pulse and any standing analysis are all consequences of
+ * the rhythm rather than separate facts, and every one of them was a chance for
+ * the monitor to disagree with itself when they were set by hand.
+ */
+export function setRhythm(p: Patient, r: Rhythm) {
+    p.rhythm = r
+    p.analysed = null
+    p.cardiacArrest = ARRESTED.has(r)
+
+    if (p.cardiacArrest) {
+        p.conscious = false
+        p.cprActive = false
+        if (r === 'asystole') p.hr = 0
+        else if (r === 'vf') p.hr = 0
+        else if (r === 'vt') p.hr = 190
+        else p.hr = 40                      // PEA: complexes, no output
+    } else if (p.conscious === false) {
+        p.conscious = true
+    }
 }
 
 /**
