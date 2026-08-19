@@ -57,6 +57,8 @@ export interface Patient {
     callsign: string
     /** Element and billet, already joined: "1-1-1 ALPHA · MACHINEGUNNER". */
     unit: string
+    /** Discord avatar URL, or '' — the head falls back to a blank shape. */
+    avatar: string
     bloodType: string
     bloodTypeKnown: boolean
     parts: Record<PartId, BodyPart>
@@ -100,6 +102,8 @@ export interface Casualty {
     unit: string
     /** Their billet — "MACHINEGUNNER". */
     role: string
+    /** Discord avatar, drawn into the head on the body diagram. */
+    avatar?: string
 }
 
 /** The stand-in when the ORBAT has nobody to offer — an empty roster, mostly. */
@@ -170,6 +174,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         callsign: who.callsign ?? '',
         // The billet only reads as one when there is an element in front of it.
         unit: [who.unit, who.role].filter(Boolean).join(' · '),
+        avatar: who.avatar ?? '',
         bloodType: pick(['O POS', 'O NEG', 'A POS', 'A NEG', 'B POS', 'AB POS']),
         bloodTypeKnown: false,
         parts: Object.fromEntries(PARTS.map(x => [x.id, mkPart(x.id)])) as Record<PartId, BodyPart>,

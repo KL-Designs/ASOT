@@ -1,6 +1,7 @@
 import 'server-only'
 import Db from '@/lib/mongo'
 import { RESERVIST_CATEGORY_IDS } from '@/lib/orbat/constants'
+import { defaultAvatarURL } from '@/lib/discord/avatar'
 import type { Casualty } from './model'
 
 /* ============================================================================
@@ -46,13 +47,13 @@ export async function sampleCasualties(): Promise<Casualty[]> {
             {
                 projection: {
                     name: 1, globalName: 1, username: 1, 'guild.nickname': 1,
-                    'milpac.currentRank': 1, 'milpac.callsign': 1,
+                    'milpac.currentRank': 1, 'milpac.callsign': 1, avatarURL: 1,
                 },
             },
         )
         .toArray()
 
-    const byId = new Map<string, { name: string, rank?: string, callsign?: string }>()
+    const byId = new Map<string, { name: string, rank?: string, callsign?: string, avatar?: string }>()
     for (const u of users) {
         // Same derivation the ORBAT itself uses: strip the [TAGS], then drop
         // the rank prefix off the front of the nickname.
@@ -67,6 +68,9 @@ export async function sampleCasualties(): Promise<Casualty[]> {
             // milpac of their own — it is where the ORBAT reads it from too.
             rank: u.milpac?.currentRank || (parts.length > 1 ? parts[0] : undefined) || undefined,
             callsign: u.milpac?.callsign || undefined,
+            // Discord's own default avatar is derived from the id, so a member
+            // who never set one still gets a face rather than a blank head.
+            avatar: u.avatarURL || defaultAvatarURL(u._id),
         })
     }
 
@@ -82,6 +86,7 @@ export async function sampleCasualties(): Promise<Casualty[]> {
             name: who.name,
             rank: who.rank,
             callsign: who.callsign?.toUpperCase(),
+            avatar: who.avatar,
             unit: p.sectionTitle.toUpperCase(),
             role: (p.role || 'Rifleman').toUpperCase(),
         })

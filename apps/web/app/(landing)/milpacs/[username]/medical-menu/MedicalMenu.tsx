@@ -68,10 +68,27 @@ const BODY_GEOM = {
     ),
 }
 
+/*
+   Where the bleeding / fracture / tourniquet markers sit on each part.
+
+   The head's is off to the temple rather than dead centre: centre is where the
+   casualty's face now is, and a pulsing red disc over the middle of it hid the
+   one thing the avatar was added to show.
+*/
 const ANCHORS: Record<PartId, [number, number]> = {
-    head: [150, 52], torso: [150, 200], armR: [80, 240], armL: [220, 240],
+    head: [173, 34], torso: [150, 200], armR: [80, 240], armL: [220, 240],
     legR: [131, 450], legL: [169, 450],
 }
+
+/*
+   How hard the severity colour is washed over the casualty's face.
+
+   Zero for a healthy head, so you simply see who it is. Everything else keeps
+   enough of the wash to read as injured at a glance — the diagram's whole job
+   is to be legible without reading it, and a photograph would swallow that if
+   the tint went transparent.
+*/
+const HEAD_WASH: Record<string, number> = { '-1': .55, '0': 0, '1': .58, '2': .68, '3': .76 }
 
 const DOT_CLASS = { g: s.dotG, y: s.dotY, r: s.dotR, b: s.dotB }
 const LOG_CLASS: Record<LogKind, string> = { '': '', good: s.loglineGood, warn: s.loglineWarn, bad: s.loglineBad }
@@ -341,6 +358,9 @@ export default function MedicalMenu({ roster, onClose }: {
                             <div className={s.bodywrap}>
                                 <svg className={s.bodySvg} viewBox='0 0 300 640' preserveAspectRatio='xMidYMid meet'>
                                     <defs>
+                                        <clipPath id='hznHead'>
+                                            <ellipse cx='150' cy='52' rx='29' ry='37' />
+                                        </clipPath>
                                         <filter id='hznGlow'>
                                             <feGaussianBlur stdDeviation='3' result='b' />
                                             <feMerge><feMergeNode in='b' /><feMergeNode in='SourceGraphic' /></feMerge>
@@ -357,13 +377,14 @@ export default function MedicalMenu({ roster, onClose }: {
                                             ['legL', BODY_GEOM.leg, 'translate(300,0) scale(-1,1)'],
                                         ] as [PartId, React.ReactNode, string | undefined][]).map(([id, shape, transform]) => {
                                             const on = sel === id
+                                            const sev = String(partSeverity(patient.parts[id]))
                                             return (
                                                 <g
                                                     key={id}
                                                     className={s.part}
                                                     transform={transform}
                                                     filter={on ? 'url(#hznGlow)' : undefined}
-                                                    fill={SEV_FILL[String(partSeverity(patient.parts[id]))]}
+                                                    fill={SEV_FILL[sev]}
                                                     stroke={on ? '#ffffff' : 'rgba(0,0,0,.55)'}
                                                     strokeWidth={on ? 3.4 : 1.2}
                                                     onClick={() => setSel(prev => (prev === id ? null : id))}
@@ -371,6 +392,28 @@ export default function MedicalMenu({ roster, onClose }: {
                                                     onMouseLeave={() => setHover(null)}
                                                 >
                                                     {shape}
+                                                    {/* The casualty's own face, clipped into the
+                                                        head, with the severity colour washed back
+                                                        over it so an injured head still reads as
+                                                        one at a glance. */}
+                                                    {id === 'head' && patient.avatar && (
+                                                        <>
+                                                            <image
+                                                                href={patient.avatar}
+                                                                x={121} y={15} width={58} height={74}
+                                                                preserveAspectRatio='xMidYMid slice'
+                                                                clipPath='url(#hznHead)'
+                                                            />
+                                                            {HEAD_WASH[sev] > 0 && (
+                                                                <ellipse
+                                                                    cx='150' cy='52' rx='29' ry='37'
+                                                                    fill={SEV_FILL[sev]}
+                                                                    opacity={HEAD_WASH[sev]}
+                                                                    stroke='none'
+                                                                />
+                                                            )}
+                                                        </>
+                                                    )}
                                                 </g>
                                             )
                                         })}
