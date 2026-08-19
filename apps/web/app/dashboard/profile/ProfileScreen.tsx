@@ -40,7 +40,25 @@ export default function ProfileScreen({
         : null
 
     return (
-        <div className={s.dash} style={{ padding: 'var(--gap)', display: 'flex', flexDirection: 'column', gap: 'var(--gap)' }}>
+        /*
+           `.dash` carries the tokens for the standalone /me render, which is
+           outside the shell that normally provides them. Its own background is
+           overridden to --workspace: `.dash` paints --ink-0, which is two
+           shades darker than the column this sits in, so a short profile drew a
+           dark block that stopped where the content did and left a visible seam
+           down the rest of the page.
+        */
+        <div
+            className={s.dash}
+            style={{
+                background: 'var(--workspace)',
+                minHeight: '100%',
+                padding: 'var(--gap)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--gap)',
+            }}
+        >
 
             {/* The identity block replaces the kicker/title pair outright —
                 on your own profile the avatar *is* the heading. */}
