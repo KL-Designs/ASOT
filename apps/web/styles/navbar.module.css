@@ -10,62 +10,6 @@
    Palette and font tokens are the site-wide ones defined in globals.css.
    ========================================================================== */
 
-/* ---------- topo backdrop ------------------------------------------------ */
-
-/*
-   The mockup inlined ~160KB of contour paths and repeated them with two <use>
-   copies. Here the same art is an external file (public/designs/topo.svg,
-   viewBox 0 0 2400 800) painted as a repeating background instead, so it is
-   cached once by the browser and never lands in the HTML of every page.
-
-   The seam-free loop is the same trick by other means: the tile div is 340%
-   of its container wide with tiles at 50% of that (= 170% of the container),
-   so translating it by exactly -50% of itself advances precisely one tile.
-   There is no jump to hide, which is what makes an arbitrarily slow drift safe.
-*/
-.topo {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-    z-index: 0;
-}
-
-.topoTile {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 100%;
-    width: 340%;
-    background-image: url('/designs/topo.svg');
-    background-repeat: repeat-x;
-    background-size: 50% auto;
-    /* The art is far taller than the bar; centring shows a horizontal slice. */
-    background-position: left center;
-    opacity: var(--topo-op, 0.065);
-}
-
-.topoFade {
-    -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
-    mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent);
-}
-
-.topoDrift .topoTile {
-    animation: topodrift var(--topo-drift, 720s) linear infinite;
-}
-
-@keyframes topodrift {
-    to {
-        transform: translateX(-50%);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .topoDrift .topoTile {
-        animation: none;
-    }
-}
-
 /* ---------- shell -------------------------------------------------------- */
 
 .nav {
@@ -74,7 +18,12 @@
     z-index: 50;
     font-family: var(--font-cond);
     background: var(--ink-1);
-    box-shadow: 0 0.65rem 10px rgba(0, 0, 0, 0.5);
+
+    /* Every control in the right cluster measures from this. They were three
+       separate `height: 36px` declarations that happened to agree — which is a
+       coincidence, not a guarantee, and the account chip still read taller
+       because its 1px border and the avatar's glow sit outside that box. */
+    --nav-ctl-h: 40px;
 }
 
 /* Several controls here are <button> for behaviour rather than <a> — ENLIST
@@ -131,6 +80,19 @@
     color: var(--txt-2);
 }
 
+/*
+   globals.css carries `@layer base { :where(p, a) { font-size: 1rem } }`. A value
+   declared on the element beats an inherited one no matter how low its
+   specificity, so every <a> in the rail was being set to 16px while the spans
+   beside it inherited the rail's 10px. Opting links back into inheritance is the
+   fix; the same trap applies to any link that carries text directly rather than
+   through a child with its own size.
+*/
+.strip a {
+    font-size: inherit;
+    letter-spacing: inherit;
+}
+
 .strip .amb {
     color: var(--amber);
     text-decoration: none;
@@ -138,7 +100,7 @@
 }
 
 a.amb:hover {
-    color: #ffd280;
+    color: #f0cd7e;
 }
 
 .strip .right {
@@ -325,6 +287,14 @@ a.amb:hover {
     height: 100%;
 }
 
+/*
+   The bar is a fixed 66px, so the plate's height is mark + padding*2 and what
+   matters is the air left over. 40px puts the plate at 56px with 5px top and
+   bottom. 46px was tried and fills it to 60px — the plate then sits close enough
+   to the bar's edge that the eye takes one boundary for the other, so it reads
+   as a taller bar even though `.bar` never changes. 40 is the ceiling before
+   that starts happening.
+*/
 .brand {
     display: flex;
     align-items: center;
@@ -347,8 +317,8 @@ a.amb:hover {
 }
 
 .brandMark {
-    width: 34px;
-    height: 34px;
+    width: 40px;
+    height: 40px;
     flex: none;
     object-fit: contain;
 }
@@ -543,110 +513,85 @@ a.amb:hover {
     height: 17px;
 }
 
-/* The three actions share one notched silhouette. */
-.act {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 36px;
+/* The three actions are the shared `components/ui/Button` — only their
+   in-bar geometry and spacing live here. The silhouette, the variants and the
+   inset-face trick that survives the notch are all in ui.module.css.
+
+   Descendant selector on purpose, for the same reason `.navAct.actDonate`
+   below is compound: every property in this block is also set by `.btn` in
+   ui.module.css, and at equal specificity the winner is whichever module the
+   bundler happens to emit last. It emitted ui last, so these buttons were
+   silently running at `.btn`'s 46px and standing a head taller than the
+   account chip beside them. `.nav .navAct` settles it. */
+.nav .navAct {
+    height: var(--nav-ctl-h);
     padding: 0 16px;
-    font-family: var(--font-cond);
-    font-weight: 700;
     font-size: 13.5px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    transition: color 0.2s var(--nav-ease), background 0.2s var(--nav-ease), box-shadow 0.2s var(--nav-ease);
-    white-space: nowrap;
-    position: relative;
-    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    gap: 8px;
 }
 
-.act svg {
+/* Same tie, same fix — `.btn svg` sets 16px. */
+.nav .navAct svg {
     width: 15px;
     height: 15px;
-    flex: none;
 }
 
-/* DONATE — amber ghost, deliberately quieter than the primary action.
-   The outline is a 1px background layer with an inset face on top: a real
-   border or box-shadow would be sliced off at the notched corners. */
-/* The label is coloured explicitly as well as the anchor: Tailwind's preflight
-   resets `a` to `color: inherit`, which leaves nested text taking the bar's
-   white rather than the amber set here. */
-.actDonate,
-.actDonate .lbl {
-    color: var(--amber);
-}
+/* Icon only at rest, at every width — the crate reads on its own, and next to a
+   labelled primary action two labels made the pair compete, which is the
+   opposite of the volume difference it's meant to have.
 
+   The label unfurls on hover and on keyboard focus rather than being absent:
+   an icon alone is only obvious once you already know what it is. `gap` goes to
+   zero and the spacing moves onto the label's own margin, or the collapsed
+   label would still be holding 8px of dead air open beside the icon.
+
+   `aria-label` on the anchor carries the name regardless of hover state.
+   The mobile sheet keeps it permanently open: see `.macts`. */
 .actDonate {
     margin-left: 14px;
-    isolation: isolate;
-    background: rgba(245, 185, 63, 0.34);
 }
 
-.actDonate::before {
-    content: '';
-    position: absolute;
-    inset: 1px;
-    z-index: -1;
-    background: var(--ink-1);
-    clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-    transition: opacity 0.2s var(--nav-ease);
+/*
+   Compound selector on purpose. `.btn` in ui.module.css also sets `gap`, and at
+   equal specificity the winner depends on which module the bundler emits last —
+   which is not something to leave to chance for the one rule that decides
+   whether this button looks symmetric. `.navAct.actDonate` outranks both.
+*/
+.navAct.actDonate {
+    padding: 0 12px;
+    gap: 0;
 }
 
-.actDonate:hover,
-.actDonate:hover .lbl {
-    color: #0b0c0e;
-}
-
-.actDonate:hover {
-    background: var(--amber);
-    box-shadow: 0 0 20px -6px rgba(245, 185, 63, 0.5);
-}
-
-.actDonate:hover::before {
+.actDonate .lbl {
+    display: block;
+    max-width: 0;
+    min-width: 0;
+    margin-left: 0;
+    padding: 0;
     opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition:
+        max-width 0.28s var(--nav-ease),
+        margin-left 0.28s var(--nav-ease),
+        opacity 0.18s var(--nav-ease);
 }
 
-/* ENLIST — solid red. The only filled element in the bar when signed out. */
-.actEnlist {
+.actDonate:hover .lbl,
+.actDonate:focus-visible .lbl {
+    max-width: 9ch;
+    margin-left: 8px;
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .actDonate .lbl {
+        transition: none;
+    }
+}
+
+.actPrimary {
     margin-left: 10px;
-    background: var(--red);
-    color: #fff;
-}
-
-.actEnlist:hover {
-    background: var(--red-hi);
-    box-shadow: 0 0 22px -4px var(--red-glow);
-}
-
-/* DASHBOARD — signed-in primary. Same notch as the brand plate, so the bar is
-   bookended by matching shapes. Dark rather than red: frequent navigation, not
-   a conversion. */
-.actDash {
-    margin-left: 10px;
-    color: var(--txt-1);
-    isolation: isolate;
-    background: linear-gradient(90deg, var(--red) 0 3px, var(--line-2) 3px);
-}
-
-.actDash::before {
-    content: '';
-    position: absolute;
-    inset: 1px 1px 1px 3px;
-    z-index: -1;
-    background: linear-gradient(90deg, #15171b, #1b1e24);
-    clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 7px);
-    transition: background 0.2s var(--nav-ease);
-}
-
-.actDash:hover {
-    color: #fff;
-    background: linear-gradient(90deg, var(--red-hi) 0 3px, #3a3f49 3px);
-}
-
-.actDash:hover::before {
-    background: linear-gradient(90deg, #1c1f25, #23272e);
 }
 
 /* ---------- account chip ------------------------------------------------- */
@@ -661,7 +606,7 @@ a.amb:hover {
     display: flex;
     align-items: center;
     gap: 9px;
-    height: 36px;
+    height: var(--nav-ctl-h);
     margin-left: 10px;
     padding: 0 10px 0 5px;
     border: 1px solid var(--line-1);
@@ -678,8 +623,8 @@ a.amb:hover {
 }
 
 .avatar {
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
     border-radius: 2px;
     flex: none;
     position: relative;
@@ -806,13 +751,19 @@ a.amb:hover {
     align-content: start;
 }
 
+/*
+   Centred rather than top-aligned. The grid stretches every item to the height
+   of the tallest in its row, so a one-line description sat pinned to the top of
+   a cell sized by a two-line one — which read as the text hanging off the
+   divider above it rather than sitting in its own space.
+*/
 .ddItem {
     display: flex;
     gap: 11px;
-    padding: 12px 15px;
+    padding: 14px 15px;
     position: relative;
     transition: background 0.16s;
-    align-items: flex-start;
+    align-items: center;
     border-right: 1px solid var(--line-1);
     border-bottom: 1px solid var(--line-1);
 }
@@ -841,11 +792,12 @@ a.amb:hover {
     transform: scaleY(1);
 }
 
+/* The 2px nudge that held the icon on the title's baseline goes with the top
+   alignment it was correcting for. */
 .ddItem .ic {
     width: 17px;
     height: 17px;
     flex: none;
-    margin-top: 2px;
     color: var(--txt-3);
     transition: color 0.16s;
 }
@@ -890,6 +842,23 @@ a.amb:hover {
     overflow: hidden;
     background: linear-gradient(150deg, #2b2116, #151a20 60%, #0e1013);
     border: 1px solid var(--line-1);
+}
+
+/* Covers are wider than this 92px band, so they crop rather than letterbox —
+   and they sit slightly dimmed, because at full strength a bright banner
+   out-shouts the panel of links it is sitting beside. It brightens on hover
+   with the rest of the card. */
+.featCover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    opacity: 0.82;
+    transition: opacity 0.2s var(--nav-ease);
+}
+
+.megaFeat:hover .featCover {
+    opacity: 1;
 }
 
 .featImg .tag {
@@ -979,19 +948,10 @@ a.amb:hover {
     text-transform: uppercase;
 }
 
-.acctDd .hd .track {
-    height: 3px;
-    background: #1a1d22;
-    border-radius: 2px;
-    overflow: hidden;
+/* The bar itself is the shared ProgressTrack; the menu only asks for a
+   thinner track and its own top margin. */
+.acctDd .hd .progress {
     margin-top: 10px;
-}
-
-.acctDd .hd .track i {
-    display: block;
-    height: 100%;
-    background: linear-gradient(90deg, var(--acct-accent, var(--red)), var(--amber));
-    transition: width 0.4s var(--nav-ease);
 }
 
 .acctDd .hd .pts {
@@ -1097,20 +1057,15 @@ a.amb:hover {
     }
 
     .brand {
-        padding: 10px 18px 10px 14px;
+        padding: 9px 18px 9px 14px;
     }
 
     .mi {
         padding: 0 12px;
     }
 
-    .actDonate .lbl,
     .acct .who {
         display: none;
-    }
-
-    .actDonate {
-        padding: 0 13px;
     }
 
     .acct {
@@ -1123,8 +1078,7 @@ a.amb:hover {
     .menu,
     .icons,
     .actDonate,
-    .actEnlist,
-    .actDash,
+    .actPrimary,
     .acctWrap {
         display: none;
     }
@@ -1162,16 +1116,23 @@ a.amb:hover {
     background: #0a0b0d;
 }
 
-.macts .act {
+/* In the sheet the pair goes full width and the donate label comes back —
+   there is room for it here, and at this size the notch is the only thing
+   marking them as ASOT rather than generic buttons. */
+.macts .navAct {
     flex: 1;
-    justify-content: center;
     height: 40px;
     margin: 0;
     font-size: 13px;
 }
 
+/* Permanently open in the sheet — there the two actions are full-width and sit
+   in among the navigation links, where a lone icon reads as an unlabelled
+   control rather than a quieter one. */
 .macts .actDonate .lbl {
-    display: inline;
+    max-width: none;
+    margin-left: 8px;
+    opacity: 1;
 }
 
 .grp {

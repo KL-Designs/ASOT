@@ -61,7 +61,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 				<ThemeProvider theme={UnitTheme}>
 					<div className="h-full flex flex-col">
 
-						<div id="site-navbar" style={{ zIndex: 1 }}>
+						{/* Above the footer, not level with it. Both were zIndex 1, so DOM
+						    order decided and the footer won — which trapped the navbar's
+						    scroll-to-top button (fixed, z-index 50) inside a stacking
+						    context the footer painted over. A sticky bar should sit above
+						    the whole page regardless. */}
+						<div id="site-navbar" style={{ zIndex: 20 }}>
 							<Navbar />
 						</div>
 

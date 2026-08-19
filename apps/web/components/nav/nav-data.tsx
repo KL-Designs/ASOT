@@ -28,6 +28,15 @@ export type NavItem = {
     href: string
     icon: React.JSX.Element
     children?: NavChild[]
+    /**
+     * Pins the next-operation card into this menu's panel.
+     *
+     * Opt-in per item rather than derived from how many children a menu has:
+     * the card belongs where someone is already thinking about operations, and
+     * a count-based rule put it under `Our Orbat` — which has nothing to do with
+     * what is on this weekend — while leaving `Operations` without it.
+     */
+    feature?: 'nextOp'
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -56,6 +65,7 @@ export const NAV_ITEMS: NavItem[] = [
     },
     {
         name: 'Operations', href: '/operations', icon: <TrackChanges />,
+        feature: 'nextOp',
         children: [
             { name: 'Operations', href: '/operations', icon: <TrackChanges />, description: 'Browse all unit operations' },
             { name: 'Interactive Map', href: '/maps', icon: <MapOutlined />, description: 'Explore available maps interactively' },

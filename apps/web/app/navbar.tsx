@@ -10,15 +10,17 @@ import {
     Dashboard as DashboardIcon, AccountCircle,
 } from '@mui/icons-material'
 
-import CrateIcon from '@/components/nav/CrateIcon'
+import { CrateIcon } from '@/components/ui/icons'
+import Button from '@/components/ui/Button'
 import { useEnlistTransition, EnlistFadeOverlay } from '@/components/enlist-transition'
 
 import NotificationBell from '@/app/dashboard/_components/NotificationBell'
 import AccountMenu from '@/components/nav/AccountMenu'
 import MobileSheet from '@/components/nav/MobileSheet'
-import Topo from '@/components/nav/Topo'
+import Topo from '@/components/ui/Topo'
 import StatusRail from '@/components/nav/StatusRail'
 import { useNavStatus, formatOpTime } from '@/components/nav/useNavStatus'
+import type { NavOp } from '@/app/api/nav/status/route'
 import { NAV_ITEMS, isItemActive, type NavItem } from '@/components/nav/nav-data'
 
 import s from '@/styles/navbar.module.css'
@@ -93,30 +95,31 @@ export default function Navbar() {
     /* The two action buttons. Built here rather than in each surface so the bar
        and the mobile sheet can never style the same button differently. */
     const donateButton = (
-        <Link href='/donate' className={`${s.act} ${s.actDonate}`} aria-label='Donate'>
+        <Button variant='amber' href='/donate' aria-label='Donate'
+            className={`${s.navAct} ${s.actDonate}`}>
             <CrateIcon />
             <span className={s.lbl}>Donate</span>
-        </Link>
+        </Button>
     )
     const primaryButton = isMember
         ? (
-            <Link href='/dashboard' className={`${s.act} ${s.actDash}`}>
+            <Button variant='dark' href='/dashboard' className={`${s.navAct} ${s.actPrimary}`}>
                 <DashboardIcon />Dashboard
-            </Link>
+            </Button>
         )
         : user
             ? (
-                <Link href='/me' className={`${s.act} ${s.actEnlist}`}>
+                <Button variant='red' href='/me' className={`${s.navAct} ${s.actPrimary}`}>
                     <AccountCircle />Profile
-                </Link>
+                </Button>
             )
             : (
                 // Same action as the homepage hero's "Enlist Now" — fade the
                 // screen to black, then the join video. Shared so the two can't
                 // drift; see components/enlist-transition.
-                <button type='button' onClick={enlist} className={`${s.act} ${s.actEnlist}`}>
+                <Button variant='red' onClick={enlist} className={`${s.navAct} ${s.actPrimary}`}>
                     Enlist
-                </button>
+                </Button>
             )
 
     return (
@@ -136,7 +139,7 @@ export default function Navbar() {
                             menu between them. See `.side` in the stylesheet. */}
                         <div className={s.side}>
                             <Link href='/' className={s.brand}>
-                                <Image src={Logo} alt='ASOT' className={s.brandMark} width={34} height={34} quality={100} priority />
+                                <Image src={Logo} alt='ASOT' className={s.brandMark} width={40} height={40} quality={100} priority />
                                 <span className={s.brandTxt}>
                                     <span className={s.brandName}>ASOT</span>
                                     <span className={s.brandSub}>Est. 2019 · Australia</span>
@@ -230,7 +233,7 @@ function MenuItem({ item, active, open, onEnter, onLeave, onToggle, nextOp }: {
     onEnter: () => void
     onLeave: () => void
     onToggle: () => void
-    nextOp: { id: string, title: string, date: string } | null
+    nextOp: NavOp | null
 }) {
     const classes = [active ? s.active : '', open ? s.isOpen : ''].filter(Boolean).join(' ')
 
@@ -266,16 +269,18 @@ function MenuItem({ item, active, open, onEnter, onLeave, onToggle, nextOp }: {
     )
 }
 
-function MegaPanel({ item, nextOp }: { item: NavItem, nextOp: { id: string, title: string, date: string } | null }) {
+function MegaPanel({ item, nextOp }: { item: NavItem, nextOp: NavOp | null }) {
     const children = item.children!
-    const withFeature = children.length >= 4 && !!nextOp
+    const withFeature = item.feature === 'nextOp' && !!nextOp
 
     // Odd counts leave a single item on the last row; without this the row
     // above it keeps a border that now separates nothing.
     const lastRowFrom = children.length - (children.length % 2 === 0 ? 2 : 1)
 
     return (
-        <div className={`${s.dd} ${children.length >= 4 ? '' : s.ddCompact}`}>
+        // A short menu goes compact — unless it is carrying the operation card,
+        // which needs the full width to sit beside the links rather than under.
+        <div className={`${s.dd} ${children.length >= 4 || withFeature ? '' : s.ddCompact}`}>
             <div className={s.ddCard}>
                 <div className={s.megaRail}>
                     <span className={s.lbl}>{item.name}</span>
@@ -303,8 +308,16 @@ function MegaPanel({ item, nextOp }: { item: NavItem, nextOp: { id: string, titl
                     with dead space — as does a panel with no operation to show. */}
                 {withFeature && (
                     <Link href={`/operations/${nextOp!.id}` as any} className={s.megaFeat}>
+                        {/* The operation's own banner when it has one. Covers are
+                            arbitrary stored URLs, so next/image would mean
+                            allow-listing every host they can come from — a plain
+                            img is the honest choice, the same call the landing
+                            page's card makes. Without a cover the topo field
+                            stands in, so the card never shows a broken box. */}
                         <div className={s.featImg}>
-                            <Topo opacity={0.32} driftSeconds={900} fade={false} />
+                            {nextOp!.coverImage
+                                ? <img src={nextOp!.coverImage} alt='' className={s.featCover} />
+                                : <Topo opacity={0.32} driftSeconds={900} mask='none' />}
                             <span className={s.tag}>Next Op</span>
                         </div>
                         <div className={s.featT}>{nextOp!.title}</div>

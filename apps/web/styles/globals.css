@@ -37,8 +37,12 @@
 	--red-hi: #ff4257;
 	--red-dim: #7d1122;
 	--red-glow: rgba(224, 35, 60, 0.35);
-	--amber: #f5b93f;
+	/* Gold rather than the yellower #f5b93f it started as. This is the shared
+	   "information / support" accent — status rail, next-op times, the donate
+	   button and progress-bar tips all draw on it, so they shift together. */
+	--amber: #d8ac45;
 	--live: #3ddc84;
+	--discord: #5865f2;
 
 	--nav-ease: cubic-bezier(0.22, 1, 0.36, 1);
 

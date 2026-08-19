@@ -7,6 +7,7 @@ import { KeyboardArrowDown, Person, MilitaryTech, Tune, Dashboard as DashboardIc
 import Avatar from '@/components/member/avatar'
 import type { PromotionProgress } from '@/app/api/me/promotion-progress/route'
 import { memberLabel } from './member-label'
+import ProgressTrack from '@/components/ui/ProgressTrack'
 import s from '@/styles/navbar.module.css'
 
 /**
@@ -124,7 +125,7 @@ export default function AccountMenu({ user }: { user: User }) {
                             billet-assigned rank, there is no bar to draw. */}
                         {progress && !progress.atMax && !progress.billetOnly && (
                             <>
-                                <div className={s.track}><i style={{ width: `${progress.pct}%` }} /></div>
+                                <ProgressTrack pct={progress.pct} accent='var(--acct-accent)' className={s.progress} />
                                 <div className={s.pts}>
                                     {progress.current} / {progress.required} pts to {progress.nextRank}
                                 </div>
