@@ -16,7 +16,8 @@
 .page {
     display: grid;
     place-items: center;
-    padding: 14px 2vw 26px;
+    /* Tight. The casualty wants the room more than the margins do. */
+    padding: 10px 12px 18px;
     background: #070908;
     animation: fade .18s ease;
 }
@@ -44,8 +45,8 @@
     --font: "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
 
     position: relative;
-    width: min(1480px, 100%);
-    height: min(940px, 84vh);
+    width: min(1900px, 100%);
+    height: min(1250px, 88vh);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -242,7 +243,7 @@
     flex: 1 1 auto;
     display: grid;
     min-height: 0;
-    grid-template-columns: minmax(290px, 1fr) minmax(250px, .82fr) minmax(275px, .92fr) minmax(275px, 1fr);
+    grid-template-columns: minmax(290px, .95fr) minmax(300px, 1.25fr) minmax(270px, .88fr) minmax(280px, 1fr);
     padding: 6px 12px 0;
 }
 
@@ -1238,7 +1239,7 @@
     from { opacity: 0; transform: translateX(12px) }
 }
 
-@media (max-width: 1480px) {
+@media (max-width: 1280px) {
     .grid { grid-template-columns: 1fr 1fr }
     .colMonitor, .colOverview { grid-column: auto }
     .dock { padding: 2px 12px 6px }
