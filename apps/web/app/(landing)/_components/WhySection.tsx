@@ -18,7 +18,7 @@ import s from '@/styles/landing.module.css'
 
 const CARDS = [
     {
-        n: '01', kicker: 'Experience', title: 'Six years of it',
+        n: '01', kicker: 'Experience', title: 'Six years of experience',
         icon: <MedalIcon />,
         body: 'Previous and currently serving members of the armed forces have helped shape our gameplay into a genuine balance of realism and playability.',
     },
