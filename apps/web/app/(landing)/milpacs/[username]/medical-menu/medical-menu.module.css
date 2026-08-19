@@ -400,6 +400,14 @@
 
 .dock { padding: 2px 20px 8px; min-height: 0; display: flex; flex-direction: column }
 
+/*
+   Quick View reports a fixed set of figures, so there is nothing to scroll to —
+   it sizes to its content and, being the taller of the two, sets the height of
+   the whole dock row. The activity log then fills whatever that comes to and
+   scrolls inside it, which is the one of the pair that genuinely grows.
+*/
+.dockQuick .dockbody { flex: 0 0 auto; overflow: visible }
+
 .dock>h3 {
     margin: 2px 0 4px;
     text-align: center;
@@ -411,7 +419,8 @@
 }
 
 .dockbody {
-    height: 132px;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: auto;
     background: rgba(0, 0, 0, .55);
     border: 1px solid var(--panel-line-sub);
@@ -528,7 +537,7 @@
 @media (max-width: 1180px) {
     .grid { grid-template-columns: 1fr 1fr }
     .colOverview { grid-column: 1/-1 }
-    .dockbody { height: 104px }
+    .dock { padding: 2px 12px 6px }
 }
 
 @media (prefers-reduced-motion: reduce) {

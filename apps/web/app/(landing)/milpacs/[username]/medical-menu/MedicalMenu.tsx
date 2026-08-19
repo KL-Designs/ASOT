@@ -119,7 +119,12 @@ export default function MedicalMenu({ onClose }: { onClose: () => void }) {
     }, [])
 
     /* ---------- boot ------------------------------------------------------ */
+    // Guarded: StrictMode runs effects twice in development, and without this
+    // the handover you are given is printed to the log twice over.
+    const booted = useRef(false)
     useEffect(() => {
+        if (booted.current) return
+        booted.current = true
         pushLog('Casualty is bleeding', 'bad')
         pushLog('Right Leg — fractured, 2× medium velocity wound', 'bad')
         pushLog('Medical menu opened — casualty NOAH WILLIAMS', '')
@@ -458,7 +463,7 @@ export default function MedicalMenu({ onClose }: { onClose: () => void }) {
                                     ))}
                             </div>
                         </div>
-                        <div className={s.dock}>
+                        <div className={`${s.dock} ${s.dockQuick}`}>
                             <h3>QUICK VIEW</h3>
                             <div className={s.dockbody}><QuickView patient={patient} /></div>
                         </div>
