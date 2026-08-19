@@ -855,14 +855,22 @@ export function breathing(p: Patient): boolean {
  * nobody is pushing on the chest, and the downtime clock speeds back up while
  * you do it.
  */
-export function handsFull(p: Patient): 'Compressions' | 'Bagging' | null {
-    if (p.cprActive) return 'Compressions'
-    if (p.bagging) return 'Bagging'
-    return null
+export function handsFull(p: Patient): 'Compressions' | null {
+    return p.cprActive ? 'Compressions' : null
 }
 
-/** The two rows that free your hands again, and so stay available. */
-export const FREES_HANDS: ReadonlySet<string> = new Set(['cpr', 'bvm'])
+/** The row that frees your hands again, and so stays available. */
+export const FREES_HANDS: ReadonlySet<string> = new Set(['cpr'])
+
+/**
+ * What everything else is multiplied by while you are bagging.
+ *
+ * A bag is one hand, not two. You can carry on working with the other one and
+ * everything takes twice as long, which is a real choice rather than a wall:
+ * the casualty keeps breathing and the dressing takes eight seconds instead of
+ * four. Compressions are still both hands and still stop everything.
+ */
+export const BAGGING_SLOWDOWN = 2
 
 export function ventilating(p: Patient): boolean {
     return airwayOpen(p) && (breathing(p) || p.bagging)

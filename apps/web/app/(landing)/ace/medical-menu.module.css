@@ -632,6 +632,18 @@
 
 .handsStop:hover { color: #fff; background: rgba(255, 106, 94, .3); border-color: var(--red) }
 
+/* One hand on a bag. Not a wall like compressions are — a tax. */
+.oneHand {
+    margin-bottom: 4px;
+    padding: 6px 10px;
+    font-size: 12.5px;
+    letter-spacing: .3px;
+    color: var(--blue);
+    background: rgba(86, 168, 224, .12);
+    border: 1px solid rgba(86, 168, 224, .42);
+    border-radius: 2px;
+}
+
 /* The row you are waiting on fills itself, rather than a separate bar above
    the list telling you about a button you can already see. Driven by the
    animation's own duration: nothing on screen needs to know how far along it

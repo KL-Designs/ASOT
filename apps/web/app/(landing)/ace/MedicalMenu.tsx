@@ -2,14 +2,14 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
-    ACTIONS, TOOLS, TOOL_SEPS, actionTime, alarmFor, blockedBy, simulate, visibleRows,
+    ACTIONS, TOOLS, TOOL_SEPS, actionSfx, actionTime, alarmFor, blockedBy, simulate, visibleRows,
     type Action, type ActionRow, type LogKind, type ToolId,
 } from './actions'
 import { Monitor } from './audio'
 import {
     ADJUNCT_LABEL, BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, DRUGS, FALLBACK_CASUALTY, FATAL_SPO2,
     FLUIDS, OBSTRUCTION_LABEL, PARTS, RHYTHM_LABEL, WOUND_TYPES,
-    REBOA_FATAL, REBOA_WARN,
+    BAGGING_SLOWDOWN, REBOA_FATAL, REBOA_WARN,
     airwayOpen, arrestHr, bestBandage, bleedFactor, bloodWord, breathing, chatter, clamp, handover, handsFull,
     intensity, jitter,
     newPatient, nextWound, painWord, partBleeding, partSeverity, pName, shownRr,
@@ -287,6 +287,30 @@ export default function MedicalMenu({ roster, onClose }: {
     */
     const over = patient.outcome !== 'active'
 
+    /*
+       Compressions and a bag, heard rather than watched.
+
+       Both are on their own timers at the rate the label promises, so the room
+       sounds like the thing you have running — and you can be looking at the
+       drug list and still know your hands are busy.
+    */
+    const compressing = patient.cprActive
+    useEffect(() => {
+        const m = monitor.current!
+        if (compressing) m.loop('compress', 60000 / CPR_RATE)
+        else m.stopLoop('compress')
+    }, [compressing])
+
+    const bagging = patient.bagging
+    useEffect(() => {
+        const m = monitor.current!
+        if (bagging) m.loop('bag', 5000)
+        else m.stopLoop('bag')
+    }, [bagging])
+
+    const oxygenOn = patient.oxygen
+    useEffect(() => { monitor.current!.setHiss(oxygenOn) }, [oxygenOn])
+
     /* ---------- the monitor's alarm --------------------------------------- */
     // Silence once they are called. An alarm nobody can act on is just noise.
     const alarm = over ? 'none' : alarmFor(patient)
@@ -300,6 +324,8 @@ export default function MedicalMenu({ roster, onClose }: {
         if (busyTimer.current) clearTimeout(busyTimer.current)
         busyTimer.current = null
         monitor.current?.stopAnalyse()
+        monitor.current?.stopLoops()
+        monitor.current?.setHiss(false)
         setBusy(null)
     }, [over])
 
@@ -443,14 +469,10 @@ export default function MedicalMenu({ roster, onClose }: {
      */
     function freeHands() {
         const next = structuredClone(live.current)
-        if (next.cprActive) {
-            next.cprActive = false
-            next.hr = arrestHr(next.rhythm)
-            pushLog('Compressions stopped', 'warn')
-        } else if (next.bagging) {
-            next.bagging = false
-            pushLog('Bagging stopped', 'warn')
-        } else return
+        if (!next.cprActive) return
+        next.cprActive = false
+        next.hr = arrestHr(next.rhythm)
+        pushLog('Compressions stopped', 'warn')
         commit(next)
     }
 
@@ -462,6 +484,10 @@ export default function MedicalMenu({ roster, onClose }: {
         const [msg, kind] = a.run(next, sel, ml)
         if (sel && a.needsPart) next.parts[sel].checked = true
         commit(next)
+        // Played on landing rather than on click, so what you hear is the thing
+        // happening rather than you asking for it.
+        const fx = actionSfx(a)
+        if (fx) monitor.current?.play(fx)
         if (msg) { pushLog(msg, kind); pushToast(msg) }
         return next
     }
@@ -469,7 +495,7 @@ export default function MedicalMenu({ roster, onClose }: {
     function startAction(a: Action, ml = 0) {
         if (busy || patient.outcome !== 'active') return
         if (blockedBy(patient, a)) return
-        const seconds = actionTime(tool, a)
+        const seconds = actionTime(tool, a, patient)
         // The size is part of what you are doing, so it belongs in what the
         // progress bar and the log say you are doing.
         const label = ml ? `${a.label} ${ml} ml` : a.label
@@ -640,6 +666,12 @@ export default function MedicalMenu({ roster, onClose }: {
                                     <button type='button' className={s.handsStop} onClick={freeHands}>Stop</button>
                                 </div>
                             )}
+                            {/* A bag is one hand. You keep working, slowly. */}
+                            {patient.bagging && !hands && (
+                                <div className={s.oneHand}>
+                                    Bagging — one hand free, everything takes {BAGGING_SLOWDOWN}× as long
+                                </div>
+                            )}
 
                             <div className={s.panel}>
                                 {tool === 'bandage' && woundUp && (
@@ -688,7 +720,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                                         <span className={s.qty}>
                                                             {row.needsPart && !sel
                                                                 ? 'SELECT A LIMB'
-                                                                : [row.note, `${actionTime(tool, row)}s to hook up`].filter(Boolean).join(' · ')}
+                                                                : [row.note, `${actionTime(tool, row, patient)}s to hook up`].filter(Boolean).join(' · ')}
                                                         </span>
                                                     )}
                                                     <div className={s.sizes}>
@@ -734,7 +766,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                                                 ? 'HANDS FULL'
                                                                 : row.needsPart && !sel
                                                                 ? 'SELECT A LIMB'
-                                                                : [row.note, actionTime(tool, row) > 0 && `${actionTime(tool, row)}s`]
+                                                                : [row.note, actionTime(tool, row, patient) > 0 && `${actionTime(tool, row, patient)}s`]
                                                                     .filter(Boolean).join(' · ')}
                                                     </span>
                                                 </button>

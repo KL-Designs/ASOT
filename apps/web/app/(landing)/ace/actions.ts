@@ -2,7 +2,7 @@ import {
     ADJUNCT_LABEL, APNOEA_AT, APNOEA_OUT, BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE,
     DEATH_DOWNTIME, DEPRESSED_RR, DRUGS, FATAL_SPO2, FLUIDS, OBSTRUCTION_LABEL,
     RHYTHM_LABEL, SHOCKABLE, VOMIT_ON_COLLAPSE, WOUND_TYPES,
-    FREES_HANDS, REBOA_FATAL, REBOA_OCCLUSION, REBOA_WARN,
+    BAGGING_SLOWDOWN, FREES_HANDS, REBOA_FATAL, REBOA_OCCLUSION, REBOA_WARN,
     airwayOpen, arrestHr, bleedBelowBalloon, bestBandage, bleedFactor, breathing, clamp, dressingLife,
     handsFull, intensity, partBleeding,
     isConscious, jitter, nextWound, onBoard, pName, reopenChance, setRhythm, stabilityIssues,
@@ -10,6 +10,7 @@ import {
     type Adjunct, type BandageId, type BodyPart, type Dose, type DrugId, type FluidId,
     type Patient, type PartId, type VitalKey,
 } from './model'
+import type { Sfx } from './audio'
 
 /* ============================================================================
    HZN-MED — the treatment tables.
@@ -78,10 +79,47 @@ export function blockedBy(p: Patient, a: Action): string | null {
     return null
 }
 
-/** Seconds this action takes, however it was specified. */
-export function actionTime(tool: ToolId, a: Action): number {
-    return a.time ?? ACTION_TIME[a.id] ?? TOOL_TIME[tool]
+/**
+ * Seconds this action takes, for this casualty.
+ *
+ * Not a constant, because one of your hands may be on a bag — see
+ * `BAGGING_SLOWDOWN`. The menu shows the number this returns rather than the
+ * one in the table, so what the row promises is what the row costs.
+ */
+export function actionTime(tool: ToolId, a: Action, p?: Patient): number {
+    const base = a.time ?? ACTION_TIME[a.id] ?? TOOL_TIME[tool]
+    return p?.bagging ? base * BAGGING_SLOWDOWN : base
 }
+
+/**
+ * What each row sounds like.
+ *
+ * A table rather than a field on forty rows: the noise a thing makes is a
+ * property of the thing, not of the treatment table, and half the entries
+ * share one. Anything missing is silent, which is the right answer for taking
+ * a pulse.
+ */
+const ACTION_SFX: Record<string, Sfx> = {
+    field: 'bandage', packing: 'bandage', elastic: 'bandage', quik: 'bandage',
+    pak: 'bandage', sling: 'bandage', surg: 'suture',
+    tq: 'tourniquet', tqoff: 'tqOff', seal: 'seal',
+    splint: 'splint', realign: 'roll',
+
+    iv: 'needle', blood: 'fluid', plasma: 'fluid', saline: 'fluid',
+    reboa: 'reboaUp', reboaDown: 'reboaDown',
+
+    monon: 'cuff', monoff: 'tqOff', pads: 'pads',
+    tilt: 'roll', turn: 'roll', recov: 'roll', suction: 'suction',
+    npa: 'tube', opa: 'tube', king: 'tube', decom: 'decompress',
+
+    morph: 'syringe', nalb: 'syringe', fent: 'syringe',
+    epi: 'syringe', atro: 'syringe', amio: 'syringe', phen: 'syringe',
+    txa: 'syringe', nalox: 'syringe', carb: 'syringe',
+
+    blanket: 'roll', heat: 'roll',
+}
+
+export const actionSfx = (a: Action): Sfx | null => ACTION_SFX[a.id] ?? null
 
 export type LogKind = '' | 'good' | 'warn' | 'bad'
 
@@ -597,6 +635,10 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
                are: you do not bag somebody once. It moves air whether or not
                they are trying to, which is the only thing here that does — but
                only into an airway somebody has already opened.
+
+               Unlike compressions it leaves you a hand. You can carry on
+               working and everything takes twice as long, which is a choice
+               worth having rather than a wall to stop at.
             */
             run: p => {
                 if (p.bagging) { p.bagging = false; return ['Bagging stopped', 'warn'] }
