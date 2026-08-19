@@ -174,6 +174,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/military/promotion-requirements.ts
 - `RANK_TRACKS: RankTrack[]` — per-billet-track point thresholds (`minPts: null` = billet-assignment-only rank, not point-earned).
 - `getSuggestedRank(currentRankAbbr, points): string | null` — finds the matching track(s) for the current abbr, prefers a track where current rank has a real point threshold, returns the highest qualifying rank abbr at/under `points`. Shared SNCO ranks (SGT/SSGT/SAM/SSAM) default to the MIKE track when ambiguous.
+- `getNextThreshold(currentRankAbbr, points): {abbr, minPts} | null` — the next rank *up* the track and the points it wants. `getSuggestedRank` answers "what have they earned"; this answers "what are they working toward", which is what a progress bar needs. Measures from whichever is further along, the rank held or the rank the points already justify, so a member pending promotion is not shown aiming at a target they cleared weeks ago. Skips `minPts: null` entries — a billet-only rank is not reachable by accumulating points, so offering it as a target would promise something the numbers cannot deliver. Drives the `Meter` on `MilpacEditor`'s Billet Points card.
 
 ### lib/military/milpac-profile.ts
 - `resolveMilpacProfile(member: User, orbatEntry: OrbatEntry|null)` — central name/rank/accent resolver reused across milpac page, credits, ORBAT: strips `[...]` decorations from Discord nickname, parses rank-prefix vs display name, resolves `fullRank` via `rankNameFromAbbr` (falling back through promotion history), computes `accent` via `ensureVisible(member.hexAccentColor)`. Returns `{accent, displayName, name, rankAbbr, fullRank, callsign, orbatEntry}`.
@@ -663,6 +664,59 @@ not the whole page.
 
 #### components/wip-page.tsx
 - Default export `WipPage()` — "Under Development" placeholder page with a bypass button that appends `?bypass_wip=1` and reloads. Paired with `middleware.ts`'s `WIP_PATHS` rewrite (see §4).
+
+### components/dashboard/* — the staff portal's kit
+
+The dashboard's own layer on top of the Command Strip vocabulary. **Look here
+before writing anything inside `/dashboard`.** Styles live in
+`styles/dashboard.module.css`, scoped to `.dash` on `StaffDashboardShell`'s root
+so every screen inherits the tokens without importing them.
+
+It exists to fix one systemic problem: every panel on the dashboard was outlined
+in red, so container, primary action, destructive action and alert state all
+carried the same weight. Depth now comes from a four-step surface scale
+(`--ink-1`..`--ink-4`) and red is spent only on action, active state and alert.
+The status washes are mixed from the site's `--red`/`--amber`/`--live` with
+`color-mix`, so those tokens stay the single source.
+
+That fix has been carried across the existing screens as well as the new ones,
+because most of `/dashboard` styles itself with inline objects rather than this
+module:
+
+- **Structure is neutral, state is red.** ~290 container edges and 91 section
+  kickers moved from red to `--line-2`/`--txt-3`. The sweep worked per style
+  *object* rather than per line, so ~190 declarations were left alone: an object
+  that paints itself red is an action, an alert or an active state, and the edge
+  belongs to it. `borderLeft` is untouched throughout — the 2-4px left bar is a
+  state accent on rows and cards, which is exactly what red should still say.
+- **One status palette.** ~440 ad-hoc status colours fold onto the unit tokens.
+  Bare hexes (`#f59e0b`, `#3b82f6`, `#10b981`…) became `var(--amber)` etc.
+  directly; the translucent forms became `color-mix(in srgb, var(--token) N%,
+  transparent)`, which is the same alpha expressed against the token. Violet
+  (`#a78bfa`) is deliberately left: peer review has no token and is its own
+  category, not a second shade of an existing one.
+
+So when you touch a dashboard screen: reach for a kit component if one fits,
+and if you are hand-rolling a style, take the colour from a token.
+
+- `surfaces.tsx` — `Panel` (+ `tone`: alert/live/warn, an inset bar rather than a
+  full border), `PanelHeader`/`Body`/`Footer`, `SectionLabel` (the `// LABEL`
+  rule), `PageHead`, `Grid2`/`Grid3`/`Stack`.
+- `controls.tsx` — `Button` in four volumes plus a separate destructive track
+  (destructive stays outlined until hover), `Chip` (a toggle that *is* the
+  input), `Switch`, `Field`/`Input`/`Textarea`/`Select`, `Stepper`, `PointsLine`.
+- `status.tsx` — `Badge` on one palette (live/warn/alert/info/muted), `Meter`
+  (promotion, sign-on, course completion — figure first, bar second), `Stats`/`Stat`.
+- `data.tsx` — `ListRow` (state as a 3px left edge *and* a badge), `Rows`,
+  `Thumb`, `Table`/`TableScroll`/`cell`, `Identity`, `EmptyState`, `Tabs`.
+- `tools.tsx` — `ToolCard` tiered by consequence (standard/caution/danger/safe)
+  + `ToolGrid`. Pair `danger` with a typed `ConfirmDialog`, always.
+- `feedback.tsx` — `ConfirmDialog` (`confirmWord` gates the button),
+  `ToastProvider`/`useToast` (one host, in the shell), `SaveBar`.
+- `icons.tsx` — the kit's own line icons, so no component waits on an icon prop.
+
+Density: every measurement is a variable, so `.dense` on the root drops padding
+and row height by about a third without touching any layout.
 
 ### components/ui/* — the shared design system
 

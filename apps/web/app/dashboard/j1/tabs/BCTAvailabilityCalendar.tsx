@@ -21,9 +21,9 @@ const localizer = dateFnsLocalizer({
 // ── Time period config ────────────────────────────────────────────────────────
 
 export const TIME_PERIODS = [
-    { label: 'Morning',   startHour: 9,  endHour: 12, color: '#3b82f6' },
+    { label: 'Morning',   startHour: 9,  endHour: 12, color: 'var(--info)' },
     { label: 'Afternoon', startHour: 12, endHour: 17, color: '#8b5cf6' },
-    { label: 'Evening',   startHour: 18, endHour: 22, color: '#10b981' },
+    { label: 'Evening',   startHour: 18, endHour: 22, color: 'var(--live)' },
 ]
 
 type LocalSlot = {
@@ -312,7 +312,7 @@ export default function BCTAvailabilityCalendar({
                                 style: {
                                     background: 'rgba(16,185,129,0.14)',
                                     border: '1.5px dashed rgba(16,185,129,0.65)',
-                                    color: '#10b981',
+                                    color: 'var(--live)',
                                     borderRadius: 2,
                                     fontSize: '0.68rem',
                                     fontWeight: 600,
@@ -344,7 +344,7 @@ export default function BCTAvailabilityCalendar({
                     </div>
                     {slotSummary.map(s => (
                         <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.73rem', color: 'rgba(237,237,237,0.65)' }}>
-                            <span style={{ color: '#10b981', flexShrink: 0 }}>▸</span>
+                            <span style={{ color: 'var(--live)', flexShrink: 0 }}>▸</span>
                             {s.label}
                         </div>
                     ))}
@@ -408,9 +408,9 @@ export default function BCTAvailabilityCalendar({
                             <div style={{ padding: '11px 13px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', flexDirection: 'column', gap: 10 }}>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
                                     <input type='checkbox' checked={repeatWeekly} onChange={e => setRepeatWeekly(e.target.checked)}
-                                        style={{ cursor: 'pointer', accentColor: '#10b981', width: 14, height: 14 }}
+                                        style={{ cursor: 'pointer', accentColor: 'var(--live)', width: 14, height: 14 }}
                                     />
-                                    <span style={{ fontSize: '0.78rem', color: repeatWeekly ? '#10b981' : 'rgba(237,237,237,0.55)', fontWeight: 600 }}>
+                                    <span style={{ fontSize: '0.78rem', color: repeatWeekly ? 'var(--live)' : 'rgba(237,237,237,0.55)', fontWeight: 600 }}>
                                         Repeat weekly
                                     </span>
                                 </label>
@@ -420,7 +420,7 @@ export default function BCTAvailabilityCalendar({
                                         <div style={{ display: 'flex', gap: 5 }}>
                                             {[1, 2, 3, 4].map(n => (
                                                 <button key={n} type='button' onClick={() => setRepeatWeeks(n)}
-                                                    style={{ width: 30, height: 26, fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', background: repeatWeeks === n ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)', border: repeatWeeks === n ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.1)', color: repeatWeeks === n ? '#10b981' : 'rgba(237,237,237,0.5)' }}
+                                                    style={{ width: 30, height: 26, fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', background: repeatWeeks === n ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.04)', border: repeatWeeks === n ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.1)', color: repeatWeeks === n ? 'var(--live)' : 'rgba(237,237,237,0.5)' }}
                                                 >{n}</button>
                                             ))}
                                         </div>
@@ -452,7 +452,7 @@ export default function BCTAvailabilityCalendar({
                             >CANCEL</button>
                             <button type='button' onClick={saveSlots}
                                 disabled={pickerSelections.length === 0 || saving}
-                                style={{ padding: '8px 18px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', background: pickerSelections.length === 0 ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.15)', border: pickerSelections.length === 0 ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(16,185,129,0.5)', color: pickerSelections.length === 0 ? 'rgba(237,237,237,0.2)' : '#10b981', cursor: pickerSelections.length === 0 ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}
+                                style={{ padding: '8px 18px', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', background: pickerSelections.length === 0 ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.15)', border: pickerSelections.length === 0 ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(16,185,129,0.5)', color: pickerSelections.length === 0 ? 'rgba(237,237,237,0.2)' : 'var(--live)', cursor: pickerSelections.length === 0 ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}
                             >{saving ? 'SAVING…' : (editingExistingSlotId ? 'UPDATE' : 'CONFIRM')}</button>
                         </div>
                     </div>

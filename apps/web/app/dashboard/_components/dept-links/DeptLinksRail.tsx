@@ -41,10 +41,10 @@ export default function DeptLinksRail({ department, canManage, onManage }: Props
     const showGhost = serverCanManage && !!onManage
 
     return (
-        <div className='mx-6 mt-4' style={{ position: 'relative', border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.04)', padding: '10px 14px' }}>
+        <div className='mx-6 mt-4' style={{ position: 'relative', border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.04)', padding: '10px 14px' }}>
             <CornerBrackets />
-            <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> QUICK LINKS
+            <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: 'var(--txt-4)' }}>{'//'}</span> QUICK LINKS
             </span>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
@@ -54,7 +54,7 @@ export default function DeptLinksRail({ department, canManage, onManage }: Props
                             style={{
                                 position: 'relative', display: 'flex', alignItems: 'center', gap: 8,
                                 padding: '8px 14px',
-                                border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)',
+                                border: '1px solid var(--line-2)',
                                 background: 'rgba(255,255,255,0.04)', cursor: 'pointer', transition: 'background 0.15s',
                             }}
                             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(219,0,29,0.08)' }}

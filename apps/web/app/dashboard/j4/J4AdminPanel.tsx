@@ -18,6 +18,7 @@ import MasterSheetTab from './tabs/MasterSheetTab'
 import AIAdminTab from './tabs/AIAdminTab'
 import RolesManagerPanel from '@/app/dashboard/orbat/RolesManagerPanel'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
+import { Badge, SectionLabel, Switch, ToolCard, ToolGrid } from '@/components/dashboard'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -1110,15 +1111,14 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                 className='flex items-center justify-between px-5 py-3 mx-6 mt-6'
                 style={{
                     position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.42)',
-                    borderTop: '2px solid var(--red)',
+                    border: '1px solid var(--line-2)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
             >
                 <CornerBrackets />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> DEPARTMENTS
+                        <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span style={{ color: 'var(--txt-4)' }}>{'//'}</span> DEPARTMENTS
                         </span>
                     <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
                         [J4] Administration
@@ -1149,7 +1149,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                     <DeptLinksRail department='j4' canManage={canManageLinks} onManage={() => setView('settings')} />
 
                     {/* Tabs */}
-                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+                    <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                         <Tabs
                             value={tab}
                             onChange={(_, v) => setTab(v)}
@@ -1188,241 +1188,124 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                         )}
                         {tab === 6 && <AIAdminTab />}
                         {tab === 5 && (
-                            <div className='p-6 md:p-10 flex flex-col gap-6'>
-                        {/* Tools */}
-                        <div>
-                            <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
-                                Tools
-                            </Typography>
-                            <div className='flex flex-wrap gap-4'>
+                            <div className='p-6 md:p-10 flex flex-col gap-8 overflow-y-auto'>
 
-                                <a
+                        {/*
+                           Tools, grouped by what they cost you if you are wrong.
+
+                           These were nine identical rectangles: DISCHARGE MEMBER
+                           and CPU PROFILE sat side by side in the same red box,
+                           with nothing between them to slow a hand down. Tier and
+                           grouping now do that work — everyday tools first,
+                           environment switches next, and the two that change a
+                           member's standing under their own heading at the end.
+                        */}
+                        <div className='flex flex-col gap-4'>
+                            <SectionLabel>Everyday</SectionLabel>
+                            <ToolGrid>
+                                <ToolCard
                                     href='/dashboard/j4/import'
-                                    className='flex-1 min-w-[160px]'
-                                    style={{ textDecoration: 'none' }}
-                                >
-                                    <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', cursor: 'pointer' }}
-                                    >
-                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                            Import<br />Panel
-                                        </Typography>
-                                    </div>
-                                </a>
-
-                                <button
-                                    onClick={() => setDischargeOpen(true)}
-                                    className='flex-1 min-w-[160px]'
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                                >
-                                    <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
-                                    >
-                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                            Discharge<br />Member
-                                        </Typography>
-                                    </div>
-                                </button>
-
-                                <button
-                                    onClick={() => setReinstateOpen(true)}
-                                    className='flex-1 min-w-[160px]'
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                                >
-                                    <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(0,195,100,0.06)]'
-                                        style={{ border: '1px solid rgba(0,195,100,0.15)', borderTop: '2px solid rgb(0,195,100)' }}
-                                    >
-                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase', color: 'rgba(0,195,100,0.8)' }}>
-                                            Reinstate<br />Member
-                                        </Typography>
-                                    </div>
-                                </button>
-
-                                <button
-                                    onClick={() => setRolesManagerOpen(true)}
-                                    className='flex-1 min-w-[160px]'
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                                >
-                                    <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
-                                    >
-                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                            ORBAT<br />Manage Roles
-                                        </Typography>
-                                    </div>
-                                </button>
-
-                                {/* Discord Developer Mode toggle */}
-                                <button
-                                    onClick={toggleDevMode}
-                                    disabled={devModeLoading || devMode === null}
-                                    className='flex-1 min-w-[160px]'
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: devModeLoading || devMode === null ? 'default' : 'pointer', textAlign: 'left' }}
-                                >
-                                    <div
-                                        className='flex flex-col justify-center items-center gap-3 p-6 h-[160px] transition-colors duration-200'
-                                        style={{
-                                            background: devMode ? 'rgba(255,180,0,0.07)' : 'rgba(255,255,255,0.04)',
-                                            border: `1px solid ${devMode ? 'rgba(255,180,0,0.35)' : 'rgba(255,255,255,0.08)'}`,
-                                            borderTop: `2px solid ${devMode ? 'rgb(255,180,0)' : 'rgba(255,255,255,0.15)'}`,
-                                            opacity: devMode === null ? 0.4 : 1,
-                                        }}
-                                    >
-                                        <div style={{
-                                            width: 32, height: 18, borderRadius: 9,
-                                            background: devMode ? 'rgba(255,180,0,0.9)' : 'rgba(255,255,255,0.15)',
-                                            border: `1px solid ${devMode ? 'rgba(255,180,0,0.6)' : 'rgba(255,255,255,0.1)'}`,
-                                            position: 'relative', transition: 'background 0.2s',
-                                            flexShrink: 0,
-                                        }}>
-                                            <div style={{
-                                                position: 'absolute', top: 2,
-                                                left: devMode ? 14 : 2,
-                                                width: 12, height: 12, borderRadius: '50%',
-                                                background: '#fff',
-                                                transition: 'left 0.2s',
-                                                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-                                            }} />
-                                        </div>
-                                        <Typography
-                                            fontWeight={700}
-                                            fontSize='0.78rem'
-                                            letterSpacing={3}
-                                            textAlign='center'
-                                            style={{ textTransform: 'uppercase', color: devMode ? 'rgb(255,180,0)' : 'rgba(237,237,237,0.5)' }}
-                                        >
-                                            Discord<br />Dev Mode
-                                        </Typography>
-                                        <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: devMode ? 'rgba(255,180,0,0.7)' : 'rgba(237,237,237,0.25)', textTransform: 'uppercase' }}>
-                                            {devMode === null ? 'Loading…' : devMode ? 'Active — msgs blocked' : 'Inactive'}
-                                        </Typography>
-                                    </div>
-                                </button>
-
-                                {/* TeamSpeak Developer Mode toggle */}
-                                <button
-                                    onClick={toggleTsDevMode}
-                                    disabled={tsDevModeLoading || tsDevMode === null}
-                                    className='flex-1 min-w-[160px]'
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: tsDevModeLoading || tsDevMode === null ? 'default' : 'pointer', textAlign: 'left' }}
-                                >
-                                    <div
-                                        className='flex flex-col justify-center items-center gap-3 p-6 h-[160px] transition-colors duration-200'
-                                        style={{
-                                            background: tsDevMode ? 'rgba(255,180,0,0.07)' : 'rgba(255,255,255,0.04)',
-                                            border: `1px solid ${tsDevMode ? 'rgba(255,180,0,0.35)' : 'rgba(255,255,255,0.08)'}`,
-                                            borderTop: `2px solid ${tsDevMode ? 'rgb(255,180,0)' : 'rgba(255,255,255,0.15)'}`,
-                                            opacity: tsDevMode === null ? 0.4 : 1,
-                                        }}
-                                    >
-                                        <div style={{
-                                            width: 32, height: 18, borderRadius: 9,
-                                            background: tsDevMode ? 'rgba(255,180,0,0.9)' : 'rgba(255,255,255,0.15)',
-                                            border: `1px solid ${tsDevMode ? 'rgba(255,180,0,0.6)' : 'rgba(255,255,255,0.1)'}`,
-                                            position: 'relative', transition: 'background 0.2s',
-                                            flexShrink: 0,
-                                        }}>
-                                            <div style={{
-                                                position: 'absolute', top: 2,
-                                                left: tsDevMode ? 14 : 2,
-                                                width: 12, height: 12, borderRadius: '50%',
-                                                background: '#fff',
-                                                transition: 'left 0.2s',
-                                                boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
-                                            }} />
-                                        </div>
-                                        <Typography
-                                            fontWeight={700}
-                                            fontSize='0.78rem'
-                                            letterSpacing={3}
-                                            textAlign='center'
-                                            style={{ textTransform: 'uppercase', color: tsDevMode ? 'rgb(255,180,0)' : 'rgba(237,237,237,0.5)' }}
-                                        >
-                                            TeamSpeak<br />Dev Mode
-                                        </Typography>
-                                        <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: tsDevMode ? 'rgba(255,180,0,0.7)' : 'rgba(237,237,237,0.25)', textTransform: 'uppercase' }}>
-                                            {tsDevMode === null ? 'Loading…' : tsDevMode ? 'Active — changes blocked' : 'Inactive'}
-                                        </Typography>
-                                    </div>
-                                </button>
-
-                                <button
-                                    onClick={() => setTestNotifOpen(true)}
-                                    className='flex-1 min-w-[160px]'
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                                >
-                                    <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
-                                    >
-                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                            Test<br />Notification
-                                        </Typography>
-                                    </div>
-                                </button>
-
-                                <button
+                                    title='Import Panel'
+                                    description='Bulk-load milpacs, trainings and J1 records from a sheet.'
+                                />
+                                <ToolCard
                                     onClick={() => setTab(0)}
-                                    className='flex-1 min-w-[160px]'
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                                >
-                                    <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
-                                    >
-                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                            HQ<br />Mastersheet
-                                        </Typography>
-                                        <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: 'rgba(237,237,237,0.25)', textTransform: 'uppercase', textAlign: 'center' }}>
-                                            Billet · Leaving · Discipline
-                                        </Typography>
-                                    </div>
-                                </button>
-
-                                {/* CPU Profile capture — for production event-loop stall investigation */}
-                                <button
-                                    onClick={() => setCpuProfileOpen(true)}
-                                    className='flex-1 min-w-[160px]'
-                                    style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
-                                >
-                                    <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)' }}
-                                    >
-                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                            CPU Profile
-                                        </Typography>
-                                        <Typography fontSize='0.58rem' letterSpacing={1} style={{ color: 'rgba(237,237,237,0.25)', textTransform: 'uppercase', textAlign: 'center' }}>
-                                            Capture · Download
-                                        </Typography>
-                                    </div>
-                                </button>
-
-                            </div>
+                                    title='HQ Mastersheet'
+                                    description='Billet points, leaving notices and discipline in one table.'
+                                />
+                                <ToolCard
+                                    onClick={() => setRolesManagerOpen(true)}
+                                    title='ORBAT Roles'
+                                    description='Create, rename and reorder the roles positions are filled from.'
+                                />
+                                <ToolCard
+                                    href='/dashboard/j4/website-settings'
+                                    icon={<Settings sx={{ fontSize: 20 }} />}
+                                    title='Website Settings'
+                                    description='Public-site copy, links and feature switches.'
+                                />
+                            </ToolGrid>
                         </div>
 
-                        {/* Manage Preferences */}
-                        <div>
-                            <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
-                                Settings and Management
-                            </Typography>
-                            <div className='flex flex-wrap gap-4'>
-                                <a href='/dashboard/j4/website-settings' style={{ textDecoration: 'none', flex: 1, minWidth: 160, maxWidth: 220 }}>
-                                    <div
-                                        className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] transition-colors duration-200 bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(219,0,29,0.08)]'
-                                        style={{ border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', cursor: 'pointer' }}
-                                    >
-                                        <Settings sx={{ fontSize: 28, color: 'rgba(237,237,237,0.4)' }} />
-                                        <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                            Website Settings
-                                        </Typography>
-                                    </div>
-                                </a>
-                            </div>
+                        <div className='flex flex-col gap-4'>
+                            <SectionLabel right={<span style={{ fontSize: '0.62rem', letterSpacing: '0.1em', color: 'rgba(237,237,237,0.3)', textTransform: 'uppercase' }}>Affects live integrations</span>}>
+                                Environment
+                            </SectionLabel>
+                            <ToolGrid>
+                                {/* A card whose job is to host a switch is not
+                                    itself clickable — one tile, one meaning. */}
+                                <ToolCard
+                                    tier={devMode ? 'caution' : 'standard'}
+                                    title='Discord Dev Mode'
+                                    description='Blocks the bot from sending any message to the guild.'
+                                    flag={
+                                        <Switch
+                                            on={!!devMode}
+                                            onChange={() => { if (!devModeLoading && devMode !== null) toggleDevMode() }}
+                                            label='Discord developer mode'
+                                        />
+                                    }
+                                    footer={
+                                        devMode === null
+                                            ? <Badge tone='muted'>Loading…</Badge>
+                                            : devMode
+                                                ? <Badge tone='warn' dot>Active — messages blocked</Badge>
+                                                : <Badge tone='muted' dot>Inactive</Badge>
+                                    }
+                                />
+                                <ToolCard
+                                    tier={tsDevMode ? 'caution' : 'standard'}
+                                    title='TeamSpeak Dev Mode'
+                                    description='Blocks channel and permission changes on the TeamSpeak server.'
+                                    flag={
+                                        <Switch
+                                            on={!!tsDevMode}
+                                            onChange={() => { if (!tsDevModeLoading && tsDevMode !== null) toggleTsDevMode() }}
+                                            label='TeamSpeak developer mode'
+                                        />
+                                    }
+                                    footer={
+                                        tsDevMode === null
+                                            ? <Badge tone='muted'>Loading…</Badge>
+                                            : tsDevMode
+                                                ? <Badge tone='warn' dot>Active — changes blocked</Badge>
+                                                : <Badge tone='muted' dot>Inactive</Badge>
+                                    }
+                                />
+                                <ToolCard
+                                    onClick={() => setTestNotifOpen(true)}
+                                    title='Test Notification'
+                                    description='Send yourself one of any notification type.'
+                                    footer={<Badge tone='muted'>Delivers to you only</Badge>}
+                                />
+                                <ToolCard
+                                    onClick={() => setCpuProfileOpen(true)}
+                                    tier='caution'
+                                    title='CPU Profile'
+                                    description='Capture and download a V8 profile from the running server.'
+                                    footer={<Badge tone='warn'>Slows the server while capturing</Badge>}
+                                />
+                            </ToolGrid>
+                        </div>
+
+                        <div className='flex flex-col gap-4'>
+                            <SectionLabel>Member standing</SectionLabel>
+                            <ToolGrid>
+                                <ToolCard
+                                    onClick={() => setDischargeOpen(true)}
+                                    tier='danger'
+                                    title='Discharge Member'
+                                    description='Ends a member&rsquo;s service and records the discharge type on their record.'
+                                    footer={<Badge tone='alert' dot>Files an HQ ticket for approval</Badge>}
+                                />
+                                <ToolCard
+                                    onClick={() => setReinstateOpen(true)}
+                                    tier='safe'
+                                    title='Reinstate Member'
+                                    description='Returns a discharged member to the roster with their record intact.'
+                                    footer={<Badge tone='live' dot>Reversible</Badge>}
+                                />
+                            </ToolGrid>
                         </div>
                             </div>
                         )}

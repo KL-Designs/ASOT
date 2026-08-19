@@ -16,7 +16,7 @@ const searchFieldSx = {
 import type { MemberSyncEntry, MemberSyncReport, GrantDetail } from '@/lib/orbat/member-sync'
 
 const STATUS_STYLE: Record<MemberSyncEntry['status'], { label: string; color: string; bg: string; border: string }> = {
-    red: { label: 'Missing', color: 'rgba(239,68,68,0.95)', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.4)' },
+    red: { label: 'Missing', color: 'color-mix(in srgb, var(--red) 95%, transparent)', bg: 'color-mix(in srgb, var(--red) 12%, transparent)', border: 'color-mix(in srgb, var(--red) 40%, transparent)' },
     orange: { label: 'Extra', color: 'rgba(251,146,60,0.95)', bg: 'rgba(251,146,60,0.12)', border: 'rgba(251,146,60,0.4)' },
     green: { label: 'In sync', color: 'rgba(74,222,128,0.95)', bg: 'rgba(74,222,128,0.12)', border: 'rgba(74,222,128,0.35)' },
 }
@@ -33,7 +33,7 @@ function issueCount(entry: MemberSyncEntry): number {
 
 function GrantDetailList({ title, items, tone }: { title: string; items: GrantDetail[]; tone: 'red' | 'orange' }) {
     if (!items.length) return null
-    const color = tone === 'red' ? 'rgba(239,68,68,0.9)' : 'rgba(251,146,60,0.9)'
+    const color = tone === 'red' ? 'color-mix(in srgb, var(--red) 90%, transparent)' : 'rgba(251,146,60,0.9)'
     return (
         <Box sx={{ mb: 1 }}>
             <Typography sx={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color }}>

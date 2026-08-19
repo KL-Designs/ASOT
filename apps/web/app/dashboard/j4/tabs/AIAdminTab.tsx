@@ -764,7 +764,7 @@ export default function AIAdminTab() {
     return (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             {/* Sub-tabs */}
-            <div style={{ borderBottom: '1px solid rgba(219,0,29,0.22)', padding: '0 24px' }}>
+            <div style={{ borderBottom: '1px solid var(--line-2)', padding: '0 24px' }}>
                 <Tabs
                     value={tab}
                     onChange={(_, v) => setTab(v)}

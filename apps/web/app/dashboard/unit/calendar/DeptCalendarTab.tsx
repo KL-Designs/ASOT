@@ -118,11 +118,11 @@ export default function DeptCalendarTab({ department, userId, isJ4, isJ2Lead }: 
                                 textTransform: 'uppercase', cursor: 'pointer',
                                 background: showBCT ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
                                 border: showBCT ? '1px solid rgba(16,185,129,0.4)' : '1px solid rgba(255,255,255,0.1)',
-                                color: showBCT ? '#10b981' : 'rgba(237,237,237,0.3)',
+                                color: showBCT ? 'var(--live)' : 'rgba(237,237,237,0.3)',
                                 transition: 'all 0.12s',
                             }}
                         >
-                            <span style={{ width: 8, height: 8, border: `2px dashed ${showBCT ? '#10b981' : 'rgba(237,237,237,0.2)'}`, borderRadius: 1, flexShrink: 0 }} />
+                            <span style={{ width: 8, height: 8, border: `2px dashed ${showBCT ? 'var(--live)' : 'rgba(237,237,237,0.2)'}`, borderRadius: 1, flexShrink: 0 }} />
                             BCT Availability
                         </button>
                     )}
@@ -152,13 +152,13 @@ export default function DeptCalendarTab({ department, userId, isJ4, isJ2Lead }: 
                                 display: 'flex', alignItems: 'center', gap: 5,
                                 padding: '4px 12px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em',
                                 textTransform: 'uppercase', cursor: 'pointer',
-                                background: showUnavailability ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.03)',
-                                border: showUnavailability ? '1px solid rgba(239,68,68,0.4)' : '1px solid rgba(255,255,255,0.1)',
-                                color: showUnavailability ? '#ef4444' : 'rgba(237,237,237,0.3)',
+                                background: showUnavailability ? 'color-mix(in srgb, var(--red) 12%, transparent)' : 'rgba(255,255,255,0.03)',
+                                border: showUnavailability ? '1px solid color-mix(in srgb, var(--red) 40%, transparent)' : '1px solid rgba(255,255,255,0.1)',
+                                color: showUnavailability ? 'var(--red)' : 'rgba(237,237,237,0.3)',
                                 transition: 'all 0.12s',
                             }}
                         >
-                            <span style={{ width: 8, height: 8, border: `2px dashed ${showUnavailability ? '#ef4444' : 'rgba(237,237,237,0.2)'}`, borderRadius: 1, flexShrink: 0 }} />
+                            <span style={{ width: 8, height: 8, border: `2px dashed ${showUnavailability ? 'var(--red)' : 'rgba(237,237,237,0.2)'}`, borderRadius: 1, flexShrink: 0 }} />
                             Unavailability
                         </button>
                     )}
@@ -170,13 +170,13 @@ export default function DeptCalendarTab({ department, userId, isJ4, isJ2Lead }: 
                                 display: 'flex', alignItems: 'center', gap: 5,
                                 padding: '4px 12px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em',
                                 textTransform: 'uppercase', cursor: 'pointer',
-                                background: showMissionChecks ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.03)',
-                                border: showMissionChecks ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(255,255,255,0.1)',
-                                color: showMissionChecks ? '#3b82f6' : 'rgba(237,237,237,0.3)',
+                                background: showMissionChecks ? 'color-mix(in srgb, var(--info) 12%, transparent)' : 'rgba(255,255,255,0.03)',
+                                border: showMissionChecks ? '1px solid color-mix(in srgb, var(--info) 40%, transparent)' : '1px solid rgba(255,255,255,0.1)',
+                                color: showMissionChecks ? 'var(--info)' : 'rgba(237,237,237,0.3)',
                                 transition: 'all 0.12s',
                             }}
                         >
-                            <span style={{ width: 8, height: 8, border: `2px dashed ${showMissionChecks ? '#3b82f6' : 'rgba(237,237,237,0.2)'}`, borderRadius: 1, flexShrink: 0 }} />
+                            <span style={{ width: 8, height: 8, border: `2px dashed ${showMissionChecks ? 'var(--info)' : 'rgba(237,237,237,0.2)'}`, borderRadius: 1, flexShrink: 0 }} />
                             Mission Checks
                         </button>
                     )}
@@ -193,9 +193,9 @@ export default function DeptCalendarTab({ department, userId, isJ4, isJ2Lead }: 
                                 fontSize: '0.7rem',
                                 fontWeight: 700,
                                 letterSpacing: '0.08em',
-                                borderColor: 'rgba(239,68,68,0.42)',
-                                color: '#ef4444',
-                                '&:hover': { borderColor: '#ef4444', background: 'rgba(239,68,68,0.06)' },
+                                borderColor: 'color-mix(in srgb, var(--red) 42%, transparent)',
+                                color: 'var(--red)',
+                                '&:hover': { borderColor: 'var(--red)', background: 'color-mix(in srgb, var(--red) 6%, transparent)' },
                             }}
                         >
                             Block Unavailability
@@ -212,9 +212,9 @@ export default function DeptCalendarTab({ department, userId, isJ4, isJ2Lead }: 
                                 fontSize: '0.7rem',
                                 fontWeight: 700,
                                 letterSpacing: '0.08em',
-                                borderColor: 'rgba(59,130,246,0.42)',
-                                color: '#3b82f6',
-                                '&:hover': { borderColor: '#3b82f6', background: 'rgba(59,130,246,0.06)' },
+                                borderColor: 'color-mix(in srgb, var(--info) 42%, transparent)',
+                                color: 'var(--info)',
+                                '&:hover': { borderColor: 'var(--info)', background: 'color-mix(in srgb, var(--info) 6%, transparent)' },
                             }}
                         >
                             Request Mission Check
@@ -287,8 +287,8 @@ export default function DeptCalendarTab({ department, userId, isJ4, isJ2Lead }: 
                             if (event.resource?.isJ2Unavailability) {
                                 return {
                                     style: {
-                                        backgroundColor: 'rgba(239,68,68,0.55)',
-                                        borderLeft: '3px solid rgba(239,68,68,0.9)',
+                                        backgroundColor: 'color-mix(in srgb, var(--red) 55%, transparent)',
+                                        borderLeft: '3px solid color-mix(in srgb, var(--red) 90%, transparent)',
                                         color: '#fff',
                                         borderTop: 'none',
                                         borderRight: 'none',
@@ -301,8 +301,8 @@ export default function DeptCalendarTab({ department, userId, isJ4, isJ2Lead }: 
                             if (event.resource?.isMissionCheckRequest) {
                                 return {
                                     style: {
-                                        backgroundColor: 'rgba(59,130,246,0.55)',
-                                        borderLeft: '3px solid rgba(59,130,246,0.9)',
+                                        backgroundColor: 'color-mix(in srgb, var(--info) 55%, transparent)',
+                                        borderLeft: '3px solid color-mix(in srgb, var(--info) 90%, transparent)',
                                         color: '#fff',
                                         borderTop: 'none',
                                         borderRight: 'none',

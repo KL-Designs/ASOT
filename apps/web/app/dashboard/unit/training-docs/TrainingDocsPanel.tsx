@@ -967,7 +967,7 @@ function Modal({ onClose, title, children }: { onClose: () => void; title: strin
             onClick={e => { if (e.target === e.currentTarget) onClose() }}>
             <div style={{ background: '#0e0e0e', border: `1px solid rgba(219,0,29,0.25)`, borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 18 }}>
                 <div>
-                    <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} TRAINING DOCS</div>
+                    <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>{'//'} TRAINING DOCS</div>
                     <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>{title}</h3>
                 </div>
                 {children}
@@ -993,7 +993,7 @@ const labelStyle: React.CSSProperties = {
 }
 const inputStyle: React.CSSProperties = {
     width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)', borderBottom: '2px solid rgba(219,0,29,0.4)',
+    border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)',
     color: 'rgba(237,237,237,0.9)', fontSize: '0.88rem', padding: '8px 10px', outline: 'none',
 }
 const cancelBtnStyle: React.CSSProperties = {

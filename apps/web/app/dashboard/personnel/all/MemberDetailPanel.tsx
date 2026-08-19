@@ -3,6 +3,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import MilpacEditor from '@/app/members/[username]/MilpacEditor'
 import { DEPT_CODES } from '@/lib/discord/dept-codes'
+import {
+    Badge, Button, Chip, ChipRow, ConfirmDialog, DashIcons,
+    Field, Input, Panel, PanelBody, PanelHeader, SectionLabel, Select, Switch, Textarea,
+} from '@/components/dashboard'
+import s from '@/styles/dashboard.module.css'
 
 type ConfirmedOp = { operationId: string; name: string; date?: string | null; confirmedAt: string | null }
 type DiscordRole = { id: string; name: string; color: number; position: number }
@@ -48,8 +53,8 @@ export default function MemberDetailPanel({
     // J4 — panel collapse
     const [j4Open, setJ4Open] = useState(false)
 
-    // J4 — delete
-    const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
+    // J4 — delete. ConfirmDialog holds the typed word itself, so there is no
+    // second copy of it to keep in step here.
     const [deleteStage, setDeleteStage] = useState<'idle' | 'confirm'>('idle')
     const [deleting, setDeleting] = useState(false)
 
@@ -82,7 +87,6 @@ export default function MemberDetailPanel({
         setLoadingMember(true)
         setJ4Open(false)
         setDeleteStage('idle')
-        setDeleteConfirmInput('')
         setDischargeStage('idle')
         setDischargeType('')
         setDischargeReason('')
@@ -338,312 +342,268 @@ export default function MemberDetailPanel({
 
             {/* J4 administration panel — collapsed behind a toggle bar so it doesn't eat screen space by default */}
             {isJ4 && (
-                <div style={{ flexShrink: 0, borderTop: '2px solid rgba(219,0,29,0.2)' }}>
+                /*
+                   Every card in this drawer was outlined in the same red, so
+                   "edit display name" and "delete this account permanently"
+                   carried identical weight. Section labels separate them and
+                   only the last one keeps the colour.
+                */
+                <div className={s.dash} style={{ flexShrink: 0, borderTop: '1px solid var(--line-2)' }}>
 
                     <button
                         onClick={() => setJ4Open(o => !o)}
+                        aria-expanded={j4Open}
                         style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%',
-                            padding: '7px 24px', background: j4Open ? 'rgba(219,0,29,0.1)' : 'rgba(219,0,29,0.04)',
+                            padding: '9px 24px', background: j4Open ? 'var(--ink-2)' : 'var(--ink-1)',
                             border: 'none', cursor: 'pointer',
                         }}
                     >
-                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9.5px', fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--txt-3)' }}>
                             J4 Administration
                         </span>
-                        <span style={{ fontSize: '0.65rem', color: 'rgba(219,0,29,0.8)', lineHeight: 1, transform: j4Open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
-                            ▲
+                        <span style={{ display: 'inline-flex', color: 'var(--txt-4)', transform: j4Open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                            <DashIcons.ChevronDown />
                         </span>
                     </button>
 
                     {j4Open && (
-                    <div style={{ maxHeight: 420, overflowY: 'auto' }}>
+                    <div style={{ maxHeight: 460, overflowY: 'auto', padding: '18px 24px 24px', display: 'flex', flexDirection: 'column', gap: 22 }}>
 
-                    {/* Display Name */}
-                    <div style={{ padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 8 }}>
-                            Display Name
+                        {/* ---- Display name ---------------------------------- */}
+                        <div className='flex flex-col gap-3'>
+                            <SectionLabel>Display name</SectionLabel>
+                            {!nameEditMode ? (
+                                <div className='flex items-center gap-3 flex-wrap'>
+                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12.5px', color: memberData.name ? 'var(--txt-1)' : 'var(--txt-4)' }}>
+                                        {memberData.name || 'not set — uses Discord nickname'}
+                                    </span>
+                                    <Button variant='subtle' size='sm' onClick={() => { setNameEditMode(true); setNameEditValue(memberData.name ?? '') }}>
+                                        Edit
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className='flex flex-col gap-3' style={{ maxWidth: 380 }}>
+                                    <Field
+                                        hint={<>Discord nickname becomes <b>{memberData.milpac?.currentRank ? `${memberData.milpac.currentRank} ${nameEditValue.trim() || '…'}` : (nameEditValue.trim() || '…')}</b></>}
+                                    >
+                                        <Input
+                                            value={nameEditValue}
+                                            onChange={e => setNameEditValue(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') handleNameSave(); if (e.key === 'Escape') { setNameEditMode(false); setNameEditError(null) } }}
+                                            autoFocus
+                                        />
+                                    </Field>
+                                    {nameEditError && <Badge tone='alert' dot>{nameEditError}</Badge>}
+                                    <div className='flex gap-2'>
+                                        <Button variant='primary' size='sm' disabled={nameSaving || !nameEditValue.trim()} onClick={handleNameSave}>
+                                            {nameSaving ? 'Saving…' : 'Save'}
+                                        </Button>
+                                        <Button variant='subtle' size='sm' onClick={() => { setNameEditMode(false); setNameEditError(null) }}>Cancel</Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        {!nameEditMode ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <span style={{ fontSize: '0.82rem', color: memberData.name ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.28)', fontStyle: memberData.name ? 'normal' : 'italic', fontFamily: 'monospace' }}>
-                                    {memberData.name || 'not set — uses Discord nickname'}
+
+                        {/* ---- Chaplain -------------------------------------- */}
+                        <div className='flex flex-col gap-3'>
+                            <SectionLabel>Chaplain</SectionLabel>
+                            <div className='flex items-center gap-3'>
+                                <Switch
+                                    on={!!memberData.isChaplain}
+                                    onChange={() => { if (!chaplainSaving) handleChaplainToggle() }}
+                                    label='Chaplain'
+                                />
+                                <span style={{ fontSize: 13, color: memberData.isChaplain ? 'var(--txt-1)' : 'var(--txt-3)' }}>
+                                    {memberData.isChaplain ? 'Chaplain [✞]' : 'Not a chaplain'}
                                 </span>
-                                <button
-                                    onClick={() => { setNameEditMode(true); setNameEditValue(memberData.name ?? '') }}
-                                    style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', background: 'none', border: '1px solid rgba(255,255,255,0.12)', padding: '3px 10px', cursor: 'pointer' }}
-                                >
-                                    Edit
-                                </button>
                             </div>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 360 }}>
-                                <input
-                                    value={nameEditValue}
-                                    onChange={e => setNameEditValue(e.target.value)}
-                                    onKeyDown={e => { if (e.key === 'Enter') handleNameSave(); if (e.key === 'Escape') { setNameEditMode(false); setNameEditError(null) } }}
-                                    autoFocus
-                                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.9)', padding: '6px 10px', fontSize: '0.82rem', outline: 'none' }}
-                                />
-                                {nameEditError && (
-                                    <div style={{ fontSize: '0.68rem', color: 'rgba(219,0,29,0.8)' }}>{nameEditError}</div>
-                                )}
-                                <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)' }}>
-                                    Discord nickname will be set to:{' '}
-                                    <strong style={{ color: 'rgba(237,237,237,0.5)', fontFamily: 'monospace' }}>
-                                        {memberData.milpac?.currentRank
-                                            ? `${memberData.milpac.currentRank} ${nameEditValue.trim() || '…'}`
-                                            : (nameEditValue.trim() || '…')}
-                                    </strong>
-                                </div>
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <button
-                                        onClick={handleNameSave}
-                                        disabled={nameSaving || !nameEditValue.trim()}
-                                        style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.8)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.15)', padding: '5px 14px', cursor: (nameSaving || !nameEditValue.trim()) ? 'not-allowed' : 'pointer', opacity: (nameSaving || !nameEditValue.trim()) ? 0.4 : 1 }}
-                                    >
-                                        {nameSaving ? 'Saving…' : 'Save'}
-                                    </button>
-                                    <button
-                                        onClick={() => { setNameEditMode(false); setNameEditError(null) }}
-                                        style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)', background: 'none', border: 'none', cursor: 'pointer', padding: '5px 10px' }}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Chaplain */}
-                    <div style={{ padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 8 }}>
-                            Chaplain
+                            <span className={s.hint}>Grants the ASOT Chaplain role and adds [✞] to their Discord nickname.</span>
                         </div>
-                        <button
-                            onClick={handleChaplainToggle}
-                            disabled={chaplainSaving}
-                            style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'none', border: 'none', cursor: chaplainSaving ? 'not-allowed' : 'pointer', padding: 0, opacity: chaplainSaving ? 0.5 : 1 }}
-                        >
-                            <div style={{ width: 32, height: 18, borderRadius: 9, background: memberData.isChaplain ? 'rgba(147,197,253,0.6)' : 'rgba(255,255,255,0.1)', border: memberData.isChaplain ? '1px solid rgba(147,197,253,0.4)' : '1px solid rgba(255,255,255,0.15)', position: 'relative', transition: 'background 0.15s', flexShrink: 0 }}>
-                                <div style={{ position: 'absolute', top: 2, left: memberData.isChaplain ? 16 : 2, width: 12, height: 12, borderRadius: '50%', background: memberData.isChaplain ? 'rgba(219,234,254,0.95)' : 'rgba(237,237,237,0.4)', transition: 'left 0.15s' }} />
-                            </div>
-                            <span style={{ fontSize: '0.75rem', color: memberData.isChaplain ? 'rgba(147,197,253,0.9)' : 'rgba(237,237,237,0.4)' }}>
-                                {memberData.isChaplain ? 'Chaplain [✞]' : 'Not a chaplain'}
+
+                        {/* ---- Departments ----------------------------------- */}
+                        <div className='flex flex-col gap-3'>
+                            <SectionLabel>Departments</SectionLabel>
+                            <ChipRow>
+                                {DEPT_CODES.map(dept => {
+                                    const isMember = (memberData.departments ?? []).includes(dept)
+                                    const leaderRoleId = leaderRoleIdByDept[dept]
+                                    const isLead = !!leaderRoleId && (memberData.departmentRoleIds ?? []).map(String).includes(leaderRoleId)
+                                    return (
+                                        <Chip
+                                            key={dept}
+                                            on={isMember}
+                                            tone={isLead ? 'amber' : 'info'}
+                                            disabled={deptToggling === dept}
+                                            title={isMember ? `Remove from ${dept.toUpperCase()}` : `Add to ${dept.toUpperCase()}`}
+                                            onClick={() => handleDeptToggle(dept, isMember ? 'remove' : 'add')}
+                                        >
+                                            {dept}{isLead ? ' ★' : ''}
+                                        </Chip>
+                                    )
+                                })}
+                            </ChipRow>
+                            <span className={s.hint}>
+                                Click to add or remove. ★ marks a department leader, set from the Department Leadership card on that department&apos;s settings page.
                             </span>
-                        </button>
-                        <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)', marginTop: 6 }}>
-                            Grants ASOT Chaplain role · adds [✞] to Discord nickname
                         </div>
-                    </div>
 
-                    {/* Departments */}
-                    <div style={{ padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 8 }}>
-                            Departments
-                        </div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                            {DEPT_CODES.map(dept => {
-                                const isMember = (memberData.departments ?? []).includes(dept)
-                                const leaderRoleId = leaderRoleIdByDept[dept]
-                                const isLead = !!leaderRoleId && (memberData.departmentRoleIds ?? []).map(String).includes(leaderRoleId)
-                                const isLoading = deptToggling === dept
-                                return (
-                                    <button
-                                        key={dept}
-                                        onClick={() => handleDeptToggle(dept, isMember ? 'remove' : 'add')}
-                                        disabled={isLoading}
-                                        title={isMember ? `Remove from ${dept.toUpperCase()}` : `Add to ${dept.toUpperCase()}`}
-                                        style={{
-                                            padding: '3px 10px', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-                                            cursor: isLoading ? 'not-allowed' : 'pointer', opacity: isLoading ? 0.4 : 1,
-                                            border: isMember ? (isLead ? '1px solid rgba(234,179,8,0.5)' : '1px solid rgba(59,130,246,0.5)') : '1px solid rgba(255,255,255,0.1)',
-                                            background: isMember ? (isLead ? 'rgba(234,179,8,0.12)' : 'rgba(59,130,246,0.12)') : 'rgba(255,255,255,0.03)',
-                                            color: isMember ? (isLead ? 'rgba(253,224,71,0.9)' : 'rgba(147,197,253,0.9)') : 'rgba(237,237,237,0.25)',
-                                        }}
-                                    >
-                                        {dept}{isLead ? ' ★' : ''}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                        <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)', marginTop: 6 }}>
-                            Click to add or remove. ★ = department leader (managed via the Department Leadership card on that department's Settings page).
-                        </div>
-                    </div>
-
-                    {/* Discord Roles */}
-                    <div style={{ padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 8 }}>
-                            Discord Roles
-                        </div>
-                        {rolesLoading && <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)', fontStyle: 'italic' }}>Loading…</div>}
-                        {rolesError && <div style={{ fontSize: '0.72rem', color: 'rgba(219,0,29,0.7)' }}>{rolesError}</div>}
-                        {discordRoles && (
-                            <>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
-                                    {discordRoles.memberRoleIds.length === 0 && (
-                                        <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>No roles assigned</span>
-                                    )}
-                                    {discordRoles.allRoles
-                                        .filter(r => discordRoles.memberRoleIds.includes(r.id) && r.name !== '@everyone')
-                                        .map(role => {
-                                            const color = roleColor(role.color)
-                                            return (
-                                                <span key={role.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 7px 2px 6px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${color}44`, borderRadius: 2, fontSize: '0.68rem', color }}>
-                                                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                                                    {role.name}
-                                                    <button
-                                                        onClick={() => handleRoleToggle(role.id, 'remove')}
-                                                        disabled={roleToggling === role.id}
-                                                        style={{ background: 'none', border: 'none', cursor: roleToggling === role.id ? 'not-allowed' : 'pointer', color: 'rgba(237,237,237,0.35)', padding: 0, lineHeight: 1, marginLeft: 2, fontSize: '0.8rem', opacity: roleToggling === role.id ? 0.3 : 1 }}
-                                                    >×</button>
-                                                </span>
-                                            )
-                                        })}
-                                </div>
-                                <input
-                                    value={roleSearchQuery}
-                                    onChange={e => setRoleSearchQuery(e.target.value)}
-                                    placeholder='Search roles to add…'
-                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.9)', padding: '5px 8px', fontSize: '0.75rem', outline: 'none', width: '100%', maxWidth: 260 }}
-                                />
-                                {roleSearchQuery.trim() && (
-                                    <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 160, overflowY: 'auto', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        {/* ---- Discord roles --------------------------------- */}
+                        <div className='flex flex-col gap-3'>
+                            <SectionLabel>Discord roles</SectionLabel>
+                            {rolesLoading && <span className={s.hint}>Loading…</span>}
+                            {rolesError && <Badge tone='alert' dot>{rolesError}</Badge>}
+                            {discordRoles && (
+                                <>
+                                    <ChipRow>
+                                        {discordRoles.memberRoleIds.length === 0 && (
+                                            <span className={s.hint}>No roles assigned</span>
+                                        )}
                                         {discordRoles.allRoles
-                                            .filter(r => !discordRoles.memberRoleIds.includes(r.id) && r.name !== '@everyone' && r.name.toLowerCase().includes(roleSearchQuery.toLowerCase()))
-                                            .slice(0, 12)
+                                            .filter(r => discordRoles.memberRoleIds.includes(r.id) && r.name !== '@everyone')
                                             .map(role => {
+                                                // Discord's own colour is the data here, so these
+                                                // keep it rather than taking a kit tone.
                                                 const color = roleColor(role.color)
                                                 return (
-                                                    <button key={role.id} onClick={() => handleRoleToggle(role.id, 'add')} disabled={roleToggling === role.id}
-                                                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px', background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: roleToggling === role.id ? 'not-allowed' : 'pointer', textAlign: 'left', color, fontSize: '0.72rem', opacity: roleToggling === role.id ? 0.4 : 1 }}
+                                                    <span
+                                                        key={role.id}
+                                                        className={s.chip}
+                                                        style={{ borderColor: `${color}44`, color, textTransform: 'none', letterSpacing: '.04em', fontSize: '11px' }}
                                                     >
-                                                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                                                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
                                                         {role.name}
-                                                    </button>
+                                                        <button
+                                                            onClick={() => handleRoleToggle(role.id, 'remove')}
+                                                            disabled={roleToggling === role.id}
+                                                            aria-label={`Remove ${role.name}`}
+                                                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--txt-4)', padding: 0, marginLeft: 2, display: 'inline-flex' }}
+                                                        >
+                                                            <DashIcons.Close />
+                                                        </button>
+                                                    </span>
                                                 )
                                             })}
-                                        {discordRoles.allRoles.filter(r => !discordRoles.memberRoleIds.includes(r.id) && r.name !== '@everyone' && r.name.toLowerCase().includes(roleSearchQuery.toLowerCase())).length === 0 && (
-                                            <div style={{ padding: '6px 10px', fontSize: '0.7rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>No roles match</div>
-                                        )}
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
+                                    </ChipRow>
 
-                    {/* Danger Zone */}
-                    <div style={{ padding: '12px 24px' }}>
-                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(239,68,68,0.4)', marginBottom: 12 }}>
-                            Danger Zone
+                                    <Input
+                                        value={roleSearchQuery}
+                                        onChange={e => setRoleSearchQuery(e.target.value)}
+                                        placeholder='Search roles to add…'
+                                        style={{ maxWidth: 280 }}
+                                    />
+                                    {roleSearchQuery.trim() && (() => {
+                                        const matches = discordRoles.allRoles.filter(r =>
+                                            !discordRoles.memberRoleIds.includes(r.id)
+                                            && r.name !== '@everyone'
+                                            && r.name.toLowerCase().includes(roleSearchQuery.toLowerCase()))
+                                        return (
+                                            <div style={{ maxWidth: 280, maxHeight: 170, overflowY: 'auto', background: 'var(--ink-1)', border: '1px solid var(--line-1)', borderRadius: 'var(--r)' }}>
+                                                {matches.length === 0 && <div className={s.hint} style={{ padding: '8px 10px' }}>No roles match</div>}
+                                                {matches.slice(0, 12).map(role => {
+                                                    const color = roleColor(role.color)
+                                                    return (
+                                                        <button
+                                                            key={role.id}
+                                                            onClick={() => handleRoleToggle(role.id, 'add')}
+                                                            disabled={roleToggling === role.id}
+                                                            style={{
+                                                                display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                                                                padding: '6px 10px', background: 'none', border: 'none',
+                                                                borderBottom: '1px solid var(--line-1)', textAlign: 'left',
+                                                                color, fontSize: '12px',
+                                                                cursor: roleToggling === role.id ? 'default' : 'pointer',
+                                                                opacity: roleToggling === role.id ? 0.4 : 1,
+                                                            }}
+                                                        >
+                                                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                                                            {role.name}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                        )
+                                    })()}
+                                </>
+                            )}
                         </div>
 
-                        {/* Discharge Member */}
-                        {dischargeSuccess ? (
-                            <div style={{ fontSize: '0.75rem', color: 'rgba(100,220,100,0.85)', marginBottom: 14 }}>{dischargeSuccess}</div>
-                        ) : dischargeStage === 'idle' ? (
-                            <button
-                                onClick={() => setDischargeStage('form')}
-                                style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(239,68,68,0.5)', background: 'none', border: '1px solid rgba(239,68,68,0.2)', padding: '5px 14px', cursor: 'pointer', marginBottom: 10, display: 'block' }}
-                            >
-                                Discharge Member
-                            </button>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 420, marginBottom: 16 }}>
-                                <div style={{ fontSize: '0.72rem', color: 'rgba(239,68,68,0.8)', fontWeight: 700 }}>
-                                    Initiate Discharge — Requires J4 Approval
-                                </div>
-                                <select
-                                    value={dischargeType}
-                                    onChange={e => setDischargeType(e.target.value as typeof dischargeType)}
-                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(239,68,68,0.25)', color: dischargeType ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)', padding: '6px 10px', fontSize: '0.8rem', outline: 'none', width: '100%' }}
-                                >
-                                    <option value=''>Select discharge type…</option>
-                                    <option value='honorable'>Honorable Discharge</option>
-                                    <option value='general'>General Discharge</option>
-                                    <option value='dishonorable'>Dishonorable Discharge</option>
-                                </select>
-                                <textarea
-                                    value={dischargeReason}
-                                    onChange={e => setDischargeReason(e.target.value)}
-                                    placeholder='Reason for discharge (required)'
-                                    rows={3}
-                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(239,68,68,0.25)', color: 'rgba(237,237,237,0.9)', padding: '6px 10px', fontSize: '0.8rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
-                                />
-                                <textarea
-                                    value={dischargeNotes}
-                                    onChange={e => setDischargeNotes(e.target.value)}
-                                    placeholder='Additional notes (optional)'
-                                    rows={2}
-                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(237,237,237,0.1)', color: 'rgba(237,237,237,0.9)', padding: '6px 10px', fontSize: '0.8rem', outline: 'none', resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
-                                />
-                                {dischargeError && (
-                                    <div style={{ fontSize: '0.72rem', color: '#ff4444' }}>{dischargeError}</div>
-                                )}
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <button
-                                        onClick={handleDischargeMember}
-                                        disabled={dischargeSubmitting || !dischargeType || !dischargeReason.trim()}
-                                        style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 16px', cursor: (dischargeSubmitting || !dischargeType || !dischargeReason.trim()) ? 'default' : 'pointer', background: (dischargeType && dischargeReason.trim()) ? 'rgba(239,68,68,0.18)' : 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.35)', color: (dischargeType && dischargeReason.trim()) ? '#ef4444' : 'rgba(239,68,68,0.3)', transition: 'all 0.15s' }}
-                                    >
-                                        {dischargeSubmitting ? 'Submitting…' : 'Submit Discharge Request'}
-                                    </button>
-                                    <button
-                                        onClick={() => { setDischargeStage('idle'); setDischargeType(''); setDischargeReason(''); setDischargeNotes(''); setDischargeError(null) }}
-                                        style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 10px' }}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                        {/* ---- Danger zone ----------------------------------- */}
+                        <Panel tone='alert'>
+                            <PanelHeader
+                                title='Danger zone'
+                                sub='Both actions change this member&rsquo;s standing. One of them is final.'
+                            />
+                            <PanelBody className='flex flex-col gap-4'>
 
-                        {/* Delete Account */}
-                        {deleteStage === 'idle' ? (
-                            <button
-                                onClick={() => setDeleteStage('confirm')}
-                                style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(239,68,68,0.5)', background: 'none', border: '1px solid rgba(239,68,68,0.2)', padding: '5px 14px', cursor: 'pointer' }}
-                            >
-                                Delete Member Account
-                            </button>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 400 }}>
-                                <div style={{ fontSize: '0.72rem', color: 'rgba(239,68,68,0.8)', fontWeight: 700, letterSpacing: '0.05em' }}>
-                                    ⚠ This will permanently delete {displayName}&apos;s account from the database. This cannot be undone.
+                                {dischargeSuccess ? (
+                                    <Badge tone='live' dot>{dischargeSuccess}</Badge>
+                                ) : dischargeStage === 'idle' ? (
+                                    <div className='flex items-center gap-3 flex-wrap'>
+                                        <Button variant='danger' size='sm' onClick={() => setDischargeStage('form')}>Discharge member</Button>
+                                        <span className={s.hint}>Files a request — a J4 has to approve it.</span>
+                                    </div>
+                                ) : (
+                                    <div className='flex flex-col gap-3' style={{ maxWidth: 440 }}>
+                                        <Field label='Discharge type'>
+                                            <Select value={dischargeType} onChange={e => setDischargeType(e.target.value as typeof dischargeType)}>
+                                                <option value=''>Select…</option>
+                                                <option value='honorable'>Honorable discharge</option>
+                                                <option value='general'>General discharge</option>
+                                                <option value='dishonorable'>Dishonorable discharge</option>
+                                            </Select>
+                                        </Field>
+                                        <Field label='Reason' hint='Required. Goes on the discharge ticket.'>
+                                            <Textarea rows={3} value={dischargeReason} onChange={e => setDischargeReason(e.target.value)} />
+                                        </Field>
+                                        <Field label='Notes'>
+                                            <Textarea rows={2} value={dischargeNotes} onChange={e => setDischargeNotes(e.target.value)} placeholder='Optional' />
+                                        </Field>
+                                        {dischargeError && <Badge tone='alert' dot>{dischargeError}</Badge>}
+                                        <div className='flex gap-2'>
+                                            <Button
+                                                variant='danger'
+                                                size='sm'
+                                                disabled={dischargeSubmitting || !dischargeType || !dischargeReason.trim()}
+                                                onClick={handleDischargeMember}
+                                            >
+                                                {dischargeSubmitting ? 'Submitting…' : 'Submit discharge request'}
+                                            </Button>
+                                            <Button
+                                                variant='subtle'
+                                                size='sm'
+                                                onClick={() => { setDischargeStage('idle'); setDischargeType(''); setDischargeReason(''); setDischargeNotes(''); setDischargeError(null) }}
+                                            >
+                                                Cancel
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className='flex items-center gap-3 flex-wrap'>
+                                    <Button variant='danger' size='sm' onClick={() => setDeleteStage('confirm')}>Delete member account</Button>
+                                    <span className={s.hint}>Removes the record outright. Discharge is what you want in almost every case.</span>
                                 </div>
-                                <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)' }}>
-                                    Type <strong style={{ color: 'rgba(237,237,237,0.7)', fontFamily: 'monospace' }}>{memberData.username}</strong> to confirm:
-                                </div>
-                                <input
-                                    type='text'
-                                    value={deleteConfirmInput}
-                                    onChange={e => setDeleteConfirmInput(e.target.value)}
-                                    placeholder={memberData.username}
-                                    autoFocus
-                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(239,68,68,0.35)', color: 'rgba(237,237,237,0.9)', padding: '6px 10px', fontSize: '0.82rem', outline: 'none', fontFamily: 'monospace', width: '100%' }}
-                                />
-                                <div style={{ display: 'flex', gap: 8 }}>
-                                    <button
-                                        onClick={handleDeleteMember}
-                                        disabled={deleteConfirmInput !== memberData.username || deleting}
-                                        style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '6px 16px', cursor: deleteConfirmInput === memberData.username && !deleting ? 'pointer' : 'default', background: deleteConfirmInput === memberData.username ? 'rgba(239,68,68,0.2)' : 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.4)', color: deleteConfirmInput === memberData.username ? '#ef4444' : 'rgba(239,68,68,0.3)', transition: 'all 0.15s' }}
-                                    >
-                                        {deleting ? 'Deleting…' : 'Confirm Delete'}
-                                    </button>
-                                    <button
-                                        onClick={() => { setDeleteStage('idle'); setDeleteConfirmInput('') }}
-                                        style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)', background: 'none', border: 'none', cursor: 'pointer', padding: '6px 10px' }}
-                                    >
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+
+                            </PanelBody>
+                        </Panel>
 
                     </div>
                     )}
+
+                    <ConfirmDialog
+                        open={deleteStage === 'confirm'}
+                        title='Delete member account'
+                        confirmWord={memberData.username}
+                        confirmLabel={deleting ? 'Deleting…' : 'Delete account'}
+                        warning={<>Everything on {displayName}&apos;s record goes with it — milpac, awards, attendance and promotion history. There is no recycle bin behind this.</>}
+                        onConfirm={handleDeleteMember}
+                        onCancel={() => setDeleteStage('idle')}
+                    >
+                        <p style={{ fontSize: 13, color: 'var(--txt-2)' }}>
+                            Permanently delete <b>{displayName}</b> from the database.
+                        </p>
+                    </ConfirmDialog>
                 </div>
             )}
         </>

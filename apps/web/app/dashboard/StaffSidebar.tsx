@@ -8,12 +8,13 @@ import {
     PersonAdd, Map, School, AdminPanelSettings, Collections,
     SportsEsports, Code, Badge, Groups, People,
     AccountTree, CalendarMonth, MenuBook, Policy, ConfirmationNumber,
-    Dashboard, TaskAlt,
+    Dashboard, TaskAlt, AccountCircle,
 } from '@mui/icons-material'
 import type { DashboardPermissions } from './StaffDashboardShell'
 import { useLockout } from './StaffDashboardShell'
 import { useFavourites } from '@/hooks/useFavourites'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
+import { ServiceStatusList } from '@/app/dashboard/_components/ServiceStatus'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -311,16 +312,28 @@ function HomeButton({ pathname, onNavigate }: { pathname: string; onNavigate?: (
     )
 }
 
-// ── Tasks shortcut button (pinned below Dashboard) ────────────────────────────
+// ── Shortcut buttons (pinned below Dashboard) ─────────────────────────────────
 
-function TasksShortcutButton({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-    const isActive = pathname === '/dashboard/tasks' || pathname.startsWith('/dashboard/tasks/')
+/**
+ * A top-level destination that is not a department — Tasks, your own profile.
+ *
+ * Was written twice over before Profile joined it; parameterised now so a third
+ * cannot drift from the other two.
+ */
+function ShortcutButton({ href, label, icon, pathname, onNavigate }: {
+    href: string
+    label: string
+    icon: React.ReactNode
+    pathname: string
+    onNavigate?: () => void
+}) {
+    const isActive = pathname === href || pathname.startsWith(`${href}/`)
     const [hovered, setHovered] = useState(false)
 
     return (
         <div>
             <Link
-                href='/dashboard/tasks'
+                href={href as never}
                 onClick={onNavigate}
                 onMouseEnter={() => setHovered(true)}
                 onMouseLeave={() => setHovered(false)}
@@ -357,9 +370,9 @@ function TasksShortcutButton({ pathname, onNavigate }: { pathname: string; onNav
                     transition: 'color 0.12s',
                     fontSize: 14,
                 }}>
-                    <TaskAlt sx={{ fontSize: 14 }} />
+                    {icon}
                 </span>
-                Tasks
+                {label}
             </Link>
         </div>
     )
@@ -394,8 +407,8 @@ function PinnedSection({ onNavigate }: { onNavigate?: () => void }) {
                 className='w-full flex items-center justify-between px-4 py-2'
                 style={{ background: 'none', border: 'none', cursor: 'pointer' }}
             >
-                <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <span style={{ color: 'rgba(219,0,29,0.45)', fontFamily: 'monospace' }}>{'//'}</span>
+                <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ color: 'var(--txt-4)', fontFamily: 'monospace' }}>{'//'}</span>
                     PINNED
                 </span>
                 <span style={{ fontSize: '0.62rem', fontFamily: 'monospace', color: 'rgba(237,237,237,0.25)', lineHeight: 1 }}>
@@ -584,6 +597,19 @@ export default function StaffSidebar({
         },
     ]
 
+    /*
+       The services list opens when the pointer is anywhere on the identity
+       card, and latches open on a tap.
+
+       Hover alone never touches `pinned`, so a mouse user is not left having to
+       close something they only glanced at, and a list opened by tapping — the
+       only way in on a touch screen, where there is no hover — does not slam
+       shut the instant the finger lifts.
+    */
+    const [svcHover, setSvcHover] = useState(false)
+    const [svcPinned, setSvcPinned] = useState(false)
+    const svcOpen = svcHover || svcPinned
+
     function toggle(key: keyof typeof expanded) {
         setExpanded(prev => ({ ...prev, [key]: !prev[key] }))
     }
@@ -591,22 +617,38 @@ export default function StaffSidebar({
     const sectionKeys: (keyof typeof expanded)[] = ['departments', 'personnel', 'unit']
 
     return (
-        <nav className='flex flex-col h-full overflow-y-auto' style={{ paddingBottom: 40 }}>
+        <nav className='flex flex-col h-full overflow-y-auto' style={{ paddingTop: 14, paddingBottom: 40 }}>
 
             {/* ── Header ─────────────────────────────────────────────────── */}
+            {/*
+               Inset rather than flush to the top edge.
+
+               Full-bleed, this block's dark band and its corner brackets butted
+               straight into the navbar's own dark band — two frames stacked with
+               nothing between them, so the brackets read as part of the navbar
+               rather than as this panel's own. Held off the edges it reads as
+               what it is: the card that identifies who is signed in.
+            */}
             <div
+                onMouseEnter={() => setSvcHover(true)}
+                onMouseLeave={() => setSvcHover(false)}
+                onClick={() => setSvcPinned(p => !p)}
                 style={{
                     position: 'relative',
-                    padding: '18px 16px 16px',
-                    borderBottom: '1px solid rgba(219,0,29,0.42)',
-                    background: 'rgba(0,0,0,0.25)',
+                    margin: '0 12px 12px',
+                    padding: '14px 14px 12px',
+                    border: `1px solid ${svcOpen ? 'var(--line-2)' : 'var(--line-1)'}`,
+                    borderRadius: 'var(--r)',
+                    background: 'var(--ink-2)',
+                    cursor: 'pointer',
+                    transition: 'border-color .18s',
                 }}
             >
                 <CornerBrackets />
 
                 {/* Top row: unit label + clock */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace' }}>
+                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                         ASOT // UNIT
                     </span>
                     <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.3)', fontFamily: 'monospace', letterSpacing: '0.05em' }}>
@@ -620,25 +662,42 @@ export default function StaffSidebar({
                 </div>
 
                 {/* Divider */}
-                <div style={{ height: 1, background: 'rgba(219,0,29,0.18)', marginBottom: 10 }} />
+                <div style={{ height: 1, background: 'var(--line-1)', marginBottom: 10 }} />
 
-                {/* User + status */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.35)', letterSpacing: '0.06em', fontFamily: 'monospace' }}>
-                        {permissions.displayName || '—'}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.52rem', color: 'rgba(0,200,80,0.6)', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(0,200,80,0.7)', flexShrink: 0, boxShadow: '0 0 4px rgba(0,200,80,0.5)' }} />
-                        ONLINE
-                    </span>
-                </div>
+                {/*
+                   Service status, in place of the "Koda · ONLINE" line this card
+                   used to end on. That line only ever said one thing, and whether
+                   *you* are online is not news to someone reading their own
+                   screen. Whether the bot, TeamSpeak and the milpac renderer are
+                   is the thing staff actually chase — and it was six unlabelled
+                   glyphs at the far corner of one screen until now.
+                */}
+                <ServiceStatusList open={svcOpen} onToggle={() => setSvcPinned(p => !p)} />
             </div>
 
             {/* ── Home button ─────────────────────────────────────────────── */}
             <HomeButton pathname={pathname} onNavigate={onNavigate} />
 
-            {/* ── Tasks shortcut ──────────────────────────────────────────── */}
-            {permissions.isStaff && <TasksShortcutButton pathname={pathname} onNavigate={onNavigate} />}
+            {/* ── Shortcuts ───────────────────────────────────────────────── */}
+            {/* Profile before Tasks: it is the one everybody here has, since
+                Tasks is staff-only and would otherwise leave a lone entry
+                sitting under Dashboard for everyone else. */}
+            <ShortcutButton
+                href='/dashboard/profile'
+                label='My Profile'
+                icon={<AccountCircle sx={{ fontSize: 14 }} />}
+                pathname={pathname}
+                onNavigate={onNavigate}
+            />
+            {permissions.isStaff && (
+                <ShortcutButton
+                    href='/dashboard/tasks'
+                    label='Tasks'
+                    icon={<TaskAlt sx={{ fontSize: 14 }} />}
+                    pathname={pathname}
+                    onNavigate={onNavigate}
+                />
+            )}
 
             {/* ── Pinned section ──────────────────────────────────────────── */}
             <PinnedSection onNavigate={onNavigate} />
@@ -706,7 +765,7 @@ export default function StaffSidebar({
             })}
 
             {/* ── Footer ──────────────────────────────────────────────────── */}
-            <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid rgba(219,0,29,0.22)' }}>
+            <div style={{ marginTop: 'auto', padding: '16px', borderTop: '1px solid var(--line-1)' }}>
                 <div style={{ fontSize: '0.5rem', fontFamily: 'monospace', letterSpacing: '0.15em', color: 'rgba(237,237,237,0.12)', textTransform: 'uppercase', lineHeight: 1.8 }}>
                     <div>SYS // DASHBOARD</div>
                     <div>AUTH // DISCORD-SSO</div>

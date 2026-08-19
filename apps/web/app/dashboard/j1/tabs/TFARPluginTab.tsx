@@ -103,7 +103,7 @@ export default function TFARPluginTab() {
 
     return (
         <div style={{ padding: '24px 28px', maxWidth: 720 }}>
-            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 4, fontFamily: 'monospace' }}>
+            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 4, fontFamily: 'monospace' }}>
                 {'// J1 LEADS ONLY'}
             </div>
             <div style={{ fontSize: '0.95rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)', marginBottom: 4 }}>
@@ -114,14 +114,14 @@ export default function TFARPluginTab() {
             </div>
 
             {/* Current plugin status */}
-            <div style={{ marginBottom: 20, padding: '14px 16px', background: current ? 'rgba(0,195,100,0.04)' : 'rgba(245,158,11,0.04)', border: `1px solid ${current ? 'rgba(0,195,100,0.25)' : 'rgba(245,158,11,0.25)'}`, borderLeft: `3px solid ${current ? '#00c364' : '#f59e0b'}` }}>
+            <div style={{ marginBottom: 20, padding: '14px 16px', background: current ? 'rgba(0,195,100,0.04)' : 'color-mix(in srgb, var(--amber) 4%, transparent)', border: `1px solid ${current ? 'rgba(0,195,100,0.25)' : 'color-mix(in srgb, var(--amber) 25%, transparent)'}`, borderLeft: `3px solid ${current ? '#00c364' : 'var(--amber)'}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {current
                         ? <CheckCircle style={{ fontSize: 16, color: '#00c364', flexShrink: 0 }} />
-                        : <Warning style={{ fontSize: 16, color: '#f59e0b', flexShrink: 0 }} />
+                        : <Warning style={{ fontSize: 16, color: 'var(--amber)', flexShrink: 0 }} />
                     }
                     <div>
-                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: current ? '#00c364' : '#f59e0b', marginBottom: 2 }}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: current ? '#00c364' : 'var(--amber)', marginBottom: 2 }}>
                             {current ? `Current plugin: ${current.originalName}` : 'No plugin uploaded — recruits cannot download TFAR'}
                         </div>
                         {current && (
@@ -167,7 +167,7 @@ export default function TFARPluginTab() {
             </div>
 
             {error && (
-                <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(219,0,29,0.07)', border: '1px solid rgba(219,0,29,0.3)', fontSize: '0.78rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(219,0,29,0.07)', border: '1px solid rgba(219,0,29,0.3)', fontSize: '0.78rem', color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Warning style={{ fontSize: 15, flexShrink: 0 }} />{error}
                 </div>
             )}

@@ -1,10 +1,7 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Typography, Tooltip } from '@mui/material'
-import { CheckCircleOutline, Language, Storage, Backup, Forum, Headset, MilitaryTech, Warning } from '@mui/icons-material'
 import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
     type DragEndEvent,
@@ -13,289 +10,247 @@ import {
     SortableContext, rectSortingStrategy, useSortable, arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+
 import { useFavourites, type Favourite } from '@/hooks/useFavourites'
-import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
+import type { PromotionProgress } from '@/app/api/me/promotion-progress/route'
+import type { NavStatus } from '@/app/api/nav/status/route'
 import DashboardQuickLinks from './_components/DashboardQuickLinks'
 import type { DashboardPermissions } from './StaffDashboardShell'
+
+import {
+    Panel, PanelHeader, PanelBody, PanelFooter, SectionLabel, PageHead, Grid2, Stack,
+    Button, Badge, Meter, Stats, Stat, ListRow, Rows, Thumb, EmptyState, DashIcons,
+} from '@/components/dashboard'
+import s from '@/styles/dashboard.module.css'
+
+/* ============================================================================
+   The dashboard landing page.
+
+   What it replaces did not answer the question a member opens it to ask. The
+   top of the page was a clock, an empty favourites block and two quick links;
+   the useful things — is sign-on open, how close am I to promotion, what is
+   assigned to me — were absent or below the fold.
+
+   This leads with the next operation and its sign-on state, then tasks, then
+   operations, with progression pinned to the right rail. Favourites drops below
+   the fold and shrinks to its content.
+
+   Every panel here is a hairline on the surface scale. Red is spent on the
+   primary action and on alert states, nothing else — see components/dashboard.
+   ========================================================================== */
 
 // ── Local clock ────────────────────────────────────────────────────────────────
 
 function LocalClock() {
     const [time, setTime] = useState('')
     const [tz, setTz] = useState('')
+
     useEffect(() => {
         setTz(Intl.DateTimeFormat().resolvedOptions().timeZone)
-        function tick() {
+        const tick = () => {
             const now = new Date()
-            const h = now.getHours().toString().padStart(2, '0')
-            const m = now.getMinutes().toString().padStart(2, '0')
-            const s = now.getSeconds().toString().padStart(2, '0')
-            setTime(`${h}:${m}:${s}`)
+            setTime([now.getHours(), now.getMinutes(), now.getSeconds()]
+                .map(n => String(n).padStart(2, '0')).join(':'))
         }
         tick()
         const id = setInterval(tick, 1000)
         return () => clearInterval(id)
     }, [])
+
     return (
         <div style={{ textAlign: 'right' }}>
-            <div style={{ fontFamily: 'monospace', fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(237,237,237,0.7)', lineHeight: 1 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 15, fontWeight: 700, letterSpacing: '.08em', color: 'var(--txt-2)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                 {time || '──:──:──'}
             </div>
-            <div style={{ fontFamily: 'monospace', fontSize: '0.5rem', letterSpacing: '0.1em', color: 'rgba(237,237,237,0.2)', marginTop: 4, textTransform: 'uppercase' }}>
+            <div className={s.hint} style={{ marginTop: 4, textTransform: 'uppercase' }}>
                 {tz || '─────────'}
             </div>
         </div>
     )
 }
 
-// ── Service status icons ──────────────────────────────────────────────────────
+// ── Next operation ────────────────────────────────────────────────────────────
 
-type ServiceStatus = { online: boolean; devMode?: boolean }
-type StatusResponse = {
-    website: ServiceStatus
-    database: ServiceStatus
-    backups: ServiceStatus
-    discord: ServiceStatus
-    teamspeak: ServiceStatus
-    milpac: ServiceStatus
-}
-
-const ALL_OFFLINE: StatusResponse = {
-    website: { online: false },
-    database: { online: false },
-    backups: { online: false },
-    discord: { online: false },
-    teamspeak: { online: false },
-    milpac: { online: false },
-}
-
-function statusColor(status: ServiceStatus): string {
-    if (status.devMode) return status.online ? 'rgba(96,165,250,0.9)' : 'rgba(251,191,36,0.95)'
-    return status.online ? 'rgba(34,197,94,0.85)' : 'rgba(219,0,29,0.85)'
-}
-
-function statusLabel(name: string, status: ServiceStatus): string {
-    if (status.devMode) return status.online ? `${name}: Dev mode (connected)` : `${name}: Dev mode — OFFLINE`
-    return `${name}: ${status.online ? 'Online' : 'Offline'}`
-}
-
-function ServiceIcon({ name, status, Icon }: { name: string; status: ServiceStatus; Icon: typeof Language }) {
-    const showWarning = !!status.devMode && !status.online
-    return (
-        <Tooltip title={statusLabel(name, status)}>
-            <div style={{ position: 'relative', display: 'inline-flex', lineHeight: 0 }}>
-                <Icon sx={{ fontSize: 15, color: statusColor(status) }} />
-                {showWarning && (
-                    <Warning sx={{ fontSize: 9, color: 'rgba(251,191,36,0.95)', position: 'absolute', bottom: -3, right: -4 }} />
-                )}
-            </div>
-        </Tooltip>
-    )
-}
-
-function ServiceStatusIcons() {
-    const [status, setStatus] = useState<StatusResponse | null>(null)
+/**
+ * The block the whole page now leads with.
+ *
+ * It is the one thing a member opens the dashboard on a Thursday to find out,
+ * and it was not on the page at all. Reuses `/api/nav/status`, which the navbar
+ * already polls — no new endpoint, and the two can never disagree.
+ */
+function NextOpPanel() {
+    const [status, setStatus] = useState<NavStatus | null>(null)
 
     useEffect(() => {
         let cancelled = false
-        async function poll() {
-            try {
-                const res = await fetch('/api/dashboard/status')
-                if (!res.ok) throw new Error('bad response')
-                const data: StatusResponse = await res.json()
-                if (!cancelled) setStatus(data)
-            } catch {
-                if (!cancelled) setStatus(ALL_OFFLINE)
-            }
-        }
-        poll()
-        const id = setInterval(poll, 30_000)
-        return () => { cancelled = true; clearInterval(id) }
+        fetch('/api/nav/status')
+            .then(r => r.ok ? r.json() : null)
+            .then(json => { if (!cancelled && json && !json.error) setStatus(json) })
+            .catch(() => { })
+        return () => { cancelled = true }
     }, [])
 
-    if (!status) return null
+    const op = status?.nextOp
+    if (!op) return null
+
+    const running = op.status === 'Active' || op.stage === 'op_running' || op.stage === 'confirmations_open'
+    const signedOn = running ? (op.confirmed || op.attending) : op.attending
+
+    const when = new Date(op.date).toLocaleString('en-AU', {
+        weekday: 'short', day: 'numeric', month: 'short',
+        hour: '2-digit', minute: '2-digit', hour12: false,
+    })
+
+    const heading = running ? 'Op running' : op.rsvpOpen ? 'Sign-on open' : 'Sign-on not open'
 
     return (
-        <div style={{ display: 'flex', gap: 9, alignItems: 'center' }}>
-            <ServiceIcon name='Website' status={status.website} Icon={Language} />
-            <ServiceIcon name='Database' status={status.database} Icon={Storage} />
-            <ServiceIcon name='Backups' status={status.backups} Icon={Backup} />
-            <ServiceIcon name='Discord' status={status.discord} Icon={Forum} />
-            <ServiceIcon name='TeamSpeak' status={status.teamspeak} Icon={Headset} />
-            {/* The render service publishes no port, so this is the only place its
-                state is visible — nothing outside the compose network can reach it. */}
-            <ServiceIcon name='MilPac Renderer' status={status.milpac} Icon={MilitaryTech} />
-        </div>
+        <Panel tone={running || op.rsvpOpen ? 'live' : 'warn'}>
+            <PanelHeader
+                before={<Badge tone={running || op.rsvpOpen ? 'live' : 'warn'} live={running || op.rsvpOpen} dot={!running && !op.rsvpOpen}>{heading}</Badge>}
+                title={op.title}
+                sub={`${when} AEST`}
+            />
+            <PanelBody>
+                <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1, minWidth: 220 }}>
+                        {/*
+                            Nothing stores a total-slots figure, so there is no
+                            denominator to measure sign-on against here — the
+                            count stands on its own rather than inventing a
+                            target to be a fraction of.
+                        */}
+                        <div className={s.meterTop}>
+                            <span className={s.now}>{signedOn}</span>
+                            <span className={s.goal}>{running ? 'confirmed present' : 'signed on'}</span>
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Button variant='primary' href={`/operations/${op.id}`} disabled={!op.rsvpOpen || running}>
+                            <DashIcons.Check /> {op.rsvpOpen && !running ? 'Sign on' : running ? 'Op running' : 'Not open yet'}
+                        </Button>
+                        <Button variant='ghost' href={`/operations/${op.id}`}>Orders</Button>
+                    </div>
+                </div>
+            </PanelBody>
+        </Panel>
     )
 }
 
-// ── Section label ──────────────────────────────────────────────────────────────
+// ── Progression ───────────────────────────────────────────────────────────────
 
-function SectionLabel({ label }: { label: string }) {
+/**
+ * How close the member is to their next rank — the second thing they open the
+ * dashboard to check, and also previously absent. Same endpoint the navbar's
+ * account menu uses.
+ */
+function ProgressionPanel() {
+    const [promotion, setPromotion] = useState<PromotionProgress | null | undefined>(undefined)
+
+    useEffect(() => {
+        let cancelled = false
+        fetch('/api/me/promotion-progress')
+            .then(r => r.ok ? r.json() : null)
+            .then(json => { if (!cancelled) setPromotion(json?.error ? null : json) })
+            .catch(() => { if (!cancelled) setPromotion(null) })
+        return () => { cancelled = true }
+    }, [])
+
+    // Undefined is "still loading"; null is "no rank on a known track". Neither
+    // is worth a panel that says so.
+    if (!promotion?.progress) return null
+    const p = promotion.progress
+
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 10 }}>
-            <span style={{ fontFamily: 'monospace', fontSize: '0.55rem', color: 'rgba(219,0,29,0.4)', lineHeight: 1 }}>{'//'}</span>
-            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)' }}>
-                {label}
-            </span>
-        </div>
+        <Panel>
+            <PanelHeader
+                title='My progression'
+                right={<Button variant='link' href='/me'>Milpac <DashIcons.ArrowRight /></Button>}
+            />
+            <PanelBody>
+                {p.atMax ? (
+                    <Badge tone='live' dot>Highest rank attained</Badge>
+                ) : p.billetOnly ? (
+                    <Badge tone='info' dot>{p.nextRank} is billet-assigned</Badge>
+                ) : (
+                    <Meter
+                        value={p.current}
+                        target={p.required}
+                        unit='billet points'
+                        remaining={`${Math.max(0, p.required - p.current)} to go`}
+                        ticks={[
+                            <>{promotion.currentRank ?? 'Current'} — current</>,
+                            <>{p.nextRank} — next</>,
+                        ]}
+                    />
+                )}
+            </PanelBody>
+        </Panel>
     )
 }
 
-// ── Derive card appearance from favourite href ─────────────────────────────────
+// ── Favourites ────────────────────────────────────────────────────────────────
 
+/* Kept: the department codes are genuinely useful for picking a pinned page out
+   of a grid at a glance. The colours now come off the status palette where one
+   applies and stay neutral where none does, rather than seven unrelated hues. */
 function deriveCard(fav: Favourite): { code: string; color: string } {
     const h = fav.href
-    if (h.includes('/j1'))            return { code: 'J1',  color: '#3b82f6' }
-    if (h.includes('/j2'))            return { code: 'J2',  color: '#8b5cf6' }
-    if (h.includes('/j3'))            return { code: 'J3',  color: '#10b981' }
-    if (h.includes('/j4'))            return { code: 'J4',  color: '#ef4444' }
-    if (h.includes('/j5') || h.includes('/gallery')) return { code: 'J5', color: '#f59e0b' }
-    if (h.includes('/j6'))            return { code: 'J6',  color: '#06b6d4' }
-    if (h.includes('/j7'))            return { code: 'J7',  color: '#a78bfa' }
-    if (h.includes('/calendar'))      return { code: 'CAL', color: 'rgba(219,0,29,0.85)' }
-    if (h.includes('/orbat'))         return { code: 'ORB', color: 'rgba(219,0,29,0.7)' }
-    if (h.includes('/personnel'))     return { code: 'PER', color: 'rgba(219,0,29,0.6)' }
-    if (h.includes('/training-docs')) return { code: 'TRN', color: 'rgba(237,237,237,0.4)' }
-    if (h.includes('/sops'))          return { code: 'SOP', color: 'rgba(237,237,237,0.4)' }
-    if (h.includes('/tickets'))       return { code: 'TKT', color: 'rgba(237,237,237,0.4)' }
-    return { code: fav.label.slice(0, 3).toUpperCase(), color: 'rgba(219,0,29,0.7)' }
+    if (h.includes('/j1')) return { code: 'J1', color: 'var(--info)' }
+    if (h.includes('/j2')) return { code: 'J2', color: 'var(--info)' }
+    if (h.includes('/j3')) return { code: 'J3', color: 'var(--live)' }
+    if (h.includes('/j4')) return { code: 'J4', color: 'var(--red-hi)' }
+    if (h.includes('/j5') || h.includes('/gallery')) return { code: 'J5', color: 'var(--amber)' }
+    if (h.includes('/j6')) return { code: 'J6', color: 'var(--info)' }
+    if (h.includes('/j7')) return { code: 'J7', color: 'var(--info)' }
+    if (h.includes('/calendar')) return { code: 'CAL', color: 'var(--txt-2)' }
+    if (h.includes('/orbat')) return { code: 'ORB', color: 'var(--txt-2)' }
+    if (h.includes('/personnel')) return { code: 'PER', color: 'var(--txt-2)' }
+    if (h.includes('/training-docs')) return { code: 'TRN', color: 'var(--txt-3)' }
+    if (h.includes('/sops')) return { code: 'SOP', color: 'var(--txt-3)' }
+    if (h.includes('/tickets')) return { code: 'TKT', color: 'var(--txt-3)' }
+    return { code: fav.label.slice(0, 3).toUpperCase(), color: 'var(--txt-2)' }
 }
 
-// ── Sortable favourite card ────────────────────────────────────────────────────
-
-function SortableFavCard({
-    fav,
-    onNavigate,
-    onUnpin,
-}: {
+function SortableFavCard({ fav, onNavigate, onUnpin }: {
     fav: Favourite
     onNavigate: (fav: Favourite) => void
     onUnpin: (id: string) => void
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: fav.id })
     const { code, color } = deriveCard(fav)
-    const [hovered, setHovered] = useState(false)
 
     return (
         <div
             ref={setNodeRef}
             style={{
-                flex: '1 1 140px',
-                maxWidth: 180,
                 transform: CSS.Transform.toString(transform),
                 transition,
-                opacity: isDragging ? 0.45 : 1,
+                opacity: isDragging ? 0.5 : 1,
                 zIndex: isDragging ? 10 : undefined,
+                position: 'relative',
             }}
+            {...attributes}
+            {...listeners}
         >
-            <div
-                onMouseEnter={() => setHovered(true)}
-                onMouseLeave={() => setHovered(false)}
-                style={{
-                    position: 'relative',
-                    border: `1px solid ${hovered ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.12)'}`,
-                    borderTop: `2px solid ${color}`,
-                    background: hovered ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.04)',
-                    padding: '14px 14px 12px',
-                    height: 90,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    transition: 'background 0.15s, border-color 0.15s',
-                    cursor: isDragging ? 'grabbing' : 'pointer',
-                }}
-            >
-                <CornerBrackets color='rgba(255,255,255,0.08)' size={5} />
-
-                {/* Drag handle — top-right */}
-                <div
-                    {...attributes}
-                    {...listeners}
-                    title='Drag to reorder'
-                    style={{
-                        position: 'absolute',
-                        top: 6,
-                        right: 30,
-                        padding: '2px 4px',
-                        cursor: isDragging ? 'grabbing' : 'grab',
-                        color: hovered ? 'rgba(237,237,237,0.35)' : 'rgba(237,237,237,0.1)',
-                        fontSize: '0.55rem',
-                        lineHeight: 1,
-                        letterSpacing: 1,
-                        transition: 'color 0.15s',
-                        userSelect: 'none',
-                    }}
-                >
-                    ⠿
-                </div>
-
-                {/* Unpin button — top-right */}
-                <button
-                    onClick={e => { e.stopPropagation(); onUnpin(fav.id) }}
-                    title='Remove from favourites'
-                    style={{
-                        position: 'absolute',
-                        top: 5,
-                        right: 8,
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        padding: '2px 4px',
-                        color: hovered ? 'rgba(237,237,237,0.4)' : 'rgba(237,237,237,0.1)',
-                        fontSize: '0.65rem',
-                        lineHeight: 1,
-                        transition: 'color 0.15s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--red)')}
-                    onMouseLeave={e => (e.currentTarget.style.color = hovered ? 'rgba(237,237,237,0.4)' : 'rgba(237,237,237,0.1)')}
-                >
-                    ×
-                </button>
-
-                {/* Card content — clickable area */}
-                <div
-                    onClick={() => onNavigate(fav)}
-                    style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, paddingTop: 6 }}
-                >
-                    <div style={{ fontSize: '1.05rem', fontWeight: 800, letterSpacing: 2, color, lineHeight: 1 }}>
-                        {code}
-                    </div>
-                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.45)', lineHeight: 1.2 }}>
-                        {fav.label}
-                    </div>
-                </div>
-            </div>
+            <ListRow
+                onClick={() => onNavigate(fav)}
+                lead={<span className={s.hint} style={{ color, width: 26, flex: 'none' }}>{code}</span>}
+                title={fav.label}
+                actions={
+                    <Button
+                        variant='subtle'
+                        size='sm'
+                        icon
+                        aria-label={`Unpin ${fav.label}`}
+                        onClick={e => { e.stopPropagation(); onUnpin(fav.id) }}
+                    ><DashIcons.Close /></Button>
+                }
+            />
         </div>
     )
 }
 
-// ── Empty state ────────────────────────────────────────────────────────────────
-
-function EmptyFavourites() {
-    return (
-        <div
-            style={{
-                border: '1px dashed rgba(219,0,29,0.32)',
-                background: 'rgba(219,0,29,0.02)',
-                padding: '32px 24px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 8,
-            }}
-        >
-            <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>
-                No favourites pinned
-            </div>
-            <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.2)', textAlign: 'center', maxWidth: 320, lineHeight: 1.6 }}>
-                Pin pages using the <span style={{ color: 'rgba(219,0,29,0.6)', fontWeight: 700 }}>★</span> icon in the sidebar navigation to add them here.
-            </div>
-        </div>
-    )
-}
-
-// ── Tasks widget ───────────────────────────────────────────────────────────────
+// ── Tasks ─────────────────────────────────────────────────────────────────────
 
 type TaskItem = {
     _id: string
@@ -308,28 +263,10 @@ type TaskItem = {
     actionUrl?: string
 }
 
-function TaskTypeBadge({ type }: { type?: string }) {
-    const map: Record<string, { label: string; color: string }> = {
-        attendance:         { label: 'ATT', color: '#f97316' },
-        application_review: { label: 'APP', color: '#3b82f6' },
-        manual:             { label: 'TSK', color: 'rgba(237,237,237,0.3)' },
-    }
-    const entry = map[type ?? 'manual'] ?? map.manual
-    return (
-        <span style={{
-            fontSize: '0.48rem',
-            fontWeight: 700,
-            letterSpacing: '0.1em',
-            padding: '2px 5px',
-            border: `1px solid ${entry.color}`,
-            color: entry.color,
-            borderRadius: 3,
-            fontFamily: 'monospace',
-            flexShrink: 0,
-        }}>
-            {entry.label}
-        </span>
-    )
+const TASK_TONE: Record<string, { label: string, tone: 'warn' | 'info' | 'muted' }> = {
+    attendance: { label: 'ATT', tone: 'warn' },
+    application_review: { label: 'APP', tone: 'info' },
+    manual: { label: 'TSK', tone: 'muted' },
 }
 
 function TasksWidget() {
@@ -362,126 +299,77 @@ function TasksWidget() {
 
     const preview = tasks.slice(0, 5)
     const overflow = tasks.length - preview.length
+    const dueSoon = tasks.filter(t => t.dueDate && new Date(t.dueDate) < new Date()).length
 
     return (
         <div>
-            <SectionLabel label='My Tasks' />
-            <div style={{
-                border: '1px solid rgba(219,0,29,0.42)',
-                borderTop: '2px solid var(--red)',
-                background: 'rgba(255,255,255,0.03)',
-                position: 'relative',
-            }}>
-                <CornerBrackets />
+            <SectionLabel right={
+                <>
+                    {dueSoon > 0 && <Badge tone='alert' dot>{dueSoon} overdue</Badge>}
+                    <Button variant='link' href='/dashboard/tasks'>View all <DashIcons.ArrowRight /></Button>
+                </>
+            }>My tasks</SectionLabel>
 
+            <Panel tone={dueSoon > 0 ? 'alert' : 'default'}>
                 {loading ? (
-                    <div style={{ padding: '20px 20px', fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>
-                        Loading…
-                    </div>
+                    <PanelBody><span className={s.hint}>Loading…</span></PanelBody>
                 ) : tasks.length === 0 ? (
-                    <div style={{ padding: '24px 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <CheckCircleOutline sx={{ fontSize: '1rem', color: 'rgba(34,197,94,0.5)' }} />
-                        <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.05em' }}>
-                            No pending tasks
-                        </span>
-                    </div>
+                    <PanelBody>
+                        <EmptyState inline icon={<DashIcons.Check />} title='Nothing assigned'>
+                            Tasks assigned to you by a department lead land here.
+                        </EmptyState>
+                    </PanelBody>
                 ) : (
                     <>
-                        {preview.map((task, i) => {
-                            const isOverdue = task.dueDate && new Date(task.dueDate) < new Date()
-                            const isCompleting = completing === task._id
-                            return (
-                                <div
-                                    key={task._id}
-                                    onClick={() => task.actionUrl ? router.push(task.actionUrl as never) : router.push('/dashboard/tasks')}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 10,
-                                        padding: '9px 14px',
-                                        borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.05)',
-                                        cursor: 'pointer',
-                                        transition: 'background 0.12s',
-                                    }}
-                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
-                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                                >
-                                    <TaskTypeBadge type={task.type} />
-
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{
-                                            fontSize: '0.72rem',
-                                            fontWeight: 600,
-                                            color: 'rgba(237,237,237,0.85)',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            lineHeight: 1.3,
-                                        }}>
-                                            {task.title}
-                                        </div>
-                                        <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.3)', marginTop: 1 }}>
-                                            {task.assignedByName === 'System' ? 'Auto-assigned' : `From: ${task.assignedByName}`}
-                                            {task.dueDate && (
-                                                <span style={{ marginLeft: 8, color: isOverdue ? 'rgba(219,0,29,0.8)' : 'rgba(237,237,237,0.3)' }}>
-                                                    Due {new Date(task.dueDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
-                                                    {isOverdue && ' — overdue'}
-                                                </span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <button
-                                        onClick={e => handleComplete(task._id, e)}
-                                        disabled={isCompleting}
-                                        title='Mark complete'
-                                        style={{
-                                            background: 'none',
-                                            border: '1px solid rgba(34,197,94,0.3)',
-                                            borderRadius: 4,
-                                            padding: '3px 7px',
-                                            cursor: isCompleting ? 'default' : 'pointer',
-                                            color: isCompleting ? 'rgba(34,197,94,0.3)' : 'rgba(34,197,94,0.7)',
-                                            fontSize: '0.6rem',
-                                            fontWeight: 700,
-                                            letterSpacing: '0.08em',
-                                            flexShrink: 0,
-                                            transition: 'all 0.12s',
-                                        }}
-                                        onMouseEnter={e => { if (!isCompleting) e.currentTarget.style.background = 'rgba(34,197,94,0.12)' }}
-                                        onMouseLeave={e => { e.currentTarget.style.background = 'none' }}
-                                    >
-                                        {isCompleting ? '…' : '✓'}
-                                    </button>
-                                </div>
-                            )
-                        })}
-
-                        <div style={{
-                            borderTop: '1px solid rgba(219,0,29,0.18)',
-                            padding: '7px 14px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                        }}>
-                            <span style={{ fontSize: '0.57rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>
-                                {tasks.length} pending task{tasks.length !== 1 ? 's' : ''}{overflow > 0 ? ` — ${overflow} more` : ''}
+                        <Rows>
+                            {preview.map(task => {
+                                const overdue = !!task.dueDate && new Date(task.dueDate) < new Date()
+                                const badge = TASK_TONE[task.type ?? 'manual'] ?? TASK_TONE.manual
+                                return (
+                                    <ListRow
+                                        key={task._id}
+                                        state={overdue ? 'alert' : task.dueDate ? 'warn' : 'none'}
+                                        lead={<Badge tone={badge.tone} small>{badge.label}</Badge>}
+                                        title={task.title}
+                                        meta={
+                                            <>
+                                                <span>{task.assignedByName === 'System' ? 'Auto-assigned' : <>From <b>{task.assignedByName}</b></>}</span>
+                                                {task.dueDate && (
+                                                    <span style={{ color: overdue ? 'var(--red-hi)' : 'var(--amber)' }}>
+                                                        Due {new Date(task.dueDate).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' })}
+                                                        {overdue && ' — overdue'}
+                                                    </span>
+                                                )}
+                                            </>
+                                        }
+                                        onClick={() => router.push((task.actionUrl ?? '/dashboard/tasks') as never)}
+                                        actions={
+                                            <Button
+                                                variant='subtle'
+                                                size='sm'
+                                                icon
+                                                aria-label='Mark complete'
+                                                disabled={completing === task._id}
+                                                onClick={e => handleComplete(task._id, e)}
+                                            ><DashIcons.Check /></Button>
+                                        }
+                                    />
+                                )
+                            })}
+                        </Rows>
+                        <PanelFooter>
+                            <span className={s.hint}>
+                                {tasks.length} pending{overflow > 0 ? ` — ${overflow} more` : ''}
                             </span>
-                            <Link
-                                href='/dashboard/tasks'
-                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(219,0,29,0.7)', textDecoration: 'none', textTransform: 'uppercase' }}
-                            >
-                                View all →
-                            </Link>
-                        </div>
+                        </PanelFooter>
                     </>
                 )}
-            </div>
+            </Panel>
         </div>
     )
 }
 
-// ── Operations overview widget ────────────────────────────────────────────────
+// ── Operations ────────────────────────────────────────────────────────────────
 
 type OpOverview = {
     _id: string
@@ -510,122 +398,76 @@ function OperationsWidget({ isHQ }: { isHQ: boolean }) {
     }, [isHQ])
 
     const upcoming = active.filter(o => o.status === 'Upcoming')
-    const live     = active.filter(o => o.status === 'Active')
-
-    if (loading) return (
-        <div>
-            <SectionLabel label='Operations' />
-            <div style={{ border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.02)', padding: '18px 16px', fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)', fontFamily: 'monospace' }}>
-                Loading…
-            </div>
-        </div>
-    )
-
+    const live = active.filter(o => o.status === 'Active')
     const empty = live.length === 0 && upcoming.length === 0 && inDev.length === 0
 
+    /* One row shape for all three states. The status reads twice on purpose —
+       once as the coloured left edge, which is what makes the list scannable,
+       and once as a badge for anyone who needs the word. */
     function OpRow({ op }: { op: OpOverview }) {
-        const theme = op.themeColor || '#db001d'
         const isActive = op.status === 'Active'
-        const isDev    = op.status === 'In Development'
-        const accent = isActive ? 'rgba(0,200,80,0.8)' : isDev ? 'rgba(219,0,29,0.7)' : 'rgba(219,160,0,0.8)'
+        const isDev = op.status === 'In Development'
+        const tone = isActive ? 'live' : isDev ? 'info' : 'warn'
+
         return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                {op.coverImage ? (
-                    <div style={{ width: 40, height: 26, flexShrink: 0, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.07)' }}>
-                        <img src={op.coverImage} alt='' style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                    </div>
-                ) : (
-                    <div style={{ width: 4, flexShrink: 0, alignSelf: 'stretch', background: accent, opacity: 0.5 }} />
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {op.title}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
-                        <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.12em', color: accent, textTransform: 'uppercase' }}>
-                            {op.status}
-                        </span>
-                        <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.04em' }}>
-                            {new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </span>
-                        {op.ownedByName && (
-                            <span style={{ fontSize: '0.55rem', color: 'rgba(237,237,237,0.25)', letterSpacing: '0.04em' }}>
-                                {op.ownedByName}
-                            </span>
-                        )}
-                    </div>
-                </div>
-                <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
-                    {isHQ && !isDev && (
-                        <Link href={`/operations/${op._id}/edit`} style={{ textDecoration: 'none' }}>
-                            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 7px', border: '1px solid rgba(219,160,0,0.3)', color: 'rgba(219,160,0,0.7)', cursor: 'pointer' }}>
-                                EDIT
-                            </span>
-                        </Link>
-                    )}
-                    {isDev ? (
-                        <Link href={`/operations/${op._id}/edit`} style={{ textDecoration: 'none' }}>
-                            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 7px', border: '1px solid rgba(219,0,29,0.35)', color: 'rgba(219,0,29,0.75)', cursor: 'pointer' }}>
-                                OPEN
-                            </span>
-                        </Link>
-                    ) : (
-                        <Link href={`/operations/${op._id}`} style={{ textDecoration: 'none' }}>
-                            <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', padding: '2px 7px', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.4)', cursor: 'pointer' }}>
-                                VIEW
-                            </span>
-                        </Link>
-                    )}
-                </div>
-            </div>
+            <ListRow
+                state={isActive ? 'live' : isDev ? 'none' : 'warn'}
+                lead={<Thumb src={op.coverImage} />}
+                title={op.title}
+                meta={
+                    <>
+                        <Badge tone={tone} small>{op.status}</Badge>
+                        <span>{new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        {op.ownedByName && <span>Zeus <b>{op.ownedByName}</b></span>}
+                    </>
+                }
+                actions={
+                    <>
+                        {isHQ && !isDev && <Button variant='subtle' size='sm' href={`/operations/${op._id}/edit`}>Edit</Button>}
+                        <Button variant='ghost' size='sm' href={isDev ? `/operations/${op._id}/edit` : `/operations/${op._id}`}>
+                            {isDev ? 'Open' : 'View'}
+                        </Button>
+                    </>
+                }
+            />
         )
     }
 
     return (
         <div>
-            <SectionLabel label='Operations' />
-            <div style={{ border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.02)', position: 'relative' }}>
-                <CornerBrackets />
+            <SectionLabel right={
+                <Button variant='link' href='/operations'>Operations board <DashIcons.ArrowRight /></Button>
+            }>Operations</SectionLabel>
 
-                {empty ? (
-                    <div style={{ padding: '20px 16px', fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>
-                        No active or upcoming operations.
-                    </div>
+            <Panel>
+                {loading ? (
+                    <PanelBody><span className={s.hint}>Loading…</span></PanelBody>
+                ) : empty ? (
+                    <PanelBody>
+                        <EmptyState inline title='Nothing scheduled'>
+                            No active or upcoming operations.
+                        </EmptyState>
+                    </PanelBody>
                 ) : (
-                    <div>
-                        {live.length > 0 && (
-                            <div>
-                                <div style={{ padding: '6px 14px 4px', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(0,200,80,0.5)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                    Active
-                                </div>
-                                {live.map(op => <OpRow key={op._id} op={op} />)}
-                            </div>
-                        )}
-                        {upcoming.length > 0 && (
-                            <div>
-                                <div style={{ padding: '6px 14px 4px', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.5)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                    Upcoming
-                                </div>
-                                {upcoming.map(op => <OpRow key={op._id} op={op} />)}
-                            </div>
-                        )}
-                        {isHQ && inDev.length > 0 && (
-                            <div>
-                                <div style={{ padding: '6px 14px 4px', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                                    In Development
-                                </div>
-                                {inDev.map(op => <OpRow key={op._id} op={op} />)}
-                            </div>
-                        )}
-                    </div>
+                    <>
+                        {/* Counts in the header rather than three separate
+                            sub-headings down the list: the same information,
+                            without breaking the rows into three short lists. */}
+                        <PanelHeader
+                            before={<Badge tone='live' dot>Active {live.length}</Badge>}
+                            right={
+                                <>
+                                    <Badge tone='warn' dot>Upcoming {upcoming.length}</Badge>
+                                    {isHQ && <Badge tone='info' dot>In development {inDev.length}</Badge>}
+                                </>
+                            }
+                        />
+                        <Rows>
+                            {[...live, ...upcoming, ...(isHQ ? inDev : [])].map(op => <OpRow key={op._id} op={op} />)}
+                        </Rows>
+                    </>
                 )}
-
-                <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', padding: '6px 14px', display: 'flex', justifyContent: 'flex-end' }}>
-                    <Link href='/operations' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: 'rgba(219,0,29,0.7)', textDecoration: 'none', textTransform: 'uppercase' }}>
-                        Operations Board →
-                    </Link>
-                </div>
-            </div>
+            </Panel>
         </div>
     )
 }
@@ -648,15 +490,12 @@ export default function DashboardOverview({
     )
 
     const today = new Date().toLocaleDateString('en-AU', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     })
 
     function handleNavigate(fav: Favourite) {
         if (fav.tabIndex !== undefined) {
-            try { localStorage.setItem(`gotoTab:${fav.href}`, String(fav.tabIndex)) } catch {}
+            try { localStorage.setItem(`gotoTab:${fav.href}`, String(fav.tabIndex)) } catch { }
         }
         router.push(fav.href as never)
     }
@@ -670,82 +509,69 @@ export default function DashboardOverview({
     }
 
     return (
-        <div className='h-full w-full p-6 md:p-8 flex flex-col gap-6'>
+        <div style={{ padding: 'var(--gap)', display: 'flex', flexDirection: 'column', gap: 'var(--gap)' }}>
 
-            {/* ── Header ─────────────────────────────────────────────────────── */}
-            <div
-                className='flex items-start justify-between px-5 py-4'
-                style={{
-                    position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.42)',
-                    borderTop: '2px solid var(--red)',
-                    background: 'rgba(255,255,255,0.04)',
-                }}
-            >
-                <CornerBrackets />
-                <div>
-                    <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ color: 'rgba(219,0,29,0.4)' }}>ASOT</span>
-                        <span style={{ color: 'rgba(219,0,29,0.25)' }}>{'//'}</span>
-                        <span>UNIT</span>
+            <PageHead
+                kicker={<>ASOT // Unit</>}
+                title='Dashboard'
+                right={
+                    /* Service status moved to the sidebar's identity card,
+                       where it is on screen for every dashboard route rather
+                       than only this one. */
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+                        <LocalClock />
+                        <span className={s.hint}>{today}</span>
                     </div>
-                    <Typography fontWeight={700} fontSize='1.1rem' letterSpacing={3} style={{ textTransform: 'uppercase', lineHeight: 1.1, marginBottom: 6 }}>
-                        Dashboard
-                    </Typography>
-                    <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.4)', letterSpacing: '0.04em' }}>
-                        Welcome back, {displayName}
-                    </Typography>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
-                    <ServiceStatusIcons />
-                    <LocalClock />
-                    <Typography
-                        fontSize='0.6rem'
-                        style={{
-                            color: 'rgba(237,237,237,0.2)',
-                            letterSpacing: '0.05em',
-                            textAlign: 'right',
-                            fontFamily: 'monospace',
-                        }}
-                    >
-                        {today}
-                    </Typography>
-                </div>
-            </div>
+                }
+            />
 
-            {/* ── Favourites (draggable) ─────────────────────────────────────── */}
-            <div>
-                <SectionLabel label='Favourites ★' />
+            <span className={s.hint} style={{ marginTop: -8 }}>Welcome back, {displayName}</span>
 
-                {favourites.length === 0 ? (
-                    <EmptyFavourites />
-                ) : (
-                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <SortableContext items={favourites.map(f => f.id)} strategy={rectSortingStrategy}>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                                {favourites.map(fav => (
-                                    <SortableFavCard
-                                        key={fav.id}
-                                        fav={fav}
-                                        onNavigate={handleNavigate}
-                                        onUnpin={unpin}
-                                    />
-                                ))}
-                            </div>
-                        </SortableContext>
-                    </DndContext>
-                )}
-            </div>
+            <Grid2>
+                <Stack>
+                    <NextOpPanel />
+                    <TasksWidget />
+                    {permissions.isStaff && <OperationsWidget isHQ={isHQ} />}
+                </Stack>
 
-            {/* ── Quick links (per-department, member-visible) ──────────────── */}
-            <DashboardQuickLinks />
+                <Stack>
+                    <ProgressionPanel />
 
-            {/* ── Tasks ──────────────────────────────────────────────────────── */}
-            <TasksWidget />
+                    <DashboardQuickLinks />
 
-            {/* ── Operations overview (staff only) ───────────────────────────── */}
-            {permissions.isStaff && <OperationsWidget isHQ={isHQ} />}
-
+                    {/*
+                        Demoted from the top of the page to the right rail. It is
+                        a shortcut list — useful once you have built one, and
+                        worth nothing at all on the day you first sign in, which
+                        is exactly when it used to be the first thing you saw.
+                    */}
+                    <div>
+                        <SectionLabel>Favourites</SectionLabel>
+                        {favourites.length === 0 ? (
+                            <EmptyState icon={<DashIcons.Star />} title='Nothing pinned yet'>
+                                Pin the pages you use most with the ★ beside any sidebar item.
+                            </EmptyState>
+                        ) : (
+                            <Panel>
+                                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                                    <SortableContext items={favourites.map(f => f.id)} strategy={rectSortingStrategy}>
+                                        <Rows>
+                                            {favourites.map(fav => (
+                                                <SortableFavCard
+                                                    key={fav.id}
+                                                    fav={fav}
+                                                    onNavigate={handleNavigate}
+                                                    onUnpin={unpin}
+                                                />
+                                            ))}
+                                        </Rows>
+                                    </SortableContext>
+                                </DndContext>
+                            </Panel>
+                        )}
+                    </div>
+                </Stack>
+            </Grid2>
         </div>
     )
 }

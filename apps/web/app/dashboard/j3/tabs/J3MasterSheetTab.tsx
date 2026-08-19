@@ -180,7 +180,7 @@ export default function J3MasterSheetTab() {
     const hdrBase: React.CSSProperties = {
         padding: '5px 6px', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em',
         textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', background: 'rgba(0,0,0,0.55)',
-        borderBottom: '1px solid rgba(219,0,29,0.2)', whiteSpace: 'nowrap', textAlign: 'center',
+        borderBottom: '1px solid var(--line-2)', whiteSpace: 'nowrap', textAlign: 'center',
     }
 
     const grpHdr = (color: string): React.CSSProperties => ({
@@ -192,7 +192,7 @@ export default function J3MasterSheetTab() {
     const stickyNameHdr: React.CSSProperties = {
         ...hdrBase, position: 'sticky', left: 0, zIndex: 4,
         background: 'rgba(8,8,8,0.98)', textAlign: 'left', minWidth: 175,
-        borderRight: '1px solid rgba(219,0,29,0.15)',
+        borderRight: '1px solid var(--line-2)',
     }
 
     const cellBase: React.CSSProperties = {
@@ -229,7 +229,7 @@ export default function J3MasterSheetTab() {
                 <input
                     type='text' value={search} onChange={e => handleSearch(e.target.value)}
                     placeholder='Search member…'
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.2)', color: '#ededed', fontSize: '0.72rem', padding: '5px 10px', outline: 'none', width: 180 }}
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line-2)', color: '#ededed', fontSize: '0.72rem', padding: '5px 10px', outline: 'none', width: 180 }}
                 />
 
                 {(['active', 'discharged', 'all'] as const).map(m => (
@@ -251,7 +251,7 @@ export default function J3MasterSheetTab() {
 
             {/* Table with dual scrollbars */}
             <SyncScrollTable>
-                <div style={{ border: '1px solid rgba(219,0,29,0.15)' }}>
+                <div style={{ border: '1px solid var(--line-2)' }}>
                     <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                         <thead style={{ position: 'sticky', top: 0, zIndex: 5 }}>
                             {/* Group header row */}

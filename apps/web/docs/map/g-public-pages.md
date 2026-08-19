@@ -518,7 +518,19 @@ Resolves the target member, fetches confirmed-attendance-derived operation histo
 Large client staff-editing form for a member's MILPAC record: rank (drag-reorderable via
 `@dnd-kit`), promotions/awards/qualifications history (with duplicate-detection colour coding),
 promotion-point calculation (`calculatePromotionPoints`/`calculateOpPoints` from
-`@/lib/military/points`), suggested-rank helper (`getSuggestedRank`). Promotions and awards each
+`@/lib/military/points`), suggested-rank helper (`getSuggestedRank`).
+
+Built on the dashboard kit (`@/components/dashboard`); its root carries `.dash` so the staff
+palette applies here too, on what is otherwise a public route. Billet Points is a stack of
+`PointsLine` rows — label, the rate it earns, a `Stepper`, and its contribution — with the two
+attendance-derived rows `locked`, since a stepper there would imply an edit that cannot stick. A
+`Meter` fed by `getNextThreshold` shows the total against the next rank on the member's track, and
+award/qualification contributions are read-only `Chip`s rather than the paragraph of running text
+that used to act as a legend. Save is a sticky `SaveBar` at the foot of the form rather than a
+permanent button in the header: it appears once something is dirty and counts the *fields* that
+will change, diffing a `snapshot()` of the payload against a `baseline` ref that moves on a
+successful save — so touching a promotion and undoing it returns the count to zero. Discard
+restores every field from the `member` prop. Promotions and awards each
 carry an **Issued By** rank + name (`issuedByRank` stores the full rank name, `RankSelect`'s value
 contract) — that pair signs the member's rendered certificate, so it is a record of who authorised
 the award, not just a note. `PUT /api/members/[username]` stamps both from the editing staffer when

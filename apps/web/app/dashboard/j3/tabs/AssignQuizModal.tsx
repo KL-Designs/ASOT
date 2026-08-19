@@ -98,7 +98,7 @@ export default function AssignQuizModal({ onClose, onAssigned }: Props) {
                     background: 'rgba(0,0,0,0.4)',
                 }}>
                     <div>
-                        <div style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', fontFamily: 'monospace', marginBottom: 4 }}>
+                        <div style={{ fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', marginBottom: 4 }}>
                             {'// J3 TRAINING'}
                         </div>
                         <span style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
@@ -161,13 +161,13 @@ export default function AssignQuizModal({ onClose, onAssigned }: Props) {
                                 style={{
                                     width: 80,
                                     background: 'rgba(255,255,255,0.05)',
-                                    border: timerModified ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(255,255,255,0.12)',
-                                    color: timerModified ? 'rgba(245,158,11,0.9)' : 'rgba(237,237,237,0.85)',
+                                    border: timerModified ? '1px solid color-mix(in srgb, var(--amber) 50%, transparent)' : '1px solid rgba(255,255,255,0.12)',
+                                    color: timerModified ? 'color-mix(in srgb, var(--amber) 90%, transparent)' : 'rgba(237,237,237,0.85)',
                                     fontSize: '0.85rem', padding: '7px 10px', outline: 'none', fontFamily: 'monospace',
                                 }}
                             />
                             {timerModified && (
-                                <span style={{ fontSize: '0.6rem', color: 'rgba(245,158,11,0.75)', fontWeight: 700 }}>
+                                <span style={{ fontSize: '0.6rem', color: 'color-mix(in srgb, var(--amber) 75%, transparent)', fontWeight: 700 }}>
                                     Modified — J3 Leads will be notified
                                 </span>
                             )}
@@ -177,7 +177,7 @@ export default function AssignQuizModal({ onClose, onAssigned }: Props) {
                     {/* Timer modification reason */}
                     {timerModified && (
                         <div style={{ marginBottom: 16 }}>
-                            <label style={{ display: 'block', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(245,158,11,0.6)', fontFamily: 'monospace', marginBottom: 6 }}>
+                            <label style={{ display: 'block', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'color-mix(in srgb, var(--amber) 60%, transparent)', fontFamily: 'monospace', marginBottom: 6 }}>
                                 Reason for Timer Change (required)
                             </label>
                             <textarea
@@ -188,7 +188,7 @@ export default function AssignQuizModal({ onClose, onAssigned }: Props) {
                                 style={{
                                     width: '100%', boxSizing: 'border-box',
                                     background: 'rgba(255,255,255,0.04)',
-                                    border: '1px solid rgba(245,158,11,0.3)',
+                                    border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)',
                                     color: 'rgba(237,237,237,0.85)', fontSize: '0.75rem', lineHeight: 1.5,
                                     padding: '8px 10px', resize: 'vertical', outline: 'none', fontFamily: 'inherit',
                                 }}
@@ -197,7 +197,7 @@ export default function AssignQuizModal({ onClose, onAssigned }: Props) {
                     )}
 
                     {error && (
-                        <div style={{ marginBottom: 14, padding: '8px 12px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', fontSize: '0.68rem', color: 'rgba(239,68,68,0.9)' }}>
+                        <div style={{ marginBottom: 14, padding: '8px 12px', background: 'color-mix(in srgb, var(--red) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', fontSize: '0.68rem', color: 'color-mix(in srgb, var(--red) 90%, transparent)' }}>
                             {error}
                         </div>
                     )}

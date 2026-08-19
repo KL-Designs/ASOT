@@ -114,12 +114,12 @@ function normalizeAge(raw: number | string | undefined): string | null {
 const RED   = '#db001d'
 const GREEN = '#00c364'
 const BLUE  = '#00c3ff'
-const AMBER = '#f59e0b'
+const AMBER = 'var(--amber)'
 
 const PALETTE = [
-    '#db001d', '#00c3ff', '#00c364', '#f59e0b',
-    '#a855f7', '#f97316', '#06b6d4', '#84cc16',
-    '#ec4899', '#6366f1', '#14b8a6', '#eab308',
+    '#db001d', '#00c3ff', '#00c364', 'var(--amber)',
+    '#a855f7', 'var(--amber)', '#06b6d4', '#84cc16',
+    '#ec4899', '#6366f1', '#14b8a6', 'var(--amber)',
 ]
 
 const NIGHTS_ORDER = ['Saturday', 'Sunday', 'Both', 'Flexible']
@@ -151,7 +151,7 @@ function countSorted(vals: (string | null)[]): { name: string; value: number }[]
 // ── Reusable components ────────────────────────────────────────────────────────
 function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
     return (
-        <div className='flex flex-col gap-1 px-5 py-4' style={{ border: '1px solid rgba(219,0,29,0.12)', background: 'rgba(255,255,255,0.01)' }}>
+        <div className='flex flex-col gap-1 px-5 py-4' style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)' }}>
             <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>{label}</div>
             <div style={{ fontSize: '1.6rem', fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.1 }}>{value}</div>
             {sub && <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)' }}>{sub}</div>}
@@ -161,7 +161,7 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
 
 function SubLabel({ text }: { text: string }) {
     return (
-        <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.55)', marginBottom: 10, marginTop: 22 }}>
+        <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 10, marginTop: 22 }}>
             {text}
         </div>
     )
@@ -210,7 +210,7 @@ function SmallPie({ data }: { data: { name: string; value: number; color: string
 function CollapsibleSection({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
     const [open, setOpen] = useState(defaultOpen)
     return (
-        <div style={{ border: '1px solid rgba(219,0,29,0.14)', marginBottom: 6 }}>
+        <div style={{ border: '1px solid var(--line-2)', marginBottom: 6 }}>
             <button
                 onClick={() => setOpen(o => !o)}
                 style={{
@@ -221,7 +221,7 @@ function CollapsibleSection({ title, defaultOpen = true, children }: { title: st
                     borderBottom: open ? '1px solid rgba(219,0,29,0.12)' : 'none',
                 }}
             >
-                <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.8)' }}>
+                <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)' }}>
                     {title}
                 </span>
                 <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.3)', display: 'inline-block', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>

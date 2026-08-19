@@ -7,8 +7,10 @@ import { RANK_GROUPS, RANKS_FLAT, rankAbbrFromName, rankNameFromAbbr } from '@/l
 import { AWARDS } from '@/lib/military/awards'
 import { CERTIFICATIONS } from '@/lib/military/certifications'
 import { OP_POINTS, DEPT_POINTS, calculateOpPoints } from '@/lib/military/points'
-import { getSuggestedRank } from '@/lib/military/promotion-requirements'
+import { getSuggestedRank, getNextThreshold } from '@/lib/military/promotion-requirements'
 import { calculatePromotionPoints, type MilpacImportCounts } from '@/lib/military/points'
+import { Badge, Chip, ChipRow, Meter, PointsLine, SaveBar } from '@/components/dashboard'
+import s from '@/styles/dashboard.module.css'
 
 type ConfirmedOp = { operationId: string; name: string; date?: string | null; confirmedAt: string | null }
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, closestCenter, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core'
@@ -544,6 +546,51 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
         onDirtyChange?.(false)
     }
 
+    /*
+       What the save bar counts.
+
+       `dirty` only ever answered "has anything been touched", which is enough
+       to enable a button and not enough to tell someone what they are about to
+       commit. Each key here is one field of the payload, so the count is the
+       number of things the save will actually change — touching a promotion and
+       then undoing it drops back to zero rather than staying stuck at "unsaved".
+    */
+    function snapshot(): Record<string, string> {
+        return {
+            name:              memberName.trim(),
+            rank:              bioRank,
+            enlistedDate:      enlistedDate,
+            promotions:        JSON.stringify(promotions.map(({ _key, ...rest }) => rest)),
+            awards:            JSON.stringify(awards.map(({ _key, ...rest }) => rest)),
+            qualifications:    JSON.stringify(qualifications.map(({ _key, ...rest }) => rest)),
+            billetCounts:      JSON.stringify(billetCounts),
+            j4Points:          String(j4Points),
+            disciplineHistory: JSON.stringify(disciplineHistory ?? []),
+        }
+    }
+    // Moves to the saved state after a successful save, so the bar clears
+    // instead of counting changes that are already on the record.
+    const baseline = useRef<Record<string, string>>(snapshot())
+    const pending = snapshot()
+    const changeCount = dirty
+        ? Object.keys(pending).filter(k => pending[k] !== baseline.current[k]).length
+        : 0
+
+    function handleDiscard() {
+        setMemberName(member.name || parsedDisplayName)
+        setBioRank(rankNameFromAbbr(member.milpac?.currentRank ?? ''))
+        setEnlistedDate(member.milpac?.enlistedDate || joinDateStr)
+        setPromotions((member.milpac?.promotions ?? []).map(p => ({ _key: String(_keyCount++), ...p })))
+        setAwards((member.milpac?.awards ?? []).map(a => ({ _key: String(_keyCount++), ...a })))
+        setQualifications((member.milpac?.qualifications ?? []).map(q => ({ _key: String(_keyCount++), ...q })))
+        setBilletCounts({ ...defaultBilletCounts, ...(member.milpac?.billetCounts ?? {}) })
+        setJ4Points(member.milpac?.j4Points ?? 0)
+        setDisciplineHistory(member.milpac?.disciplineHistory ?? [])
+        setError(null)
+        setSaved(false)
+        markClean()
+    }
+
     const [saving, setSaving] = useState(false)
     const [saved, setSaved] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -602,6 +649,9 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
             const json = await res.json()
             if (!res.ok) throw new Error(json.error || 'Save failed')
             setSaved(true)
+            // The record now matches what is on screen — anything counted from
+            // here is a fresh change, not a leftover from the last save.
+            baseline.current = snapshot()
             markClean()
             setTimeout(() => setSaved(false), 3000)
         } catch (e: any) {
@@ -660,7 +710,10 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
     // ── Render ─────────────────────────────────────────────────────────────────
 
     return (
-        <div className='h-full w-full flex flex-col'>
+        // `.dash` carries the dashboard kit's tokens. The editor is a staff tool
+        // wherever it renders, so it gets the staff palette on the public member
+        // page too rather than a second near-matching set of colours.
+        <div className={`${s.dash} h-full w-full flex flex-col`}>
 
             {/* Sticky header */}
             <div style={{
@@ -676,11 +729,12 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                         <Avatar user={member} />
                     </div>
                     <div className='flex flex-col gap-0.5 flex-1 min-w-0'>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.2 }}>
-                            {member.milpac?.currentRank && (
-                                <span style={{ color: 'rgba(219,0,29,0.7)', marginRight: '0.35em', fontWeight: 400 }}>{member.milpac.currentRank}</span>
-                            )}
-                            {displayName}
+                        <span className='flex items-center gap-2' style={{ fontSize: '0.82rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', lineHeight: 1.2 }}>
+                            {/* Rank was red body text, the same colour the page
+                                spends on destructive actions. A badge separates
+                                "who this is" from "this will hurt". */}
+                            {member.milpac?.currentRank && <Badge tone='info' small>{member.milpac.currentRank}</Badge>}
+                            <span className='truncate'>{displayName}</span>
                         </span>
                         <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.04em' }}>@{member.username}</span>
                     </div>
@@ -714,25 +768,10 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                         >
                             View Profile ↗
                         </Link>
-                        <button
-                            onClick={handleSave}
-                            disabled={saving}
-                            style={{
-                                background: saving ? 'rgba(219,0,29,0.3)' : 'var(--red)',
-                                border: '1px solid var(--red)',
-                                color: 'white',
-                                padding: '5px 18px',
-                                fontSize: '0.68rem',
-                                fontWeight: 700,
-                                letterSpacing: '0.12em',
-                                textTransform: 'uppercase',
-                                cursor: saving ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.2s',
-                                flexShrink: 0,
-                            }}
-                        >
-                            {saving ? 'Saving…' : 'Save Changes'}
-                        </button>
+                        {/* Save moved to the sticky bar at the foot of the form.
+                            Up here it was a permanent fixture whether or not
+                            there was anything to save, and it could say nothing
+                            about how much. */}
                     </div>
                 </div>
             </div>
@@ -901,27 +940,45 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                     ...inputStyle, width: 52, textAlign: 'center' as const, padding: '3px 6px',
                 }
 
+                /*
+                   What each field is worth, stated on the line itself.
+
+                   The form was sixteen bare number boxes reading "0". The rate
+                   was documented nowhere on screen, so entering three J1
+                   interviews and watching the total move by one point looked
+                   like a bug rather than the every-third-interview rule.
+                */
+                const RATES: Partial<Record<keyof typeof billetCounts, string>> = {
+                    primaryNightFTX:    `${OP_POINTS.ftxOp1st} pts each`,
+                    secondaryNightFTX:  `${OP_POINTS.ftxOp2nd} pts each`,
+                    platoonTraining:    `${OP_POINTS.platoonTraining} pts each`,
+                    sectionTraining:    `${OP_POINTS.sectionTraining} pts each`,
+                    meetings:           `${OP_POINTS.meeting} pts each`,
+                    j1Interviews:       `${DEPT_POINTS.j1Per3Interviews} pts per 3`,
+                    j1InterviewBonus:   `${DEPT_POINTS.j1InterviewBonus} pts each`,
+                    j2MissionsRun:      `${DEPT_POINTS.j2PerMission} pts each`,
+                    j3Bct12:            `${DEPT_POINTS.j3Bct12} pts each`,
+                    j3OtherTrainings:   `${DEPT_POINTS.j3OtherTraining} pts each`,
+                    j5ContentCreated:   `${DEPT_POINTS.j5ContentCreated} pts each`,
+                    j5MilpacsGenerated: `${DEPT_POINTS.j5Per5Milpacs} pts per 5`,
+                    j5OfficialPR:       `${DEPT_POINTS.j5Per5PRPosts} pts per 5`,
+                }
+
                 function countRow(field: keyof typeof billetCounts, label: string, readOnly = false) {
                     const pts = contrib[field as keyof typeof contrib] ?? 0
                     return (
-                        <div key={field} style={rowStyle}>
-                            <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>{label}</span>
-                            {readOnly ? (
-                                <span style={{ ...compactInput, display: 'inline-block', lineHeight: '1.6', color: 'rgba(237,237,237,0.4)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 4, cursor: 'default' }}>
-                                    {billetCounts[field]}
-                                </span>
-                            ) : (
-                                <input
-                                    type='number' min={0}
-                                    value={billetCounts[field]}
-                                    onChange={e => { markDirty(); setBilletCounts(prev => ({ ...prev, [field]: Math.max(0, parseInt(e.target.value) || 0) })) }}
-                                    style={compactInput}
-                                />
-                            )}
-                            <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: pts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
-                                {pts > 0 ? `+${pts}` : '—'}
-                            </span>
-                        </div>
+                        <PointsLine
+                            key={field}
+                            label={label}
+                            note={RATES[field]}
+                            points={pts}
+                            locked={readOnly}
+                            value={readOnly ? undefined : {
+                                count: billetCounts[field],
+                                onChange: n => { markDirty(); setBilletCounts(prev => ({ ...prev, [field]: Math.max(0, n) })) },
+                            }}
+                            multiplier={readOnly ? String(billetCounts[field]) : undefined}
+                        />
                     )
                 }
 
@@ -931,41 +988,52 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                             Total: <span style={{ color: 'rgba(219,0,29,0.9)', fontWeight: 700 }}>{total}</span>
                         </span>
                         {suggestedName && (
-                            <span style={{
-                                fontSize: '0.68rem', fontWeight: 600, padding: '2px 8px',
-                                background: isCorrectRank ? 'rgba(34,197,94,0.08)' : 'rgba(234,179,8,0.08)',
-                                border: `1px solid ${isCorrectRank ? 'rgba(34,197,94,0.25)' : 'rgba(234,179,8,0.3)'}`,
-                                color: isCorrectRank ? 'rgba(34,197,94,0.85)' : 'rgba(234,179,8,0.9)',
-                            }}>
-                                {isCorrectRank ? '✓ ' : '→ '}{suggestedName}
-                            </span>
+                            <Badge tone={isCorrectRank ? 'live' : 'warn'} dot>
+                                {isCorrectRank ? 'Correct rank' : `Due ${suggestedName}`}
+                            </Badge>
                         )}
                     </div>
                 )
 
+                // Where the total sits against the next threshold on this track.
+                // The figure alone never said whether 214 points was nearly
+                // there or barely started.
+                const next = getNextThreshold(currentRankAbbr, total)
+
                 return (
                     <SectionCard title='Billet Points' badge={badge}>
+                        {next && (
+                            <Meter
+                                value={total}
+                                target={next.minPts}
+                                unit='pts'
+                                remaining={total >= next.minPts
+                                    ? `${next.abbr} reached`
+                                    : `${next.minPts - total} to ${next.abbr}`}
+                                ticks={[rankAbbrFromName(bioRank) || 'Current', next.abbr]}
+                            />
+                        )}
+
                         {/* Two-column grid: Operations | Department Actions */}
                         <div className='grid grid-cols-1 sm:grid-cols-2 gap-x-6'>
                             <div>
                                 <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.4)', marginBottom: 4 }}>Operations</div>
-                                {/* Ops points derived from attendance — read-only */}
-                                <div style={rowStyle}>
-                                    <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>
-                                        Primary Ops ({primaryOps.length})
-                                    </span>
-                                    <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: primaryPts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
-                                        {primaryPts > 0 ? `+${primaryPts}` : '—'}
-                                    </span>
-                                </div>
-                                <div style={rowStyle}>
-                                    <span style={{ flex: 1, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>
-                                        Secondary Ops ({secondaryOps.length})
-                                    </span>
-                                    <span style={{ width: 34, fontSize: '0.65rem', textAlign: 'right', color: secondaryPts > 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.18)', flexShrink: 0 }}>
-                                        {secondaryPts > 0 ? `+${secondaryPts}` : '—'}
-                                    </span>
-                                </div>
+                                {/* Counted from the attendance record, so no
+                                    stepper — an edit here would not stick. */}
+                                <PointsLine
+                                    label='Primary Ops'
+                                    note='2 pts per week attended'
+                                    multiplier={`${primaryOps.length}`}
+                                    points={primaryPts}
+                                    locked
+                                />
+                                <PointsLine
+                                    label='Secondary Ops'
+                                    note='1 pt, or 2 if the only night that week'
+                                    multiplier={`${secondaryOps.length}`}
+                                    points={secondaryPts}
+                                    locked
+                                />
                                 {countRow('primaryNightFTX',   'Primary FTX')}
                                 {countRow('secondaryNightFTX', 'Secondary FTX')}
                                 {countRow('platoonTraining',   'Plt Training')}
@@ -1003,13 +1071,17 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                             </div>
 
                             {(awardBreakdown.length > 0 || qualBreakdown.length > 0) && (
-                                <div className='flex flex-wrap gap-x-4 gap-y-1 flex-1'>
-                                    {[...awardBreakdown, ...qualBreakdown].map((item, i) => (
-                                        <span key={`${item.name}-${i}`} style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.4)' }}>
-                                            {item.name} <span style={{ color: 'rgba(219,0,29,0.7)', fontWeight: 600 }}>+{item.pts}</span>
-                                        </span>
+                                <ChipRow className='flex-1'>
+                                    {/* Awards and quals contribute points too;
+                                        as a run-on sentence of names they read
+                                        as a legend rather than a tally. */}
+                                    {awardBreakdown.map((item, i) => (
+                                        <Chip key={`a-${item.name}-${i}`} on readOnly tone='amber'>{item.name} +{item.pts}</Chip>
                                     ))}
-                                </div>
+                                    {qualBreakdown.map((item, i) => (
+                                        <Chip key={`q-${item.name}-${i}`} on readOnly tone='live'>{item.name} +{item.pts}</Chip>
+                                    ))}
+                                </ChipRow>
                             )}
                         </div>
 
@@ -1488,6 +1560,15 @@ export default function MilpacEditor({ member, confirmedOps = [], onDirtyChange,
                 )
             })()}
 
+            {(canEditStandard || canEditRestricted) && (
+                <SaveBar
+                    count={changeCount}
+                    saving={saving}
+                    onSave={handleSave}
+                    onDiscard={handleDiscard}
+                    className='-mx-6 md:-mx-10 -mb-6 md:-mb-10 px-6 md:px-10'
+                />
+            )}
 
         </div>
         </div>

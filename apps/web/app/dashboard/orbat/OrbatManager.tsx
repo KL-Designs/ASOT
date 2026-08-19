@@ -696,14 +696,14 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                                 {roleTag && (
                                     <span style={{
                                         flexShrink: 0, fontSize: '0.55rem', fontWeight: 700, padding: '1px 6px', borderRadius: 999,
-                                        background: 'rgba(251,191,36,0.14)', color: 'rgba(251,191,36,0.85)', border: '1px solid rgba(251,191,36,0.3)',
+                                        background: 'color-mix(in srgb, var(--amber) 14%, transparent)', color: 'color-mix(in srgb, var(--amber) 85%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)',
                                     }}>
                                         {roleTag}
                                     </span>
                                 )}
                                 {!pos.roleId || !validRoleIds.has(String(pos.roleId)) ? (
                                     <Tooltip title="This position isn't linked to a Role in the catalog — the name above is just display text, so no Discord roles, TeamSpeak groups, or permissions from a Role are actually granted to whoever holds it. Fix it by re-picking a Role for this position.">
-                                        <Warning sx={{ fontSize: 12, color: 'rgba(251,191,36,0.85)', flexShrink: 0 }} />
+                                        <Warning sx={{ fontSize: 12, color: 'color-mix(in srgb, var(--amber) 85%, transparent)', flexShrink: 0 }} />
                                     </Tooltip>
                                 ) : null}
                             </>
@@ -1342,8 +1342,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
             <div
                 className='flex flex-col px-5 py-4'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.42)',
-                    borderTop: '2px solid var(--red)',
+                    border: '1px solid var(--line-2)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
             >
@@ -1371,7 +1370,7 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                         position: 'fixed', bottom: 28, right: 80, zIndex: 1200,
                         display: 'flex', alignItems: 'center', gap: 8,
                         padding: '10px 18px', borderRadius: 999,
-                        background: 'rgba(15,15,15,0.92)', border: '1px solid rgba(219,0,29,0.5)',
+                        background: 'rgba(15,15,15,0.92)', border: '1px solid var(--line-2)',
                         color: 'rgba(237,237,237,0.85)', fontSize: '0.72rem', fontWeight: 700,
                         letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer',
                         boxShadow: '0 4px 20px rgba(0,0,0,0.5)', transition: 'background 0.15s, border-color 0.15s',

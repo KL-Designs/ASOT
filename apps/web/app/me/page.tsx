@@ -1,202 +1,27 @@
-import client from '@/lib/discord'
 import { connection } from 'next/server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { Typography } from '@mui/material'
-import { Api, Tune, CalendarToday, ManageAccounts } from '@mui/icons-material'
+import client from '@/lib/discord'
+import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
+import ProfileScreen from '@/app/dashboard/profile/ProfileScreen'
+import { resolveProfile } from '@/app/dashboard/profile/resolve'
 
-import ConvertColor from '@/lib/discord/color'
-import { getOrbatEntryByUserId } from '@/lib/orbat'
-import { rankNameFromAbbr } from '@/lib/military/ranks'
-import { BioSections } from './bio'
-import TSLinkButton from './TSLinkButton'
-import ResetTokenButton from './ResetTokenButton'
-import TimezoneSelector from './TimezoneSelector'
-import Avatar from '@/components/member/avatar'
-
-
-
+/**
+ * The profile now lives at /dashboard/profile, inside the sidebar and on the
+ * kit. Anyone who can open the dashboard is sent there.
+ *
+ * /me stays for the members who cannot: no department, no ORBAT position, no
+ * reservist slot — a recruit on their first day. `hasDashboardAccess` turns
+ * them away at the dashboard layout and lands them here, so this route renders
+ * the same screen rather than redirecting into a page they'd bounce out of.
+ * It is also where every `redirect('/me')` in the dashboard tree ends up.
+ */
 export default async function Page() {
-
     await connection()
 
     const me = await client.fetchMe()
-    if (!me) return redirect('/login')
+    if (!me) redirect('/login')
 
-    const isHQ = client.hasRoles(me, ['HQ Staff'])
-    const isJ5 = client.hasRoles(me, ['J5-Media'])
+    if (await hasDashboardAccess(me)) redirect('/dashboard/profile')
 
-    const orbatEntry = await getOrbatEntryByUserId(me.id)
-
-    const strippedNickname = me.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
-    const fullDisplay = strippedNickname || me.globalName || me.username
-    const nameParts = fullDisplay.split(' ')
-    const parsedDisplayName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : fullDisplay
-    const bioDisplayName = me.name || parsedDisplayName
-    const bioRankAbbr = me.milpac?.currentRank || null
-    const bioRank = bioRankAbbr ? rankNameFromAbbr(bioRankAbbr) : null
-    const bioCallsign = me.milpac?.callsign || null
-    const bioRole = orbatEntry?.role || null
-
-    return (
-        <div className='h-full w-full p-6 md:p-10 flex flex-col gap-5 max-w-[1000px] mx-auto'>
-
-            {/* Profile Card — full width */}
-            <div
-                className='flex flex-col'
-                style={{
-                    border: '1px solid rgba(219,0,29,0.15)',
-                    borderTop: '2px solid var(--red)',
-                    background: 'rgba(255,255,255,0.02)',
-                }}
-            >
-                <div
-                    className='flex items-center px-4 py-3'
-                    style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                >
-                    <Typography fontWeight={600} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase', flex: 1 }}>
-                        Member Profile
-                    </Typography>
-                </div>
-
-                <div className='p-5'>
-                    <div className='flex flex-wrap gap-5'>
-                        <div className='relative h-[90px] min-w-[90px]'>
-                            <Avatar user={me} />
-                        </div>
-
-                        <div
-                            className='self-stretch hidden sm:block'
-                            style={{ width: 1, background: 'rgba(255,255,255,0.06)' }}
-                        />
-
-                        <div className='flex flex-col justify-center gap-2 flex-grow min-w-0'>
-                            {bioRank && (
-                                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3} style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)' }}>
-                                    {bioRank}
-                                </Typography>
-                            )}
-                            <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                                {bioDisplayName}
-                            </Typography>
-                            <div className='flex flex-wrap gap-3'>
-                                {bioRole && (
-                                    <Typography fontSize='0.68rem' fontWeight={600} letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.45)' }}>
-                                        {bioRole}
-                                    </Typography>
-                                )}
-                                {bioCallsign && (
-                                    <Typography fontSize='0.68rem' fontWeight={600} letterSpacing={2} style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>
-                                        {bioCallsign}
-                                    </Typography>
-                                )}
-                            </div>
-                            <div
-                                className='flex items-center gap-2'
-                                style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.72rem', letterSpacing: '0.06em' }}
-                            >
-                                <CalendarToday style={{ fontSize: 11 }} />
-                                JOINED {new Date(me.guild.joinedTimestamp).toDateString().toUpperCase()}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Bottom area: left column + Roles */}
-            <div className='flex gap-5 items-start'>
-
-                {/* Left column */}
-                <div className='flex flex-col gap-5 flex-grow min-w-0'>
-                    <BioSections canUploadImage={isHQ} isHQ={isHQ} />
-                    <TimezoneSelector initialTimezone={me.timezone ?? null} />
-                    <TSLinkButton
-                        linked={me.teamspeak ? { cldbid: me.teamspeak.cldbid, linkedAt: me.teamspeak.linkedAt } : null}
-                        expectedNickname={bioRankAbbr ? `[${bioRankAbbr}] ${bioDisplayName}` : bioDisplayName}
-                    />
-                    <ResetTokenButton />
-
-                    {/* Navigation cards */}
-                    <div className='flex flex-wrap gap-4'>
-
-                        {/* {isJ5 && (
-                            <Link href='/members' className='flex-1 min-w-[160px]'>
-                                <div
-                                    className='flex flex-col justify-center items-center gap-4 p-6 h-[160px] cursor-pointer transition-colors duration-200 bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(219,0,29,0.08)]'
-                                    style={{ border: '1px solid rgba(219,0,29,0.15)', borderTop: '2px solid var(--red)' }}
-                                >
-                                    <ManageAccounts sx={{ fontSize: 44, color: 'var(--red)', opacity: 0.7 }} />
-                                    <Typography fontWeight={700} fontSize='0.78rem' letterSpacing={3} textAlign='center' style={{ textTransform: 'uppercase' }}>
-                                        Member<br />Management
-                                    </Typography>
-                                </div>
-                            </Link>
-                        )} */}
-                    </div>
-                </div>
-
-                {/* Roles — stretches to match left column height */}
-                <div
-                    className='flex flex-col w-[220px] shrink-0 self-stretch'
-                    style={{
-                        border: '1px solid rgba(219,0,29,0.15)',
-                        borderTop: '2px solid var(--red)',
-                        background: 'rgba(255,255,255,0.02)',
-                    }}
-                >
-                    <div
-                        className='flex items-center gap-2 px-4 py-3'
-                        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
-                    >
-                        <Typography fontWeight={600} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase', flex: 1 }}>
-                            Roles
-                        </Typography>
-                        <span
-                            style={{
-                                fontSize: '0.68rem',
-                                fontWeight: 600,
-                                letterSpacing: '0.06em',
-                                color: 'rgba(219,0,29,0.7)',
-                                background: 'rgba(219,0,29,0.08)',
-                                border: '1px solid rgba(219,0,29,0.2)',
-                                padding: '2px 8px',
-                            }}
-                        >
-                            {me.roles.length}
-                        </span>
-                    </div>
-                    <div className='flex flex-col px-4 py-2'>
-                        {me.roles.map(role => (
-                            <div
-                                key={role.id}
-                                className='flex items-center gap-2 py-[5px]'
-                                style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
-                            >
-                                <div
-                                    style={{
-                                        width: 6,
-                                        height: 6,
-                                        borderRadius: '50%',
-                                        background: role.color !== 0 ? ConvertColor(role.color) : 'rgba(237,237,237,0.2)',
-                                        flexShrink: 0,
-                                    }}
-                                />
-                                <Typography
-                                    fontSize='0.8rem'
-                                    style={{
-                                        color: role.color !== 0 ? ConvertColor(role.color) : 'rgba(237,237,237,0.45)',
-                                        letterSpacing: '0.02em',
-                                    }}
-                                >
-                                    {role.name}
-                                </Typography>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-            </div>
-
-        </div>
-    )
+    return <ProfileScreen {...await resolveProfile(me)} />
 }

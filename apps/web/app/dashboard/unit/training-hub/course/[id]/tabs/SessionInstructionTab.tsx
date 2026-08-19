@@ -302,7 +302,7 @@ export default function SessionInstructionTab({ courseInstanceId, sessionId, ses
                 {/* Session header */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
-                        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 4 }}>
+                        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 4 }}>
                             Session {session.sessionNumber} — Week {session.weekNumber}
                         </div>
                         <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.85)', marginBottom: 8 }}>
@@ -361,7 +361,7 @@ export default function SessionInstructionTab({ courseInstanceId, sessionId, ses
                 {/* Session Staff */}
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>
+                        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)' }}>
                             Session Staff ({sessionStaff.length})
                         </div>
                         <button
@@ -382,7 +382,7 @@ export default function SessionInstructionTab({ courseInstanceId, sessionId, ses
                                     value={staffQuery}
                                     onChange={e => setStaffQuery(e.target.value)}
                                     autoFocus
-                                    style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '2px solid rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
+                                    style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
                                 />
                                 <select
                                     value={newStaffRole}
@@ -468,7 +468,7 @@ export default function SessionInstructionTab({ courseInstanceId, sessionId, ses
 
                 {/* Session Instructions — catch-up sessions use the builder, regular sessions use the guide editor */}
                 <div>
-                    <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 16 }}>
+                    <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 16 }}>
                         Session Instructions
                     </div>
                     {session.catchUp
@@ -482,7 +482,7 @@ export default function SessionInstructionTab({ courseInstanceId, sessionId, ses
             {/* Right panel — Attendance Summary */}
             <div style={{ width: 190, flexShrink: 0, position: 'sticky', top: 24 }}>
                 <div style={{ padding: '14px', background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 12 }}>
+                    <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 12 }}>
                         Attendance
                         {totalAttended > 0 && <span style={{ marginLeft: 6, color: 'rgba(237,237,237,0.25)' }}>{totalAttended}</span>}
                     </div>

@@ -131,7 +131,7 @@ function ActionModal({ ticket, userId, onClose, onResolved, readOnly = false }: 
                 },
             }}
         >
-            <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+            <DialogTitle style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--line-2)' }}>
                 <Typography fontWeight={700} fontSize='0.8rem' letterSpacing={2} style={{ textTransform: 'uppercase' }}>
                     {readOnly
                         ? (isMoveRequest ? 'Move Request' : isDischarge ? 'Discharge' : isDiscipline ? 'Discipline' : isPerformanceReport ? 'Performance Report' : 'Ticket Details')
@@ -146,7 +146,7 @@ function ActionModal({ ticket, userId, onClose, onResolved, readOnly = false }: 
                     {/* Ticket details */}
                     <div
                         className='flex flex-col gap-3 p-4'
-                        style={{ border: '1px solid rgba(219,0,29,0.22)', background: 'rgba(255,255,255,0.04)' }}
+                        style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.04)' }}
                     >
                         {isMoveRequest ? (
                             <>
@@ -602,8 +602,7 @@ export default function TicketsPanel({
             <div
                 className='flex flex-col px-5 py-4 mx-6 mt-6'
                 style={{
-                    border: '1px solid rgba(219,0,29,0.42)',
-                    borderTop: '2px solid var(--red)',
+                    border: '1px solid var(--line-2)',
                     background: 'rgba(255,255,255,0.04)',
                 }}
             >
@@ -659,7 +658,7 @@ export default function TicketsPanel({
             {/* Table */}
             <div
                 className='mx-6 mt-4'
-                style={{ border: '1px solid rgba(219,0,29,0.22)', background: 'rgba(255,255,255,0.01)', overflowX: 'auto' }}
+                style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', overflowX: 'auto' }}
             >
                 {loading ? (
                     <TacticalSkeleton rows={6} className='px-4' />
@@ -670,7 +669,7 @@ export default function TicketsPanel({
                 ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                         <thead>
-                            <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+                            <tr style={{ borderBottom: '1px solid var(--line-2)' }}>
                                 {['Dept', 'Member', 'Action', 'Details', 'Issued By', 'Date', 'Status', ''].map((h, i) => (
                                     <th key={i} style={{ textAlign: 'left', padding: '10px 14px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', whiteSpace: 'nowrap' }}>
                                         {h}
@@ -759,12 +758,12 @@ export default function TicketsPanel({
                     <button
                         onClick={() => setPage(p => p - 1)}
                         disabled={page === 0}
-                        style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid rgba(219,0,29,0.25)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: page === 0 ? 'default' : 'pointer' }}
+                        style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid var(--line-2)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: page === 0 ? 'default' : 'pointer' }}
                     >Prev</button>
                     <button
                         onClick={() => setPage(p => p + 1)}
                         disabled={(page + 1) * PAGE_SIZE >= filtered.length}
-                        style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid rgba(219,0,29,0.25)', color: (page + 1) * PAGE_SIZE >= filtered.length ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: (page + 1) * PAGE_SIZE >= filtered.length ? 'default' : 'pointer' }}
+                        style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid var(--line-2)', color: (page + 1) * PAGE_SIZE >= filtered.length ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: (page + 1) * PAGE_SIZE >= filtered.length ? 'default' : 'pointer' }}
                     >Next</button>
                 </div>
             )}

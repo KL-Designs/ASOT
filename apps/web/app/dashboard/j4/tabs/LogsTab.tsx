@@ -53,7 +53,7 @@ function Pagination({ page, total, limit, onPage }: { page: number; total: numbe
             <button
                 onClick={() => onPage(page - 1)}
                 disabled={page <= 1}
-                style={{ background: 'none', border: '1px solid rgba(219,0,29,0.3)', color: page <= 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', padding: '4px 10px', cursor: page <= 1 ? 'default' : 'pointer', fontSize: '0.72rem' }}
+                style={{ background: 'none', border: '1px solid var(--line-2)', color: page <= 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', padding: '4px 10px', cursor: page <= 1 ? 'default' : 'pointer', fontSize: '0.72rem' }}
             >
                 ‹ Prev
             </button>
@@ -63,7 +63,7 @@ function Pagination({ page, total, limit, onPage }: { page: number; total: numbe
             <button
                 onClick={() => onPage(page + 1)}
                 disabled={page >= pages}
-                style={{ background: 'none', border: '1px solid rgba(219,0,29,0.3)', color: page >= pages ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', padding: '4px 10px', cursor: page >= pages ? 'default' : 'pointer', fontSize: '0.72rem' }}
+                style={{ background: 'none', border: '1px solid var(--line-2)', color: page >= pages ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', padding: '4px 10px', cursor: page >= pages ? 'default' : 'pointer', fontSize: '0.72rem' }}
             >
                 Next ›
             </button>
@@ -405,7 +405,7 @@ export default function LogsTab() {
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '0 24px 16px' }}>
-            <div style={{ borderBottom: '1px solid rgba(219,0,29,0.25)', marginBottom: 0, flexShrink: 0 }}>
+            <div style={{ borderBottom: '1px solid var(--line-2)', marginBottom: 0, flexShrink: 0 }}>
                 <Tabs
                     value={tab}
                     onChange={(_, v) => setTab(v)}

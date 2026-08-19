@@ -272,8 +272,8 @@ export default function DeptMembersTab({
                     position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 2000,
                     padding: '10px 20px', fontSize: '0.8rem', fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
                     background: feedback.type === 'success' ? 'rgba(20,30,24,0.96)' : 'rgba(30,15,17,0.96)',
-                    border: `1px solid ${feedback.type === 'success' ? 'rgba(34,197,94,0.4)' : 'rgba(219,0,29,0.4)'}`,
-                    color: feedback.type === 'success' ? 'rgba(34,197,94,0.95)' : 'rgba(219,0,29,0.95)',
+                    border: `1px solid ${feedback.type === 'success' ? 'color-mix(in srgb, var(--live) 40%, transparent)' : 'rgba(219,0,29,0.4)'}`,
+                    color: feedback.type === 'success' ? 'color-mix(in srgb, var(--live) 95%, transparent)' : 'rgba(219,0,29,0.95)',
                 }}>
                     {feedback.msg}
                 </div>
@@ -290,9 +290,9 @@ export default function DeptMembersTab({
                             style={{
                                 fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em',
                                 textTransform: 'uppercase', padding: '4px 14px',
-                                background: syncing ? 'rgba(59,130,246,0.15)' : 'rgba(59,130,246,0.2)',
-                                border: '1px solid rgba(59,130,246,0.4)',
-                                color: syncing ? 'rgba(59,130,246,0.4)' : 'rgba(59,130,246,0.9)',
+                                background: syncing ? 'color-mix(in srgb, var(--info) 15%, transparent)' : 'color-mix(in srgb, var(--info) 20%, transparent)',
+                                border: '1px solid color-mix(in srgb, var(--info) 40%, transparent)',
+                                color: syncing ? 'color-mix(in srgb, var(--info) 40%, transparent)' : 'color-mix(in srgb, var(--info) 90%, transparent)',
                                 cursor: syncing ? 'not-allowed' : 'pointer',
                                 flexShrink: 0,
                             }}
@@ -399,7 +399,7 @@ export default function DeptMembersTab({
                     <div style={{ overflowX: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                             <thead>
-                                <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+                                <tr style={{ borderBottom: '1px solid var(--line-2)' }}>
                                     <th style={thStyle}>Name</th>
                                     <th style={thStyle}>Rank</th>
                                     <th style={thStyle}>Position</th>
@@ -425,7 +425,7 @@ export default function DeptMembersTab({
                                             }}
                                         >
                                             <td style={tdStyle}>
-                                                {isLeader && <span style={{ color: 'rgba(251,191,36,0.8)', marginRight: 6, fontSize: '0.72rem' }}>★</span>}
+                                                {isLeader && <span style={{ color: 'color-mix(in srgb, var(--amber) 80%, transparent)', marginRight: 6, fontSize: '0.72rem' }}>★</span>}
                                                 {m.displayName}
                                             </td>
                                             <td style={{ ...tdStyle, color: 'rgba(219,0,29,0.7)', fontSize: '0.72rem' }}>

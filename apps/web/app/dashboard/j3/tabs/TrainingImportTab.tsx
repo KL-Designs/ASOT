@@ -84,7 +84,7 @@ const PAGE_SIZE = 50
 
 const inputStyle: React.CSSProperties = {
     background: 'rgba(0,0,0,0.45)',
-    border: '1px solid rgba(219,0,29,0.25)',
+    border: '1px solid var(--line-2)',
     color: 'rgba(237,237,237,0.9)',
     fontSize: '0.65rem',
     padding: '3px 7px',
@@ -320,7 +320,7 @@ export default function TrainingImportTab() {
 
             {/* ── Toolbar ─────────────────────────────────────────────────────── */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>
+                <span style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                     {'// TRAINING IMPORT RECORDS'}
                 </span>
                 <div style={{ flex: 1 }} />
@@ -372,10 +372,10 @@ export default function TrainingImportTab() {
             )}
 
             {/* ── Import panel ─────────────────────────────────────────────────── */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid rgba(219,0,29,0.5)', background: 'rgba(255,255,255,0.015)' }}>
+            <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.015)' }}>
 
                 {/* Header */}
-                <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(219,0,29,0.15)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--line-2)', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <Upload sx={{ fontSize: '0.9rem', color: 'rgba(219,0,29,0.6)' }} />
                     <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>
                         Import CSV
@@ -483,10 +483,10 @@ export default function TrainingImportTab() {
                                     gridTemplateColumns: '22px 1fr 180px 72px 60px 130px 64px',
                                     gap: 6, padding: '5px 8px',
                                     background: 'rgba(0,0,0,0.4)',
-                                    borderBottom: '1px solid rgba(219,0,29,0.2)',
+                                    borderBottom: '1px solid var(--line-2)',
                                 }}>
                                     {['', 'Detected As', 'Final Name', 'Acronym', 'Sessions', 'Sample Dates', ''].map((h, hi) => (
-                                        <span key={hi} style={{ fontSize: '0.45rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.45)', fontFamily: 'monospace' }}>
+                                        <span key={hi} style={{ fontSize: '0.45rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                                             {h}
                                         </span>
                                     ))}
@@ -618,7 +618,7 @@ export default function TrainingImportTab() {
 
                                             {/* Expanded session list */}
                                             {g.expanded && (
-                                                <div style={{ background: 'rgba(0,0,0,0.25)', borderTop: '1px solid rgba(219,0,29,0.1)' }}>
+                                                <div style={{ background: 'rgba(0,0,0,0.25)', borderTop: '1px solid var(--line-2)' }}>
                                                     {/* Sub-header */}
                                                     <div style={{
                                                         display: 'grid',
@@ -627,7 +627,7 @@ export default function TrainingImportTab() {
                                                         borderBottom: '1px solid rgba(255,255,255,0.04)',
                                                     }}>
                                                         {['Row', 'Date', 'CSV Type', 'Trainees', 'Staff', 'Notes', 'Assign Type'].map(h => (
-                                                            <span key={h} style={{ fontSize: '0.42rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.35)', fontFamily: 'monospace' }}>
+                                                            <span key={h} style={{ fontSize: '0.42rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                                                                 {h}
                                                             </span>
                                                         ))}
@@ -798,10 +798,10 @@ export default function TrainingImportTab() {
             </div>
 
             {/* ── Imported records table ───────────────────────────────────────── */}
-            <div style={{ border: '1px solid rgba(219,0,29,0.18)', overflowX: 'auto' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: colWidths, padding: '6px 10px', background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(219,0,29,0.15)', minWidth: 860 }}>
+            <div style={{ border: '1px solid var(--line-2)', overflowX: 'auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: colWidths, padding: '6px 10px', background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid var(--line-2)', minWidth: 860 }}>
                     {cols.map(c => (
-                        <span key={c} style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>
+                        <span key={c} style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                             {c}
                         </span>
                     ))}

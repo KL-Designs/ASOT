@@ -18,7 +18,7 @@ const inputStyle: React.CSSProperties = {
     boxSizing: 'border-box',
     background: 'rgba(255,255,255,0.04)',
     border: '1px solid rgba(255,255,255,0.08)',
-    borderBottom: '2px solid rgba(219,0,29,0.4)',
+    borderBottom: '1px solid var(--line-2)',
     color: 'rgba(237,237,237,0.9)',
     fontSize: '0.82rem',
     padding: '7px 10px',
@@ -110,16 +110,15 @@ export default function AllStaffCalendarPanel({ userId, displayName, isTrainer, 
                 className='flex items-center justify-between px-5 py-3 mx-6 mt-6'
                 style={{
                     position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.42)',
-                    borderTop: '2px solid var(--red)',
+                    border: '1px solid var(--line-2)',
                     background: 'rgba(255,255,255,0.04)',
                     flexShrink: 0,
                 }}
             >
                 <CornerBrackets />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace' }}>
-                        <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> UNIT
+                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
+                        <span style={{ color: 'var(--txt-4)' }}>{'//'}</span> UNIT
                     </span>
                     <span style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
                         All Staff Calendar
@@ -167,7 +166,7 @@ export default function AllStaffCalendarPanel({ userId, displayName, isTrainer, 
                     onClick={e => { if (e.target === e.currentTarget) setShowTemplateModal(false) }}
                 >
                     <div style={{ background: '#0e0e0e', border: `1px solid rgba(219,0,29,0.25)`, borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 2 }}>
+                        <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 2 }}>
                             {selectedType ? `J3 Template — ${selectedType.category}` : 'Create Calendar Event'}
                         </div>
 

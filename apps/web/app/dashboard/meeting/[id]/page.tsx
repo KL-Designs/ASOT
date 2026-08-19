@@ -78,9 +78,9 @@ export default function MeetingViewPage({ params }: { params: Promise<{ id: stri
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
             {/* Header */}
-            <div style={{ borderBottom: '1px solid rgba(219,0,29,0.2)', paddingBottom: 16 }}>
+            <div style={{ borderBottom: '1px solid var(--line-2)', paddingBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace' }}>
+                    <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                         {'// Meeting'}
                     </span>
                     {completed && (
@@ -114,7 +114,7 @@ export default function MeetingViewPage({ params }: { params: Promise<{ id: stri
                 {/* Left: notes */}
                 <div style={{ flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', gap: 16 }}>
                     <div>
-                        <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace', marginBottom: 8 }}>
+                        <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', marginBottom: 8 }}>
                             {'// Notes'}
                         </div>
                         {meeting.notes ? (
@@ -129,8 +129,8 @@ export default function MeetingViewPage({ params }: { params: Promise<{ id: stri
 
                 {/* Right: attendance RSVP */}
                 <div style={{ width: 280, flexShrink: 0, border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(219,0,29,0.02)' }}>
-                    <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(219,0,29,0.12)' }}>
-                        <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace' }}>
+                    <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--line-2)' }}>
+                        <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                             {'// Attendance'}
                         </span>
                     </div>

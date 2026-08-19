@@ -61,7 +61,7 @@ const inputStyle: React.CSSProperties = {
     boxSizing: 'border-box',
     background: 'rgba(255,255,255,0.04)',
     border: '1px solid rgba(255,255,255,0.08)',
-    borderBottom: '2px solid rgba(219,0,29,0.4)',
+    borderBottom: '1px solid var(--line-2)',
     color: 'rgba(237,237,237,0.9)',
     fontSize: '0.82rem',
     padding: '8px 10px',
@@ -337,8 +337,8 @@ function TicketCard({ ticket, isJ3Lead, onRefresh }: { ticket: Ticket; isJ3Lead:
             {showRejectModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                     onClick={e => { if (e.target === e.currentTarget) setShowRejectModal(false) }}>
-                    <div style={{ background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.25)', borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)' }}>Reject Training Ticket</div>
+                    <div style={{ background: '#0e0e0e', border: '1px solid var(--line-2)', borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 420, display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)' }}>Reject Training Ticket</div>
                         <div>
                             <label style={{ display: 'block', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>Reason (optional)</label>
                             <textarea value={j3Notes} onChange={e => setJ3Notes(e.target.value)} rows={3} placeholder='Reason for rejection…' style={{ ...inputStyle, resize: 'vertical' }} />

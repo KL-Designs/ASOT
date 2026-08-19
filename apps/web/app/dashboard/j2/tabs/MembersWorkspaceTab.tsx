@@ -107,11 +107,11 @@ function formatSize(bytes: number) {
 }
 
 function extBadgeColor(ext: string): string {
-    if (['.pbo'].includes(ext)) return '#10b981' // teal for PBOs
-    if (['.pdf'].includes(ext)) return '#ef4444'
-    if (['.zip', '.rar', '.7z'].includes(ext)) return '#f59e0b'
+    if (['.pbo'].includes(ext)) return 'var(--live)' // teal for PBOs
+    if (['.pdf'].includes(ext)) return 'var(--red)'
+    if (['.zip', '.rar', '.7z'].includes(ext)) return 'var(--amber)'
     if (['.png', '.jpg', '.jpeg', '.webp', '.gif'].includes(ext)) return '#8b5cf6'
-    if (['.doc', '.docx', '.txt', '.md'].includes(ext)) return '#3b82f6'
+    if (['.doc', '.docx', '.txt', '.md'].includes(ext)) return 'var(--info)'
     return 'rgba(237,237,237,0.3)'
 }
 
@@ -533,7 +533,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
         const linesB = vB.contentSnapshot.split('\n')
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid rgba(219,0,29,0.15)', background: 'rgba(0,0,0,0.15)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: '1px solid var(--line-2)', background: 'rgba(0,0,0,0.15)', flexShrink: 0 }}>
                     <button type='button' onClick={() => setCompareVersions(null)}
                         style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em' }}
                     >
@@ -545,7 +545,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                     {([{ v: vA, side: 'A' }, { v: vB, side: 'B' }] as { v: DocVersion; side: string }[]).map(({ v, side }) => (
                         <div key={side} style={{ display: 'flex', flexDirection: 'column', borderRight: side === 'A' ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
                             <div style={{ padding: '10px 16px', background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: side === 'A' ? '#3b82f6' : '#8b5cf6' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: side === 'A' ? 'var(--info)' : '#8b5cf6' }}>
                                     {side === 'A' ? 'Version A' : 'Version B'}
                                 </div>
                                 <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.6)', marginTop: 2 }}>
@@ -560,8 +560,8 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                     return (
                                         <div key={i} style={{
                                             padding: '1px 4px',
-                                            background: added ? 'rgba(16,185,129,0.12)' : changed ? 'rgba(245,158,11,0.1)' : 'transparent',
-                                            color: added ? '#10b981' : changed ? '#f59e0b' : 'rgba(237,237,237,0.65)',
+                                            background: added ? 'rgba(16,185,129,0.12)' : changed ? 'color-mix(in srgb, var(--amber) 10%, transparent)' : 'transparent',
+                                            color: added ? 'var(--live)' : changed ? 'var(--amber)' : 'rgba(237,237,237,0.65)',
                                             whiteSpace: 'pre-wrap',
                                         }}>
                                             {line || <span style={{ opacity: 0.2 }}>—</span>}
@@ -588,7 +588,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 {/* Toolbar */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid rgba(219,0,29,0.15)', background: 'rgba(0,0,0,0.15)', flexShrink: 0, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px', borderBottom: '1px solid var(--line-2)', background: 'rgba(0,0,0,0.15)', flexShrink: 0, flexWrap: 'wrap' }}>
                     <button type='button' onClick={() => setOpenDocId(null)}
                         style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', flexShrink: 0 }}
                     >
@@ -653,7 +653,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                                     else if (compareSelectA._id !== v._id) { setCompareVersions([compareSelectA, v]); setCompareSelectA(null) }
                                                     else { setCompareSelectA(null) }
                                                 }}
-                                                    style={{ padding: '2px 7px', fontSize: '0.6rem', fontWeight: 700, background: compareSelectA?._id === v._id ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.06)', border: `1px solid ${compareSelectA?._id === v._id ? 'rgba(59,130,246,0.6)' : 'rgba(59,130,246,0.2)'}`, color: 'rgba(59,130,246,0.8)', cursor: 'pointer' }}
+                                                    style={{ padding: '2px 7px', fontSize: '0.6rem', fontWeight: 700, background: compareSelectA?._id === v._id ? 'color-mix(in srgb, var(--info) 20%, transparent)' : 'color-mix(in srgb, var(--info) 6%, transparent)', border: `1px solid ${compareSelectA?._id === v._id ? 'color-mix(in srgb, var(--info) 60%, transparent)' : 'color-mix(in srgb, var(--info) 20%, transparent)'}`, color: 'color-mix(in srgb, var(--info) 80%, transparent)', cursor: 'pointer' }}
                                                 >
                                                     {compareSelectA?._id === v._id ? 'Selected (A)' : compareSelectA ? 'Compare ▶' : 'Compare'}
                                                 </button>
@@ -663,7 +663,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                 )}
                             </div>
                             {compareSelectA && (
-                                <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(59,130,246,0.2)', fontSize: '0.62rem', color: 'rgba(59,130,246,0.7)' }}>
+                                <div style={{ padding: '8px 14px', borderTop: '1px solid color-mix(in srgb, var(--info) 20%, transparent)', fontSize: '0.62rem', color: 'color-mix(in srgb, var(--info) 70%, transparent)' }}>
                                     Select second version to compare with &quot;{compareSelectA.label ?? 'version'}&quot;
                                 </div>
                             )}
@@ -712,7 +712,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(139,92,246,0.6)', marginTop: 3 }}>Replaces this document with the selected version. Version history is preserved.</div>
                                 </button>
                                 <button onClick={() => handleRestore(restoreTarget, 'copy')} disabled={restoring}
-                                    style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981', cursor: 'pointer' }}>
+                                    style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.78rem', fontWeight: 700, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.3)', color: 'var(--live)', cursor: 'pointer' }}>
                                     Restore As Copy
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(16,185,129,0.6)', marginTop: 3 }}>Creates a new document from this version. Current document is not changed.</div>
                                 </button>
@@ -1146,7 +1146,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                             const isFile = log.action.includes('.file.')
                                             const isDoc  = log.action.includes('.doc.')
                                             const isVer  = log.action.includes('.version.')
-                                            const color  = isVer ? '#8b5cf6' : isDoc ? '#3b82f6' : isFile ? '#10b981' : 'rgba(237,237,237,0.4)'
+                                            const color  = isVer ? '#8b5cf6' : isDoc ? 'var(--info)' : isFile ? 'var(--live)' : 'rgba(237,237,237,0.4)'
                                             return (
                                                 <div key={log._id} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 12, alignItems: 'center', padding: '9px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderLeft: `2px solid ${color}55` }}>
                                                     <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', padding: '2px 7px', background: `${color}18`, border: `1px solid ${color}44`, color, whiteSpace: 'nowrap' }}>
@@ -1243,7 +1243,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
             {/* Delete file confirmation */}
             {deleteFileId && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: '#0f0f10', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)', padding: '24px 28px', maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ background: '#0f0f10', border: '1px solid var(--line-2)', padding: '24px 28px', maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Delete File?</div>
                         <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>This will permanently remove the file and cannot be undone.</div>
                         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
@@ -1257,7 +1257,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
             {/* Delete doc confirmation */}
             {deleteDocId && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 2000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ background: '#0f0f10', border: '1px solid rgba(219,0,29,0.4)', borderTop: '2px solid var(--red)', padding: '24px 28px', maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ background: '#0f0f10', border: '1px solid var(--line-2)', padding: '24px 28px', maxWidth: 380, width: '90%', display: 'flex', flexDirection: 'column', gap: 12 }}>
                         <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Delete Document?</div>
                         <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>The document will be removed. This cannot be undone.</div>
                         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>

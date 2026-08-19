@@ -140,11 +140,11 @@ export default function CreateMeetingModal({ department, onClose, onCreate }: Pr
         >
             <div
                 onClick={e => e.stopPropagation()}
-                style={{ width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', background: 'rgb(13,13,13)', border: '1px solid rgba(219,0,29,0.32)', borderTop: '2px solid var(--red)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}
+                style={{ width: '100%', maxWidth: 520, maxHeight: '90vh', overflowY: 'auto', background: 'rgb(13,13,13)', border: '1px solid var(--line-2)', padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}
             >
                 {/* Header */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', fontFamily: 'monospace' }}>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                         {'// New Meeting'}
                     </span>
                     <button onClick={onClose} style={{ all: 'unset', cursor: 'pointer', color: 'rgba(237,237,237,0.4)' }}>
