@@ -79,8 +79,17 @@ export default function Button({
 
         // External destinations skip next/link — it has nothing to prefetch, and
         // the rel guard belongs on them rather than on internal routes.
-        if (external) return (
-            <a href={href} target='_blank' rel='noopener noreferrer' className={classes} {...anchorProps}>
+        //
+        // So does a download. next/link cancels the click and routes instead,
+        // which defeats the `download` attribute before the browser ever sees
+        // it; there is nothing to prefetch for a file either.
+        if (external || anchorProps.download != null) return (
+            <a
+                href={href}
+                {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                className={classes}
+                {...anchorProps}
+            >
                 {children}
             </a>
         )
