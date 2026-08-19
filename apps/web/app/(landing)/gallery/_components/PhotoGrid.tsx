@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useLayoutEffect, useState } from 'react'
 
 import Button from '@/components/ui/Button'
 import { ExpandIcon } from './icons'
@@ -27,27 +27,36 @@ const DEFAULT_RATIO = 16 / 10
  * row tall for a frame before snapping to size. Nothing here is server-rendered
  * — the archive arrives by fetch after mount — so measuring before paint costs
  * nothing.
+ *
+ * A callback ref rather than a `useRef`, because the grid is not mounted on the
+ * first render: the archive arrives by fetch, so the component's opening move is
+ * the empty state, and an effect keyed on a ref object would have run once
+ * against `null` and never again. Keeping the node in state re-runs it the
+ * moment the grid actually appears.
  */
-function useColumnWidth(ref: React.RefObject<HTMLDivElement | null>): number | null {
+function useColumnWidth(): [(node: HTMLDivElement | null) => void, number | null] {
+    const [node, setNode] = useState<HTMLDivElement | null>(null)
     const [width, setWidth] = useState<number | null>(null)
 
     useLayoutEffect(() => {
-        const el = ref.current
-        if (!el) return
+        if (!node) return
 
         const measure = () => {
-            const columns = getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length
+            const columns = getComputedStyle(node).gridTemplateColumns.split(' ').filter(Boolean).length
             if (!columns) return
-            setWidth((el.clientWidth - (columns - 1) * GAP) / columns)
+            setWidth((node.clientWidth - (columns - 1) * GAP) / columns)
         }
 
         measure()
+        // Fires on the grid's own height changes too, as images land and spans
+        // grow. Those re-measure to the same width and React bails on the
+        // identical value, so it settles rather than looping.
         const observer = new ResizeObserver(measure)
-        observer.observe(el)
+        observer.observe(node)
         return () => observer.disconnect()
-    }, [ref])
+    }, [node])
 
-    return width
+    return [setNode, width]
 }
 
 function Tile({ photo, onOpen, span, onRatio }: {
@@ -103,18 +112,26 @@ export default function PhotoGrid({ photos, view, shown, onShowMore, onOpen, onC
     onOpen: (photo: Photo) => void
     onClear: () => void
 }) {
-    const grid = useRef<HTMLDivElement>(null)
-    const colWidth = useColumnWidth(grid)
+    const [gridRef, colWidth] = useColumnWidth()
     const [ratios, setRatios] = useState<Record<string, number>>({})
+
+    /*
+       Masonry only once there is a measurement to build it from. A tile's image
+       is absolutely positioned and a masonry row is 10px, so a grid laid out
+       before the column width is known collapses every photograph into a
+       hairline — which is a far worse failure than falling back to the contact
+       sheet's fixed ratio for a frame.
+    */
+    const masonry = view === 'masonry' && colWidth !== null
 
     const onRatio = useCallback((id: string, ratio: number) => {
         setRatios(prev => (prev[id] === ratio ? prev : { ...prev, [id]: ratio }))
     }, [])
 
     const spanFor = (photo: Photo): number | null => {
-        if (view !== 'masonry' || !colWidth) return null
+        if (!masonry) return null
         const ratio = ratios[photo.id] ?? DEFAULT_RATIO
-        return Math.max(1, Math.ceil((colWidth / ratio + GAP) / ROW))
+        return Math.max(1, Math.ceil((colWidth! / ratio + GAP) / ROW))
     }
 
     if (photos.length === 0) {
@@ -166,8 +183,8 @@ export default function PhotoGrid({ photos, view, shown, onShowMore, onOpen, onC
     return (
         <div>
             <div
-                ref={grid}
-                className={`${s.grid} ${view === 'masonry' ? s.gridMasonry : s.gridUniform}`}
+                ref={gridRef}
+                className={`${s.grid} ${masonry ? s.gridMasonry : s.gridUniform}`}
             >
                 {slice.map(p => (
                     <Tile key={p.id} photo={p} span={spanFor(p)} onRatio={onRatio} onOpen={() => onOpen(p)} />
