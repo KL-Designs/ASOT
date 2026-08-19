@@ -38,32 +38,44 @@ const SEV_FILL: Record<string, string> = {
     '3': '#d2352c',
 }
 
-/* Right-side geometry only; the left is the same path mirrored. Edit one side. */
+/*
+   Right-side geometry only; the left is the same path mirrored. Edit one side.
+
+   The head is deliberately larger than life. This is a diagram you click, and
+   at the size the panel renders it a realistically-proportioned head is a
+   target too small to hit and too small to carry the casualty's face.
+
+   The legs were one slab with a seam down it: both inner edges met on the
+   centre line, so the pair read as a single shape and picking the near one was
+   a coin toss. They are tapered and parted now, and the feet sit under the
+   ankle rather than beside it.
+*/
 const BODY_GEOM = {
     head: (
         <>
-            <ellipse cx='150' cy='52' rx='29' ry='37' />
-            <rect x='136' y='84' width='28' height='16' rx='5' />
+            <ellipse cx='150' cy='54' rx='35' ry='41' />
+            <rect x='138' y='86' width='24' height='24' rx='7' />
         </>
     ),
     torso: (
-        <path d='M108,100 C100,112 98,132 100,152 C102,176 104,196 106,214
-                 C108,246 112,272 114,296 L186,296 C188,272 192,246 194,214
-                 C196,196 198,176 200,152 C202,132 200,112 192,100
-                 C178,92 166,90 150,90 C134,90 122,92 108,100 Z' />
+        <path d='M106,112 C98,124 96,146 98,166 C100,192 102,214 104,236
+                 C106,264 110,288 112,308 L188,308 C190,288 194,264 196,236
+                 C198,214 200,192 202,166 C204,146 202,124 194,112
+                 C180,102 166,100 150,100 C134,100 120,102 106,112 Z' />
     ),
     arm: (
         <>
-            <path d='M107,100 C90,106 81,120 79,140 L70,210 C66,242 64,268 63,294
-                     L88,298 C92,268 96,242 100,212 L109,150 Z' />
-            <ellipse cx='75' cy='309' rx='14' ry='19' />
+            <path d='M105,114 C88,120 79,134 77,154 L68,224 C64,256 62,282 61,308
+                     L86,312 C90,282 94,256 98,226 L107,164 Z' />
+            <ellipse cx='73' cy='324' rx='14' ry='18' />
         </>
     ),
     leg: (
         <>
-            <path d='M114,298 C110,330 110,368 114,404 L120,472 C123,522 125,566 125,596
-                     L151,596 C151,562 149,520 147,472 L145,404 C147,368 148,330 148,300 Z' />
-            <ellipse cx='137' cy='608' rx='17' ry='12' />
+            <path d='M112,306 C108,356 112,406 116,450
+                     C118,494 120,544 120,584 L140,584
+                     C141,544 142,496 144,450 C147,406 150,356 147,306 Z' />
+            <ellipse cx='128' cy='594' rx='18' ry='11' />
         </>
     ),
 }
@@ -76,8 +88,77 @@ const BODY_GEOM = {
    one thing the avatar was added to show.
 */
 const ANCHORS: Record<PartId, [number, number]> = {
-    head: [173, 34], torso: [150, 200], armR: [80, 240], armL: [220, 240],
-    legR: [131, 450], legL: [169, 450],
+    head: [176, 32], torso: [150, 212], armR: [78, 252], armL: [222, 252],
+    legR: [127, 462], legL: [173, 462],
+}
+
+/*
+   Where the bone sits inside each part, and how long it is.
+
+   Drawn along the limb rather than at the marker anchor: a fracture is a
+   property of the whole bone, and a badge off to one side read as another
+   status pip next to the bleeding one.
+*/
+const BONES: Record<PartId, { x: number, y: number, len: number, angle: number }> = {
+    head:  { x: 150, y: 56,  len: 34,  angle: 0 },
+    torso: { x: 150, y: 205, len: 86,  angle: 0 },
+    // The arms hang outwards, so their bones lean with them: a positive
+    // rotation takes the lower end to the left, which is the near arm's line.
+    armR:  { x: 84,  y: 214, len: 96,  angle: 9 },
+    armL:  { x: 216, y: 214, len: 96,  angle: -9 },
+    legR:  { x: 128, y: 444, len: 140, angle: 0 },
+    legL:  { x: 172, y: 444, len: 140, angle: 0 },
+}
+
+/**
+ * A bone inside a limb: red while it is broken, blue once it is splinted.
+ *
+ * It leaves entirely when the part has nothing left wrong with it — a limb you
+ * have finished with should look finished, and the diagram is read at a glance
+ * rather than audited.
+ */
+function Bone({ at, splinted }: {
+    at: { x: number, y: number, len: number, angle: number }
+    splinted: boolean
+}) {
+    const colour = splinted ? '#8fd0f5' : '#d2352c'
+    const half = at.len / 2
+    const knob = Math.max(3, at.len * 0.055)
+    const shaft = Math.max(2.4, at.len * 0.045)
+    const end = half - knob * 0.7
+
+    return (
+        <g transform={`translate(${at.x},${at.y}) rotate(${at.angle})`} opacity={0.92}>
+            <g fill={colour} stroke='rgba(0,0,0,.5)' strokeWidth={0.8}>
+                <rect x={-shaft} y={-end} width={shaft * 2} height={end * 2} rx={shaft} />
+                {[-1, 1].map(sy => [-1, 1].map(sx => (
+                    <circle key={`${sx}${sy}`} cx={sx * knob * 0.75} cy={sy * end} r={knob} />
+                )))}
+            </g>
+
+            {splinted ? (
+                // Two bars alongside — the splint holding it.
+                [-1, 1].map(sx => (
+                    <rect
+                        key={sx}
+                        x={sx * (shaft + 3.4) - 1.4} y={-half * 0.62}
+                        width={2.8} height={half * 1.24} rx={1.2}
+                        fill='#8fd0f5' opacity={0.75}
+                    />
+                ))
+            ) : (
+                // The break itself. A clean gap reads as a join; the zigzag is
+                // what makes it read as snapped.
+                <>
+                    <rect x={-shaft * 1.5} y={-1.6} width={shaft * 3} height={3.2} fill='#0b0d0c' />
+                    <path
+                        d={`M${-shaft * 1.5},-2 L${-shaft * 0.4},1.4 L${shaft * 0.4},-1.8 L${shaft * 1.5},2`}
+                        fill='none' stroke='#0b0d0c' strokeWidth={1.6} strokeLinejoin='round'
+                    />
+                </>
+            )}
+        </g>
+    )
 }
 
 /*
@@ -426,7 +507,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                 <svg className={s.bodySvg} viewBox='0 0 300 640' preserveAspectRatio='xMidYMid meet'>
                                     <defs>
                                         <clipPath id='hznHead'>
-                                            <ellipse cx='150' cy='52' rx='29' ry='37' />
+                                            <ellipse cx='150' cy='54' rx='35' ry='41' />
                                         </clipPath>
                                         <filter id='hznGlow'>
                                             <feGaussianBlur stdDeviation='3' result='b' />
@@ -467,13 +548,13 @@ export default function MedicalMenu({ roster, onClose }: {
                                                         <>
                                                             <image
                                                                 href={patient.avatar}
-                                                                x={121} y={15} width={58} height={74}
+                                                                x={115} y={13} width={70} height={82}
                                                                 preserveAspectRatio='xMidYMid slice'
                                                                 clipPath='url(#hznHead)'
                                                             />
                                                             {HEAD_WASH[sev] > 0 && (
                                                                 <ellipse
-                                                                    cx='150' cy='52' rx='29' ry='37'
+                                                                    cx='150' cy='54' rx='35' ry='41'
                                                                     fill={SEV_FILL[sev]}
                                                                     opacity={HEAD_WASH[sev]}
                                                                     stroke='none'
@@ -500,11 +581,10 @@ export default function MedicalMenu({ roster, onClose }: {
                                                             <animate attributeName='opacity' values='.9;.15;.9' dur='1.4s' repeatCount='indefinite' />
                                                         </circle>
                                                     )}
-                                                    {pt.fractured && (
-                                                        <g transform={`translate(${x + 16},${y - 14})`}>
-                                                            <path d='M-7,7 L7,-7' stroke={pt.splinted ? '#8fd0f5' : '#fff'} strokeWidth='2.4' strokeLinecap='round' />
-                                                            <path d='M-9,3 a3,3 0 1,1 4,-4 M9,-3 a3,3 0 1,0 -4,4' stroke={pt.splinted ? '#8fd0f5' : '#fff'} strokeWidth='2' fill='none' />
-                                                        </g>
+                                                    {/* Gone once the part is done with: splinted,
+                                                        and nothing still bleeding out of it. */}
+                                                    {pt.fractured && !(pt.splinted && partSeverity(pt) <= 0) && (
+                                                        <Bone at={BONES[id]} splinted={pt.splinted} />
                                                     )}
                                                     {pt.tourniquet && (
                                                         <g>
@@ -523,11 +603,14 @@ export default function MedicalMenu({ roster, onClose }: {
                             <div className={`${s.selbar} ${sel ? '' : s.selbarNone}`}>{selLabel}</div>
 
                             <div className={s.legend}>
-                                <span><i style={{ background: '#e6e9ec' }} />Healthy</span>
+                                {/* Colour is bleeding and nothing else — fractures
+                                    are the bone drawn inside the limb. */}
+                                <span><i style={{ background: '#e6e9ec' }} />No bleed</span>
                                 <span><i style={{ background: '#f0d47e' }} />Light</span>
                                 <span><i style={{ background: '#e08a3c' }} />Moderate</span>
                                 <span><i style={{ background: '#d2352c' }} />Severe</span>
-                                <span><i style={{ background: '#8fd0f5' }} />Treated</span>
+                                <span><i style={{ background: '#8fd0f5' }} />Controlled</span>
+                                <span><i style={{ background: '#d2352c', borderRadius: '50%' }} />Fracture</span>
                             </div>
                         </div>
 

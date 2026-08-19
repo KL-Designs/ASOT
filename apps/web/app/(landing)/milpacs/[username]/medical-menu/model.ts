@@ -265,13 +265,21 @@ export const jitter = (v: number, d: number) => Math.round(v + (Math.random() * 
 
 export const pName = (id: PartId) => PARTS.find(p => p.id === id)?.name ?? id
 
-/** -1 treated · 0 healthy · 1–3 severity. Drives the body diagram's fill. */
+/**
+ * -1 controlled · 0 clean · 1–3 how badly it is bleeding.
+ *
+ * Bleeding only. A fracture no longer tints the limb: it is drawn as a bone
+ * inside it instead, so the two problems a limb can have stop competing for
+ * one colour. A yellow leg means blood is coming out of it, every time.
+ */
 export function partSeverity(pt: BodyPart): -1 | 0 | 1 | 2 | 3 {
-    if (!pt.wounds.length && !pt.fractured) return 0
-    let s = pt.fractured ? 2 : 0
-    pt.wounds.forEach(w => { s = Math.max(s, WOUND_TYPES[w.t].sev) })
-    const allTreated = pt.wounds.every(w => w.bandaged) && (!pt.fractured || pt.splinted)
-    return (allTreated ? -1 : s) as -1 | 0 | 1 | 2 | 3
+    if (!pt.wounds.length) return 0
+    // A tourniquet has stopped the bleed even though the wound is still open,
+    // which is exactly the state "controlled" is for.
+    if (pt.tourniquet) return -1
+    const open = pt.wounds.filter(w => !w.bandaged)
+    if (!open.length) return -1
+    return Math.max(...open.map(w => WOUND_TYPES[w.t].sev)) as 1 | 2 | 3
 }
 
 /** A tourniquet stops the limb bleeding outright — that is the whole point. */
