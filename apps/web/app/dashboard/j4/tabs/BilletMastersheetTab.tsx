@@ -95,7 +95,7 @@ type FieldSource = 'website' | 'imported' | 'calculated'
 
 const SOURCE_STYLE: Record<FieldSource, { bg: string; color: string; label: string }> = {
     website:    { bg: 'rgba(0,195,100,0.12)',   color: 'rgb(0,195,100)',  label: 'WEBSITE'  },
-    imported:   { bg: 'rgba(245,158,11,0.12)',  color: 'var(--amber)',         label: 'IMPORTED' },
+    imported:   { bg: 'color-mix(in srgb, var(--amber) 12%, transparent)',  color: 'var(--amber)',         label: 'IMPORTED' },
     calculated: { bg: 'rgba(96,165,250,0.12)',  color: 'var(--info)',         label: 'CALC'     },
 }
 
@@ -113,7 +113,7 @@ function SourceBadge({ source }: { source: FieldSource }) {
 function FieldSourcePanel({ fieldSources }: { fieldSources: FieldSourceDef[] }) {
     const [open, setOpen] = useState(false)
     return (
-        <div style={{ border: '1px solid rgba(245,158,11,0.18)', background: 'rgba(245,158,11,0.03)', flexShrink: 0 }}>
+        <div style={{ border: '1px solid color-mix(in srgb, var(--amber) 18%, transparent)', background: 'color-mix(in srgb, var(--amber) 3%, transparent)', flexShrink: 0 }}>
             <button onClick={() => setOpen(p => !p)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px' }}>
                 <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--amber)' }}>{open ? '−' : '+'} Field Source Map</span>
                 <span style={{ fontSize: '0.56rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.05em' }}>J4 / CHQ only — shows where each column's data originates</span>
@@ -123,7 +123,7 @@ function FieldSourcePanel({ fieldSources }: { fieldSources: FieldSourceDef[] }) 
                     <table style={{ borderCollapse: 'collapse', width: '100%', minWidth: 640 }}>
                         <thead>
                             <tr>{['Column Group', 'Fields', 'Source', 'Reference / Note'].map(h => (
-                                <th key={h} style={{ padding: '6px 10px', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', borderBottom: '1px solid rgba(245,158,11,0.15)', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                                <th key={h} style={{ padding: '6px 10px', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', borderBottom: '1px solid color-mix(in srgb, var(--amber) 15%, transparent)', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
                             ))}</tr>
                         </thead>
                         <tbody>
@@ -277,7 +277,7 @@ function ConfBadge({ conf }: { conf: Confidence }) {
         exact:      { bg: 'rgba(0,195,100,0.12)',  color: 'rgb(0,195,100)' },
         normalized: { bg: 'rgba(0,195,100,0.08)',  color: 'rgb(0,195,100)' },
         partial:    { bg: 'rgba(96,165,250,0.12)', color: 'var(--info)' },
-        fuzzy:      { bg: 'rgba(245,158,11,0.12)', color: 'var(--amber)' },
+        fuzzy:      { bg: 'color-mix(in srgb, var(--amber) 12%, transparent)', color: 'var(--amber)' },
     }
     const s = styles[conf]
     return (
@@ -383,8 +383,8 @@ function EmailImportReviewModal({ dryRun, onClose, onDone }: {
 
                     {/* Uncertain section */}
                     {dryRun.uncertain.length > 0 && (
-                        <div style={{ border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.02)' }}>
-                            <div style={{ padding: '8px 12px 6px', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--amber)', borderBottom: '1px solid rgba(245,158,11,0.12)' }}>
+                        <div style={{ border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)', background: 'color-mix(in srgb, var(--amber) 2%, transparent)' }}>
+                            <div style={{ padding: '8px 12px 6px', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--amber)', borderBottom: '1px solid color-mix(in srgb, var(--amber) 12%, transparent)' }}>
                                 Needs Review — {undecidedCount > 0 ? `${undecidedCount} undecided` : 'all reviewed'}
                             </div>
                             <div style={{ maxHeight: 320, overflowY: 'auto' }}>
@@ -536,7 +536,7 @@ function ImportPanel({ extrasImported, unmatchedExtras, onImported }: { extrasIm
                 {emailDoneMsg && <span style={{ fontSize: '0.68rem', color: 'rgb(0,195,100)' }}>{emailDoneMsg}</span>}
             </div>
             {showUnmatched && importResult && importResult.unmatchedNames.length > 0 && (
-                <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', padding: '8px 12px', maxHeight: 140, overflowY: 'auto' }}>
+                <div style={{ background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 20%, transparent)', padding: '8px 12px', maxHeight: 140, overflowY: 'auto' }}>
                     <div style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--amber)', marginBottom: 6 }}>Unmatched Names — no matching member found</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px' }}>
                         {importResult.unmatchedNames.map((n, i) => <span key={i} style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.5)', fontFamily: 'monospace' }}>{n}</span>)}
@@ -669,11 +669,11 @@ function EditCell({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { if (isEditing) { setVal(String(displayValue ?? '')); inputRef.current?.focus() } }, [isEditing])
 
-    const border = isJumpTarget ? '1px solid rgba(96,165,250,0.6)' : isPending ? '1px solid rgba(245,158,11,0.4)' : 'none'
+    const border = isJumpTarget ? '1px solid rgba(96,165,250,0.6)' : isPending ? '1px solid color-mix(in srgb, var(--amber) 40%, transparent)' : 'none'
 
     if (isEditing) {
         return (
-            <td style={{ padding: '2px 4px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.4)', zIndex: 2 }}>
+            <td style={{ padding: '2px 4px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)', zIndex: 2 }}>
                 <input
                     ref={inputRef}
                     value={val}
@@ -687,7 +687,7 @@ function EditCell({
     }
 
     return (
-        <td onClick={onStartEdit} style={{ cursor: 'pointer', border, background: isPending ? 'rgba(245,158,11,0.04)' : isJumpTarget ? 'rgba(96,165,250,0.06)' : undefined, transition: 'background 0.15s' }} title='Click to edit'>
+        <td onClick={onStartEdit} style={{ cursor: 'pointer', border, background: isPending ? 'color-mix(in srgb, var(--amber) 4%, transparent)' : isJumpTarget ? 'rgba(96,165,250,0.06)' : undefined, transition: 'background 0.15s' }} title='Click to edit'>
             {renderDisplay()}
         </td>
     )
@@ -937,7 +937,7 @@ export default function BilletMastersheetTab() {
     }
 
     const SOURCE_COLOR: Record<FieldSource, string> = {
-        website: 'rgba(0,195,100,0.55)', imported: 'rgba(245,158,11,0.55)', calculated: 'rgba(96,165,250,0.55)',
+        website: 'rgba(0,195,100,0.55)', imported: 'color-mix(in srgb, var(--amber) 55%, transparent)', calculated: 'rgba(96,165,250,0.55)',
     }
 
     const rotatedHdr: React.CSSProperties = {
@@ -1007,7 +1007,7 @@ export default function BilletMastersheetTab() {
                 <button onClick={() => setEditingLabels(p => !p)} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: editingLabels ? 'rgba(96,165,250,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${editingLabels ? 'rgba(96,165,250,0.4)' : 'rgba(255,255,255,0.08)'}`, color: editingLabels ? 'var(--info)' : 'rgba(237,237,237,0.4)' }}>
                     {editingLabels ? 'Done Editing Labels' : 'Edit Labels'}
                 </button>
-                <button onClick={() => setDiagnosticMode(p => !p)} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: diagnosticMode ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${diagnosticMode ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, color: diagnosticMode ? 'var(--amber)' : 'rgba(237,237,237,0.4)' }}>
+                <button onClick={() => setDiagnosticMode(p => !p)} style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '4px 10px', cursor: 'pointer', background: diagnosticMode ? 'color-mix(in srgb, var(--amber) 15%, transparent)' : 'rgba(255,255,255,0.04)', border: `1px solid ${diagnosticMode ? 'color-mix(in srgb, var(--amber) 40%, transparent)' : 'rgba(255,255,255,0.08)'}`, color: diagnosticMode ? 'var(--amber)' : 'rgba(237,237,237,0.4)' }}>
                     {diagnosticMode ? '× Diagnose' : 'Diagnose'}
                 </button>
 
@@ -1030,15 +1030,15 @@ export default function BilletMastersheetTab() {
 
             {/* Diagnostic view */}
             {diagnosticMode && (
-                <div style={{ flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid rgba(245,158,11,0.25)', background: 'rgba(245,158,11,0.02)' }}>
-                    <div style={{ padding: '8px 12px', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--amber)', borderBottom: '1px solid rgba(245,158,11,0.15)' }}>
+                <div style={{ flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)', background: 'color-mix(in srgb, var(--amber) 2%, transparent)' }}>
+                    <div style={{ padding: '8px 12px', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--amber)', borderBottom: '1px solid color-mix(in srgb, var(--amber) 15%, transparent)' }}>
                         Classification Diagnostic — {displayRows.length} member{displayRows.length !== 1 ? 's' : ''} shown
                     </div>
                     <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                         <thead style={{ position: 'sticky', top: 0, zIndex: 3 }}>
                             <tr>
                                 {['Name','Classification','Formal Discharge','In Leaving History','In Discharged Section','ASOT Member Role','On ORBAT','Has Rank'].map(h => (
-                                    <th key={h} style={{ padding: '5px 10px', fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', background: 'rgba(0,0,0,0.7)', borderBottom: '1px solid rgba(245,158,11,0.15)', whiteSpace: 'nowrap', textAlign: h === 'Name' ? 'left' : 'center' }}>{h}</th>
+                                    <th key={h} style={{ padding: '5px 10px', fontSize: '0.48rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', background: 'rgba(0,0,0,0.7)', borderBottom: '1px solid color-mix(in srgb, var(--amber) 15%, transparent)', whiteSpace: 'nowrap', textAlign: h === 'Name' ? 'left' : 'center' }}>{h}</th>
                                 ))}
                             </tr>
                         </thead>
@@ -1100,7 +1100,7 @@ export default function BilletMastersheetTab() {
                                 <th onClick={() => handleSort('enlistedDate')} style={mkSortHdr('Enlisted', 'enlistedDate', { ...numHdr, minWidth: 74 })}><LblText colKey='enlistedDate' def='Enlisted' />{sort.key === 'enlistedDate' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
                                 <th onClick={() => handleSort('serviceYears')} style={mkSortHdr('Svc', 'serviceYears', { ...numHdr, minWidth: 40 })}><LblText colKey='serviceYears' def='Svc' />{sort.key === 'serviceYears' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
                                 <th onClick={() => handleSort('promotionPoints')} style={mkSortHdr('PP', 'promotionPoints', { ...numHdr, color: sort.key === 'promotionPoints' ? '#ededed' : 'rgba(237,237,237,0.55)' })}><LblText colKey='promotionPoints' def='PP' />{sort.key === 'promotionPoints' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
-                                <th onClick={() => handleSort('j4Points')} style={mkSortHdr('J4 Pts', 'j4Points', { ...numHdr, color: sort.key === 'j4Points' ? '#ededed' : 'rgba(245,158,11,0.7)' })}><LblText colKey='j4Points' def='J4 Pts' />{sort.key === 'j4Points' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
+                                <th onClick={() => handleSort('j4Points')} style={mkSortHdr('J4 Pts', 'j4Points', { ...numHdr, color: sort.key === 'j4Points' ? '#ededed' : 'color-mix(in srgb, var(--amber) 70%, transparent)' })}><LblText colKey='j4Points' def='J4 Pts' />{sort.key === 'j4Points' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
 
                                 {/* Billet (imported + editable) */}
                                 <th onClick={() => handleSort('billet')} style={mkSortHdr('Billet', 'billet', { ...numHdr, minWidth: 58, color: sort.key === 'billet' ? '#ededed' : 'var(--amber)' })}><LblText colKey='billet' def='Billet' />{sort.key === 'billet' ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}</th>
@@ -1202,7 +1202,7 @@ export default function BilletMastersheetTab() {
                                         <td
                                             data-field='billet'
                                             onClick={() => setEditingCell({ rowId: r.id, field: 'billet' })}
-                                            style={{ ...cellBase, background: billetPending ? 'rgba(245,158,11,0.05)' : bg, textAlign: 'center', fontSize: '0.65rem', color: billetVal ? 'var(--amber)' : 'rgba(237,237,237,0.2)', cursor: 'pointer', border: (isJump && ctx.jumpTarget?.field === 'billet') ? '1px solid rgba(96,165,250,0.5)' : billetPending ? '1px solid rgba(245,158,11,0.3)' : undefined, minWidth: 58 }}
+                                            style={{ ...cellBase, background: billetPending ? 'color-mix(in srgb, var(--amber) 5%, transparent)' : bg, textAlign: 'center', fontSize: '0.65rem', color: billetVal ? 'var(--amber)' : 'rgba(237,237,237,0.2)', cursor: 'pointer', border: (isJump && ctx.jumpTarget?.field === 'billet') ? '1px solid rgba(96,165,250,0.5)' : billetPending ? '1px solid color-mix(in srgb, var(--amber) 30%, transparent)' : undefined, minWidth: 58 }}
                                             title='Click to edit'
                                         >
                                             {editingCell?.rowId === r.id && editingCell.field === 'billet' ? (
@@ -1225,7 +1225,7 @@ export default function BilletMastersheetTab() {
                                                 const next = current === null ? true : !current
                                                 handleEndEdit(r.id, 'upToDate', 'Up To Date', r.name, next ? 'ok' : 'no', r.upToDate)
                                             }}
-                                            style={{ ...cellBase, background: upToDatePending ? 'rgba(245,158,11,0.05)' : bg, textAlign: 'center', cursor: 'pointer', border: (isJump && ctx.jumpTarget?.field === 'upToDate') ? '1px solid rgba(96,165,250,0.5)' : upToDatePending ? '1px solid rgba(245,158,11,0.3)' : undefined }}
+                                            style={{ ...cellBase, background: upToDatePending ? 'color-mix(in srgb, var(--amber) 5%, transparent)' : bg, textAlign: 'center', cursor: 'pointer', border: (isJump && ctx.jumpTarget?.field === 'upToDate') ? '1px solid rgba(96,165,250,0.5)' : upToDatePending ? '1px solid color-mix(in srgb, var(--amber) 30%, transparent)' : undefined }}
                                             title='Click to toggle'
                                         >
                                             {upToDateVal === null
@@ -1238,7 +1238,7 @@ export default function BilletMastersheetTab() {
                                         <td
                                             data-field='lastUpdate'
                                             onClick={() => setEditingCell({ rowId: r.id, field: 'lastUpdate' })}
-                                            style={{ ...cellBase, background: lastUpdPending ? 'rgba(245,158,11,0.05)' : bg, textAlign: 'center', fontSize: '0.58rem', color: 'rgba(245,158,11,0.5)', cursor: 'pointer', border: (isJump && ctx.jumpTarget?.field === 'lastUpdate') ? '1px solid rgba(96,165,250,0.5)' : lastUpdPending ? '1px solid rgba(245,158,11,0.3)' : undefined, minWidth: 74 }}
+                                            style={{ ...cellBase, background: lastUpdPending ? 'color-mix(in srgb, var(--amber) 5%, transparent)' : bg, textAlign: 'center', fontSize: '0.58rem', color: 'color-mix(in srgb, var(--amber) 50%, transparent)', cursor: 'pointer', border: (isJump && ctx.jumpTarget?.field === 'lastUpdate') ? '1px solid rgba(96,165,250,0.5)' : lastUpdPending ? '1px solid color-mix(in srgb, var(--amber) 30%, transparent)' : undefined, minWidth: 74 }}
                                             title='Click to edit'
                                         >
                                             {editingCell?.rowId === r.id && editingCell.field === 'lastUpdate' ? (

@@ -311,7 +311,7 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
                                             {role.linkedSlot && (
                                                 <span
                                                     title={DEPT_LEADERSHIP_POSITIONS[role.department]?.[LEADERSHIP_SLOT_INDEX[role.linkedSlot]] ?? role.linkedSlot}
-                                                    style={{ flexShrink: 0, fontSize: '0.52rem', fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: 'rgba(251,191,36,0.12)', color: 'rgba(251,191,36,0.85)' }}
+                                                    style={{ flexShrink: 0, fontSize: '0.52rem', fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: 'color-mix(in srgb, var(--amber) 12%, transparent)', color: 'color-mix(in srgb, var(--amber) 85%, transparent)' }}
                                                 >
                                                     {SLOT_BADGE_LABEL[role.linkedSlot]}
                                                 </span>

@@ -560,7 +560,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                     return (
                                         <div key={i} style={{
                                             padding: '1px 4px',
-                                            background: added ? 'rgba(16,185,129,0.12)' : changed ? 'rgba(245,158,11,0.1)' : 'transparent',
+                                            background: added ? 'rgba(16,185,129,0.12)' : changed ? 'color-mix(in srgb, var(--amber) 10%, transparent)' : 'transparent',
                                             color: added ? 'var(--live)' : changed ? 'var(--amber)' : 'rgba(237,237,237,0.65)',
                                             whiteSpace: 'pre-wrap',
                                         }}>
@@ -653,7 +653,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                                     else if (compareSelectA._id !== v._id) { setCompareVersions([compareSelectA, v]); setCompareSelectA(null) }
                                                     else { setCompareSelectA(null) }
                                                 }}
-                                                    style={{ padding: '2px 7px', fontSize: '0.6rem', fontWeight: 700, background: compareSelectA?._id === v._id ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.06)', border: `1px solid ${compareSelectA?._id === v._id ? 'rgba(59,130,246,0.6)' : 'rgba(59,130,246,0.2)'}`, color: 'rgba(59,130,246,0.8)', cursor: 'pointer' }}
+                                                    style={{ padding: '2px 7px', fontSize: '0.6rem', fontWeight: 700, background: compareSelectA?._id === v._id ? 'color-mix(in srgb, var(--info) 20%, transparent)' : 'color-mix(in srgb, var(--info) 6%, transparent)', border: `1px solid ${compareSelectA?._id === v._id ? 'color-mix(in srgb, var(--info) 60%, transparent)' : 'color-mix(in srgb, var(--info) 20%, transparent)'}`, color: 'color-mix(in srgb, var(--info) 80%, transparent)', cursor: 'pointer' }}
                                                 >
                                                     {compareSelectA?._id === v._id ? 'Selected (A)' : compareSelectA ? 'Compare ▶' : 'Compare'}
                                                 </button>
@@ -663,7 +663,7 @@ export default function MembersWorkspaceTab({ userId, isJ4, canManage }: Props) 
                                 )}
                             </div>
                             {compareSelectA && (
-                                <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(59,130,246,0.2)', fontSize: '0.62rem', color: 'rgba(59,130,246,0.7)' }}>
+                                <div style={{ padding: '8px 14px', borderTop: '1px solid color-mix(in srgb, var(--info) 20%, transparent)', fontSize: '0.62rem', color: 'color-mix(in srgb, var(--info) 70%, transparent)' }}>
                                     Select second version to compare with &quot;{compareSelectA.label ?? 'version'}&quot;
                                 </div>
                             )}

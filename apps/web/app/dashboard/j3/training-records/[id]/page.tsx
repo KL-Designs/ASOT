@@ -18,11 +18,11 @@ const INSTANCE_STATUS_LABELS: Record<string, string> = {
 }
 
 const INSTANCE_STATUS_COLORS: Record<string, string> = {
-    planning:    'rgba(147,197,253,0.7)',
+    planning:    'color-mix(in srgb, var(--info) 70%, transparent)',
     active:      'rgba(100,200,160,0.75)',
-    in_progress: 'rgba(245,158,11,0.7)',
-    completed:   'rgba(34,197,94,0.85)',
-    cancelled:   'rgba(239,68,68,0.85)',
+    in_progress: 'color-mix(in srgb, var(--amber) 70%, transparent)',
+    completed:   'color-mix(in srgb, var(--live) 85%, transparent)',
+    cancelled:   'color-mix(in srgb, var(--red) 85%, transparent)',
     archived:    'rgba(150,150,150,0.7)',
 }
 
@@ -38,8 +38,8 @@ const CANDIDATE_STATUS_COLORS: Record<string, string> = {
     active:    'rgba(100,200,160,0.75)',
     withdrawn: 'rgba(150,150,150,0.7)',
     removed:   'rgba(150,150,150,0.7)',
-    passed:    'rgba(34,197,94,0.85)',
-    failed:    'rgba(239,68,68,0.85)',
+    passed:    'color-mix(in srgb, var(--live) 85%, transparent)',
+    failed:    'color-mix(in srgb, var(--red) 85%, transparent)',
 }
 
 const STAFF_ROLE_LABELS: Record<string, string> = {
@@ -376,7 +376,7 @@ export default function TrainingRecordDetailPage() {
                                 {notesSaving ? 'Saving...' : 'Save Notes'}
                             </button>
                             {notesSaved && (
-                                <span style={{ fontSize: '0.58rem', color: 'rgba(34,197,94,0.8)', fontWeight: 600, letterSpacing: '0.08em' }}>
+                                <span style={{ fontSize: '0.58rem', color: 'color-mix(in srgb, var(--live) 80%, transparent)', fontWeight: 600, letterSpacing: '0.08em' }}>
                                     Saved
                                 </span>
                             )}

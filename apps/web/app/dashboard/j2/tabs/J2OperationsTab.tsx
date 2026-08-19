@@ -259,7 +259,7 @@ function NotesRow({ op, onSaved }: { op: Operation; onSaved: (id: string, notes:
                 <NoteAlt style={{ fontSize: 13 }} />
                 {op.internalNotes ? 'Internal Notes' : 'Add Internal Notes'}
                 <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-                    {saved && <span style={{ fontSize: '0.6rem', color: 'rgba(34,197,94,0.7)', marginRight: 8 }}>Saved</span>}
+                    {saved && <span style={{ fontSize: '0.6rem', color: 'color-mix(in srgb, var(--live) 70%, transparent)', marginRight: 8 }}>Saved</span>}
                     {open ? <ExpandLess style={{ fontSize: 14 }} /> : <ExpandMore style={{ fontSize: 14 }} />}
                 </span>
             </button>
@@ -2932,7 +2932,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                                             <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.65)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
                                             {c.deletedAt && <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.28)', marginTop: 2 }}>Deleted {new Date(c.deletedAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</div>}
                                         </div>
-                                        <button onClick={() => restoreCampaignFromBin(cid)} disabled={isRestoring} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer', background: 'none', border: '1px solid rgba(34,197,94,0.3)', color: isRestoring ? 'rgba(34,197,94,0.3)' : 'rgba(34,197,94,0.7)' }}>
+                                        <button onClick={() => restoreCampaignFromBin(cid)} disabled={isRestoring} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer', background: 'none', border: '1px solid color-mix(in srgb, var(--live) 30%, transparent)', color: isRestoring ? 'color-mix(in srgb, var(--live) 30%, transparent)' : 'color-mix(in srgb, var(--live) 70%, transparent)' }}>
                                             <RestoreFromTrash style={{ fontSize: 13 }} />{isRestoring ? 'Restoring…' : 'Restore'}
                                         </button>
                                     </div>
@@ -2957,7 +2957,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                                                 {m.deletedByName && ` by ${m.deletedByName}`}
                                             </div>}
                                         </div>
-                                        <button onClick={() => restoreMissionFromBin(mId)} disabled={isRestoring} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer', background: 'none', border: '1px solid rgba(34,197,94,0.3)', color: isRestoring ? 'rgba(34,197,94,0.3)' : 'rgba(34,197,94,0.7)' }}>
+                                        <button onClick={() => restoreMissionFromBin(mId)} disabled={isRestoring} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer', background: 'none', border: '1px solid color-mix(in srgb, var(--live) 30%, transparent)', color: isRestoring ? 'color-mix(in srgb, var(--live) 30%, transparent)' : 'color-mix(in srgb, var(--live) 70%, transparent)' }}>
                                             <RestoreFromTrash style={{ fontSize: 13 }} />{isRestoring ? 'Restoring…' : 'Restore'}
                                         </button>
                                     </div>
@@ -3003,7 +3003,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                                                                 onClick={() => restoreFromBin(id)}
                                                                 disabled={isRestoring || isPurging}
                                                                 title='Restore'
-                                                                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer', background: 'none', border: '1px solid rgba(34,197,94,0.3)', color: isRestoring ? 'rgba(34,197,94,0.3)' : 'rgba(34,197,94,0.7)' }}
+                                                                style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', cursor: isRestoring ? 'not-allowed' : 'pointer', background: 'none', border: '1px solid color-mix(in srgb, var(--live) 30%, transparent)', color: isRestoring ? 'color-mix(in srgb, var(--live) 30%, transparent)' : 'color-mix(in srgb, var(--live) 70%, transparent)' }}
                                                             >
                                                                 <RestoreFromTrash style={{ fontSize: 13 }} />
                                                                 {isRestoring ? 'Restoring…' : 'Restore'}

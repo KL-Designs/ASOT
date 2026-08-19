@@ -696,14 +696,14 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                                 {roleTag && (
                                     <span style={{
                                         flexShrink: 0, fontSize: '0.55rem', fontWeight: 700, padding: '1px 6px', borderRadius: 999,
-                                        background: 'rgba(251,191,36,0.14)', color: 'rgba(251,191,36,0.85)', border: '1px solid rgba(251,191,36,0.3)',
+                                        background: 'color-mix(in srgb, var(--amber) 14%, transparent)', color: 'color-mix(in srgb, var(--amber) 85%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)',
                                     }}>
                                         {roleTag}
                                     </span>
                                 )}
                                 {!pos.roleId || !validRoleIds.has(String(pos.roleId)) ? (
                                     <Tooltip title="This position isn't linked to a Role in the catalog — the name above is just display text, so no Discord roles, TeamSpeak groups, or permissions from a Role are actually granted to whoever holds it. Fix it by re-picking a Role for this position.">
-                                        <Warning sx={{ fontSize: 12, color: 'rgba(251,191,36,0.85)', flexShrink: 0 }} />
+                                        <Warning sx={{ fontSize: 12, color: 'color-mix(in srgb, var(--amber) 85%, transparent)', flexShrink: 0 }} />
                                     </Tooltip>
                                 ) : null}
                             </>

@@ -87,7 +87,7 @@ export default function TrainingGuideImportTab() {
                     if (f) selectFile(f)
                 }}
                 style={{
-                    border: `2px dashed ${dragging ? 'rgba(219,0,29,0.6)' : file ? 'rgba(34,197,94,0.5)' : 'rgba(255,255,255,0.12)'}`,
+                    border: `2px dashed ${dragging ? 'rgba(219,0,29,0.6)' : file ? 'color-mix(in srgb, var(--live) 50%, transparent)' : 'rgba(255,255,255,0.12)'}`,
                     borderRadius: 4,
                     padding: '36px 24px',
                     display: 'flex',
@@ -95,7 +95,7 @@ export default function TrainingGuideImportTab() {
                     alignItems: 'center',
                     gap: 10,
                     cursor: 'pointer',
-                    background: dragging ? 'rgba(219,0,29,0.04)' : file ? 'rgba(34,197,94,0.04)' : 'transparent',
+                    background: dragging ? 'rgba(219,0,29,0.04)' : file ? 'color-mix(in srgb, var(--live) 4%, transparent)' : 'transparent',
                     transition: 'all 0.15s',
                 }}
             >
@@ -106,9 +106,9 @@ export default function TrainingGuideImportTab() {
                     style={{ display: 'none' }}
                     onChange={e => { const f = e.target.files?.[0]; if (f) selectFile(f) }}
                 />
-                <UploadFile sx={{ fontSize: 32, color: file ? 'rgba(34,197,94,0.7)' : 'rgba(237,237,237,0.25)' }} />
+                <UploadFile sx={{ fontSize: 32, color: file ? 'color-mix(in srgb, var(--live) 70%, transparent)' : 'rgba(237,237,237,0.25)' }} />
                 {file ? (
-                    <Typography fontSize='0.78rem' fontWeight={700} sx={{ color: 'rgba(34,197,94,0.85)' }}>
+                    <Typography fontSize='0.78rem' fontWeight={700} sx={{ color: 'color-mix(in srgb, var(--live) 85%, transparent)' }}>
                         {file.name}
                     </Typography>
                 ) : (
@@ -166,10 +166,10 @@ export default function TrainingGuideImportTab() {
 
             {/* Result */}
             {result && (
-                <div style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.25)', borderLeft: '3px solid rgba(34,197,94,0.7)', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ background: 'color-mix(in srgb, var(--live) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--live) 25%, transparent)', borderLeft: '3px solid color-mix(in srgb, var(--live) 70%, transparent)', padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <CheckCircle sx={{ fontSize: 16, color: 'rgba(34,197,94,0.8)' }} />
-                        <Typography fontSize='0.75rem' fontWeight={700} sx={{ color: 'rgba(34,197,94,0.9)' }}>
+                        <CheckCircle sx={{ fontSize: 16, color: 'color-mix(in srgb, var(--live) 80%, transparent)' }} />
+                        <Typography fontSize='0.75rem' fontWeight={700} sx={{ color: 'color-mix(in srgb, var(--live) 90%, transparent)' }}>
                             Draft guide created
                         </Typography>
                     </div>
@@ -191,8 +191,8 @@ export default function TrainingGuideImportTab() {
                     {result.warnings.length > 0 && (
                         <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 4 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                <Warning sx={{ fontSize: 13, color: 'rgba(251,191,36,0.7)' }} />
-                                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing='0.1em' sx={{ textTransform: 'uppercase', color: 'rgba(251,191,36,0.7)' }}>
+                                <Warning sx={{ fontSize: 13, color: 'color-mix(in srgb, var(--amber) 70%, transparent)' }} />
+                                <Typography fontSize='0.65rem' fontWeight={700} letterSpacing='0.1em' sx={{ textTransform: 'uppercase', color: 'color-mix(in srgb, var(--amber) 70%, transparent)' }}>
                                     Import Warnings
                                 </Typography>
                             </div>

@@ -203,7 +203,7 @@ function TaskLimitPolicyPanel() {
             ))}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 8 }}>
-                {saved && <span style={{ fontSize: '0.65rem', color: 'rgba(34,197,94,0.7)', alignSelf: 'center' }}>Saved</span>}
+                {saved && <span style={{ fontSize: '0.65rem', color: 'color-mix(in srgb, var(--live) 70%, transparent)', alignSelf: 'center' }}>Saved</span>}
                 <button onClick={save} disabled={saving} style={{ background: saving ? 'rgba(219,0,29,0.12)' : 'rgba(219,0,29,0.22)', border: '1px solid rgba(219,0,29,0.4)', color: saving ? 'rgba(237,237,237,0.4)' : 'rgba(237,237,237,0.9)', padding: '6px 20px', cursor: saving ? 'not-allowed' : 'pointer', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
                     {saving ? <><CircularProgress size={12} color='inherit' /> SAVING…</> : 'SAVE POLICY'}
                 </button>
@@ -275,7 +275,7 @@ function TaskLockoutPolicyPanel() {
                 </div>
             ))}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 8 }}>
-                {saved && <span style={{ fontSize: '0.65rem', color: 'rgba(34,197,94,0.7)', alignSelf: 'center' }}>Saved</span>}
+                {saved && <span style={{ fontSize: '0.65rem', color: 'color-mix(in srgb, var(--live) 70%, transparent)', alignSelf: 'center' }}>Saved</span>}
                 <button onClick={save} disabled={saving} style={{ background: saving ? 'rgba(219,0,29,0.12)' : 'rgba(219,0,29,0.22)', border: '1px solid rgba(219,0,29,0.4)', color: saving ? 'rgba(237,237,237,0.4)' : 'rgba(237,237,237,0.9)', padding: '6px 20px', cursor: saving ? 'not-allowed' : 'pointer', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.06em', display: 'flex', alignItems: 'center', gap: 6 }}>
                     {saving ? <><CircularProgress size={12} color='inherit' /> SAVING…</> : 'SAVE POLICY'}
                 </button>

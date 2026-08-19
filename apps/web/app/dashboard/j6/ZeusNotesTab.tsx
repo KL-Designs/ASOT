@@ -187,7 +187,7 @@ export default function ZeusNotesTab() {
                                 <div style={{ marginTop: 3, fontSize: '0.62rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.05em' }}>
                                     {op.date ? new Date(op.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                                     {' · '}
-                                    <span style={{ color: op.status === 'Completed' ? 'rgba(34,197,94,0.5)' : 'rgba(237,237,237,0.25)' }}>{op.status}</span>
+                                    <span style={{ color: op.status === 'Completed' ? 'color-mix(in srgb, var(--live) 50%, transparent)' : 'rgba(237,237,237,0.25)' }}>{op.status}</span>
                                 </div>
                             </button>
                         )

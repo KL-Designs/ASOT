@@ -50,7 +50,7 @@ function ReturnBadge({ value }: { value: string }) {
     const v = value?.trim().toUpperCase()
     let bg = 'rgba(255,255,255,0.06)', color = 'rgba(237,237,237,0.4)'
     if (v === 'YES')         { bg = 'rgba(0,195,100,0.12)';   color = 'rgb(0,195,100)' }
-    else if (v === 'REVIEW') { bg = 'rgba(245,158,11,0.12)';  color = 'var(--amber)' }
+    else if (v === 'REVIEW') { bg = 'color-mix(in srgb, var(--amber) 12%, transparent)';  color = 'var(--amber)' }
     else if (v === 'NO')     { bg = 'rgba(219,0,29,0.12)';    color = 'var(--red)' }
     else if (v === 'INDEFINITE') { bg = 'rgba(139,92,246,0.12)'; color = '#a78bfa' }
     return (
@@ -72,7 +72,7 @@ function TypeBadge({ value }: { value: string }) {
 function DisciplineLevelBadge({ value }: { value: string }) {
     const v = value?.trim()
     let bg = 'rgba(255,255,255,0.06)', color = 'rgba(237,237,237,0.45)'
-    if (v === 'Verbal Warning')       { bg = 'rgba(245,158,11,0.08)';  color = 'var(--amber)' }
+    if (v === 'Verbal Warning')       { bg = 'color-mix(in srgb, var(--amber) 8%, transparent)';  color = 'var(--amber)' }
     if (v === 'Formal Warning')       { bg = 'rgba(251,146,60,0.1)';   color = '#fb923c' }
     if (v === 'First Strike')         { bg = 'rgba(219,0,29,0.1)';     color = '#f87171' }
     if (v === 'Second Strike')        { bg = 'rgba(219,0,29,0.18)';    color = 'var(--red)' }
@@ -322,9 +322,9 @@ function LeavingHistoryTab({ refreshKey }: { refreshKey: number }) {
     function cellBg(rowId: string, field: string): React.CSSProperties {
         const id = `leaving:${rowId}:${field}`
         if (ctx.jumpTarget?.tab === 'leaving' && ctx.jumpTarget.rowId === rowId && ctx.jumpTarget.field === field)
-            return { background: 'rgba(59,130,246,0.12)', outline: '1px solid rgba(59,130,246,0.35)' }
+            return { background: 'color-mix(in srgb, var(--info) 12%, transparent)', outline: '1px solid color-mix(in srgb, var(--info) 35%, transparent)' }
         if (ctx.pendingChanges.has(id))
-            return { background: 'rgba(245,158,11,0.07)', outline: '1px solid rgba(245,158,11,0.25)' }
+            return { background: 'color-mix(in srgb, var(--amber) 7%, transparent)', outline: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)' }
         return {}
     }
 
@@ -531,9 +531,9 @@ function DeniedApplicationsTab({ refreshKey }: { refreshKey: number }) {
     function cellBg(rowId: string, field: string): React.CSSProperties {
         const id = `denied:${rowId}:${field}`
         if (ctx.jumpTarget?.tab === 'denied' && ctx.jumpTarget.rowId === rowId && ctx.jumpTarget.field === field)
-            return { background: 'rgba(59,130,246,0.12)', outline: '1px solid rgba(59,130,246,0.35)' }
+            return { background: 'color-mix(in srgb, var(--info) 12%, transparent)', outline: '1px solid color-mix(in srgb, var(--info) 35%, transparent)' }
         if (ctx.pendingChanges.has(id))
-            return { background: 'rgba(245,158,11,0.07)', outline: '1px solid rgba(245,158,11,0.25)' }
+            return { background: 'color-mix(in srgb, var(--amber) 7%, transparent)', outline: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)' }
         return {}
     }
 
@@ -712,9 +712,9 @@ function DisciplineTab({ refreshKey }: { refreshKey: number }) {
     function cellBg(rowId: string, field: string): React.CSSProperties {
         const id = `discipline:${rowId}:${field}`
         if (ctx.jumpTarget?.tab === 'discipline' && ctx.jumpTarget.rowId === rowId && ctx.jumpTarget.field === field)
-            return { background: 'rgba(59,130,246,0.12)', outline: '1px solid rgba(59,130,246,0.35)' }
+            return { background: 'color-mix(in srgb, var(--info) 12%, transparent)', outline: '1px solid color-mix(in srgb, var(--info) 35%, transparent)' }
         if (ctx.pendingChanges.has(id))
-            return { background: 'rgba(245,158,11,0.07)', outline: '1px solid rgba(245,158,11,0.25)' }
+            return { background: 'color-mix(in srgb, var(--amber) 7%, transparent)', outline: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)' }
         return {}
     }
 

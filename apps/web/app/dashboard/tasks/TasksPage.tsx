@@ -184,7 +184,7 @@ function ExtDecisionForm({
             <div style={{ display: 'flex', gap: 6 }}>
                 <ActionBtn
                     label={mode === 'approve' ? 'Confirm Approval' : mode === 'deny' ? 'Confirm Denial' : 'Send Alternative'}
-                    color={mode === 'approve' ? 'rgba(34,197,94,0.7)' : mode === 'deny' ? 'rgba(219,0,29,0.6)' : 'rgba(245,158,11,0.7)'}
+                    color={mode === 'approve' ? 'var(--live)' : mode === 'deny' ? 'var(--red)' : 'var(--amber)'}
                     onClick={submit}
                 />
                 <ActionBtn label='Back' color='var(--txt-3)' onClick={onBack} />
@@ -305,7 +305,7 @@ function TaskCard({
         <div ref={cardRef} style={{
             border: '1px solid rgba(255,255,255,0.07)',
             borderLeft: `3px solid ${highlighted ? 'rgba(219,0,29,0.9)' : badge.color}`,
-            background: highlighted ? 'rgba(219,0,29,0.05)' : task.status === 'completed' ? 'rgba(34,197,94,0.03)' : 'rgba(255,255,255,0.025)',
+            background: highlighted ? 'rgba(219,0,29,0.05)' : task.status === 'completed' ? 'color-mix(in srgb, var(--live) 3%, transparent)' : 'rgba(255,255,255,0.025)',
             marginBottom: 6, position: 'relative',
             boxShadow: highlighted ? '0 0 0 1px rgba(219,0,29,0.35)' : undefined,
             transition: 'box-shadow 0.3s',
@@ -323,7 +323,7 @@ function TaskCard({
                         {!showAssignee && task.assignedByName && <span>{task.assignedByName === 'System' ? 'Auto-assigned' : `From: ${task.assignedByName}`}</span>}
                         {task.dueDate && <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: overdue ? 'rgba(219,0,29,0.8)' : 'rgba(237,237,237,0.3)' }}><CalendarToday sx={{ fontSize: 9 }} />Due {fmtDate(task.dueDate)}{overdue ? ' — overdue' : ''}</span>}
                         {task.reminderDateTime && task.status !== 'completed' && <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: 'rgba(255,160,0,0.5)' }}><NotificationsActive sx={{ fontSize: 9 }} />Reminder {fmtDate(task.reminderDateTime)}</span>}
-                        {task.completedAt && <span style={{ color: 'rgba(34,197,94,0.6)' }}>Completed {fmtDate(task.completedAt, false)}</span>}
+                        {task.completedAt && <span style={{ color: 'color-mix(in srgb, var(--live) 60%, transparent)' }}>Completed {fmtDate(task.completedAt, false)}</span>}
                         {task.department && <span style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)' }}>{task.department}</span>}
                     </div>
                 </div>
@@ -347,16 +347,16 @@ function TaskCard({
 
                     {task.description && <p style={{ margin: 0, fontSize: '0.7rem', color: 'rgba(237,237,237,0.55)', lineHeight: 1.6 }}>{task.description}</p>}
                     {task.notes && (
-                        <div style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', padding: '6px 10px' }}>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(34,197,94,0.6)', marginBottom: 3 }}>COMPLETION NOTES</div>
+                        <div style={{ background: 'color-mix(in srgb, var(--live) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--live) 20%, transparent)', padding: '6px 10px' }}>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'color-mix(in srgb, var(--live) 60%, transparent)', marginBottom: 3 }}>COMPLETION NOTES</div>
                             <p style={{ margin: 0, fontSize: '0.7rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.5 }}>{task.notes}</p>
                         </div>
                     )}
 
                     {/* ── Extension request — creator view (on direct task) ── */}
                     {showAssignee && task.extensionRequest?.status === 'pending' && (
-                        <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(245,158,11,0.8)' }}>EXTENSION REQUEST</div>
+                        <div style={{ background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'color-mix(in srgb, var(--amber) 80%, transparent)' }}>EXTENSION REQUEST</div>
                             <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>
                                 <div>{task.assignedToName ?? 'Assignee'} has requested a due date extension.</div>
                                 <div><span style={{ color: 'rgba(237,237,237,0.35)' }}>Requested date/time:</span> {fmtDate(task.extensionRequest.requestedDate)}</div>
@@ -376,8 +376,8 @@ function TaskCard({
 
                     {/* Extension alternative banner — assignee view */}
                     {!showAssignee && task.extensionRequest?.status === 'alternative' && (
-                        <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(245,158,11,0.8)' }}>ALTERNATIVE DATE SUGGESTED</div>
+                        <div style={{ background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'color-mix(in srgb, var(--amber) 80%, transparent)' }}>ALTERNATIVE DATE SUGGESTED</div>
                             <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>
                                 <div>Your extension request was not approved as requested. An alternative has been suggested.</div>
                                 <div><span style={{ color: 'rgba(237,237,237,0.35)' }}>Suggested date/time:</span> {fmtDate(task.extensionRequest.alternativeDate)}</div>
@@ -388,8 +388,8 @@ function TaskCard({
 
                     {/* ── Reassignment request — creator view ── */}
                     {showAssignee && task.reassignmentRequest?.status === 'pending' && (
-                        <div style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.25)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(59,130,246,0.8)' }}>REASSIGNMENT REQUEST</div>
+                        <div style={{ background: 'color-mix(in srgb, var(--info) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--info) 25%, transparent)', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'color-mix(in srgb, var(--info) 80%, transparent)' }}>REASSIGNMENT REQUEST</div>
                             <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>
                                 <div>{task.assignedToName ?? 'Assignee'} has requested reassignment.</div>
                                 <div><span style={{ color: 'rgba(237,237,237,0.35)' }}>Requested assignee:</span> {task.reassignmentRequest.requestedToName}</div>
@@ -419,7 +419,7 @@ function TaskCard({
                                     <div style={{ display: 'flex', gap: 6 }}>
                                         <ActionBtn
                                             label={reassignDecision === 'approve' ? 'Confirm Approval' : reassignDecision === 'deny' ? 'Confirm Denial' : 'Confirm Assignment'}
-                                            color={reassignDecision === 'approve' ? 'rgba(34,197,94,0.7)' : reassignDecision === 'deny' ? 'rgba(219,0,29,0.6)' : 'rgba(59,130,246,0.7)'}
+                                            color={reassignDecision === 'approve' ? 'color-mix(in srgb, var(--live) 70%, transparent)' : reassignDecision === 'deny' ? 'rgba(219,0,29,0.6)' : 'color-mix(in srgb, var(--info) 70%, transparent)'}
                                             onClick={async () => {
                                                 const actionMap = { approve: 'approve_reassignment', deny: 'deny_reassignment', redirect: 'redirect_reassignment' }
                                                 const extra: Record<string, unknown> = { approverNote: reassignDecisionNote }
@@ -489,8 +489,8 @@ function TaskCard({
                         <>
                             {/* ── Extension request form (assignee, full-width, replaces action bar) ── */}
                             {requestingExtension && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid rgba(245,158,11,0.2)', padding: '10px 12px', background: 'rgba(245,158,11,0.03)' }}>
-                                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(245,158,11,0.7)' }}>REQUEST EXTENSION</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid color-mix(in srgb, var(--amber) 20%, transparent)', padding: '10px 12px', background: 'color-mix(in srgb, var(--amber) 3%, transparent)' }}>
+                                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'color-mix(in srgb, var(--amber) 70%, transparent)' }}>REQUEST EXTENSION</div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                         <div>
                                             <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', marginBottom: 4 }}>NEW DATE & TIME <span style={{ color: 'rgba(219,0,29,1)' }}>*</span></div>
@@ -515,8 +515,8 @@ function TaskCard({
 
                             {/* ── Reassignment request form (assignee) ── */}
                             {requestingReassign && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid rgba(59,130,246,0.2)', padding: '10px 12px', background: 'rgba(59,130,246,0.03)' }}>
-                                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(59,130,246,0.7)' }}>REQUEST REASSIGNMENT</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid color-mix(in srgb, var(--info) 20%, transparent)', padding: '10px 12px', background: 'color-mix(in srgb, var(--info) 3%, transparent)' }}>
+                                    <div style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'color-mix(in srgb, var(--info) 70%, transparent)' }}>REQUEST REASSIGNMENT</div>
                                     <div>
                                         <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', marginBottom: 4 }}>REQUESTED ASSIGNEE <span style={{ color: 'rgba(219,0,29,1)' }}>*</span></div>
                                         <Autocomplete options={reassignOptions} getOptionLabel={o => `${o.displayName} (@${o.username})`} value={reassignTarget} onChange={(_, v) => setReassignTarget(v)} inputValue={reassignSearch} onInputChange={(_, v) => setReassignSearch(v)} noOptionsText={reassignSearch.length < 2 ? 'Type to search…' : 'No members found'} size='small' renderInput={params => <TextField {...params} placeholder='Search member…' size='small' sx={inputSx} />} sx={{ '& .MuiAutocomplete-listbox': { background: '#1a1a1a', fontSize: '0.8rem' } }} />
@@ -633,12 +633,12 @@ function TaskCard({
                                             {!showAssignee && isAssignee && (
                                                 <>
                                                     {task.extensionRequest?.status === 'pending'
-                                                        ? <span style={{ fontSize: '0.6rem', color: 'rgba(245,158,11,0.7)', fontWeight: 600, letterSpacing: '0.06em', padding: '4px 0', alignSelf: 'center' }}>⏳ Extension requested</span>
+                                                        ? <span style={{ fontSize: '0.6rem', color: 'color-mix(in srgb, var(--amber) 70%, transparent)', fontWeight: 600, letterSpacing: '0.06em', padding: '4px 0', alignSelf: 'center' }}>⏳ Extension requested</span>
                                                         : <ActionBtn label='Request Extension' color='var(--amber)' onClick={() => setRequestingExtension(true)} />
                                                     }
                                                     {task.reassignmentRequest?.status === 'pending'
-                                                        ? <span style={{ fontSize: '0.6rem', color: 'rgba(59,130,246,0.7)', fontWeight: 600, letterSpacing: '0.06em', padding: '4px 0', alignSelf: 'center' }}>🔁 Reassignment requested</span>
-                                                        : <ActionBtn label='Request Reassignment' color='rgba(59,130,246,0.6)' onClick={() => setRequestingReassign(true)} />
+                                                        ? <span style={{ fontSize: '0.6rem', color: 'color-mix(in srgb, var(--info) 70%, transparent)', fontWeight: 600, letterSpacing: '0.06em', padding: '4px 0', alignSelf: 'center' }}>🔁 Reassignment requested</span>
+                                                        : <ActionBtn label='Request Reassignment' color='color-mix(in srgb, var(--info) 60%, transparent)' onClick={() => setRequestingReassign(true)} />
                                                     }
                                                 </>
                                             )}
@@ -914,7 +914,7 @@ export default function TasksPage({ userId, displayName: _d, isElevated, isAllBa
                             }
                         </div>
                         {lockoutActive && overdueUnactioned.length === 0 && (
-                            <button onClick={() => router.push('/dashboard')} style={{ marginTop: 8, background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.4)', color: 'rgba(34,197,94,0.9)', padding: '5px 14px', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 700 }}>
+                            <button onClick={() => router.push('/dashboard')} style={{ marginTop: 8, background: 'color-mix(in srgb, var(--live) 15%, transparent)', border: '1px solid color-mix(in srgb, var(--live) 40%, transparent)', color: 'color-mix(in srgb, var(--live) 90%, transparent)', padding: '5px 14px', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 700 }}>
                                 All caught up — return to dashboard →
                             </button>
                         )}

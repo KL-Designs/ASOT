@@ -114,7 +114,7 @@ export default function TFARPluginTab() {
             </div>
 
             {/* Current plugin status */}
-            <div style={{ marginBottom: 20, padding: '14px 16px', background: current ? 'rgba(0,195,100,0.04)' : 'rgba(245,158,11,0.04)', border: `1px solid ${current ? 'rgba(0,195,100,0.25)' : 'rgba(245,158,11,0.25)'}`, borderLeft: `3px solid ${current ? '#00c364' : 'var(--amber)'}` }}>
+            <div style={{ marginBottom: 20, padding: '14px 16px', background: current ? 'rgba(0,195,100,0.04)' : 'color-mix(in srgb, var(--amber) 4%, transparent)', border: `1px solid ${current ? 'rgba(0,195,100,0.25)' : 'color-mix(in srgb, var(--amber) 25%, transparent)'}`, borderLeft: `3px solid ${current ? '#00c364' : 'var(--amber)'}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {current
                         ? <CheckCircle style={{ fontSize: 16, color: '#00c364', flexShrink: 0 }} />

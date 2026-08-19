@@ -165,9 +165,9 @@ export default function ScreenshotOfMonthTab({ canManage }: { canManage: boolean
                 <div style={{
                     padding: '8px 12px',
                     fontSize: '0.78rem',
-                    background: feedback.type === 'success' ? 'rgba(34,197,94,0.08)' : 'rgba(219,0,29,0.08)',
-                    border: `1px solid ${feedback.type === 'success' ? 'rgba(34,197,94,0.25)' : 'rgba(219,0,29,0.25)'}`,
-                    color: feedback.type === 'success' ? 'rgba(34,197,94,0.9)' : 'rgba(219,0,29,0.9)',
+                    background: feedback.type === 'success' ? 'color-mix(in srgb, var(--live) 8%, transparent)' : 'rgba(219,0,29,0.08)',
+                    border: `1px solid ${feedback.type === 'success' ? 'color-mix(in srgb, var(--live) 25%, transparent)' : 'rgba(219,0,29,0.25)'}`,
+                    color: feedback.type === 'success' ? 'color-mix(in srgb, var(--live) 90%, transparent)' : 'rgba(219,0,29,0.9)',
                 }}>
                     {feedback.msg}
                 </div>

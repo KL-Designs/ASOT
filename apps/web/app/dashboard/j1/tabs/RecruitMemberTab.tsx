@@ -1476,7 +1476,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                         </CollapsibleGuideSection>
 
                         {/* Yellow position note */}
-                        <div style={{ margin: '10px 0', padding: '8px 12px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', fontSize: '0.73rem', color: 'var(--amber)', lineHeight: 1.6 }}>
+                        <div style={{ margin: '10px 0', padding: '8px 12px', background: 'color-mix(in srgb, var(--amber) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 35%, transparent)', borderLeft: '3px solid #f59e0b', fontSize: '0.73rem', color: 'var(--amber)', lineHeight: 1.6 }}>
                             Members can move around positions and do not have to remain in their first selected role forever. Role assignment depends on unit needs, suitability, training, and availability.
                         </div>
 
@@ -1515,7 +1515,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                             <ExampleQuote>
                                 &ldquo;Are you able to attend a BCT Stage 1 session within the next 30 days?&rdquo;
                             </ExampleQuote>
-                            <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderLeft: '2px solid #f59e0b', fontSize: '0.73rem', color: 'var(--amber)', lineHeight: 1.6 }}>
+                            <div style={{ marginTop: 8, padding: '8px 10px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)', borderLeft: '2px solid #f59e0b', fontSize: '0.73rem', color: 'var(--amber)', lineHeight: 1.6 }}>
                                 There is a one-month time limit to complete BCT Stage 1. If not completed, the application may be removed. Let the applicant know training takes approximately 2 hours.
                             </div>
                         </CollapsibleGuideSection>
@@ -1794,7 +1794,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                         </div>
                         <div style={{ marginTop: 4 }}>
                             <button type='button' onClick={() => setTsSetupOpen(v => !v)}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 12px', background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)', cursor: 'pointer', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(245,158,11,0.7)', textAlign: 'left' }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 12px', background: 'color-mix(in srgb, var(--amber) 5%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 20%, transparent)', cursor: 'pointer', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', color: 'color-mix(in srgb, var(--amber) 70%, transparent)', textAlign: 'left' }}
                             >
                                 {tsSetupOpen ? <ExpandLess style={{ fontSize: 14 }} /> : <ExpandMore style={{ fontSize: 14 }} />}
                                 TFAR TROUBLESHOOTING
@@ -1880,7 +1880,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
     if (success === 'pended') return (
         <div style={{ padding: '20px 24px', maxWidth: 560 }} className='flex flex-col gap-4'>
-            <div className='flex items-center gap-3 px-4 py-4' style={{ border: '1px solid rgba(245,158,11,0.25)', borderLeft: '2px solid #f59e0b', background: 'rgba(245,158,11,0.04)' }}>
+            <div className='flex items-center gap-3 px-4 py-4' style={{ border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)', borderLeft: '2px solid #f59e0b', background: 'color-mix(in srgb, var(--amber) 4%, transparent)' }}>
                 <Warning style={{ fontSize: 20, color: 'var(--amber)', flexShrink: 0 }} />
                 <div>
                     <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'rgba(237,237,237,0.85)', marginBottom: 2 }}>Application pended — applicant does not currently own Arma 3</div>
@@ -2122,7 +2122,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                                                         <span>{option.displayName}</span>
                                                                         {option.username && <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.3)' }}>@{option.username}</span>}
-                                                                        {option.isTestApplicant && <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--amber)', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '1px 5px', flexShrink: 0 }}>TEST</span>}
+                                                                        {option.isTestApplicant && <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', padding: '1px 5px', flexShrink: 0 }}>TEST</span>}
                                                                         {option.optionGroup === 'Applicants' && !option.isTestApplicant && <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(219,0,29,0.7)', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.3)', padding: '1px 5px', flexShrink: 0 }}>APPLICANT</span>}
                                                                         {option.hasJoinData && <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', color: '#00c364', background: 'rgba(0,195,100,0.08)', border: '1px solid rgba(0,195,100,0.3)', padding: '1px 5px', flexShrink: 0 }}>JOIN</span>}
                                                                     </div>
@@ -2130,7 +2130,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                                                 </div>
                                                                 {option.inGameName && <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)', fontFamily: 'monospace', flexShrink: 0 }}>{option.inGameName}</span>}
                                                                 {option.isSkeleton && <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 5px', flexShrink: 0 }}>CSV</span>}
-                                                                {option.discharged && <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--amber)', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '1px 5px', flexShrink: 0 }}>DISCHARGED</span>}
+                                                                {option.discharged && <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', padding: '1px 5px', flexShrink: 0 }}>DISCHARGED</span>}
                                                             </li>
                                                         )
                                                     }}
@@ -2192,14 +2192,14 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                             </div>
                                         )}
                                         {returningStatus === 'discharged' && (
-                                            <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: 'var(--amber)', lineHeight: 1.5, marginTop: 8 }}>
+                                            <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: 'var(--amber)', lineHeight: 1.5, marginTop: 8 }}>
                                                 <strong>{returningName}</strong> is a returning member (previously discharged). Review their record before proceeding.
                                             </div>
                                         )}
 
                                         {/* Under-16 warning */}
                                         {fields.age && Number(fields.age) > 0 && Number(fields.age) <= 16 && (
-                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.4)', borderLeft: '3px solid #f59e0b', marginTop: 8 }}>
+                                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', background: 'color-mix(in srgb, var(--amber) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)', borderLeft: '3px solid #f59e0b', marginTop: 8 }}>
                                                 <Warning style={{ fontSize: 16, color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
                                                 <div style={{ fontSize: '0.78rem', color: 'var(--amber)', lineHeight: 1.6 }}>
                                                     <strong>Age warning:</strong> This applicant&apos;s application indicates they may be under 16.
@@ -2323,7 +2323,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                                     {applicantConnected ? 'Applicant connected' : applicantLastActive ? `Disconnected — last active ${formatLastActive(applicantLastActive)}` : 'Waiting for applicant…'}
                                                 </div>
                                                 {raisedHand && (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.4)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'color-mix(in srgb, var(--amber) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)' }}>
                                                         <PanTool style={{ fontSize: 14, color: 'var(--amber)' }} />
                                                         <span style={{ fontSize: '0.72rem', color: 'var(--amber)', fontWeight: 700, flex: 1 }}>Applicant has a question</span>
                                                         <button type='button' onClick={clearRaisedHand} style={{ fontSize: '0.65rem', fontWeight: 700, color: 'rgba(237,237,237,0.5)', background: 'none', border: '1px solid rgba(237,237,237,0.15)', padding: '3px 8px', cursor: 'pointer' }}>CLEAR</button>
@@ -2499,7 +2499,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                         }}
                                     />
                                     {nameSimilar.length > 0 && nameStatus !== 'taken' && (
-                                        <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: 'var(--amber)', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderLeft: '3px solid #f59e0b', lineHeight: 1.6 }}>
+                                        <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 20%, transparent)', borderLeft: '3px solid #f59e0b', lineHeight: 1.6 }}>
                                             Similar name{nameSimilar.length > 1 ? 's' : ''} already in the unit: <strong>{nameSimilar.join(', ')}</strong>. Confirm this is intentional.
                                         </div>
                                     )}
@@ -2557,7 +2557,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                     </div>
 
                                     {ownsArmaTouched && !fields.ownsArma && (
-                                        <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: 'var(--amber)', lineHeight: 1.6 }}>
+                                        <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 35%, transparent)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: 'var(--amber)', lineHeight: 1.6 }}>
                                             <Warning style={{ fontSize: 14, verticalAlign: 'middle', marginRight: 6 }} />
                                             The applicant will need to purchase ARMA 3 before officially joining. You may continue — this will be flagged for the J1 lead.
                                         </div>
@@ -2566,7 +2566,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                         <TextField label='Country / Region' placeholder='Enter their country or region' value={fields.regionCustom} onChange={set('regionCustom')} fullWidth sx={inputSx} />
                                     )}
                                     {fields.region && !OCEANIA_ASIA.has(fields.region) && fields.region !== 'Other' && (
-                                        <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: 'var(--amber)', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderLeft: '3px solid #f59e0b', lineHeight: 1.5 }}>
+                                        <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 20%, transparent)', borderLeft: '3px solid #f59e0b', lineHeight: 1.5 }}>
                                             <HelpOutline style={{ fontSize: 13, verticalAlign: 'middle', marginRight: 5 }} />
                                             Members outside Oceania/Asia may experience higher latency and timezone differences during ops. Confirm they understand the schedule.
                                         </div>
@@ -2596,7 +2596,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                     )}
 
                                     {Number(fields.age) > 0 && Number(fields.age) < 17 && (
-                                        <div style={{ padding: '12px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                        <div style={{ padding: '12px 14px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 35%, transparent)', borderLeft: '3px solid #f59e0b', display: 'flex', flexDirection: 'column', gap: 10 }}>
                                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                                                 <Warning style={{ fontSize: 16, color: 'var(--amber)', flexShrink: 0, marginTop: 2 }} />
                                                 <div>
@@ -2614,7 +2614,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                                 inputProps={{ maxLength: 500 }}
                                                 helperText={`${fields.ageExemptionNote.length} / 500`}
                                                 FormHelperTextProps={{ style: { fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)', marginTop: 3 } }}
-                                                sx={{ ...inputSx, '& .MuiOutlinedInput-root fieldset': { borderColor: 'rgba(245,158,11,0.4)' }, '& .MuiOutlinedInput-root:hover fieldset': { borderColor: 'rgba(245,158,11,0.6)' }, '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: 'var(--amber)' }, '& .MuiInputLabel-root.Mui-focused': { color: 'var(--amber)' } }}
+                                                sx={{ ...inputSx, '& .MuiOutlinedInput-root fieldset': { borderColor: 'color-mix(in srgb, var(--amber) 40%, transparent)' }, '& .MuiOutlinedInput-root:hover fieldset': { borderColor: 'color-mix(in srgb, var(--amber) 60%, transparent)' }, '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: 'var(--amber)' }, '& .MuiInputLabel-root.Mui-focused': { color: 'var(--amber)' } }}
                                             />
                                         </div>
                                     )}
@@ -2834,7 +2834,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                     {/* Applicant answers warning banner */}
                                     {/* Wrong answer warning */}
                                     {Object.entries(rulesAnswers).some(([i, ans]) => ans !== null && ans !== undefined && ans !== RULES_QUESTIONS[Number(i)]?.correct) && (
-                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.4)', borderLeft: '3px solid #f59e0b' }}>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', background: 'color-mix(in srgb, var(--amber) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)', borderLeft: '3px solid #f59e0b' }}>
                                             <Warning style={{ fontSize: 16, color: 'var(--amber)', flexShrink: 0, marginTop: 1 }} />
                                             <div style={{ fontSize: '0.78rem', color: 'var(--amber)', lineHeight: 1.6 }}>
                                                 <strong>One or more answers require follow-up.</strong> The Continue button is locked until all answers are correct.
@@ -2888,7 +2888,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
                                                 {/* Applicant answer status */}
                                                 {ans !== null && ans !== undefined && (
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 11px', background: isWrong ? 'rgba(245,158,11,0.08)' : 'rgba(0,195,100,0.05)', border: isWrong ? '1px solid rgba(245,158,11,0.35)' : '1px solid rgba(0,195,100,0.2)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 11px', background: isWrong ? 'color-mix(in srgb, var(--amber) 8%, transparent)' : 'rgba(0,195,100,0.05)', border: isWrong ? '1px solid color-mix(in srgb, var(--amber) 35%, transparent)' : '1px solid rgba(0,195,100,0.2)' }}>
                                                         {isWrong ? <Warning style={{ fontSize: 15, color: 'var(--amber)' }} /> : <CheckCircle style={{ fontSize: 15, color: '#00c364' }} />}
                                                         <span style={{ fontSize: '0.75rem', color: isWrong ? 'var(--amber)' : '#00c364', fontWeight: 600 }}>
                                                             Applicant answered {ans ? 'YES' : 'NO'}
@@ -2933,7 +2933,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                         {([
                                             { val: 'yes' as const, label: 'YES — Continue to Admin onboarding', color: '#00c364', bg: 'rgba(0,195,100,0.08)', border: 'rgba(0,195,100,0.4)' },
                                             { val: 'no' as const, label: 'NO — Close application for J1 review', color: 'var(--red)', bg: 'rgba(219,0,29,0.08)', border: 'rgba(219,0,29,0.4)' },
-                                            { val: 'pending' as const, label: 'PENDING — Set chase-up date', color: 'var(--amber)', bg: 'rgba(245,158,11,0.08)', border: 'rgba(245,158,11,0.4)' },
+                                            { val: 'pending' as const, label: 'PENDING — Set chase-up date', color: 'var(--amber)', bg: 'color-mix(in srgb, var(--amber) 8%, transparent)', border: 'color-mix(in srgb, var(--amber) 40%, transparent)' },
                                         ] as const).map(({ val, label, color, bg, border }) => (
                                             <button key={val} type='button' onClick={() => setJoinDecision(val)}
                                                 style={{ padding: '12px 16px', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.06em', textAlign: 'left', background: joinDecision === val ? bg : 'rgba(255,255,255,0.02)', border: `1px solid ${joinDecision === val ? border : 'rgba(255,255,255,0.07)'}`, color: joinDecision === val ? color : 'rgba(237,237,237,0.55)', cursor: 'pointer', transition: 'all 0.12s' }}
@@ -2957,7 +2957,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                     )}
 
                                     {joinDecision === 'pending' && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 16px', background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.25)', borderLeft: '3px solid #f59e0b' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '14px 16px', background: 'color-mix(in srgb, var(--amber) 5%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)', borderLeft: '3px solid #f59e0b' }}>
                                             <div style={{ fontSize: '0.78rem', color: 'var(--amber)', fontWeight: 700 }}>All fields required before submitting as pending.</div>
                                             <TextField
                                                 label='Reason for pending (required)'
@@ -3043,7 +3043,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                             disabled={loading || !joinDecisionReason.trim() || !joinPendingDate}
                                             startIcon={loading ? <CircularProgress size={14} color='inherit' /> : undefined}
                                             variant='contained'
-                                            sx={{ borderRadius: 0, background: 'rgba(245,158,11,0.7)', fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.78rem', padding: '7px 18px', '&:hover': { background: 'var(--amber)' }, '&.Mui-disabled': { background: 'rgba(245,158,11,0.2)', color: 'rgba(237,237,237,0.3)' } }}
+                                            sx={{ borderRadius: 0, background: 'color-mix(in srgb, var(--amber) 70%, transparent)', fontWeight: 700, letterSpacing: '0.1em', fontSize: '0.78rem', padding: '7px 18px', '&:hover': { background: 'var(--amber)' }, '&.Mui-disabled': { background: 'color-mix(in srgb, var(--amber) 20%, transparent)', color: 'rgba(237,237,237,0.3)' } }}
                                             >{loading ? 'SAVING…' : 'FINALISE PENDING'}</Button>
                                         )}
                                     </div>
@@ -3289,8 +3289,8 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                         onClick={clearRaisedHand}
                                         style={{
                                             display: 'flex', alignItems: 'center', gap: 5,
-                                            padding: '4px 10px', border: '1px solid rgba(245,158,11,0.5)',
-                                            background: 'rgba(245,158,11,0.12)', color: 'var(--amber)',
+                                            padding: '4px 10px', border: '1px solid color-mix(in srgb, var(--amber) 50%, transparent)',
+                                            background: 'color-mix(in srgb, var(--amber) 12%, transparent)', color: 'var(--amber)',
                                             cursor: 'pointer', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.08em',
                                         }}
                                         title='Click to lower hand'

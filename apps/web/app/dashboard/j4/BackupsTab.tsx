@@ -669,7 +669,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                             <MuiTooltip title={resticHealthy ? 'Restic binary: OK' : 'Restic binary: not found or not runnable'}>
                                 <div style={{ display: 'inline-flex', lineHeight: 0 }}>
                                     {resticHealthy
-                                        ? <CheckCircleOutline sx={{ fontSize: 15, color: 'rgba(34,197,94,0.85)' }} />
+                                        ? <CheckCircleOutline sx={{ fontSize: 15, color: 'color-mix(in srgb, var(--live) 85%, transparent)' }} />
                                         : <ErrorOutline sx={{ fontSize: 15, color: 'rgba(219,0,29,0.85)' }} />}
                                 </div>
                             </MuiTooltip>
