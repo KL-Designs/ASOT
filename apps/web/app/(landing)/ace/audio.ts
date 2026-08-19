@@ -31,6 +31,16 @@ export type Sfx =
     | 'needle' | 'decompress' | 'fluid' | 'syringe' | 'suction'
     | 'tube' | 'seal' | 'pads' | 'cuff' | 'roll'
     | 'reboaUp' | 'reboaDown' | 'compress' | 'bag' | 'refuse'
+    /*
+       The quiet half: one beat of the work rather than the finish of it.
+
+       Repeated for as long as the progress bar is filling, so a treatment
+       sounds like it is being done instead of appearing four seconds later.
+       Deliberately small — they play under everything else and the monitor has
+       to stay audible over the top of them.
+    */
+    | 'workWrap' | 'workStitch' | 'workRatchet' | 'workPump'
+    | 'workProbe' | 'workScrape' | 'workCloth'
 
 export class Monitor {
     private ctx: AudioContext | null = null
@@ -45,6 +55,8 @@ export class Monitor {
     private analyseOsc: OscillatorNode | null = null
     /** Anything being repeated on a timer — compressions, a bag. */
     private loops = new Map<Sfx, ReturnType<typeof setInterval>>()
+    /** The treatment currently under way, if it makes a noise while it runs. */
+    private workTimer: ReturnType<typeof setInterval> | null = null
     /** The oxygen, which is one continuous noise rather than a repeated one. */
     private hissNodes: { src: AudioBufferSourceNode, gain: GainNode } | null = null
 
@@ -95,6 +107,7 @@ export class Monitor {
         this.setAlarm('none')
         this.stopAnalyse()
         this.stopLoops()
+        this.stopWork()
         this.setHiss(false)
         try { void this.ctx?.close() } catch { /* already gone */ }
         this.ctx = null
@@ -439,6 +452,37 @@ export class Monitor {
                 this.burst(t, 0.34, { type: 'lowpass', f0: 500, f1: 1500, q: .7, gain: .1, rate: .8 })
                 break
 
+            /* ---- one beat of the work ---- */
+
+            case 'workWrap':
+                this.burst(t, 0.22, { type: 'lowpass', f0: 1600, f1: 520, gain: .055, rate: 1.1 })
+                break
+
+            case 'workStitch':
+                this.swept(t, 0.06, 1250, 780, 0.035, 'triangle')
+                this.burst(t, 0.04, { f0: 4000, q: 2.2, gain: .03, rate: 1.8 })
+                break
+
+            case 'workRatchet':
+                this.tick(t, 0.085, 2800)
+                break
+
+            case 'workPump':
+                this.burst(t, 0.16, { type: 'lowpass', f0: 620, f1: 260, gain: .06 })
+                break
+
+            case 'workProbe':
+                this.blip(1500, t, 0.045, 0.028, 'sine')
+                break
+
+            case 'workScrape':
+                this.burst(t, 0.19, { f0: 900, f1: 2000, q: 1.8, gain: .045, rate: .9 })
+                break
+
+            case 'workCloth':
+                this.burst(t, 0.28, { type: 'lowpass', f0: 700, f1: 240, gain: .05, rate: .7 })
+                break
+
             case 'refuse':
                 this.blip(420, t, 0.09, 0.05, 'square')
                 this.blip(300, t + 0.1, 0.14, 0.05, 'square')
@@ -464,6 +508,34 @@ export class Monitor {
     stopLoops() {
         for (const t of this.loops.values()) clearInterval(t)
         this.loops.clear()
+    }
+
+    /**
+     * The sound of a treatment being done, for as long as it takes.
+     *
+     * On a timer rather than scheduled into the audio clock, because it has to
+     * be able to stop early: abort a dressing half-way and the swishing should
+     * stop with it, not carry on into whatever you do next.
+     */
+    work(id: Sfx, everyMs: number, seconds: number) {
+        this.stopWork()
+        const ctx = this.wake()
+        if (!ctx || this.muted) return
+        this.play(id)
+        // Half a beat short of the end, so the working sound never lands on
+        // top of the noise the finished thing makes.
+        const until = seconds * 1000 - everyMs * 0.6
+        let elapsed = 0
+        this.workTimer = setInterval(() => {
+            elapsed += everyMs
+            if (elapsed >= until) { this.stopWork(); return }
+            this.play(id)
+        }, everyMs)
+    }
+
+    stopWork() {
+        if (this.workTimer) clearInterval(this.workTimer)
+        this.workTimer = null
     }
 
     /**

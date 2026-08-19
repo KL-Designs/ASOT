@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import {
-    ACTIONS, TOOLS, TOOL_SEPS, actionSfx, actionTime, alarmFor, blockedBy, simulate, visibleRows,
+    ACTIONS, TOOLS, TOOL_SEPS, actionSfx, actionTime, actionWork, alarmFor, blockedBy, simulate, visibleRows,
     type Action, type ActionRow, type LogKind, type ToolId,
 } from './actions'
 import { Monitor } from './audio'
@@ -57,7 +57,7 @@ const SEV_FILL: Record<string, string> = {
 const BODY_GEOM = {
     head: (
         <>
-            <ellipse cx='150' cy='54' rx='35' ry='41' />
+            <circle cx='150' cy='54' r='38' />
             <rect x='138' y='86' width='24' height='24' rx='7' />
         </>
     ),
@@ -324,6 +324,7 @@ export default function MedicalMenu({ roster, onClose }: {
         if (busyTimer.current) clearTimeout(busyTimer.current)
         busyTimer.current = null
         monitor.current?.stopAnalyse()
+        monitor.current?.stopWork()
         monitor.current?.stopLoops()
         monitor.current?.setHiss(false)
         setBusy(null)
@@ -507,9 +508,14 @@ export default function MedicalMenu({ roster, onClose }: {
         // *is* the cue that the thing is about to happen.
         if (a.sound === 'charge') monitor.current!.charge(seconds)
         if (a.sound === 'analyse') monitor.current!.analysing(seconds)
+        // Everything else sounds like itself being done, for as long as the
+        // bar takes — which is twice as long if you are holding a bag.
+        const w = actionWork(a)
+        if (w) monitor.current!.work(w[0], w[1], seconds)
         busyTimer.current = setTimeout(() => {
             busyTimer.current = null
             setBusy(null)
+            monitor.current?.stopWork()
             if (a.sound === 'charge') monitor.current!.shock()
             const next = applyAction(a, ml)
             // The verdict is the result, so it can only be played once there
@@ -524,6 +530,7 @@ export default function MedicalMenu({ roster, onClose }: {
         busyTimer.current = null
         pushLog(`${busy.label} — interrupted`, 'warn')
         monitor.current?.stopAnalyse()
+        monitor.current?.stopWork()
         setBusy(null)
     }
 
@@ -790,7 +797,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                 <svg className={s.bodySvg} viewBox='0 0 300 640' preserveAspectRatio='xMidYMid meet'>
                                     <defs>
                                         <clipPath id='hznHead'>
-                                            <ellipse cx='150' cy='54' rx='35' ry='41' />
+                                            <circle cx='150' cy='54' r='38' />
                                         </clipPath>
                                         <clipPath id='hznSeal'>
                                             <rect x='152' y='148' width='36' height='36' rx='2' />
@@ -834,13 +841,13 @@ export default function MedicalMenu({ roster, onClose }: {
                                                         <>
                                                             <image
                                                                 href={patient.avatar}
-                                                                x={115} y={13} width={70} height={82}
+                                                                x={112} y={16} width={76} height={76}
                                                                 preserveAspectRatio='xMidYMid slice'
                                                                 clipPath='url(#hznHead)'
                                                             />
                                                             {HEAD_WASH[sev] > 0 && (
-                                                                <ellipse
-                                                                    cx='150' cy='54' rx='35' ry='41'
+                                                                <circle
+                                                                    cx='150' cy='54' r='38'
                                                                     fill={SEV_FILL[sev]}
                                                                     opacity={HEAD_WASH[sev]}
                                                                     stroke='none'
@@ -905,7 +912,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                         {/* The hole. A puncture reads as a puncture:
                                             a dark centre with torn edges around it,
                                             not a dot the same red as everything else. */}
-                                        {patient.chestWound && (
+                                        {patient.chestWound && !patient.sealed && (
                                             <g className={s.chestHole}>
                                                 {/* Near-black under everything, so the
                                                     hole still reads as a hole on a limb

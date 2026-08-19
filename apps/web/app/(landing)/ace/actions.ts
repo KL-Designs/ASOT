@@ -121,6 +121,46 @@ const ACTION_SFX: Record<string, Sfx> = {
 
 export const actionSfx = (a: Action): Sfx | null => ACTION_SFX[a.id] ?? null
 
+/**
+ * What a row sounds like *while* it runs, and how often.
+ *
+ * Grouped by what your hands are actually doing rather than by tool: wrapping,
+ * stitching, ratcheting, pumping, probing, drawing up, or moving somebody
+ * about. Rows with their own dedicated run sound — the defibrillator's charge
+ * and its analysis — are left out, because two noises at once is one too many.
+ */
+const ACTION_WORK: Record<string, [Sfx, number]> = {
+    field: ['workWrap', 480], packing: ['workWrap', 480], elastic: ['workWrap', 480],
+    quik: ['workWrap', 480], pak: ['workWrap', 440], sling: ['workWrap', 500],
+    splint: ['workWrap', 520], seal: ['workWrap', 460],
+
+    surg: ['workStitch', 420],
+
+    tq: ['workRatchet', 300], tqoff: ['workRatchet', 340],
+    monon: ['workRatchet', 380], monoff: ['workRatchet', 380],
+
+    reboa: ['workPump', 520], reboaDown: ['workPump', 560],
+    suction: ['workPump', 400], decom: ['workPump', 480],
+    blood: ['workPump', 620], plasma: ['workPump', 620], saline: ['workPump', 620],
+
+    iv: ['workProbe', 620], pads: ['workProbe', 640],
+    look: ['workProbe', 700], part: ['workProbe', 700], full: ['workProbe', 640],
+    pulse: ['workProbe', 720], bp: ['workProbe', 720], spo2: ['workProbe', 720],
+    resp: ['workProbe', 720], bt: ['workProbe', 680],
+
+    npa: ['workScrape', 500], opa: ['workScrape', 500], king: ['workScrape', 520],
+    morph: ['workScrape', 560], nalb: ['workScrape', 560], fent: ['workScrape', 560],
+    epi: ['workScrape', 560], atro: ['workScrape', 560], amio: ['workScrape', 560],
+    phen: ['workScrape', 560], txa: ['workScrape', 600], nalox: ['workScrape', 560],
+    carb: ['workScrape', 600],
+
+    tilt: ['workCloth', 620], turn: ['workCloth', 560], recov: ['workCloth', 640],
+    realign: ['workCloth', 520], blanket: ['workCloth', 660], heat: ['workCloth', 660],
+}
+
+export const actionWork = (a: Action): [Sfx, number] | null =>
+    a.sound ? null : ACTION_WORK[a.id] ?? null
+
 export type LogKind = '' | 'good' | 'warn' | 'bad'
 
 /** A section heading in the treatment list. */

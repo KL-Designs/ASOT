@@ -787,8 +787,16 @@
     50%, 100% { opacity: .32 }
 }
 
-/* A hole in the chest, and the chest filling up because of it. */
-.chestHole { animation: drip 1s ease-in-out infinite }
+/* A hole in the chest, and the chest filling up because of it.
+   `transform-box` is not optional here: `drip` scales, and an SVG group whose
+   transform-origin is the document's 0,0 does not pulse in place — it walks up
+   and to the left, which is how the wound ended up sitting outside the seal
+   that was supposed to be covering it. */
+.chestHole {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: drip 1s ease-in-out infinite;
+}
 .pneumoRing { animation: pneumo 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center }
 
 @keyframes pneumo {
@@ -797,7 +805,11 @@
 }
 
 /* The cuff's own light, so an attached monitor reads as a live one. */
-.cuffLed { animation: drip 1.6s ease-in-out infinite }
+.cuffLed {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: drip 1.6s ease-in-out infinite;
+}
 
 /* What the casualty is saying. */
 .bubble { animation: fade .3s ease }
