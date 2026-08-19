@@ -130,20 +130,34 @@ function med(p: Patient, name: string, eff: Partial<Record<keyof Patient, number
 }
 
 /**
- * Hang a bag.
+ * Hang a bag, into a limb.
  *
  * The eight seconds are the line: finding the vein, spiking the bag, getting it
  * running. What is in the bag arrives afterwards, on the sim's clock, and needs
  * nothing further from you — which is the entire reason to reach for fluids
  * early and go and deal with the hole they are coming out of.
  */
-function hang(p: Patient, fluid: FluidId, ml: number): [string, LogKind] {
+function hang(p: Patient, fluid: FluidId, ml: number, id: PartId): [string, LogKind] {
+    const pt = p.parts[id]
+
+    /*
+       Not past a tourniquet.
+
+       Everything below the strap is out of the circulation — that is the whole
+       job of a tourniquet — so a line sited there fills a limb the heart cannot
+       reach and gives the casualty nothing. Site it somewhere the blood still
+       goes, which on a casualty with a tourniquet on every limb means the neck
+       or the marrow, and neither of those is in this menu.
+    */
+    if (pt.tourniquet) return [`Tourniquet on the ${pName(id)} — nothing will run past it`, 'bad']
+    if (!pt.iv) return [`No IV access in the ${pName(id)} — cannulate first`, 'warn']
     // Three lines is as many as you have hands and cannulae for, and it stops
     // the answer to every casualty being another four bags of blood.
     if (p.infusions.length >= 3) return ['No free line — three already running', 'warn']
+
     const f = FLUIDS[fluid]
-    p.infusions.push({ id: p.infusionSeq++, fluid, volume: ml, left: ml })
-    return [`${f.label} ${ml} ml hung — ${Math.round(ml / f.rate)}s to run through`, 'good']
+    p.infusions.push({ id: p.infusionSeq++, fluid, part: id, volume: ml, left: ml })
+    return [`${f.label} ${ml} ml hung — ${pName(id)} · ${Math.round(ml / f.rate)}s to run through`, 'good']
 }
 
 function airway(p: Patient, kind: string): [string, LogKind] {
@@ -202,6 +216,17 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
             if (id === 'head' || id === 'torso') return ['Cannot apply a tourniquet to the ' + pName(id), 'bad']
             if (pt.tourniquet) return ['Tourniquet already in place on ' + pName(id!), 'warn']
             pt.tourniquet = true; p.tqCount++; p.pain = clamp(p.pain + 12, 0, 100)
+
+            // A line already running into that limb is now running nowhere, and
+            // the strap goes on regardless: stopping a bleed outranks a bag.
+            // Otherwise the rule above would be a formality — hang first,
+            // tourniquet second, and the fluid arrives anyway.
+            const cut = p.infusions.filter(i => i.part === id)
+            if (cut.length) {
+                p.infusions = p.infusions.filter(i => i.part !== id)
+                const lost = Math.ceil(cut.reduce((n, i) => n + i.left, 0))
+                return [`Tourniquet applied — ${pName(id!)} · line cut off, ${lost} ml lost`, 'bad']
+            }
             return ['Tourniquet applied — ' + pName(id!) + ' · time noted', 'warn']
         } },
         { id: 'tqoff', label: 'Remove Tourniquet', needsPart: true, dot: 'y', run: (p, id) => {
@@ -269,9 +294,9 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
             p.parts[id!].iv++
             return ['IV access established — ' + pName(id!), 'good']
         } },
-        { id: 'blood',  label: 'Whole Blood', note: 'O neg', dot: 'r', sizes: BAG_SIZES, run: (p, _id, ml) => hang(p, 'blood', ml) },
-        { id: 'plasma', label: 'Plasma',      note: 'FFP',   dot: 'y', sizes: BAG_SIZES, run: (p, _id, ml) => hang(p, 'plasma', ml) },
-        { id: 'saline', label: 'Saline 0.9%', note: 'crystalloid', dot: 'b', sizes: BAG_SIZES, run: (p, _id, ml) => hang(p, 'saline', ml) },
+        { id: 'blood',  label: 'Whole Blood', note: 'O neg', dot: 'r', needsPart: true, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'blood', ml, id!) },
+        { id: 'plasma', label: 'Plasma',      note: 'FFP',   dot: 'y', needsPart: true, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'plasma', ml, id!) },
+        { id: 'saline', label: 'Saline 0.9%', note: 'crystalloid', dot: 'b', needsPart: true, sizes: BAG_SIZES, run: (p, id, ml) => hang(p, 'saline', ml, id!) },
 
         { sec: 'Resuscitation' },
         { id: 'cpr', label: 'Perform CPR', note: '30:2', dot: 'r', run: p => {

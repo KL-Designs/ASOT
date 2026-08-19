@@ -86,6 +86,8 @@ export const BAG_SIZES = [250, 500, 1000, 2000] as const
 export interface Infusion {
     id: number
     fluid: FluidId
+    /** The limb it is running into. A tourniquet on it stops the line dead. */
+    part: PartId
     /** ml the bag held when it went up. */
     volume: number
     /** ml still to run. */

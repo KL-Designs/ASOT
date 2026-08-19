@@ -538,7 +538,9 @@ export default function MedicalMenu({ roster, onClose }: {
                                                     <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
                                                     <span>{row.label}</span>
                                                     <span className={s.qty}>
-                                                        {[row.note, `${actionTime(tool, row)}s to hook up`].filter(Boolean).join(' · ')}
+                                                        {row.needsPart && !sel
+                                                            ? 'SELECT A LIMB'
+                                                            : [row.note, `${actionTime(tool, row)}s to hook up`].filter(Boolean).join(' · ')}
                                                     </span>
                                                     <div className={s.sizes}>
                                                         {row.sizes.map(ml => (
@@ -546,7 +548,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                                                 key={ml}
                                                                 type='button'
                                                                 className={s.sizebtn}
-                                                                disabled={!!busy || patient.outcome !== 'active'}
+                                                                disabled={!!busy || patient.outcome !== 'active' || (row.needsPart && !sel)}
                                                                 onClick={() => startAction(row, ml)}
                                                             >
                                                                 {ml} ml
@@ -747,7 +749,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                     return (
                                         <div key={inf.id} className={s.infusion}>
                                             <span className={s.infusionDrip} style={{ background: f.colour }} />
-                                            <span>{f.label} {inf.volume} ml</span>
+                                            <span>{f.label} {inf.volume} ml · {pName(inf.part)}</span>
                                             <b>{Math.ceil(inf.left)} ml</b>
                                             <i style={{ width: `${inf.left / inf.volume * 100}%`, background: f.colour }} />
                                         </div>
