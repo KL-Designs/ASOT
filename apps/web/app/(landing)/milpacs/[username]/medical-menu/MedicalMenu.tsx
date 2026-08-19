@@ -8,12 +8,12 @@ import {
 } from './actions'
 import { Monitor } from './audio'
 import {
-    ADJUNCT_LABEL, BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, FALLBACK_CASUALTY, FATAL_SPO2, FLUIDS,
-    OBSTRUCTION_LABEL, PARTS, RHYTHM_LABEL, WOUND_TYPES,
-    airwayOpen, bestBandage, bleedFactor, bloodWord, breathing, chatter, clamp, handover, jitter, newPatient,
-    nextWound, painWord, partBleeding, partSeverity, pName,
+    ADJUNCT_LABEL, BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, DRUGS, FALLBACK_CASUALTY, FATAL_SPO2,
+    FLUIDS, OBSTRUCTION_LABEL, PARTS, RHYTHM_LABEL, WOUND_TYPES,
+    airwayOpen, bestBandage, bleedFactor, bloodWord, breathing, chatter, clamp, handover, intensity, jitter,
+    newPatient, nextWound, painWord, partBleeding, partSeverity, pName, shownRr,
     stabilityIssues, stampFrom, totalBleed,
-    type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
+    type BodyPart, type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
 } from './model'
 import { TOOL_ICONS } from './icons'
 import s from './medical-menu.module.css'
@@ -922,24 +922,14 @@ export default function MedicalMenu({ roster, onClose }: {
                                                 ? 'Unconscious · post-arrest'
                                                 : 'Unconscious · not responding'}
                                 </div>
-                                {patient.epi > 0 && (
-                                    <div className={`${s.ovline} ${s.ovlineYel}`}>
-                                        Epinephrine on board · {Math.ceil(patient.epi)}s
-                                    </div>
-                                )}
+
                                 {patient.analysed && patient.analysed.rhythm === patient.rhythm && (
                                     <div className={`${s.ovline} ${patient.analysed.advised ? s.ovlineRed : s.ovlineDim}`}>
                                         {patient.analysed.advised ? 'Shock advised' : 'No shock advised'}
                                     </div>
                                 )}
                                 {bleeding && <div className={`${s.ovline} ${s.ovlineRed}`}>Bleeding</div>}
-                                {/* Sat under the bleeding it is holding back, because
-                                    that is the only thing it is doing. */}
-                                {patient.pressor > 0 && (
-                                    <div className={`${s.ovline} ${s.ovlineYel}`}>
-                                        Phenylephrine ×{Math.ceil(patient.pressor)} · bleeding at {Math.round(bleedFactor(patient) * 100)}%
-                                    </div>
-                                )}
+
                                 {bw && <div className={`${s.ovline} ${bcls === 'red' ? s.ovlineRed : s.ovlineYel}`}>{bw}</div>}
                                 {pw && <div className={s.ovline}>{pw}</div>}
                                 {patient.tqCount > 0 && (
@@ -957,6 +947,17 @@ export default function MedicalMenu({ roster, onClose }: {
                                         </span>
                                         <i style={{ width: `${Math.min(100, patient.downtime / DEATH_DOWNTIME * 100)}%` }} />
                                     </div>
+                                )}
+
+                                {/* The limb you clicked, above everything about the
+                                    rest of them. The panel used to make you hunt for
+                                    it among five others in the same grey. */}
+                                {selPart && (
+                                    <PartCard
+                                        name={PARTS.find(x => x.id === selPart.id)!.name}
+                                        pt={selPart}
+                                        selected
+                                    />
                                 )}
 
                                 <Vitals patient={patient} />
@@ -979,49 +980,16 @@ export default function MedicalMenu({ roster, onClose }: {
                                     )
                                 })}
 
-                                {PARTS.map(({ id, name }) => {
-                                    const pt = patient.parts[id]
-                                    if (!pt.wounds.length && !pt.fractured && !pt.tourniquet && !pt.iv) return null
-                                    return (
-                                        <div key={id} className={s.ovpart}>
-                                            <h4>{name}</h4>
-                                            {pt.fractured && (
-                                                <div className={`${s.ovline} ${pt.splinted ? s.ovlineDim : s.ovlineRed}`}>
-                                                    {pt.splinted ? 'Fractured (splinted)' : 'Fractured'}
-                                                </div>
-                                            )}
-                                            {pt.wounds.map(w => (
-                                                <div key={w.id} className={`${s.ovsub} ${w.bandaged ? s.ovsubB : ''}`}>
-                                                    {WOUND_TYPES[w.t].name}
-                                                    {w.bandaged && w.dressing && (
-                                                        <span className={w.failIn !== null ? s.slipping : undefined}>
-                                                            {' · '}{BANDAGES[w.dressing].short}
-                                                            {w.failIn !== null ? ` ${Math.ceil(w.failIn)}s` : ' · holding'}
-                                                        </span>
-                                                    )}
-                                                    {!w.bandaged && <span className={s.slipping}>{' · open'}</span>}
-                                                </div>
-                                            ))}
-                                            {pt.tourniquet && <div className={s.ovsub} style={{ color: 'var(--yellow)' }}>Tourniquet applied</div>}
-                                            {pt.iv > 0 && <div className={s.ovsub} style={{ color: 'var(--blue)' }}>{pt.iv}× IV access</div>}
-                                            {!pt.checked && <div className={`${s.ovsub} ${s.ovsubB}`} style={{ fontSize: 12.5 }}>not yet examined</div>}
-                                        </div>
-                                    )
-                                })}
-
-                                {patient.meds.length > 0 && (
-                                    <div className={s.ovpart}>
-                                        <h4>Medication</h4>
-                                        <div className={s.chips}>
-                                            {Object.entries(patient.meds.reduce<Record<string, number>>((acc, m) => {
-                                                acc[m] = (acc[m] ?? 0) + 1
-                                                return acc
-                                            }, {})).map(([m, n]) => (
-                                                <span key={m} className={`${s.chip} ${s.chipY}`}>{n}× {m}</span>
-                                            ))}
-                                        </div>
-                                    </div>
+                                {PARTS.some(({ id }) => id !== sel && hasSomething(patient.parts[id])) && (
+                                    <div className={s.ovrule}>Rest of the casualty</div>
                                 )}
+                                {PARTS.map(({ id, name }) => {
+                                    // The selected one is already up top.
+                                    if (id === sel) return null
+                                    const pt = patient.parts[id]
+                                    if (!hasSomething(pt)) return null
+                                    return <PartCard key={id} name={name} pt={pt} />
+                                })}
 
                                 <div className={s.ovpart}>
                                     <h4>Airway</h4>
@@ -1066,6 +1034,8 @@ export default function MedicalMenu({ roster, onClose }: {
                                         <div className={`${s.ovsub} ${s.ovsubB}`}>Suction pump spent</div>
                                     )}
                                 </div>
+
+                                <OnBoard patient={patient} />
 
                                 {/* What still stands between this casualty and a
                                     handover. Listed rather than reduced to a
@@ -1177,16 +1147,92 @@ function Vitals({ patient: p }: { patient: Patient }) {
                 off ? s.vitOff
                     : p.spo2 <= 64 ? `${s.vitCrit} ${s.flash}`
                         : p.spo2 < 90 ? s.vitCrit : p.spo2 < 95 ? s.vitWarn : '')}
-            {cell('RR', off ? '—' : p.cardiacArrest ? '0' : jitter(p.rr, 1), off ? '' : '/min',
-                off ? s.vitOff : p.rr > 24 || p.rr < 8 ? s.vitWarn : '')}
+            {cell('RR', off ? '—' : shownRr(p), off ? '' : '/min',
+                off ? s.vitOff : shownRr(p) === 0 ? `${s.vitCrit} ${s.flash}` : shownRr(p) > 24 || shownRr(p) < 8 ? s.vitWarn : '')}
             {cell('TEMP', p.temp.toFixed(1), '°C', p.temp < 35.5 ? s.vitWarn : '')}
-            {cell('BLOOD', Math.round(p.blood), '%',
+            {/* Litres, because a bag is measured in millilitres and a percentage
+                of an unstated total is not something you can do arithmetic with. */}
+            {cell('VOLUME', (p.blood / 100 * p.volume / 1000).toFixed(1), 'L',
                 p.blood < 55 ? s.vitCrit : p.blood < 75 ? s.vitWarn : '')}
         </div>
     )
 }
 
 /* ---------- ECG ----------------------------------------------------------- */
+
+/** Anything about a limb worth a block of its own. */
+function hasSomething(pt: BodyPart): boolean {
+    return !!(pt.wounds.length || pt.fractured || pt.tourniquet || pt.iv)
+}
+
+/**
+ * One body part, as the overview reports it.
+ *
+ * Pulled out of the panel so the selected limb can be drawn at the top without
+ * the listing below it having to know: same card, different place, one accent.
+ */
+function PartCard({ name, pt, selected }: { name: string, pt: BodyPart, selected?: boolean }) {
+    return (
+        <div className={`${s.ovpart} ${selected ? s.ovpartSel : ''}`}>
+            <h4>
+                {name}
+                {selected && <span className={s.selTag}>SELECTED</span>}
+            </h4>
+            {pt.fractured && (
+                <div className={`${s.ovline} ${pt.splinted ? s.ovlineDim : s.ovlineRed}`}>
+                    {pt.splinted ? 'Fractured (splinted)' : 'Fractured'}
+                </div>
+            )}
+            {pt.wounds.map(w => (
+                <div key={w.id} className={`${s.ovsub} ${w.bandaged ? s.ovsubB : ''}`}>
+                    {WOUND_TYPES[w.t].name}
+                    {w.bandaged && w.dressing && (
+                        <span className={w.failIn !== null ? s.slipping : undefined}>
+                            {' · '}{BANDAGES[w.dressing].short}
+                            {w.failIn !== null ? ` ${Math.ceil(w.failIn)}s` : ' · holding'}
+                        </span>
+                    )}
+                    {!w.bandaged && <span className={s.slipping}>{' · open'}</span>}
+                </div>
+            ))}
+            {pt.tourniquet && <div className={s.ovsub} style={{ color: 'var(--yellow)' }}>Tourniquet applied</div>}
+            {pt.iv > 0 && <div className={s.ovsub} style={{ color: 'var(--blue)' }}>{pt.iv}× IV access</div>}
+            {!pt.checked && <div className={`${s.ovsub} ${s.ovsubB}`} style={{ fontSize: 12.5 }}>not yet examined</div>}
+            {selected && !hasSomething(pt) && (
+                <div className={`${s.ovsub} ${s.ovsubB}`}>Nothing wrong with this one.</div>
+            )}
+        </div>
+    )
+}
+
+/**
+ * Everything still working, and how far through it is.
+ *
+ * The bar is the drug's own curve — climbing while it takes hold, full while it
+ * holds, falling as it lets go — so “given” and “working” stop being the same
+ * word. Two drugs pulling the same vital opposite ways are both on the list,
+ * which is the only warning you get that you have cancelled yourself out.
+ */
+function OnBoard({ patient: p }: { patient: Patient }) {
+    if (!p.doses.length) return null
+    return (
+        <div className={s.ovpart}>
+            <h4>On board</h4>
+            {p.doses.map(d => {
+                const drug = DRUGS[d.drug]
+                const at = intensity(drug, d.age)
+                const left = Math.max(0, Math.ceil(drug.duration - d.age))
+                return (
+                    <div key={d.id} className={s.dose}>
+                        <span>{drug.label}</span>
+                        <b>{d.age < drug.onset ? 'taking hold' : `${left}s`}</b>
+                        <i style={{ width: `${at * 100}%` }} />
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
 
 /**
  * What the casualty is telling you, if they are in any state to tell you.

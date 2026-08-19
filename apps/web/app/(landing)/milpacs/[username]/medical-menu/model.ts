@@ -154,14 +154,25 @@ export type FluidId = 'blood' | 'plasma' | 'saline'
  */
 export const FLUIDS: Record<FluidId, {
     label: string
-    potency: number
+    /** Fraction of what you hang that stays in the vasculature. */
+    retention: number
+    /**
+     * Points of saturation lost per whole-volume replacement.
+     *
+     * Dilution. Volume is not the same thing as blood: crystalloid fills the
+     * pipes and carries nothing, so a casualty full of saline has a pressure
+     * you are pleased with and no oxygen going anywhere. Two and a half litres
+     * into a five-litre man is half his haemoglobin — and this is the number
+     * that makes that arithmetic land on the monitor.
+     */
+    dilute: number
     rate: number
     dot: 'r' | 'y' | 'b'
     colour: string
 }> = {
-    blood:  { label: 'Blood', potency: 0.018, rate: 20, dot: 'r', colour: '#d2352c' },
-    plasma: { label: 'Plasma',      potency: 0.012, rate: 25, dot: 'y', colour: '#e8c343' },
-    saline: { label: 'Saline 0.9%', potency: 0.004, rate: 35, dot: 'b', colour: '#56a8e0' },
+    blood:  { label: 'Blood',       retention: 1,    dilute: 0,  rate: 20, dot: 'r', colour: '#d2352c' },
+    plasma: { label: 'Plasma',      retention: 0.9,  dilute: 45, rate: 25, dot: 'y', colour: '#e8c343' },
+    saline: { label: 'Saline 0.9%', retention: 0.42, dilute: 94, rate: 35, dot: 'b', colour: '#56a8e0' },
 }
 
 /** Bag sizes, in ml. */
@@ -228,8 +239,10 @@ export interface Patient {
     bloodType: string
     bloodTypeKnown: boolean
     parts: Record<PartId, BodyPart>
-    /** Volume, as a percentage. */
+    /** Volume, as a percentage of `volume`. */
     blood: number
+    /** What a full tank is, in ml. Everybody is a slightly different size. */
+    volume: number
     /** 0–100. */
     pain: number
     hr: number
@@ -283,16 +296,10 @@ export interface Patient {
     pneumo: boolean
     meds: string[]
     tqCount: number
-    /**
-     * Doses of phenylephrine on board, decaying.
-     *
-     * The one drug in the drawer that stacks: each dose tightens the vessels
-     * further and the bleeding slows with them. A fraction rather than a count
-     * because it wears off continuously.
-     */
-    pressor: number
-    /** Seconds of epinephrine left in the casualty. Compressions work on it. */
-    epi: number
+    /** Everything still working, with how far along it is. */
+    doses: Dose[]
+    /** Ids for the doses, so React has something stable to key on. */
+    doseSeq: number
     /**
      * Where the heart rate is climbing to, or null if it is not climbing.
      *
@@ -438,6 +445,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         bloodTypeKnown: false,
         parts: Object.fromEntries(PARTS.map(x => [x.id, mkPart(x.id)])) as Record<PartId, BodyPart>,
         blood: randInt(...cfg.blood),
+        volume: randInt(4500, 5500),
         pain: randInt(...cfg.pain),
         hr: 80, sysBp: 118, diaBp: 74, spo2: 98, rr: 16, etco2: 36,
         temp: Math.round((36.8 - Math.random() * 1.4) * 10) / 10,
@@ -446,7 +454,7 @@ export function newPatient(who: Casualty = FALLBACK_CASUALTY, difficulty: Diffic
         spontaneous: true, bagging: false, oxygen: false,
         chestWound: false, sealed: false, pneumoIn: null, pneumo: false,
         meds: [], tqCount: 0,
-        pressor: 0, epi: 0, hrTarget: null, wake: 0,
+        doses: [], doseSeq: 0, hrTarget: null, wake: 0,
         monitorOn: null, padsOn: false, woundSeq: 0,
         infusions: [], infusionSeq: 0,
         downtime: 0, outcome: 'active', cause: '',
@@ -607,25 +615,126 @@ export const WAKE_DELAY = 22
 /** How long 1 mg of epinephrine keeps working, in seconds. */
 export const EPI_WINDOW = 120
 
-/* ---------- vasoconstriction ---------------------------------------------- */
+/* ---------- pharmacology --------------------------------------------------- */
 
-/** Seconds one dose of phenylephrine holds for. */
-export const PRESSOR_LIFE = 50
+export type DrugId =
+    | 'morphine' | 'nalbuphine' | 'fentanyl'
+    | 'epi' | 'atropine' | 'amiodarone' | 'phenylephrine'
+    | 'txa' | 'naloxone' | 'caffeine'
 
-/** Doses worth giving. Past this the vessels are as tight as they will go. */
-export const PRESSOR_MAX = 4
+export type VitalKey = 'pain' | 'hr' | 'sysBp' | 'diaBp' | 'rr' | 'spo2'
+
+export interface Drug {
+    label: string
+    /** The dose on the label, for the button. */
+    dose: string
+    /** Seconds to reach full effect. Nothing in the bag works the moment it goes in. */
+    onset: number
+    /** Seconds it works for in total, onset included. */
+    duration: number
+    /** How much of that is spent wearing off. */
+    fade: number
+    /** What it does at full effect, as offsets from wherever the casualty was. */
+    effect: Partial<Record<VitalKey, number>>
+    /** What it multiplies the bleeding by, if it does anything to bleeding. */
+    bleedMul?: number
+    /** Doses that will still do something. Past this you are only adding risk. */
+    max: number
+    /** Drugs this one reverses. Given, it pulls them straight back out. */
+    antagonises?: DrugId[]
+}
 
 /**
- * What the bleeding is multiplied by, for the phenylephrine on board.
+ * The drawer.
  *
- * Deliberately floored well above zero. Squeezing the vessels shut buys time
- * and buys it at a price the casualty pays later — it is not a dressing, and a
- * drug that could stop a haemorrhage outright would teach the wrong thing.
- * `totalBleed` is left alone for the same reason a tourniqueted limb keeps its
- * colour: the wound is exactly as open as it was.
+ * Everything here is a curve rather than a number: it comes up over `onset`,
+ * holds, and goes back down over `fade`, and the vitals it moved come back with
+ * it. Nothing is permanent and nothing is instant, which between them are most
+ * of what makes giving a drug a decision — you are committing the next few
+ * minutes of somebody's heart rate, not pressing a button that adds twenty.
+ *
+ * Two drugs act on the same vital and they simply sum, which is all
+ * counteraction needs to be for most of this: atropine and amiodarone will
+ * cancel each other out and leave you with a casualty you have done nothing
+ * for. Naloxone is the exception — a real antagonist, which does not add an
+ * opposite effect but takes the opioid back off the board.
+ */
+export const DRUGS: Record<DrugId, Drug> = {
+    morphine:      { label: 'Morphine',      dose: '10 mg IV', onset: 25, duration: 300, fade: 90,  max: 3, effect: { pain: -48, hr: -8, rr: -4, sysBp: -6 } },
+    nalbuphine:    { label: 'Nalbuphine',    dose: '10 mg IM', onset: 20, duration: 240, fade: 70,  max: 3, effect: { pain: -34, hr: -4, rr: -2 } },
+    fentanyl:      { label: 'Fentanyl',      dose: '800 µg',  onset: 12, duration: 180, fade: 50,  max: 3, effect: { pain: -42, rr: -3 } },
+
+    epi:           { label: 'Epinephrine',   dose: '1 mg',     onset: 8,  duration: 120, fade: 40,  max: 4, effect: { hr: 24, sysBp: 20, diaBp: 9 } },
+    atropine:      { label: 'Atropine',      dose: '0.5 mg',   onset: 10, duration: 200, fade: 60,  max: 3, effect: { hr: 18 } },
+    amiodarone:    { label: 'Amiodarone',    dose: '300 mg',   onset: 20, duration: 280, fade: 80,  max: 2, effect: { hr: -16, sysBp: -8 } },
+    phenylephrine: { label: 'Phenylephrine', dose: '100 µg',  onset: 10, duration: 90,  fade: 30,  max: 4, effect: { sysBp: 16, diaBp: 10, hr: -6 }, bleedMul: 0.8 },
+
+    txa:           { label: 'TXA',           dose: '1 g slow', onset: 45, duration: 600, fade: 120, max: 1, effect: {}, bleedMul: 0.78 },
+    naloxone:      { label: 'Naloxone',      dose: '0.4 mg',   onset: 8,  duration: 150, fade: 40,  max: 3, effect: { rr: 4 },
+        antagonises: ['morphine', 'nalbuphine', 'fentanyl'] },
+    caffeine:      { label: 'Caffeine Gum',  dose: 'morale',   onset: 60, duration: 300, fade: 90,  max: 2, effect: { hr: 5 } },
+}
+
+/** Respiratory rate below which they stop trying. Opioids get you here. */
+export const DEPRESSED_RR = 5
+
+/**
+ * A dose, and how much of it has landed.
+ *
+ * `applied` is a ledger rather than a description: it records the fraction of
+ * the effect already added to the casualty's vitals, so every tick only has to
+ * apply the difference. Wearing off is the same operation with a smaller
+ * number, which means a drug takes back exactly what it gave and no accounting
+ * of "original" vitals is needed anywhere.
+ */
+export interface Dose {
+    id: number
+    drug: DrugId
+    /** Seconds since it went in. */
+    age: number
+    /** Fraction of the effect currently applied, 0–1. */
+    applied: number
+    /**
+     * The same, for heart rate alone.
+     *
+     * Rate is the one vital something else assigns outright — an arrest sets
+     * it, compressions set it — so a rate drug's contribution is definitionally
+     * not in that number while either is happening. It pauses, the ledger reads
+     * zero, and it picks up again when the heart is setting its own rate. Which
+     * is also the truth of it: adrenaline cannot speed up a heart that has
+     * stopped.
+     */
+    hrApplied: number
+}
+
+/** How much of a dose is working, at that age. */
+export function intensity(d: Drug, age: number): number {
+    if (age <= 0 || age >= d.duration) return 0
+    if (age < d.onset) return age / d.onset
+    const fadeAt = d.duration - d.fade
+    return age < fadeAt ? 1 : Math.max(0, (d.duration - age) / d.fade)
+}
+
+/** Whether a drug is actually working, as opposed to merely having been given. */
+export const onBoard = (p: Patient, drug: DrugId) =>
+    p.doses.some(d => d.drug === drug && d.applied > 0.05)
+
+/**
+ * What the bleeding is multiplied by, for what is on board.
+ *
+ * Floored well above zero on purpose. Tightening the vessels and slowing the
+ * clot breakdown both buy time at a price the casualty pays later — neither is
+ * a dressing, and a drug that could stop a haemorrhage outright would teach the
+ * wrong thing. `totalBleed` is left alone for the same reason a tourniqueted
+ * limb keeps its colour: the wound is exactly as open as it was.
  */
 export function bleedFactor(p: Patient): number {
-    return Math.max(0.3, 1 - 0.2 * Math.min(p.pressor, PRESSOR_MAX))
+    let f = 1
+    for (const d of p.doses) {
+        const m = DRUGS[d.drug].bleedMul
+        if (m !== undefined) f *= 1 - (1 - m) * d.applied
+    }
+    return Math.max(0.3, f)
 }
 
 /* ---------- the airway ----------------------------------------------------- */
@@ -669,6 +778,19 @@ export function breathing(p: Patient): boolean {
  */
 export function ventilating(p: Patient): boolean {
     return airwayOpen(p) && (breathing(p) || p.bagging)
+}
+
+/**
+ * The respiratory rate as the monitor would read it.
+ *
+ * `p.rr` is the drive — what the drugs and the injuries have done to how hard
+ * they are trying. What comes out of the chest is a different number: nothing
+ * at all if they have stopped, twelve if somebody is squeezing a bag, and
+ * visibly laboured if they are working against something that is in the way.
+ */
+export function shownRr(p: Patient): number {
+    if (!breathing(p)) return p.bagging ? 12 : 0
+    return Math.round(airwayOpen(p) ? p.rr : p.rr * 1.6)
 }
 
 /** How often going under brings the last meal up with it. */
@@ -778,6 +900,7 @@ export function stabilityIssues(p: Patient): string[] {
     }
     if (p.spo2 < 92) out.push(`SpO₂ ${Math.round(p.spo2)}% — needs oxygen`)
     if (p.pain > 30) out.push('In pain — needs analgesia')
+    if (p.rr < 8 && breathing(p)) out.push(`Respiratory rate ${Math.round(p.rr)} — over-sedated`)
     return out
 }
 

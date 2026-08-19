@@ -1,10 +1,12 @@
 import {
-    BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE, DEATH_DOWNTIME, EPI_WINDOW, FLUIDS,
-    PRESSOR_LIFE, PRESSOR_MAX, RHYTHM_LABEL, SHOCKABLE, WOUND_TYPES,
-    ADJUNCT_LABEL, APNOEA_AT, APNOEA_OUT, FATAL_SPO2, OBSTRUCTION_LABEL, VOMIT_ON_COLLAPSE,
-    airwayOpen, arrestHr, breathing, ventilating, bestBandage, bleedFactor, clamp, dressingLife, isConscious, jitter,
-    nextWound, pName, reopenChance, setRhythm, stabilityIssues, totalBleed,
-    type Adjunct, type BandageId, type BodyPart, type FluidId, type Patient, type PartId,
+    ADJUNCT_LABEL, APNOEA_AT, APNOEA_OUT, BAG_SIZES, BANDAGES, CPR_DOWNTIME_RATE, CPR_RATE,
+    DEATH_DOWNTIME, DEPRESSED_RR, DRUGS, FATAL_SPO2, FLUIDS, OBSTRUCTION_LABEL,
+    RHYTHM_LABEL, SHOCKABLE, VOMIT_ON_COLLAPSE, WOUND_TYPES,
+    airwayOpen, arrestHr, bestBandage, bleedFactor, breathing, clamp, dressingLife, intensity,
+    isConscious, jitter, nextWound, onBoard, pName, reopenChance, setRhythm, stabilityIssues,
+    totalBleed, ventilating,
+    type Adjunct, type BandageId, type BodyPart, type DrugId, type FluidId, type Patient,
+    type PartId, type VitalKey,
 } from './model'
 
 /* ============================================================================
@@ -182,16 +184,75 @@ function dress(p: Patient, id: PartId, b: BandageId): [string, LogKind] {
     return [`${BANDAGES[b].label} — ${pName(id)} · ${wound} closed`, 'good']
 }
 
-function med(p: Patient, name: string, eff: Partial<Record<keyof Patient, number>>, stack = false): [string, LogKind] {
-    // Three doses is the ceiling. Refusing is the safety behaviour worth having.
-    // A drug you are meant to titrate to effect is exempt.
-    if (!stack && p.meds.filter(m => m === name).length >= 3) return [name + ' — max dose reached, refused', 'bad']
-    p.meds.push(name)
-    for (const k in eff) {
-        const key = k as 'pain' | 'hr' | 'sysBp' | 'diaBp' | 'rr' | 'spo2'
-        p[key] = clamp(p[key] + (eff[key] ?? 0), 0, key === 'pain' ? 100 : 250)
+/** What a vital is allowed to reach, so a drug cannot push one somewhere absurd. */
+const VITAL_CAP: Record<VitalKey, number> = { pain: 100, spo2: 100, hr: 250, sysBp: 250, diaBp: 200, rr: 60 }
+
+/**
+ * Put a drug in. Nothing happens yet.
+ *
+ * It goes on the board with an age of zero and comes up over its onset, which
+ * is the whole difference between this and a button that adds twenty to a
+ * number: you have committed the next few minutes and you will not know what
+ * you have done for another twenty seconds.
+ */
+function give(p: Patient, id: DrugId): [string, LogKind] {
+    const drug = DRUGS[id]
+    if (p.meds.filter(m => m === drug.label).length >= drug.max) {
+        return [`${drug.label} — max dose reached, refused`, 'bad']
     }
-    return [`${name} administered`, 'good']
+    p.meds.push(drug.label)
+
+    /*
+       An antagonist does not add an opposite effect, it takes the other drug
+       off the board — which means the analgesia comes off with it. Reversing an
+       opioid gets you a casualty who is breathing and in a great deal of pain,
+       and that is the trade, not a side effect.
+    */
+    let reversed = 0
+    for (const d of p.doses) {
+        if (!drug.antagonises?.includes(d.drug)) continue
+        const other = DRUGS[d.drug]
+        d.age = Math.max(d.age, other.duration - other.fade * 0.3)
+        reversed++
+    }
+
+    p.doses.push({ id: p.doseSeq++, drug: id, age: 0, applied: 0, hrApplied: 0 })
+    if (reversed) return [`${drug.label} given — ${reversed} opioid dose(s) reversing`, 'warn']
+    return [`${drug.label} ${drug.dose} — in, working in ${drug.onset}s`, 'good']
+}
+
+/** Everything on board, coming up and going back down. */
+function metabolise(p: Patient, dt: number) {
+    // Rate is assigned outright by an arrest or by your hands, so nothing a
+    // drug does to it is in that number while either is true.
+    const rateForced = p.cardiacArrest || p.cprActive
+
+    for (const d of p.doses) {
+        d.age += dt
+        const drug = DRUGS[d.drug]
+        const want = intensity(drug, d.age)
+
+        const step = want - d.applied
+        if (step !== 0) {
+            for (const k in drug.effect) {
+                const key = k as VitalKey
+                if (key === 'hr') continue
+                p[key] = clamp(p[key] + (drug.effect[key] ?? 0) * step, 0, VITAL_CAP[key])
+            }
+            d.applied = want
+        }
+
+        if (rateForced) { d.hrApplied = 0; continue }
+        const hrStep = want - d.hrApplied
+        if (hrStep !== 0) {
+            p.hr = clamp(p.hr + (drug.effect.hr ?? 0) * hrStep, 0, VITAL_CAP.hr)
+            d.hrApplied = want
+        }
+    }
+
+    // Applied first, dropped after: a dose that has run out unwinds itself on
+    // the tick it expires, and only then stops being anybody's business.
+    p.doses = p.doses.filter(d => d.age < DRUGS[d.drug].duration)
 }
 
 /**
@@ -369,47 +430,24 @@ export const ACTIONS: Record<Exclude<ToolId, 'triage'>, ActionRow[]> = {
     ],
 
     medication: [
-        { sec: 'Analgesia' },
-        { id: 'morph', label: 'Morphine',          note: '10 mg IV', dot: 'y', run: p => med(p, 'Morphine',   { pain: -45, hr: -8, rr: -3 }) },
-        { id: 'nalb',  label: 'Nalbuphine',        note: '10 mg IM', dot: 'y', run: p => med(p, 'Nalbuphine', { pain: -32, hr: -4 }) },
-        { id: 'fent',  label: 'Fentanyl Lozenge',  note: '800 µg',   dot: 'y', run: p => med(p, 'Fentanyl',   { pain: -38, rr: -2 }) },
+        { sec: 'Analgesia · all three depress breathing' },
+        { id: 'morph', label: DRUGS.morphine.label,   note: DRUGS.morphine.dose,   dot: 'y', run: p => give(p, 'morphine') },
+        { id: 'nalb',  label: DRUGS.nalbuphine.label, note: DRUGS.nalbuphine.dose, dot: 'y', run: p => give(p, 'nalbuphine') },
+        { id: 'fent',  label: DRUGS.fentanyl.label,   note: DRUGS.fentanyl.dose,   dot: 'y', run: p => give(p, 'fentanyl') },
 
         { sec: 'Cardiac / Resus' },
-        { id: 'epi', label: 'Epinephrine', note: '1 mg · 2 min', dot: 'r', run: p => {
-            const out = med(p, 'Epinephrine', p.cardiacArrest ? {} : { hr: +22, sysBp: +18, diaBp: +8 })
-            if (out[1] !== 'good') return out
-            /*
-               In an arrest it is not a pressor, it is what makes the next two
-               minutes of compressions worth doing: coronary perfusion good
-               enough that the heart might take an output back, and asystole
-               coarse enough that it might turn into something the pads can
-               work with. It does none of that on its own — you still have to
-               be pushing on the chest.
-            */
-            p.epi = EPI_WINDOW
-            return p.cardiacArrest
-                ? ['Epinephrine 1 mg — compressions will bite for the next two minutes', 'good']
-                : out
-        } },
-        { id: 'atro',  label: 'Atropine',      note: '0.5 mg', dot: 'r', run: p => med(p, 'Atropine',      { hr: +16 }) },
-        { id: 'amio',  label: 'Amiodarone',    note: '300 mg', dot: 'r', run: p => med(p, 'Amiodarone',    { hr: -14 }) },
-        { id: 'phen', label: 'Phenylephrine', note: '100 µg · stacks', dot: 'r', run: p => {
-            // A pressor doing what a pressor does: the vessels clamp down, the
-            // pressure comes up, and less comes out of the holes. It stacks
-            // because you titrate it to effect, and it wears off because it is
-            // borrowing against perfusion rather than fixing anything.
-            const capped = p.pressor >= PRESSOR_MAX
-            med(p, 'Phenylephrine', { sysBp: +14, diaBp: +9, hr: -6 }, true)
-            p.pressor = Math.min(p.pressor + 1, PRESSOR_MAX)
-            return capped
-                ? ['Phenylephrine — already maximally vasoconstricted', 'warn']
-                : [`Phenylephrine administered — bleeding down to ${Math.round(bleedFactor(p) * 100)}%`, 'good']
-        } },
+        // In an arrest adrenaline is not a pressor — it is what makes the next
+        // two minutes of compressions worth doing, and it does none of that on
+        // its own. You still have to be pushing on the chest.
+        { id: 'epi',   label: DRUGS.epi.label,           note: DRUGS.epi.dose,           dot: 'r', run: p => give(p, 'epi') },
+        { id: 'atro',  label: DRUGS.atropine.label,      note: DRUGS.atropine.dose,      dot: 'r', run: p => give(p, 'atropine') },
+        { id: 'amio',  label: DRUGS.amiodarone.label,    note: DRUGS.amiodarone.dose,    dot: 'r', run: p => give(p, 'amiodarone') },
+        { id: 'phen',  label: DRUGS.phenylephrine.label, note: DRUGS.phenylephrine.dose, dot: 'r', run: p => give(p, 'phenylephrine') },
 
         { sec: 'Adjuncts' },
-        { id: 'txa',   label: 'TXA',          note: '1 g slow IV', dot: 'b', run: p => med(p, 'TXA', {}) },
-        { id: 'nalox', label: 'Naloxone',     note: '0.4 mg',      dot: 'b', run: p => med(p, 'Naloxone', { rr: +5, pain: +18 }) },
-        { id: 'carb',  label: 'Caffeine Gum', note: 'morale',      dot: 'b', run: p => med(p, 'Caffeine Gum', { hr: +4 }) },
+        { id: 'txa',   label: DRUGS.txa.label,      note: DRUGS.txa.dose,      dot: 'b', run: p => give(p, 'txa') },
+        { id: 'nalox', label: DRUGS.naloxone.label, note: 'reverses opioids',  dot: 'b', run: p => give(p, 'naloxone') },
+        { id: 'carb',  label: DRUGS.caffeine.label, note: DRUGS.caffeine.dose, dot: 'b', run: p => give(p, 'caffeine') },
     ],
 
     airway: [
@@ -729,7 +767,7 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     if (p.spontaneous && p.spo2 <= APNOEA_AT) {
         p.spontaneous = false
         event = ['Casualty has stopped breathing — get a bag on them', 'bad']
-    } else if (!p.spontaneous && p.spo2 >= APNOEA_OUT) {
+    } else if (!p.spontaneous && p.spo2 >= APNOEA_OUT && p.rr > DEPRESSED_RR + 2) {
         p.spontaneous = true
         event = ['Casualty is breathing on their own again', 'good']
     }
@@ -776,10 +814,15 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         return ['CASUALTY HAS DIED OF HYPOXIA — no air was moving', 'bad']
     }
 
-    // The drugs wearing off.
-    if (p.pressor > 0) p.pressor = Math.max(0, p.pressor - dt / PRESSOR_LIFE)
-    if (p.epi > 0)     p.epi = Math.max(0, p.epi - dt)
-    if (p.wake > 0)    p.wake = Math.max(0, p.wake - dt)
+    metabolise(p, dt)
+    if (p.wake > 0) p.wake = Math.max(0, p.wake - dt)
+
+    // Enough opioid and they stop trying to breathe. Naloxone is the way back;
+    // a bag is the way through while it works.
+    if (p.spontaneous && !p.cardiacArrest && p.rr <= DEPRESSED_RR) {
+        p.spontaneous = false
+        event = ['Respiratory depression — casualty has stopped breathing', 'bad']
+    }
 
     // A heart that has just restarted, working its way back up.
     if (p.hrTarget !== null) {
@@ -795,9 +838,17 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
             const f = FLUIDS[inf.fluid]
             const ml = Math.min(inf.left, f.rate * dt)
             inf.left -= ml
-            p.blood  = clamp(p.blood + ml * f.potency, 0, 100)
-            p.sysBp  = clamp(p.sysBp + ml * f.potency, 0, 200)
-            p.diaBp  = clamp(p.diaBp + ml * f.potency * 0.6, 0, 140)
+            // As a fraction of this casualty's own tank, which is why the same
+            // bag goes further into a smaller man.
+            const frac = ml / p.volume
+            const gained = frac * 100 * f.retention
+            p.blood = clamp(p.blood + gained, 0, 100)
+            p.sysBp = clamp(p.sysBp + gained, 0, 200)
+            p.diaBp = clamp(p.diaBp + gained * 0.6, 0, 140)
+            // Volume is not blood. Crystalloid fills the pipes and carries
+            // nothing, so the pressure you are pleased with is bought against
+            // the saturation you are about to be unhappy about.
+            if (f.dilute) p.spo2 = clamp(p.spo2 - frac * f.dilute, 0, 100)
             if (inf.left <= 0.001) emptied.push(`${f.label} ${inf.volume} ml`)
         }
         p.infusions = p.infusions.filter(i => i.left > 0.001)
@@ -819,7 +870,7 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
            — that is the entire point of giving it, and the reason it is worth
            interrupting compressions for the ten seconds it costs.
         */
-        const boost = p.epi > 0 ? 3.4 : 1
+        const boost = onBoard(p, 'epi') ? 3.4 : 1
         const rolled = (perSecond: number) => Math.random() < perSecond * dt * boost
 
         if (p.rhythm === 'pea' && rolled(0.020)) {

@@ -634,6 +634,72 @@
 .bloodbar { height: 12px; background: rgba(0, 0, 0, .55); border: 1px solid var(--panel-line-sub); margin-top: 4px }
 .bloodbar>i { display: block; height: 100%; background: linear-gradient(90deg, #7d1512, #d0322a); transition: width .4s }
 
+/* The limb you clicked, drawn where you cannot miss it. The panel used to
+   make you hunt for it among five others in the same grey. */
+.ovpartSel {
+    margin: 4px 0 2px;
+    padding: 8px 10px 9px;
+    border-left: 3px solid var(--hz-orange);
+    background: rgba(217, 164, 65, .09);
+    border-radius: 0 2px 2px 0;
+}
+
+.ovpartSel h4 { color: var(--hz-orange); display: flex; align-items: center; gap: 8px }
+
+.selTag {
+    font-family: monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: #1b1408;
+    background: var(--hz-orange);
+    padding: 1px 5px;
+    border-radius: 2px;
+}
+
+/* Everything that is not the limb you clicked, under a line that says so. */
+.ovrule {
+    margin: 18px 0 2px;
+    padding-top: 8px;
+    border-top: 1px solid var(--panel-line-sub);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--txt-mute);
+}
+
+/* A drug on board, with its own curve as the bar. */
+.dose {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 3px;
+    padding: 4px 8px 6px;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid var(--panel-line-sub);
+    border-radius: 2px;
+    font-size: 12.5px;
+    overflow: hidden;
+}
+
+.dose b {
+    margin-left: auto;
+    font-family: monospace;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--txt-dim);
+}
+
+.dose > i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--hz-orange);
+    transition: width .3s linear;
+}
+
 /* A bag running. The bar is what is left in it, so it empties as it works. */
 .infusion {
     position: relative;
