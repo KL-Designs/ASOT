@@ -462,6 +462,7 @@ export default function MedicalMenu({ roster, onClose }: {
                     <div className={s.docks}>
                         <div className={s.dock}>
                             <h3>ACTIVITY LOG</h3>
+                            <div className={s.dockScroll}>
                             <div className={s.dockbody}>
                                 {log.length === 0
                                     ? <div className={s.hint}>No activity recorded.</div>
@@ -470,6 +471,7 @@ export default function MedicalMenu({ roster, onClose }: {
                                             <span className={s.t}>{l.stamp}</span><b>{l.text}</b>
                                         </div>
                                     ))}
+                            </div>
                             </div>
                         </div>
                         <div className={`${s.dock} ${s.dockQuick}`}>

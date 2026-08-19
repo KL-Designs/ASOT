@@ -403,10 +403,25 @@
 /*
    Quick View reports a fixed set of figures, so there is nothing to scroll to —
    it sizes to its content and, being the taller of the two, sets the height of
-   the whole dock row. The activity log then fills whatever that comes to and
-   scrolls inside it, which is the one of the pair that genuinely grows.
+   the whole dock row.
 */
-.dockQuick .dockbody { flex: 0 0 auto; overflow: visible }
+.dockQuick .dockbody { flex: 0 0 auto; overflow: visible; position: static }
+
+/*
+   The activity log is the half that grows without limit, and it must not be
+   what decides how tall the row is — left to contribute its own height it
+   pushed the docks up into the body diagram and never scrolled at all.
+
+   The body is absolutely positioned inside this wrapper, which takes it out of
+   flow: an out-of-flow box contributes nothing to its container's intrinsic
+   height, so the row is sized by Quick View alone and the log fills whatever
+   that comes to.
+*/
+.dockScroll {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+}
 
 .dock>h3 {
     margin: 2px 0 4px;
@@ -419,8 +434,8 @@
 }
 
 .dockbody {
-    flex: 1 1 auto;
-    min-height: 0;
+    position: absolute;
+    inset: 0;
     overflow: auto;
     background: rgba(0, 0, 0, .55);
     border: 1px solid var(--panel-line-sub);
