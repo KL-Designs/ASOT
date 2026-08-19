@@ -680,16 +680,21 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
     /*
        Air, or the lack of it.
 
-       An obstructed airway is the fastest way to lose a casualty in this menu
-       and it is meant to be: you have about twenty seconds of not noticing
-       before it matters and under a minute before it is over.
+       A blocked airway kills over about four minutes, not forty seconds. That
+       is long enough to be somewhere else when it starts and still get back —
+       which is the situation worth practising. The warning at 80% lands after
+       roughly a minute and a half and the alarm at 70% after two, so most of
+       the run is spent being told about it.
+
+       Coming back is quicker than going down, as it is in a real chest: open
+       the airway and the numbers climb while you get on with something else.
     */
     const open = airwayOpen(p)
     if (!open) {
-        p.spo2 = clamp(p.spo2 - dt * 1.2, 0, 100)
-        p.rr   = clamp(p.rr + dt * 1.4, 0, 46)
+        p.spo2 = clamp(p.spo2 - dt * 0.2, 0, 100)
+        p.rr   = clamp(p.rr + dt * 0.35, 0, 46)
     } else if (!p.pneumo && p.spo2 < 97) {
-        p.spo2 = clamp(p.spo2 + dt * 0.9, 0, 97)
+        p.spo2 = clamp(p.spo2 + dt * 0.5, 0, 97)
     }
 
     // A chest filling with air that cannot get out.
@@ -704,9 +709,10 @@ export function simulate(p: Patient, dt: number): [string, LogKind] | null {
         }
     }
     if (p.pneumo) {
-        p.spo2  = clamp(p.spo2 - dt * 1.1, 0, 100)
-        p.sysBp = clamp(p.sysBp - dt * 0.7, 20, 200)
-        p.rr    = clamp(p.rr + dt * 0.5, 0, 46)
+        // Slightly slower than a shut airway, and on the same order: minutes.
+        p.spo2  = clamp(p.spo2 - dt * 0.16, 0, 100)
+        p.sysBp = clamp(p.sysBp - dt * 0.3, 20, 200)
+        p.rr    = clamp(p.rr + dt * 0.2, 0, 46)
     }
 
     if (p.spo2 <= FATAL_SPO2) {

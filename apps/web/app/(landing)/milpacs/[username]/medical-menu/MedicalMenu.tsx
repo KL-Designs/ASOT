@@ -274,9 +274,32 @@ export default function MedicalMenu({ roster, onClose }: {
         wasVomiting.current = vomiting
     }, [vomiting])
 
+    /*
+       Decided, and therefore finished.
+
+       Everything the menu does on a timer checks this: the mission clock, the
+       trace, the alarm, the treatment in your hands. A casualty who has been
+       called should not still be bleeding on the board, and a monitor should
+       not still be making noise over them — the run stops dead, and the board
+       is where you choose to take another one.
+    */
+    const over = patient.outcome !== 'active'
+
     /* ---------- the monitor's alarm --------------------------------------- */
-    const alarm = alarmFor(patient)
+    // Silence once they are called. An alarm nobody can act on is just noise.
+    const alarm = over ? 'none' : alarmFor(patient)
     useEffect(() => { monitor.current!.setAlarm(alarm) }, [alarm])
+
+    // A treatment half-finished on a casualty who has been called does not
+    // finish. Without this the timer fires and the log reports a dressing
+    // applied to somebody who is already on the board.
+    useEffect(() => {
+        if (!over) return
+        if (busyTimer.current) clearTimeout(busyTimer.current)
+        busyTimer.current = null
+        monitor.current?.stopAnalyse()
+        setBusy(null)
+    }, [over])
 
     // Announce a rhythm change in the log — it is the one thing that can happen
     // to a casualty without anybody having done it.
@@ -367,11 +390,11 @@ export default function MedicalMenu({ roster, onClose }: {
             const now = Date.now()
             const dt = (now - last) / 1000
             last = now
-            setClock(stampFrom(t0.current, now))
 
-            // Everything below is the casualty's clock, and it stops when they
-            // do — a decided casualty should not keep bleeding on the board.
+            // Both clocks stop when the casualty is called. Nothing below this
+            // line should be running while a board is up.
             if (live.current.outcome !== 'active') return
+            setClock(stampFrom(t0.current, now))
             setElapsed((now - startedAt.current) / 1000)
 
             const next = structuredClone(live.current)
@@ -473,6 +496,7 @@ export default function MedicalMenu({ roster, onClose }: {
     const woundUp = selPart ? nextWound(selPart) : null
     const bestPick = woundUp ? bestBandage(woundUp.t) : null
     const airOpen = airwayOpen(patient)
+
 
     const issues = stabilityIssues(patient)
     const bleeding = totalBleed(patient) > 0
@@ -1225,7 +1249,10 @@ function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<
 
         const draw = (now: number) => {
             frame = requestAnimationFrame(draw)
-            const advance = (now - last) * 0.09
+            // A decided casualty's trace stands still. It stays on screen — the
+            // last thing the monitor saw is worth looking at — but nothing
+            // moves and nothing beeps.
+            const advance = live.current.outcome === 'active' ? (now - last) * 0.09 : 0
             phase += advance
             last = now
 
