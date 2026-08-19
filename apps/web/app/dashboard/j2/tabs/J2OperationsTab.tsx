@@ -12,6 +12,7 @@ import {
     CalendarToday, EventNote, LinkOff, SwapHoriz,
 } from '@mui/icons-material'
 import ConfirmDialog from '@/components/confirm-dialog'
+import { ConfirmDialog as TypedConfirmDialog } from '@/components/dashboard'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -3029,14 +3030,26 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                         </div>
                     )}
 
+                    {/*
+                       Emptying the bin is the one delete on this screen with no
+                       undo behind it — everything else lands in the bin first
+                       and keeps for 30 days. Typing the word is the friction
+                       that difference deserves.
+                    */}
                     {confirmPurgeId && (
-                        <ConfirmDialog
+                        <TypedConfirmDialog
                             open
-                            title='Delete Permanently'
-                            message={`Permanently delete "${binOps.find(o => o._id.toString() === confirmPurgeId)?.title}"? This cannot be undone.`}
+                            title='Delete permanently'
+                            confirmWord='DELETE'
+                            confirmLabel='Delete permanently'
+                            warning='The operation, its attendance and its sign-on records are removed outright. This cannot be undone.'
                             onConfirm={() => purgeFromBin(confirmPurgeId)}
                             onCancel={() => setConfirmPurgeId(null)}
-                        />
+                        >
+                            <p>
+                                Permanently delete <b>{binOps.find(o => o._id.toString() === confirmPurgeId)?.title}</b>?
+                            </p>
+                        </TypedConfirmDialog>
                     )}
                 </div>
             )}

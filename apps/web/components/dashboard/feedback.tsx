@@ -148,16 +148,23 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
  * form: edit the promotion history at the bottom and the button is off-screen
  * with no indication anything is unsaved.
  */
-export function SaveBar({ count, onSave, onDiscard, saving = false }: {
+export function SaveBar({ count, onSave, onDiscard, saving = false, className = '' }: {
     /** Pending changes. At zero the bar does not render. */
     count: number
     onSave: () => void
     onDiscard: () => void
     saving?: boolean
+    /**
+     * The bar bleeds to the edges of its column by a negative `--gap` margin.
+     * A form padded by something other than `--gap` passes its own margins here
+     * — sticky only works on a direct child of the scrolling column, so this
+     * cannot be fixed with a wrapper.
+     */
+    className?: string
 }) {
     if (count === 0) return null
     return (
-        <div className={s.savebar}>
+        <div className={`${s.savebar} ${className}`}>
             <span className={s.s}>
                 <Warning /> {count} unsaved change{count === 1 ? '' : 's'}
             </span>

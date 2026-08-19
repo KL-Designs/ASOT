@@ -82,19 +82,29 @@ export function Button({
  * +15…" — beside a separate set of fields. Here the legend and the control are
  * the same object, so there is nothing to cross-reference.
  */
-export function Chip({ on = false, tone = 'info', className = '', children, ...rest }: {
+export function Chip({ on = false, tone = 'info', readOnly = false, className = '', children, ...rest }: {
     on?: boolean
     /** What the "on" state means: neutral, an award, or a healthy flag. */
     tone?: 'info' | 'amber' | 'live'
+    /**
+     * Renders a span rather than a button. For a chip that reports rather than
+     * toggles — the points an award already contributes, say. A button nobody
+     * can press still takes focus, and that is a lie told with the keyboard.
+     */
+    readOnly?: boolean
     className?: string
     children: React.ReactNode
 } & Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'children'>) {
     const toneClass = tone === 'amber' ? s.chipAmber : tone === 'live' ? s.chipLive : ''
+    const classes = [s.chip, on ? s.chipOn : '', toneClass, className].filter(Boolean).join(' ')
+
+    if (readOnly) return <span className={classes}>{on && <CheckBold />}{children}</span>
+
     return (
         <button
             type='button'
             aria-pressed={on}
-            className={[s.chip, on ? s.chipOn : '', toneClass, className].filter(Boolean).join(' ')}
+            className={classes}
             {...rest}
         >
             {on && <CheckBold />}
