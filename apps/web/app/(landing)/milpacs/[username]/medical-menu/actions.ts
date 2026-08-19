@@ -34,6 +34,37 @@ export const TOOLS: { id: ToolId, label: string }[] = [
 /** A rule drawn after these, so the toolbar groups rather than runs on. */
 export const TOOL_SEPS = new Set<ToolId>(['triage', 'advanced'])
 
+/*
+   How long a treatment takes, in seconds.
+
+   Nothing here is instant, and only one thing can be underway at a time — the
+   casualty keeps bleeding while you work, so what you reach for first is the
+   decision the menu is actually asking you to make. A tourniquet costs five
+   seconds you could have spent on a dressing.
+
+   Most actions take their tool's default; the table below is the exceptions.
+   Triage is zero: filling in a card is paperwork, not treatment.
+*/
+const TOOL_TIME: Record<ToolId, number> = {
+    triage: 0, examine: 3, bandage: 3, medication: 3,
+    airway: 4, advanced: 6, splint: 6, drag: 4, transfer: 3,
+}
+
+const ACTION_TIME: Record<string, number> = {
+    full: 8, bt: 4,
+    packing: 4, quik: 4, tq: 5, tqoff: 3, seal: 5,
+    decom: 5, bvm: 2, oxy: 3,
+    iv: 5, blood500: 9, plasma: 8, saline: 8, cpr: 6, aed: 5, pak: 10, surg: 15,
+    realign: 4, sling: 4, blanket: 3, heat: 3,
+    stretch: 6, veh: 6, bag: 8,
+    medevac: 4, handover: 5,
+}
+
+/** Seconds this action takes, however it was specified. */
+export function actionTime(tool: ToolId, a: Action): number {
+    return a.time ?? ACTION_TIME[a.id] ?? TOOL_TIME[tool]
+}
+
 export type LogKind = '' | 'good' | 'warn' | 'bad'
 
 /** A section heading in the treatment list. */
@@ -42,6 +73,8 @@ export interface ActionSection { sec: string, id?: undefined }
 export interface Action {
     id: string
     label: string
+    /** Seconds to perform. Omitted takes the tool's default — see TOOL_TIME. */
+    time?: number
     /** Right-aligned detail — a dose, a duration, the instrument. */
     note?: string
     /** Status dot: g healthy · y caution · r serious · b informational. */

@@ -295,6 +295,70 @@
 .kbd { position: absolute; right: 2px; bottom: 0; font-size: 9px; color: var(--txt-mute) }
 .toolsep { width: 1px; height: 26px; background: var(--panel-line); margin: 0 6px; flex: none }
 
+/*
+   The treatment underway.
+
+   The bar is a keyframe with its duration set inline, so the countdown costs no
+   state and no ticking render — it simply runs for as long as the action does.
+*/
+.progress {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    padding: 7px 10px 9px;
+    background: rgba(217, 164, 65, .10);
+    border: 1px solid rgba(217, 164, 65, .45);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progressLabel {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    letter-spacing: .4px;
+    color: var(--hz-orange);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.progressX {
+    flex: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--txt-dim);
+    background: none;
+    border: 1px solid var(--panel-line-sub);
+    border-radius: 2px;
+    padding: 2px 8px;
+    cursor: pointer;
+}
+
+.progressX:hover { color: #fff; border-color: var(--panel-line) }
+
+.progress > i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 0;
+    background: var(--hz-orange);
+    animation-name: fill;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+
+@keyframes fill {
+    to { width: 100% }
+}
+
 /* ---------- panels ---------- */
 .panel {
     background: var(--panel);

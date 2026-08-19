@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
-    ACTIONS, TOOLS, TOOL_SEPS, simulate,
+    ACTIONS, TOOLS, TOOL_SEPS, actionTime, simulate,
     type Action, type ActionRow, type LogKind, type ToolId,
 } from './actions'
 import {
@@ -102,6 +102,17 @@ export default function MedicalMenu({ roster, onClose }: {
 }) {
     const [difficulty, setDifficulty] = useState<Difficulty>('moderate')
 
+    /*
+       The treatment underway, if any.
+
+       One at a time, on purpose: the casualty carries on bleeding while you
+       work, so *what you reach for first* is the decision this menu is asking
+       you to make. Everything else is disabled until it finishes or you abort.
+    */
+    const [busy, setBusy] = useState<{ label: string, seconds: number } | null>(null)
+    const busyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    useEffect(() => () => { if (busyTimer.current) clearTimeout(busyTimer.current) }, [])
+
     // Chosen once per open, in the initialiser rather than an effect: picking
     // in an effect would render the fallback first and swap the name out from
     // under you a frame later.
@@ -156,6 +167,11 @@ export default function MedicalMenu({ roster, onClose }: {
 
     /* ---------- a fresh casualty ------------------------------------------ */
     function resetPatient(d: Difficulty) {
+        // Whatever was underway was being done to the last casualty.
+        if (busyTimer.current) clearTimeout(busyTimer.current)
+        busyTimer.current = null
+        setBusy(null)
+
         const next = newPatient(drawCasualty(roster), d)
         commit(next)
         setDifficulty(d)
@@ -166,6 +182,19 @@ export default function MedicalMenu({ roster, onClose }: {
         setTimeout(() => handover(next).forEach(l => pushLog(l.text, l.kind)), 0)
     }
 
+    // Held in a ref so the keydown listener below can abort the treatment
+    // without being torn down and rebound every time one starts. Synced in an
+    // effect rather than assigned during render — events fire after commit, so
+    // the handler always sees the current one.
+    const cancelRef = useRef<() => boolean>(() => false)
+    useEffect(() => {
+        cancelRef.current = () => {
+            if (!busy) return false
+            cancelAction()
+            return true
+        }
+    })
+
     /* ---------- modal chrome: escape, scroll lock ------------------------- */
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -173,10 +202,11 @@ export default function MedicalMenu({ roster, onClose }: {
             if (el?.tagName === 'INPUT') return
 
             if (e.key === 'Escape') {
-                // Escape clears the selection first and only closes the menu
-                // when there is nothing left to clear — the same order the
-                // game's own menus use, and it stops one stray key from
-                // throwing away a casualty you were half-way through.
+                // Escape unwinds one step at a time — abort the treatment, then
+                // drop the selected limb, and only close once there is nothing
+                // left to let go of. One stray key should never throw away a
+                // casualty you were half-way through.
+                if (cancelRef.current()) return
                 setSel(prev => {
                     if (prev === null) onClose()
                     return null
@@ -216,12 +246,36 @@ export default function MedicalMenu({ roster, onClose }: {
     }, [commit, pushLog, pushToast])
 
     /* ---------- running a treatment --------------------------------------- */
-    function runAction(a: Action) {
+
+    /** Applies the treatment. Called when the timer runs out, not on click. */
+    function applyAction(a: Action) {
         const next = structuredClone(live.current)
         const [msg, kind] = a.run(next, sel)
         if (sel && a.needsPart) next.parts[sel].checked = true
         commit(next)
         if (msg) { pushLog(msg, kind); pushToast(msg) }
+    }
+
+    function startAction(a: Action) {
+        if (busy) return
+        const seconds = actionTime(tool, a)
+        if (seconds <= 0) { applyAction(a); return }
+
+        setBusy({ label: a.label, seconds })
+        pushLog(`${a.label} — started`, '')
+        busyTimer.current = setTimeout(() => {
+            busyTimer.current = null
+            setBusy(null)
+            applyAction(a)
+        }, seconds * 1000)
+    }
+
+    function cancelAction() {
+        if (!busy) return
+        if (busyTimer.current) clearTimeout(busyTimer.current)
+        busyTimer.current = null
+        pushLog(`${busy.label} — interrupted`, 'warn')
+        setBusy(null)
     }
 
     function setTriage(t: Triage) {
@@ -311,6 +365,17 @@ export default function MedicalMenu({ roster, onClose }: {
                                 })}
                             </div>
 
+                            {busy && (
+                                <div className={s.progress}>
+                                    <span className={s.progressLabel}>{busy.label}</span>
+                                    <button type='button' className={s.progressX} onClick={cancelAction}>Abort</button>
+                                    {/* Driven by the animation's own duration rather
+                                        than a ticking state value — nothing else on
+                                        screen needs to know how far along it is. */}
+                                    <i style={{ animationDuration: `${busy.seconds}s` }} />
+                                </div>
+                            )}
+
                             <div className={s.panel}>
                                 {tool === 'triage' ? (
                                     <TriageCard
@@ -330,13 +395,15 @@ export default function MedicalMenu({ roster, onClose }: {
                                                     key={row.id}
                                                     type='button'
                                                     className={s.trow}
-                                                    disabled={row.needsPart && !sel}
-                                                    onClick={() => runAction(row)}
+                                                    disabled={!!busy || (row.needsPart && !sel)}
+                                                    onClick={() => startAction(row)}
                                                 >
                                                     <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
                                                     <span>{row.label}</span>
                                                     <span className={s.qty}>
-                                                        {row.needsPart && !sel ? 'SELECT A LIMB' : (row.note ?? '')}
+                                                        {row.needsPart && !sel
+                                                            ? 'SELECT A LIMB'
+                                                            : [row.note, `${actionTime(tool, row)}s`].filter(Boolean).join(' · ')}
                                                     </span>
                                                 </button>
                                             ))
