@@ -846,9 +846,12 @@ export default function MedicalMenu({ roster, onClose }: {
                                             not a dot the same red as everything else. */}
                                         {patient.chestWound && (
                                             <g className={s.chestHole}>
-                                                <circle cx='170' cy='166' r='11' fill='none' stroke='#7e1a15' strokeWidth='1.2' opacity='.8' />
-                                                <circle cx='170' cy='166' r='8.5' fill='#6b1712' stroke='#d2352c' strokeWidth='2.4' />
-                                                <circle cx='170' cy='166' r='3.2' fill='#170705' />
+                                                {/* Near-black under everything, so the
+                                                    hole still reads as a hole on a limb
+                                                    that has gone the same red as it. */}
+                                                <circle cx='170' cy='166' r='11' fill='#150e0d' opacity='.9' />
+                                                <circle cx='170' cy='166' r='8.5' fill='#6b1712' stroke='#ff5a4e' strokeWidth='2.4' />
+                                                <circle cx='170' cy='166' r='3.2' fill='#0c0504' />
                                             </g>
                                         )}
 
@@ -869,10 +872,17 @@ export default function MedicalMenu({ roster, onClose }: {
                                         )}
                                         {patient.pneumo && (
                                             <g>
-                                                <circle className={s.pneumoRing} cx='170' cy='170' r='27'
-                                                    fill='none' stroke='#e03b31' strokeWidth='2' strokeDasharray='5 5' />
-                                                <text x='170' y='134' textAnchor='middle' fill='#e03b31'
-                                                    fontSize='10' fontWeight='700' letterSpacing='1.6'>TENSION</text>
+                                                {/* A dark halo under a bright ring. The
+                                                    torso is red by the time a chest is
+                                                    tensioning, so anything drawn in one
+                                                    red on another is drawn in vain. */}
+                                                <g className={s.pneumoRing}>
+                                                    <circle cx='170' cy='170' r='27' fill='none' stroke='#0d0b0a' strokeWidth='6' opacity='.75' />
+                                                    <circle cx='170' cy='170' r='27' fill='none' stroke='#ff6a5e' strokeWidth='2.2' strokeDasharray='5 5' />
+                                                </g>
+                                                <rect x='140' y='124' width='60' height='15' rx='2' fill='#14100f' stroke='#ff6a5e' strokeWidth='1.3' />
+                                                <text x='170' y='135' textAnchor='middle' fill='#ff6a5e'
+                                                    fontSize='9.5' fontWeight='700' letterSpacing='1.6'>TENSION</text>
                                             </g>
                                         )}
 
