@@ -170,3 +170,102 @@
         font-size: clamp(30px, 8vw, 42px);
     }
 }
+
+/* ---------- masthead aside ----------------------------------------------- */
+
+/*
+   A 340px band is only justified if something lives beside the title. This is
+   the landing hero's operation card doing that job for a content page: live
+   figures the reader would otherwise have to go and look for.
+*/
+.aside {
+    background: rgba(9, 10, 12, .84);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--line-2);
+    border-top: 2px solid var(--red);
+}
+
+.asideH {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 15px;
+    border-bottom: 1px solid var(--line-1);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--live);
+}
+
+.asideH i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--live);
+    flex: none;
+}
+
+.asideH .rt {
+    margin-left: auto;
+    color: var(--txt-3);
+}
+
+.asideRows {
+    padding: 6px 15px 12px;
+}
+
+.asideRow {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line-1);
+}
+
+.asideRow:last-child {
+    border-bottom: 0;
+}
+
+.asideRow span {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.asideRow b {
+    margin-left: auto;
+    font-family: var(--font-disp);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--txt-1);
+    letter-spacing: .03em;
+}
+
+.asideRow b.acc {
+    color: var(--amber);
+}
+
+.asideCta {
+    display: block;
+    margin: 0 15px 15px;
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+    background: var(--red);
+    color: #fff;
+    font-family: var(--font-cond);
+    font-weight: 700;
+    font-size: 13.5px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    transition: background .2s var(--nav-ease);
+}
+
+.asideCta:hover {
+    background: var(--red-hi);
+}
