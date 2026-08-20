@@ -11,8 +11,8 @@ import s from '@/styles/shell.module.css'
  * The sticky section rail.
  *
  * A client component only because it reads the pathname. Keeping that here
- * rather than in the layout is what lets `about/layout.tsx` go back to being a
- * server component — it carried 'use client' solely to pick the active tab.
+ * keeps server components from needing 'use client' solely to mark the active
+ * cell.
  */
 export default function SectionRail({ items }: { items: RailItem[] }) {
     const pathname = usePathname()
