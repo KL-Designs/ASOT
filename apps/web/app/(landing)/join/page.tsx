@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import { Suspense } from 'react'
 import Container from '@/components/container'
+import MastheadAside from '@/components/ui/MastheadAside'
 import JoinForm from './JoinForm'
 import DevTestApplicationButton from './DevTestApplicationButton'
 import db from '@/lib/mongo'
@@ -22,6 +23,17 @@ export default async function JoinPage() {
             title='JOIN ASOT'
             subtitle='Fill out the form below to apply for membership. Our J1 Recruitment team will review your application and contact you via Discord.'
             backgroundUrl={sotm ? '/api/gallery/sotm/image' : '/images/home/1122.png'}
+            aside={
+                <MastheadAside
+                    heading='Applications'
+                    status='Open'
+                    rows={[
+                        { label: 'Minimum age', value: '17' },
+                        { label: 'Cost', value: 'Free' },
+                        { label: 'Location', value: 'AU / NZ', accent: true },
+                    ]}
+                />
+            }
             sx={{ bannerHeight: 'sm', maxWidth: 'max-w-sm' }}
         >
             {sotm && (

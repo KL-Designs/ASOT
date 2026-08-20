@@ -3,6 +3,8 @@ import { headers } from 'next/headers'
 
 import Container from '@/components/container'
 import { activeRailIndex, type RailItem } from '@/lib/shell/rail'
+import { getRosterCount } from '@/lib/landing'
+import MastheadAside from '@/components/ui/MastheadAside'
 
 import ImgAbout from '@/public/images/home/training2.png'
 import ImgCallsigns from '@/public/images/home/Gopro3.png'
@@ -72,9 +74,32 @@ const ABOUT_PAGES: AboutPage[] = [
     },
 ]
 
+// The roster figure moves between requests, so a statically rendered value
+// would be stale.
+export const dynamic = 'force-dynamic'
+
 export default async function AboutLayout({ children }: Readonly<{ children: React.ReactNode }>) {
     const pathname = (await headers()).get('x-pathname') ?? '/about'
     const page = ABOUT_PAGES[activeRailIndex(ABOUT_PAGES, pathname)] ?? ABOUT_PAGES[0]
+
+    // Only the index page carries an aside — the five sub-pages have no live
+    // figures worth a second column, and a 340px band with an empty right half
+    // reads as the two-column composition with a hole in it.
+    const isIndex = page.href === '/about'
+    const roster = isIndex ? await getRosterCount() : null
+
+    const aside = isIndex ? (
+        <MastheadAside
+            heading='At a glance'
+            status='Live'
+            rows={[
+                { label: 'Active members', value: roster != null ? String(roster) : '—' },
+                { label: 'Ops per week', value: '2' },
+                { label: 'Applications', value: 'Open', accent: true },
+            ]}
+            cta={{ href: '/join', label: 'Enlist now' }}
+        />
+    ) : undefined
 
     return (
         <Container
@@ -83,6 +108,7 @@ export default async function AboutLayout({ children }: Readonly<{ children: Rea
             lede={page.subtitle}
             background={page.background}
             rail={ABOUT_PAGES}
+            aside={aside}
             sx={{ bannerHeight: 'md', maxWidth: 'max-w-md' }}
         >
             {children}
