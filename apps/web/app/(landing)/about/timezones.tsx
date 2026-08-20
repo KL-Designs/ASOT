@@ -9,6 +9,18 @@ import s from '@/styles/shell.module.css'
 
 
 
+/**
+ * `06:10 pm AEST` → `06:10 PM (AEST)`.
+ *
+ * The Intl output is restructured, not reformatted: this is exactly what the
+ * page has always printed, and the redesign only moved it into a table.
+ */
+function formatTime(time: string): string {
+    const [clock, meridiem, zone] = time.split(' ')
+    if (!meridiem || !zone) return time
+    return `${clock} ${meridiem.toUpperCase()} (${zone})`
+}
+
 export default function TimeZones() {
     interface LocalTime {
         label: string
@@ -86,22 +98,22 @@ export default function TimeZones() {
 
             <div className={s.sched}>
                 <div className={s.schedCol}>
-                    <h5>Daylight savings not observed</h5>
+                    <h4>When Daylight savings is not observed</h4>
                     <span className={s.schedWin}>First Sunday of April – First Sunday of October</span>
                     {localStandardTimes.map(({ label, time }, i) => (
                         <div key={i} className={label === 'Step off' ? `${s.schedRow} ${s.schedHi}` : s.schedRow}>
                             <span>{label}</span>
-                            <b>{time}</b>
+                            <b>{formatTime(time)}</b>
                         </div>
                     ))}
                 </div>
                 <div className={s.schedCol}>
-                    <h5>Daylight savings observed</h5>
+                    <h4>When Daylight savings is observed</h4>
                     <span className={s.schedWin}>First Sunday of October – First Sunday of April</span>
                     {localDaylightTimes.map(({ label, time }, i) => (
                         <div key={i} className={label === 'Step off' ? `${s.schedRow} ${s.schedHi}` : s.schedRow}>
                             <span>{label}</span>
-                            <b>{time}</b>
+                            <b>{formatTime(time)}</b>
                         </div>
                     ))}
                 </div>

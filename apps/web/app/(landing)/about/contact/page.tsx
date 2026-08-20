@@ -27,7 +27,7 @@ function Channel({ mark, title, accent, href, label, description, external }: {
 			className={s.channel}
 			style={{ '--acc': accent } as React.CSSProperties}
 		>
-			<div className={s.channelH}><i>{mark}</i><b>{title}</b></div>
+			<div className={s.channelH}><i aria-hidden='true'>{mark}</i><b>{title}</b></div>
 			<p>{description}</p>
 			<span className={s.channelV}>{label}</span>
 		</Link>
@@ -71,7 +71,7 @@ export default function Tab() {
 
 		<section className={s.widget}>
 			<div className={s.channelH}>
-				<i style={{ color: 'var(--discord)' }}>D</i>
+				<i aria-hidden='true' style={{ color: 'var(--discord)' }}>D</i>
 				<div>
 					<b>Discord</b>
 					<p style={{ marginTop: 2 }}>Our primary community hub — join to connect with members, ask questions, and stay up to date.</p>

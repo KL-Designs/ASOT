@@ -684,7 +684,7 @@
     padding: 15px 17px 17px;
 }
 
-.schedCol h5 {
+.schedCol h4 {
     font-family: var(--font-mono);
     font-size: 9.5px;
     letter-spacing: .18em;
@@ -745,6 +745,18 @@
     letter-spacing: .1em;
     color: var(--txt-3);
     margin: 12px 0 0;
+}
+
+/*
+   The note is a <p> inside a Card, and `.card p` is (0,1,1) against this
+   class's (0,1,0) — so body copy won on both the size and the ink and the
+   mono caption rendered as an ordinary paragraph. Restating just those two
+   at (0,2,1) rather than weakening `.card p`, which every real paragraph on
+   these pages depends on.
+*/
+.card p.schedNote {
+    font-size: 10px;
+    color: var(--txt-3);
 }
 
 @media (max-width: 1180px) {
@@ -836,6 +848,16 @@
     gap: 16px;
 }
 
+/* The widget's description sits under .widget, which has no `p` rule of its
+   own — without this it inherits browser-default 16px full-strength body text
+   beside three .channel p siblings. */
+.widget p {
+    color: var(--txt-2);
+    font-size: 13.2px;
+    line-height: 1.58;
+    margin: 0;
+}
+
 .widget iframe {
     width: 100%;
     height: 500px;
@@ -904,6 +926,16 @@
     font-size: 13.2px;
     line-height: 1.6;
     margin: 0;
+}
+
+/*
+   The old markup carried `flex flex-col gap-2` and explicit <br/>s; both went
+   and nothing replaced them, so every card's post-list paragraph butted
+   against its list and the four cards that run two paragraphs ran them
+   together. 10px is the same step `.card p` takes.
+*/
+.csBody p:not(:first-child) {
+    margin-top: 10px;
 }
 
 @media (max-width: 1180px) {
