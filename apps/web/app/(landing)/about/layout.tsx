@@ -1,6 +1,4 @@
-'use client'
-
-import { usePathname } from 'next/navigation'
+import { headers } from 'next/headers'
 import Image, { StaticImageData } from 'next/image'
 import Link from "next/link"
 import React from 'react'
@@ -63,9 +61,9 @@ const Pages: { href: string, title: string, icon: React.JSX.Element, background:
 
 
 
-export default function AboutLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function AboutLayout({ children }: Readonly<{ children: React.ReactNode }>) {
 
-	const pathname = usePathname()
+	const pathname = (await headers()).get('x-pathname') ?? '/about'
 	const page = Pages.find(page => page.href === pathname)
 
 	// Preload sibling page images so navigation feels instant

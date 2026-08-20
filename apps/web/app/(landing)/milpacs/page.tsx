@@ -90,7 +90,7 @@ export default async function Page() {
 		<div style={{ background: 'rgb(10,10,10)', minHeight: '100vh' }}>
 
 			{/* Hero Banner */}
-			<div className='relative w-full h-banner-sm md:h-banner-sm-md flex flex-col justify-end items-center overflow-hidden'>
+			<div className='relative w-full h-[20vh] md:h-[40vh] flex flex-col justify-end items-center overflow-hidden'>
 				<Image src={Banner} alt='Banner' fill className='object-cover object-center' loading='eager' />
 				<div className='absolute inset-0' style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.2) 40%, rgba(10,10,10,0.7) 75%, #0a0a0a 100%)' }} />
 				<div className='relative z-10 flex flex-col items-center gap-3 pb-10 px-6 text-center w-full'>

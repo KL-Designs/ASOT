@@ -1,5 +1,3 @@
-'use client'
-
 import Container from '@/components/container'
 import ThomoFire from '@/public/thomo/fire.png'
 
