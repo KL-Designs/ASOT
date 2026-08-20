@@ -755,3 +755,165 @@
     .lead { grid-column: span 1; }
     .sched { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---------- contact channels --------------------------------------------- */
+
+/*
+   The one place on these pages where a non-red accent carries meaning rather
+   than decoration: Discord blurple, TeamSpeak cyan, red for email. The colour
+   arrives as a --acc custom property rather than the five hardcoded
+   accentColor/accentRgb prop pairs the previous card took.
+*/
+.channel {
+    border: 1px solid var(--line-1);
+    border-top: 2px solid var(--acc, var(--red));
+    background: var(--ink-1);
+    padding: 20px 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: background .2s var(--nav-ease);
+}
+
+.channel:hover {
+    background: var(--ink-2);
+}
+
+.channelH {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.channelH i {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, .05);
+    color: var(--acc, var(--red));
+    flex: none;
+}
+
+.channelH b {
+    font-family: var(--font-cond);
+    font-size: 15.5px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+}
+
+.channel p {
+    color: var(--txt-2);
+    font-size: 13.2px;
+    line-height: 1.58;
+    margin: 0;
+}
+
+.channelV {
+    margin-top: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .04em;
+    color: var(--acc, var(--red));
+    word-break: break-all;
+}
+
+.channels {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.widget {
+    border: 1px solid var(--line-1);
+    border-top: 2px solid var(--discord);
+    background: var(--ink-1);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.widget iframe {
+    width: 100%;
+    height: 500px;
+    border: none;
+}
+
+/* ---------- callsign card ------------------------------------------------ */
+
+.csGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.cs {
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color .2s var(--nav-ease), transform .2s var(--nav-ease);
+}
+
+.cs:hover {
+    border-color: var(--red-dim);
+    transform: translateY(-3px);
+}
+
+.csImg {
+    position: relative;
+    height: 118px;
+    overflow: hidden;
+    display: flex;
+}
+
+.csImg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(180deg, transparent 34%, rgba(11, 12, 14, .6) 74%, var(--ink-1) 100%);
+}
+
+/* The designation is already the identifier — a ghost numeral beside it would
+   be a second number saying nothing. */
+.csTag {
+    position: absolute;
+    z-index: 3;
+    left: 16px;
+    bottom: 10px;
+    font-family: var(--font-disp);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, .8);
+}
+
+.csBody {
+    padding: 16px 18px 18px;
+}
+
+.csBody p {
+    color: var(--txt-2);
+    font-size: 13.2px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+@media (max-width: 1180px) {
+    .channels, .csGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 860px) {
+    .channels, .csGrid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cs, .channel { transition: none; }
+}
