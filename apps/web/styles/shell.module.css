@@ -379,3 +379,226 @@
         transition: none;
     }
 }
+
+/* ---------- card grid ---------------------------------------------------- */
+
+.grid4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+}
+
+.grid6 {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 18px;
+}
+
+.card {
+    position: relative;
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    padding: 22px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color .2s var(--nav-ease), background .2s var(--nav-ease);
+}
+
+.card:hover {
+    border-color: var(--line-2);
+    background: var(--ink-2);
+}
+
+/* An outlined numeral rather than a filled one — it marks the sequence
+   without competing with the heading beside it. Only used where the number is
+   real: Rules already calls its blocks "Section 1 — General". */
+.ghost {
+    position: absolute;
+    top: -14px;
+    right: 6px;
+    font-family: var(--font-disp);
+    font-size: 80px;
+    font-weight: 700;
+    color: transparent;
+    -webkit-text-stroke: 1px #1a1d23;
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+}
+
+.cardK {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .2em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+
+.cardIc {
+    width: 30px;
+    height: 30px;
+    color: var(--red);
+    margin-bottom: 14px;
+}
+
+.cardIc svg {
+    width: 100%;
+    height: 100%;
+}
+
+.card h3 {
+    font-family: var(--font-disp);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    margin: 0;
+    line-height: 1.15;
+    color: var(--txt-1);
+}
+
+.card p {
+    color: var(--txt-2);
+    font-size: 13.4px;
+    line-height: 1.6;
+    margin: 10px 0 0;
+}
+
+.s1 { grid-column: span 1; }
+.s2 { grid-column: span 2; }
+.s3 { grid-column: span 3; }
+.s4 { grid-column: span 4; }
+.s6 { grid-column: span 6; }
+
+/* ---------- list --------------------------------------------------------- */
+
+/*
+   A real <ul>. Rules § 4 was thirteen <Typography> elements each opening with
+   a hyphen — no list semantics, and a wrapped line ran back under its own
+   dash. The hanging indent here is the fix.
+*/
+.list {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.list li {
+    position: relative;
+    padding-left: 20px;
+    color: var(--txt-2);
+    font-size: 13.6px;
+    line-height: 1.6;
+}
+
+.list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 9px;
+    height: 1px;
+    background: var(--red);
+}
+
+/* CSS columns rather than a grid: the list reflows to one column on a narrow
+   screen with no markup change, and break-inside keeps an item whole. */
+.list2,
+.list3 {
+    display: block;
+    column-gap: 34px;
+}
+
+.list2 { columns: 2; }
+.list3 { columns: 3; }
+
+.list2 li,
+.list3 li {
+    break-inside: avoid;
+    margin-bottom: 9px;
+}
+
+/* ---------- Q&A ---------------------------------------------------------- */
+
+.qaStack {
+    margin-top: 16px;
+}
+
+.qaStack2 {
+    columns: 2;
+    column-gap: 38px;
+}
+
+.qa {
+    border-top: 1px solid var(--line-1);
+    padding: 15px 0;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 14px;
+    break-inside: avoid;
+}
+
+.qa:first-child {
+    border-top: 0;
+    padding-top: 4px;
+}
+
+.qaN {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    color: var(--txt-3);
+    padding-top: 3px;
+}
+
+.qa h4 {
+    font-family: var(--font-cond);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--txt-1);
+}
+
+.qa p {
+    color: var(--txt-2);
+    font-size: 13.6px;
+    line-height: 1.6;
+    margin: 7px 0 0;
+}
+
+.qa a {
+    color: var(--amber);
+    border-bottom: 1px solid rgba(216, 172, 69, .4);
+}
+
+@media (max-width: 1180px) {
+    .grid4,
+    .grid6 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .s3, .s4, .s6 { grid-column: span 2; }
+    .list3 { columns: 2; }
+}
+
+@media (max-width: 860px) {
+    .grid4,
+    .grid6 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .s2, .s3, .s4, .s6 { grid-column: span 1; }
+    .list2, .list3 { columns: 1; }
+    .qaStack2 { columns: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card { transition: none; }
+}
