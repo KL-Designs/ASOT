@@ -602,3 +602,156 @@
 @media (prefers-reduced-motion: reduce) {
     .card { transition: none; }
 }
+
+/* ---------- lead card ---------------------------------------------------- */
+
+/* One card carrying the thesis, over a photograph, with smaller cards around
+   it — the .whyLead composition from the landing page. */
+.lead {
+    grid-column: span 2;
+    grid-row: span 2;
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.leadImg {
+    position: relative;
+    height: 170px;
+    flex: none;
+    overflow: hidden;
+}
+
+.leadImg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.leadImg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 40%, rgba(11, 12, 14, .7) 100%);
+}
+
+.leadBody {
+    padding: 24px;
+}
+
+.leadBody h3 {
+    font-family: var(--font-disp);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    margin: 0 0 12px;
+    line-height: 1.1;
+    color: var(--txt-1);
+}
+
+.leadBody p {
+    color: var(--txt-2);
+    font-size: 14px;
+    line-height: 1.62;
+    margin: 0 0 12px;
+}
+
+.leadBody p:last-child {
+    margin-bottom: 0;
+}
+
+/* ---------- schedule ----------------------------------------------------- */
+
+/*
+   Two DST windows side by side. The version this replaces was a stack of bold
+   labels each followed by a grey monospace chip, which made this the tallest
+   card on the page and forced its neighbour to end half a card early.
+*/
+.sched {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--line-1);
+    border: 1px solid var(--line-1);
+    margin: 14px 0 0;
+}
+
+.schedCol {
+    background: var(--ink-1);
+    padding: 15px 17px 17px;
+}
+
+.schedCol h5 {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin: 0 0 4px;
+    font-weight: 500;
+}
+
+.schedWin {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .1em;
+    color: var(--txt-3);
+    margin-bottom: 13px;
+}
+
+.schedRow {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 6px 0;
+    border-top: 1px solid rgba(255, 255, 255, .045);
+}
+
+.schedRow:first-of-type {
+    border-top: 0;
+}
+
+.schedRow span {
+    font-family: var(--font-cond);
+    font-size: 14px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+}
+
+.schedRow b {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--txt-1);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .04em;
+}
+
+/* Step off is the moment that actually matters — everything else on the card
+   is scaffolding around it. */
+.schedRow.schedHi b {
+    color: var(--red-hi);
+}
+
+.schedNote {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    color: var(--txt-3);
+    margin: 12px 0 0;
+}
+
+@media (max-width: 1180px) {
+    .lead { grid-column: span 2; grid-row: auto; }
+}
+
+@media (max-width: 860px) {
+    .lead { grid-column: span 1; }
+    .sched { grid-template-columns: minmax(0, 1fr); }
+}
