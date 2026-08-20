@@ -15,8 +15,8 @@ export type AsideRow = {
  *
  * Deliberately presentational: it takes resolved strings, never a query. The
  * pages that use it (/about, /join) are already server components and fetch
- * their own figures, so Container can stay synchronous for the eight
- * consumers that have no aside at all.
+ * their own figures, which is what lets Container itself stay synchronous —
+ * for the eight consumers that have no aside, and for these two as well.
  */
 export default function MastheadAside({
     heading,
