@@ -84,33 +84,49 @@ navbar's status rail at the other end of the page. Reads `getFeaturedOp()`/`getR
 
 ---
 
-### /about — Unit Info Tabs
+### /about — Unit Info, on the Section Rail
 #### app/(landing)/about/layout.tsx
-Tab-strip layout for the About section (About, Callsigns, Contact, Rules, Values, FAQ). Preloads
-sibling background images. Public.
+**Async server component** (no longer `'use client'` — that was only ever there to pick the active
+tab, which `SectionRail` now owns itself). Holds the `ABOUT_PAGES` table (href/label/kicker/subtitle/
+background) that drives both the masthead copy and the rail; resolves the current page via
+`activeRailIndex` against `x-pathname` and renders everything through `Container`, passing
+`rail={ABOUT_PAGES}`. Only `/about` itself gets an `aside` (`MastheadAside`, live roster count via
+`getRosterCount()`, force-dynamic) — the five sub-pages have no live figures worth a second masthead
+column. Public.
 
 #### app/(landing)/about/page.tsx
-Static "Who Are We" info cards (uses `<TimeZones/>` sub-component). Public, no API calls.
+"Who We Are" on the card grid (`Card`/`CardGrid`, `MedalIcon`/`TargetIcon`), lead card carries the
+unit photo and copy; the schedule card embeds `<TimeZones/>`. Public, no API calls.
 
 #### app/(landing)/about/callsigns/page.tsx
-Static callsign registry (India 0A, 1-0, Gamemasters, 1-1/1-2/1-3 platoons, Reservists) via
-`CallsignCard` components. Public, purely static content.
+Callsign registry (India 0A, 1-0, Gamemasters, 1-1/1-2/1-3 platoons, Reservists) via `CallsignCard` +
+`List`. Public, purely static content.
 
 #### app/(landing)/about/contact/page.tsx
-Static contact cards (TeamSpeak, Facebook, Email) + embedded Discord widget iframe. Public.
+Contact cards (TeamSpeak, Facebook, Email, own `Channel` helper) + embedded Discord widget iframe.
+Public.
 
 #### app/(landing)/about/faq/page.tsx
-Static FAQ list via `InfoCard`. Public.
+FAQ grouped into three `Card`s (`Joining ASOT` / `Game & setup` / `Playing with us`) of `QaRow`/
+`QaStack` entries, not an accordion — answers stay indexed by search engines and found with Ctrl-F.
+Public.
 
 #### app/(landing)/about/rules/page.tsx
-Static rules/expectations sections. Public.
+Rules/expectations as real `List`s inside `Card`/`CardGrid` (General, Attendance, TeamSpeak, …).
+Public.
 
 #### app/(landing)/about/timezones.tsx
 Client component: computes and displays op load-in/briefing/step-off times converted to the
-visitor's local timezone (standard vs. daylight saving), using `luxon`. Used inside `about/page.tsx`.
+visitor's local timezone (standard vs. daylight saving) as a two-column schedule table, using
+`luxon`. Used inside `about/page.tsx`'s schedule `Card`.
 
 #### app/(landing)/about/values/page.tsx
-Static "Principles & Values" content. Public.
+"Principles & Values" on the card grid (`Card`/`CardGrid`, one grid for values, one for operating
+principles). Public.
+
+None of the six About pages use `components/info-card.tsx` any more — they were the last public
+consumers before this rebuild; `InfoCard` itself is still current, used by `/partnerships` and
+`/support` below.
 
 ---
 
@@ -281,7 +297,9 @@ tick this"; `sortPhotos`, `groupByOperation`, `archiveStats`.
 #### app/(landing)/join/page.tsx
 Server page: shows Screenshot-of-the-Month banner (from `Db.siteSettings` `screenshotOfMonth`
 doc) then renders `<JoinForm/>` inside a `Suspense`, plus a dev-only `<DevTestApplicationButton/>`
-when `NODE_ENV==='development'`. Public — no auth (this is the pre-membership application).
+when `NODE_ENV==='development'`. `Container` gets an `aside` (`MastheadAside`: Applications/Open,
+minimum age, cost, location) — one of only two consumers that pass one, alongside `/about`.
+Public — no auth (this is the pre-membership application).
 
 #### app/(landing)/join/JoinForm.tsx
 Large client multi-step (7-step) application wizard: Discord OAuth verification

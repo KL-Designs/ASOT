@@ -607,6 +607,26 @@ Server-side loaders for the public home page and footer — direct Mongo, no `/a
 Every loader catches independently and degrades to null/empty: the front door should lose one band,
 not the whole page.
 
+---
+
+### lib/shell/masthead.ts
+Pure helpers for the public page masthead (`components/container.tsx` / `components/ui/Masthead.tsx`).
+- `bannerHeightValue(size?: BannerHeight)` → the band's height as a clamped CSS value (`xsm|sm|md|lg`,
+  default `md`) — replaces the old `vh`-only Tailwind heights so a 1080p reader isn't shown a photo
+  and one word before any content.
+- `kickerFromPath(pathname)` → last-resort kicker derived from the final path segment, de-slugged and
+  title-cased; a page that wants a written kicker passes one explicitly.
+- Lives in `lib/` rather than beside the component because vitest only picks up `lib/**/*.test.ts`.
+
+### lib/shell/rail.ts
+Pure helpers for the sticky section rail (`components/ui/SectionRail.tsx`), kept out of the client
+component so the active-cell rule is unit-testable on its own.
+- `RailItem` — `{href, label}`.
+- `activeRailIndex(items, pathname)` → index of the active cell by **longest-prefix, segment-aware**
+  match, or `-1`. Exact-only matching would leave `/about/rules/appendix` with no active cell; a raw
+  `startsWith` would wrongly light `/about` on `/aboutus`.
+- `railIndex(i)` → the cell's displayed index, 1-based and zero-padded to two digits.
+
 ## 3. `components/**` — requested subset
 
 ### Top-level components/*.tsx
@@ -642,7 +662,7 @@ not the whole page.
 - Default export `TacticalLoader({label='LOADING'})` — full-page military-HUD-styled loading screen (animated spinner, corner brackets, progress bar). Internal `Corner({position})` helper.
 
 #### components/container.tsx
-- Default export `Container({children?, title?, subtitle?, background?, backgroundUrl?, sx?})` — standard page-banner-plus-content wrapper used across public pages; `sx.bannerHeight` selects Tailwind height classes (`xsm|sm|md|lg`), `sx.maxWidth`/`sx.padding`/`sx.gap` control content area. Imports `./landing.css`.
+- **Async server component** (awaits `headers()` for `x-pathname`). Default export `Container({children?, title?, subtitle?, background?, backgroundUrl?, kicker?, lede?, aside?, rail?, sx?})` — the shell behind every public page that isn't the landing page: a left-anchored `Masthead` band plus a content wrapper, replacing the old centred 60vh banner. `title`/`subtitle`/`background`/`backgroundUrl`/`sx` are unchanged from before the redesign (`sx.bannerHeight` still takes `xsm|sm|md|lg`, now resolved to clamped pixel heights via `lib/shell/masthead.ts` rather than raw `vh`; `sx.maxWidth`/`sx.padding`/`sx.gap` still control the content area). New: `kicker` overrides the route-derived label above the title (see `kickerFromPath`); `lede` overrides `subtitle` for the paragraph under the title; `aside` is the masthead's second column (only `/about` and `/join` pass one); `rail` (`RailItem[]`) renders a `SectionRail` below the masthead (only the About family passes one). Styles in `styles/shell.module.css`, not `./landing.css` (deleted).
 
 #### components/callsign-card.tsx
 - `CallsignCard({title, images, children})` (named export) — hoverable image-header card with cursor-tracked diagonal shine effect.
@@ -771,6 +791,45 @@ choreography stays in that surface's own module.
 - Named exports `CrateIcon` (donations as resupply, not charity), `ArrowIcon`, `DiscordIcon`,
   `SteamIcon`, `YouTubeIcon`, `MailIcon`. Everything else on the site uses `@mui/icons-material` —
   only add here when the meaning genuinely isn't in that set.
+
+#### components/ui/Masthead.tsx
+- Default export `Masthead({title, kicker?, lede?, background?, backgroundUrl?, bannerHeight?, aside?})`
+  — the public page masthead itself: a photo band carrying the landing hero's two-pass veil and
+  drifting `Topo`, with title/kicker/lede in the left column and an optional `aside` in the right.
+  Rendered by `components/container.tsx`, not used directly by pages. Styles in
+  `styles/shell.module.css`.
+
+#### components/ui/MastheadAside.tsx
+- Default export `MastheadAside({heading, status?, rows: AsideRow[], cta?})` — the masthead's second
+  column: a heading row (optional live `status` badge), a stack of label/value rows (`AsideRow.accent`
+  picks amber for the row that's the answer, not context), and an optional CTA link. Deliberately
+  presentational — takes resolved strings, never a query, so `Container` can stay synchronous for
+  consumers that pass no aside at all. Used by `/about` and `/join`.
+
+#### components/ui/SectionRail.tsx
+- **Client** (reads `usePathname`). Default export `SectionRail({items: RailItem[]})` — the sticky
+  section rail rendered below the masthead when `Container` is passed a `rail` prop. Resolves the
+  active cell via `activeRailIndex` (`lib/shell/rail.ts`) and scrolls it into view on change, since
+  below ~900px the rail overflows to horizontal scroll and the active cell routinely lands offscreen.
+  Being a client component here (rather than in `about/layout.tsx`) is what let that layout go back to
+  a plain server component.
+
+#### components/ui/Card.tsx
+- Default export `Card({title, kicker?, ghost?, icon?, span?: 1|2|3|4|6, children?})` — the content
+  card used across the rebuilt About pages, plus named `CardGrid({columns: 4|6, children})`. `span`
+  is the fix for the ragged grid the old `InfoCard` produced: a card with more to say spans wider and
+  reflows its list into more columns instead of towering over its neighbours. `ghost` renders an
+  outlined numeral — only pass one where the number is real.
+
+#### components/ui/List.tsx
+- Default export `List({items: React.ReactNode[], columns?: 1|2|3})` — a real `<ul>` with a hanging
+  indent and a rule as its marker, replacing the old pattern of sibling `<Typography>` lines each
+  opening with a hyphen (which broke both wrapping and screen-reader semantics).
+
+#### components/ui/QaRow.tsx
+- Default export `QaRow({index, question, children})` — one FAQ entry (not an accordion — these
+  answers are indexed by search engines and found with Ctrl-F). Named `QaStack({columns?: 1|2,
+  children})` groups them. Used by `about/faq/page.tsx`.
 
 ### components/nav/*
 
