@@ -10,9 +10,10 @@ Scope: `app/(landing)/**`, `app/operations/**`, `app/members/**`, `app/tickets/*
 ## Root
 
 #### middleware.ts
-Injects `x-pathname` header on every request (except `_next` assets). Also intercepts `WIP_PATHS`
-(`/community/orbat`, `/milpacs`, `/community/retired`, `/community/bios`) and rewrites them to `/wip`
-unless the URL has `?bypass_wip`. Public, runs on every route.
+Rewrites the work-in-progress routes in its own narrow `config.matcher` (`/community/orbat`,
+`/community/retired`, `/community/bios` and their subpaths) to `/wip`, unless the URL has
+`?bypass_wip`. It runs on nothing else and sets no headers — see part H for why the app-wide matcher
+and its `x-pathname` header are both gone.
 
 #### app/layout.tsx
 Root HTML layout: MUI `ThemeProvider` with `UnitTheme`, `CustomCursor`, and the site
