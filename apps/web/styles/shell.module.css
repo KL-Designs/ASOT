@@ -1,0 +1,172 @@
+/* ============================================================================
+   ASOT — public page shell
+   ----------------------------------------------------------------------------
+   The masthead, the section rail and the content grid shared by every public
+   page that is not the landing page.
+
+   The vocabulary (notched buttons, section heads, the topo backdrop) lives in
+   ui.module.css; the landing page's own arrangement lives in
+   landing.module.css. This file is the third arrangement of the same pieces —
+   the one for pages that are read rather than pitched at.
+   ========================================================================== */
+
+.shell {
+    --pad: clamp(20px, 3.4vw, 54px);
+    background: var(--ink-0);
+    font-family: var(--font-ui);
+}
+
+/* ---------- band --------------------------------------------------------- */
+
+.band {
+    position: relative;
+    height: var(--band-h, clamp(230px, 34vh, 340px));
+    overflow: hidden;
+    background: #0b0e10;
+    display: flex;
+    align-items: center;
+}
+
+.bandImg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.bandImg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/*
+   Two passes, matching .heroVeilSolo in landing.module.css. The horizontal
+   vignette is dark at both edges and clear through the middle, because the
+   photograph is at its best in the centre of the frame and that is where the
+   copy sits. The vertical pass seats the band under the navbar and lands its
+   bottom edge on --ink-0 rather than on a hard seam.
+
+   The stops here must stay in step with the topo's `edges` mask. If they
+   drift, the contours outlive the darkening and read as a separate layer
+   floating over the photograph.
+*/
+.veil {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+        linear-gradient(90deg,
+            rgba(6, 7, 9, .9) 0%,
+            rgba(6, 7, 9, .44) 18%,
+            rgba(6, 7, 9, .1) 40%,
+            rgba(6, 7, 9, .1) 60%,
+            rgba(6, 7, 9, .5) 84%,
+            rgba(6, 7, 9, .9) 100%),
+        linear-gradient(180deg,
+            rgba(6, 7, 9, .5) 0%,
+            transparent 22%,
+            transparent 62%,
+            rgba(6, 7, 9, .92) 100%);
+}
+
+.bandIn {
+    position: relative;
+    z-index: 4;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--pad);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 48px;
+    align-items: center;
+}
+
+/* With no aside, the second column would sit empty and shove the copy left.
+   The band drops to one column instead — a composition in its own right rather
+   than the two-column one with a hole in it. */
+.bandInSolo {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.kick {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    color: var(--red);
+}
+
+.kick::before {
+    content: '';
+    height: 1px;
+    width: 34px;
+    background: var(--red-dim);
+    flex: none;
+}
+
+.kick::after {
+    content: '';
+    height: 1px;
+    flex: 1;
+    max-width: 200px;
+    background: linear-gradient(90deg, var(--red-dim), transparent);
+}
+
+.title {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: clamp(38px, 6vw, 72px);
+    line-height: .96;
+    letter-spacing: .01em;
+    margin: 14px 0 0;
+    text-shadow: 0 4px 30px rgba(0, 0, 0, .75);
+    text-wrap: balance;
+}
+
+/* Sub-page titles run long — "Rules & Expectations", "Principles & Values".
+   At the full display size they wrap to two lines and swamp the band. */
+.titleLong {
+    font-size: clamp(32px, 4.4vw, 52px);
+}
+
+/* The rule that separates the lockup from the body copy — the same job the
+   one above the landing hero's subtitle does. */
+.lede {
+    color: #c4c9cf;
+    font-size: 15.5px;
+    line-height: 1.6;
+    max-width: 52ch;
+    margin: 18px 0 0;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, .13);
+}
+
+/* ---------- body --------------------------------------------------------- */
+
+.body {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(38px, 4.6vw, 64px) var(--pad) 60px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(38px, 4.4vw, 62px);
+}
+
+@media (max-width: 1180px) {
+    .bandIn {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 860px) {
+    .title {
+        font-size: clamp(30px, 8vw, 42px);
+    }
+}
