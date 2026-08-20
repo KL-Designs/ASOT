@@ -1,10 +1,9 @@
 import React from 'react'
 import { StaticImageData } from 'next/image'
-import { headers } from 'next/headers'
 
 import Masthead from '@/components/ui/Masthead'
 import SectionRail from '@/components/ui/SectionRail'
-import { kickerFromPath, type BannerHeight } from '@/lib/shell/masthead'
+import { type BannerHeight } from '@/lib/shell/masthead'
 import { type RailItem } from '@/lib/shell/rail'
 import s from '@/styles/shell.module.css'
 
@@ -18,8 +17,13 @@ import s from '@/styles/shell.module.css'
  * `bannerHeight` still takes xsm/sm/md/lg, but those now resolve to clamped
  * pixel heights rather than the `vh` values they used to — see
  * lib/shell/masthead.ts for why.
+ *
+ * Synchronous, and deliberately so: a server component cannot read the current
+ * path (nothing sets a pathname header, and a middleware that did would have to
+ * run app-wide, which this app's middleware deliberately does not). Anything
+ * page-specific — the kicker included — is passed in by the caller.
  */
-export default async function Container({
+export default function Container({
     children, title, subtitle, background, backgroundUrl, kicker, lede, aside, rail, sx,
 }: {
     children?: React.ReactNode
@@ -27,7 +31,7 @@ export default async function Container({
     subtitle?: string
     background?: StaticImageData
     backgroundUrl?: string
-    /** Overrides the route-derived label above the title. */
+    /** The mono label above the title. Omit to render no kicker. */
     kicker?: string
     /** Overrides `subtitle` for the paragraph under the title. */
     lede?: string
@@ -42,15 +46,11 @@ export default async function Container({
         gap?: string | undefined
     }
 }) {
-    // Middleware injects x-pathname on every route, which is how a server
-    // component reads the current path without Next.js internals.
-    const pathname = (await headers()).get('x-pathname') ?? '/'
-
     return (
         <div className={s.shell}>
             <Masthead
                 title={title || 'PAGE TITLE'}
-                kicker={kicker ?? kickerFromPath(pathname)}
+                kicker={kicker}
                 lede={lede ?? subtitle}
                 background={background}
                 backgroundUrl={backgroundUrl}

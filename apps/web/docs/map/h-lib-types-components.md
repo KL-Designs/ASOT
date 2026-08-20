@@ -614,8 +614,6 @@ Pure helpers for the public page masthead (`components/container.tsx` / `compone
 - `bannerHeightValue(size?: BannerHeight)` → the band's height as a clamped CSS value (`xsm|sm|md|lg`,
   default `md`) — replaces the old `vh`-only Tailwind heights so a 1080p reader isn't shown a photo
   and one word before any content.
-- `kickerFromPath(pathname)` → last-resort kicker derived from the final path segment, de-slugged and
-  title-cased; a page that wants a written kicker passes one explicitly.
 - Lives in `lib/` rather than beside the component because vitest only picks up `lib/**/*.test.ts`.
 
 ### lib/shell/rail.ts
@@ -662,7 +660,7 @@ component so the active-cell rule is unit-testable on its own.
 - Default export `TacticalLoader({label='LOADING'})` — full-page military-HUD-styled loading screen (animated spinner, corner brackets, progress bar). Internal `Corner({position})` helper.
 
 #### components/container.tsx
-- **Async server component** (awaits `headers()` for `x-pathname`). Default export `Container({children?, title?, subtitle?, background?, backgroundUrl?, kicker?, lede?, aside?, rail?, sx?})` — the shell behind every public page that isn't the landing page: a left-anchored `Masthead` band plus a content wrapper, replacing the old centred 60vh banner. `title`/`subtitle`/`background`/`backgroundUrl`/`sx` are unchanged from before the redesign (`sx.bannerHeight` still takes `xsm|sm|md|lg`, now resolved to clamped pixel heights via `lib/shell/masthead.ts` rather than raw `vh`; `sx.maxWidth`/`sx.padding`/`sx.gap` still control the content area). New: `kicker` overrides the route-derived label above the title (see `kickerFromPath`); `lede` overrides `subtitle` for the paragraph under the title; `aside` is the masthead's second column (only `/about` and `/join` pass one); `rail` (`RailItem[]`) renders a `SectionRail` below the masthead (only the About family passes one). Styles in `styles/shell.module.css`, not `./landing.css` (deleted).
+- **Synchronous server component.** Default export `Container({children?, title?, subtitle?, background?, backgroundUrl?, kicker?, lede?, aside?, rail?, sx?})` — the shell behind every public page that isn't the landing page: a left-anchored `Masthead` band plus a content wrapper, replacing the old centred 60vh banner. `title`/`subtitle`/`background`/`backgroundUrl`/`sx` are unchanged from before the redesign (`sx.bannerHeight` still takes `xsm|sm|md|lg`, now resolved to clamped pixel heights via `lib/shell/masthead.ts` rather than raw `vh`; `sx.maxWidth`/`sx.padding`/`sx.gap` still control the content area). New: `kicker` is the mono label above the title — purely opt-in, since a server component cannot derive it from the route (omit it and no kicker renders); `lede` overrides `subtitle` for the paragraph under the title; `aside` is the masthead's second column (only `/about` and `/join` pass one); `rail` (`RailItem[]`) renders a `SectionRail` below the masthead (only the About family passes one). Styles in `styles/shell.module.css`, not `./landing.css` (deleted).
 
 #### components/callsign-card.tsx
 - `CallsignCard({title, images, children})` (named export) — hoverable image-header card with cursor-tracked diagonal shine effect.
@@ -803,16 +801,16 @@ choreography stays in that surface's own module.
 - Default export `MastheadAside({heading, status?, rows: AsideRow[], cta?})` — the masthead's second
   column: a heading row (optional live `status` badge), a stack of label/value rows (`AsideRow.accent`
   picks amber for the row that's the answer, not context), and an optional CTA link. Deliberately
-  presentational — takes resolved strings, never a query, so `Container` can stay synchronous for
-  consumers that pass no aside at all. Used by `/about` and `/join`.
+  presentational — takes resolved strings, never a query, which is what keeps `Container` itself
+  synchronous for all ten consumers. Used by `/about` and `/join`.
 
 #### components/ui/SectionRail.tsx
 - **Client** (reads `usePathname`). Default export `SectionRail({items: RailItem[]})` — the sticky
   section rail rendered below the masthead when `Container` is passed a `rail` prop. Resolves the
   active cell via `activeRailIndex` (`lib/shell/rail.ts`) and scrolls it into view on change, since
   below ~900px the rail overflows to horizontal scroll and the active cell routinely lands offscreen.
-  Being a client component here (rather than in `about/layout.tsx`) is what let that layout go back to
-  a plain server component.
+  Being a client component here (rather than in the About shell) is what lets `about/shell.tsx` be a
+  plain server component.
 
 #### components/ui/Card.tsx
 - Default export `Card({title, kicker?, ghost?, icon?, span?: 1|2|3|4|6, children?})` — the content

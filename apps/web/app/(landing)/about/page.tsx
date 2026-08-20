@@ -8,14 +8,21 @@ import TimeZones from './timezones'
 import s from '@/styles/shell.module.css'
 
 import LeadImg from '@/public/images/home/training2.png'
+import AboutShell from './shell'
 
 export const metadata: Metadata = {
 	title: "About Us | Australian Special Operations Taskforce",
 	description: "Learn about the Australian Special Operations Taskforce — our history, structure, and mission in the ARMA 3 milsim community.",
 }
 
+// The masthead aside carries a live roster figure, so this page cannot be
+// statically rendered. The other five About pages carry no live figure and are
+// left free to render statically.
+export const dynamic = 'force-dynamic'
+
 export default function Tab() {
 	return (
+		<AboutShell page='index'>
 		<section>
 			<SectionHead kicker='The unit' title='Who we are' more={{ href: '/community/orbat', label: 'Full ORBAT' }} />
 
@@ -45,5 +52,6 @@ export default function Tab() {
 				</Card>
 			</CardGrid>
 		</section>
+		</AboutShell>
 	)
 }

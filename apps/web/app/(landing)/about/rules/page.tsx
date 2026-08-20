@@ -3,6 +3,7 @@ import { Metadata } from 'next'
 import SectionHead from '@/components/ui/SectionHead'
 import Card, { CardGrid } from '@/components/ui/Card'
 import List from '@/components/ui/List'
+import AboutShell from '../shell'
 
 export const metadata: Metadata = {
 	title: "Rules | Australian Special Operations Taskforce",
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
 
 export default function Tab() {
 	return (
+		<AboutShell page='rules'>
 		<section>
 			<SectionHead kicker='Conduct' title='What we expect' />
 
@@ -75,5 +77,6 @@ export default function Tab() {
 				</Card>
 			</CardGrid>
 		</section>
+		</AboutShell>
 	)
 }

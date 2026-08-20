@@ -21,6 +21,7 @@ export default async function JoinPage() {
         <div style={{ animation: 'joinFadeIn 0.9s ease forwards' }}>
         <Container
             title='JOIN ASOT'
+            kicker='Recruitment'
             subtitle='Fill out the form below to apply for membership. Our J1 Recruitment team will review your application and contact you via Discord.'
             backgroundUrl={sotm ? '/api/gallery/sotm/image' : '/images/home/1122.png'}
             aside={

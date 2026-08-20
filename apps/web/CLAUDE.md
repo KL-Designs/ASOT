@@ -193,7 +193,7 @@ All global types live in `types/*.d.ts` and are declared in `global` scope — n
 - **Path alias**: `@/` maps to the project root (`tsconfig.json`). All imports use `@/lib/...`, `@/components/...`, etc.
 - **Tailwind `important: true`** is set — Tailwind utility classes override MUI styles by default.
 - **MUI theme**: `themes/unit.ts` — import `UnitTheme` for the MUI `ThemeProvider` (already applied in root layout).
-- **Middleware** injects `x-pathname` header on all routes so server components can read the current path without relying on Next.js internals.
+- **Middleware** only rewrites the work-in-progress routes listed in its own `config.matcher` (currently `/community/{orbat,retired,bios}`) — it deliberately does **not** run app-wide, because a broad matcher also runs on the internal `_rsc` requests a client-side navigation makes and silently breaks some of them (vercel/next.js#91723). It sets no `x-pathname` header and no other request/response header: a server component that needs the current path must be passed it explicitly by its caller.
 - **`@napi-rs/canvas`**, `unzipper`, `archiver`, and `ts3-nodejs-library` are marked as `serverExternalPackages` in `next.config.ts` — they ship native binaries and cannot be bundled by webpack.
 - **`yjs`** has a webpack alias to enforce a single instance (avoids Y.js version conflicts with TipTap).
 - **Skeleton accounts** (`isSkeletonAccount: true`) are CSV-imported users not yet matched to a Discord member — treat them as read-only stubs in member-facing logic.

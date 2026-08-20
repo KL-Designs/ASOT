@@ -26,21 +26,3 @@ const HEIGHTS: Record<BannerHeight, string> = {
 export function bannerHeightValue(size?: BannerHeight): string {
     return HEIGHTS[size ?? 'md']
 }
-
-/**
- * The last-resort kicker: the final path segment, de-slugged and title-cased.
- *
- * Deliberately dumb. A page that wants "About the unit" over `/about` passes
- * `kicker` explicitly; this only exists so a page that passes nothing still
- * gets something truthful rather than an empty rule.
- */
-export function kickerFromPath(pathname: string): string {
-    const segments = pathname.split('/').filter(Boolean)
-    const last = segments[segments.length - 1]
-    if (!last) return 'ASOT'
-
-    return last
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ')
-}

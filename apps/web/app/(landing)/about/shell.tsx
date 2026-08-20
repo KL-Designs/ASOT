@@ -1,8 +1,7 @@
 import React from 'react'
-import { headers } from 'next/headers'
 
 import Container from '@/components/container'
-import { activeRailIndex, type RailItem } from '@/lib/shell/rail'
+import { type RailItem } from '@/lib/shell/rail'
 import { getRosterCount } from '@/lib/landing'
 import MastheadAside from '@/components/ui/MastheadAside'
 
@@ -18,14 +17,19 @@ import { StaticImageData } from 'next/image'
 /**
  * The About family: six pages sharing one masthead and one section rail.
  *
- * A server component. It previously carried 'use client' solely to read the
- * pathname and pick the active tab; SectionRail owns that now.
+ * A server component, and each page names itself. This used to be a layout
+ * that derived the page from an `x-pathname` header — a header nothing sets,
+ * so every one of the six rendered the index's masthead. A server component
+ * cannot read the path; being told which page it is renders is the fix.
  *
  * The kickers below are the one piece of page furniture written for the
  * redesign rather than derived — "About the unit" cannot be produced from the
  * segment "about". The subtitles are unchanged from the previous revision.
  */
+export type AboutPageKey = 'index' | 'callsigns' | 'contact' | 'rules' | 'values' | 'faq'
+
 type AboutPage = RailItem & {
+    key: AboutPageKey
     kicker: string
     subtitle?: string
     background: StaticImageData
@@ -33,12 +37,14 @@ type AboutPage = RailItem & {
 
 const ABOUT_PAGES: AboutPage[] = [
     {
+        key: 'index',
         href: '/about',
         label: 'About Us',
         kicker: 'About the unit',
         background: ImgAbout,
     },
     {
+        key: 'callsigns',
         href: '/about/callsigns',
         label: 'Callsigns',
         kicker: 'Registry',
@@ -46,6 +52,7 @@ const ABOUT_PAGES: AboutPage[] = [
         background: ImgCallsigns,
     },
     {
+        key: 'contact',
         href: '/about/contact',
         label: 'Contact Us',
         kicker: 'Get in touch',
@@ -53,6 +60,7 @@ const ABOUT_PAGES: AboutPage[] = [
         background: ImgContact,
     },
     {
+        key: 'rules',
         href: '/about/rules',
         label: 'Rules & Expectations',
         kicker: 'Standards of conduct',
@@ -60,12 +68,14 @@ const ABOUT_PAGES: AboutPage[] = [
         background: ImgRules,
     },
     {
+        key: 'values',
         href: '/about/values',
         label: 'Principles & Values',
         kicker: 'What we stand for',
         background: ImgValues,
     },
     {
+        key: 'faq',
         href: '/about/faq',
         label: 'FAQ',
         kicker: 'Common questions',
@@ -74,18 +84,18 @@ const ABOUT_PAGES: AboutPage[] = [
     },
 ]
 
-// The roster figure moves between requests, so a statically rendered value
-// would be stale.
-export const dynamic = 'force-dynamic'
-
-export default async function AboutLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-    const pathname = (await headers()).get('x-pathname') ?? '/about'
-    const page = ABOUT_PAGES[activeRailIndex(ABOUT_PAGES, pathname)] ?? ABOUT_PAGES[0]
+export default async function AboutShell({ page, children }: {
+    page: AboutPageKey
+    children: React.ReactNode
+}) {
+    const current = ABOUT_PAGES.find(p => p.key === page) ?? ABOUT_PAGES[0]
 
     // Only the index page carries an aside — the five sub-pages have no live
     // figures worth a second column, and a 340px band with an empty right half
-    // reads as the two-column composition with a hole in it.
-    const isIndex = page.href === '/about'
+    // reads as the two-column composition with a hole in it. It is also the
+    // only page that pays for the roster query, and the only one that has to
+    // render dynamically because of it.
+    const isIndex = current.key === 'index'
     const roster = isIndex ? await getRosterCount() : null
 
     const aside = isIndex ? (
@@ -103,10 +113,10 @@ export default async function AboutLayout({ children }: Readonly<{ children: Rea
 
     return (
         <Container
-            title={page.label.toUpperCase()}
-            kicker={page.kicker}
-            lede={page.subtitle}
-            background={page.background}
+            title={current.label.toUpperCase()}
+            kicker={current.kicker}
+            lede={current.subtitle}
+            background={current.background}
             rail={ABOUT_PAGES}
             aside={aside}
             sx={{ bannerHeight: 'md', maxWidth: 'max-w-md' }}

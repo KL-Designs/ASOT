@@ -85,14 +85,15 @@ navbar's status rail at the other end of the page. Reads `getFeaturedOp()`/`getR
 ---
 
 ### /about — Unit Info, on the Section Rail
-#### app/(landing)/about/layout.tsx
-**Async server component** (no longer `'use client'` — that was only ever there to pick the active
-tab, which `SectionRail` now owns itself). Holds the `ABOUT_PAGES` table (href/label/kicker/subtitle/
-background) that drives both the masthead copy and the rail; resolves the current page via
-`activeRailIndex` against `x-pathname` and renders everything through `Container`, passing
-`rail={ABOUT_PAGES}`. Only `/about` itself gets an `aside` (`MastheadAside`, live roster count via
-`getRosterCount()`, force-dynamic) — the five sub-pages have no live figures worth a second masthead
-column. Public.
+#### app/(landing)/about/shell.tsx
+**Async server component**, rendered by each of the six About pages rather than as a segment layout —
+there is no `about/layout.tsx`. Holds the `ABOUT_PAGES` table (key/href/label/kicker/subtitle/
+background) that drives both the masthead copy and the rail, and takes the page as an explicit `page`
+key (`index|callsigns|contact|rules|values|faq`) because a server component cannot read the current
+path. It renders everything through `Container`, passing `rail={ABOUT_PAGES}`. Only `page='index'`
+gets an `aside` (`MastheadAside`, live roster count via `getRosterCount()`) — the five sub-pages have
+no live figures worth a second masthead column, and only `about/page.tsx` carries `force-dynamic`.
+Public.
 
 #### app/(landing)/about/page.tsx
 "Who We Are" on the card grid (`Card`/`CardGrid`, `MedalIcon`/`TargetIcon`), lead card carries the

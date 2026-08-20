@@ -5,6 +5,7 @@ import SectionHead from '@/components/ui/SectionHead'
 import Card, { CardGrid } from '@/components/ui/Card'
 import QaRow, { QaStack } from '@/components/ui/QaRow'
 import List from '@/components/ui/List'
+import AboutShell from '../shell'
 
 export const metadata: Metadata = {
 	title: "FAQ | Australian Special Operations Taskforce",
@@ -13,6 +14,7 @@ export const metadata: Metadata = {
 
 export default function Tab() {
 	return (
+		<AboutShell page='faq'>
 		<section>
 			<SectionHead kicker='Common questions' title='Before you apply' more={{ href: '/about/contact', label: 'Still stuck? Contact us' }} />
 
@@ -85,5 +87,6 @@ export default function Tab() {
 				</Card>
 			</CardGrid>
 		</section>
+		</AboutShell>
 	)
 }

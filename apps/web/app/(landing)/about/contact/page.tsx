@@ -4,6 +4,7 @@ import React from 'react'
 
 import SectionHead from '@/components/ui/SectionHead'
 import s from '@/styles/shell.module.css'
+import AboutShell from '../shell'
 
 export const metadata: Metadata = {
 	title: "Contact | Australian Special Operations Taskforce",
@@ -35,7 +36,7 @@ function Channel({ mark, title, accent, href, label, description, external }: {
 
 export default function Tab() {
 	return (
-		<>
+		<AboutShell page='contact'>
 		<section>
 			<SectionHead kicker='Get in touch' title='Contact us' />
 
@@ -81,6 +82,6 @@ export default function Tab() {
 				src='https://discord.com/widget?id=744518510092484660&theme=dark'
 			/>
 		</section>
-		</>
+		</AboutShell>
 	)
 }

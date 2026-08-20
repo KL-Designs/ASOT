@@ -344,6 +344,7 @@ export default async function Page() {
 	return (
 		<Container
 			title="OUR ORBAT"
+			kicker="Order of battle"
 			subtitle="Our order of battle (ORBAT) is based around the current Australian Defense Force (ADF) structure with some custom changes that suit our style of game play and desires."
 			background={Banner}
 			sx={{ bannerHeight: 'sm', maxWidth: 'max-w-[1400px]', padding: '2rem', gap: 'gap-5' }}

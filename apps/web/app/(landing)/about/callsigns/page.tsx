@@ -18,6 +18,7 @@ import Image_13M from '@/public/images/home/callsigns/13M.jpg'
 import Image_13V from '@/public/images/home/callsigns/13V.jpg'
 import Image_GM from '@/public/images/home/callsigns/GM.jpg'
 import Image_R from '@/public/images/home/callsigns/R.jpg'
+import AboutShell from '../shell'
 
 
 export const metadata: Metadata = {
@@ -29,6 +30,7 @@ export const metadata: Metadata = {
 
 export default function Tab() {
 	return (
+		<AboutShell page='callsigns'>
 		<section>
 			<SectionHead kicker='Registry' title='Callsigns' />
 			<div className={s.csGrid}>
@@ -161,5 +163,6 @@ export default function Tab() {
 
 			</div>
 		</section>
+		</AboutShell>
 	)
 }

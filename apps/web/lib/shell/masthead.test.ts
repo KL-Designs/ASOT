@@ -4,7 +4,7 @@
  * regression here is invisible in review and obvious to every visitor.
  */
 import { describe, test, expect } from 'vitest'
-import { bannerHeightValue, kickerFromPath } from './masthead'
+import { bannerHeightValue } from './masthead'
 
 describe('bannerHeightValue', () => {
     test('maps each size to a clamped pixel height', () => {
@@ -23,26 +23,5 @@ describe('bannerHeightValue', () => {
         for (const size of ['xsm', 'sm', 'md', 'lg'] as const) {
             expect(bannerHeightValue(size)).toContain('px')
         }
-    })
-})
-
-describe('kickerFromPath', () => {
-    test('uses the last path segment, title-cased', () => {
-        expect(kickerFromPath('/about/callsigns')).toBe('Callsigns')
-        expect(kickerFromPath('/community/orbat')).toBe('Orbat')
-        expect(kickerFromPath('/join')).toBe('Join')
-    })
-
-    test('de-slugs hyphenated segments', () => {
-        expect(kickerFromPath('/community/hall-of-fame')).toBe('Hall Of Fame')
-    })
-
-    test('tolerates trailing slashes', () => {
-        expect(kickerFromPath('/about/rules/')).toBe('Rules')
-    })
-
-    test('falls back to the unit name at the root', () => {
-        expect(kickerFromPath('/')).toBe('ASOT')
-        expect(kickerFromPath('')).toBe('ASOT')
     })
 })

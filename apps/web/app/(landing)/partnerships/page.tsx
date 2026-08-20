@@ -91,7 +91,7 @@ function UnitCard({ name, branch, region, style, image, children }: {
 
 export default function Page() {
 	return (
-		<Container title="PARTNERSHIPS" background={Banner} sx={{ bannerHeight: 'md', maxWidth: 'max-w-md', gap: 'gap-12' }}>
+		<Container title="PARTNERSHIPS" kicker="Allied units" background={Banner} sx={{ bannerHeight: 'md', maxWidth: 'max-w-md', gap: 'gap-12' }}>
 
 			<div className='flex flex-col gap-4'>
 				<SectionHeader label="Overview" title="It's About Community" />
