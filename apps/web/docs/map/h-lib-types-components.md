@@ -202,7 +202,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `isKitIcon(v)` / `kitIcon(v)` — narrow, or resolve-with-fallback. The check is against the **key list**, not `key in KIT_ICON_PATHS`: the value arrives in a JSON body and becomes a `Record` lookup on a public page, so `__proto__`/`constructor` must fall through to the default rather than resolve. Unit-tested in `kit-icons.test.ts`.
 
 ### lib/loadout/summary.ts
-- `summariseLoadout(kit: ParsedLoadout): KitSummary` — the headline of a kit for the `/community/kits` shelf: primary weapon + its attachments in arsenal order, headgear/uniform/vest/backpack classnames, and `itemCount`. Stacks count by multiplicity (six magazines is six items, not one) and worn/held gear counts too, so a kit that is all worn gear and no cargo does not read as empty; a non-finite stack count is skipped rather than turning the card's count into `NaN`. Pure; unit-tested in `summary.test.ts`.
+- `summariseLoadout(kit: ParsedLoadout): KitSummary` — the headline of a kit for the `/kits` shelf: primary weapon + its attachments in arsenal order, headgear/uniform/vest/backpack classnames, and `itemCount`. Stacks count by multiplicity (six magazines is six items, not one) and worn/held gear counts too, so a kit that is all worn gear and no cargo does not read as empty; a non-finite stack count is skipped rather than turning the card's count into `NaN`. Pure; unit-tested in `summary.test.ts`.
 
 ### lib/loadout/kit-line.ts
 - `formatKitLine(name, summary: KitSummary): string` — a kit compressed to the Discord dossier card's single foot line: kit name, primary weapon, vest, item count, `·`-joined, each segment truncated on its own bound (`MAX_CARD_NAME` 28, `MAX_ITEM` 32) and the assembled line clamped again at `MAX_LINE` (100, derived from the card's own pixel width) so an unbounded pasted item name or a huge item count can't push the line off the card. Pure; unit-tested in `kit-line.test.ts`.
@@ -239,7 +239,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `ShelfSort` — `'newest' | 'rated' | 'copied' | 'name'`. `SHELF_SORTS` — the four options with their labels, in menu order. `KITS_PER_PAGE` (24).
 - `ShelfCard` — the subset of a card these functions read (`id, name, tags, updatedAt, ratingAvg, ratingCount, ratingScore, copyCount, haystack`); every function is generic over `T extends ShelfCard` so the page's fuller `CardData` survives.
 - `matchesQuery(card, query)` — every whitespace-split term must appear in `card.haystack` (substring, not prefix, so "mg" finds both "MG" and "LMG"). `matchesTags(card, tags)` — AND, not OR. `sortCards(cards, sort)` — returns a new array (memo-safe), recency as the tiebreak on every sort. `pageCount(total, perPage?)` / `paginate(items, page, perPage?)` — never zero pages, clamps an out-of-range page rather than trusting it. `tagCounts(cards)` — the tags worth offering as filter chips (at least one match), with counts, in `KIT_TAG_KEYS` order.
-- Pure and React-free by design — the shelf component (`app/(landing)/community/kits/shelf.tsx`) is a thin state layer over these. Unit-tested in `shelf.test.ts`.
+- Pure and React-free by design — the shelf component (`app/(landing)/kits/shelf.tsx`) is a thin state layer over these. Unit-tested in `shelf.test.ts`.
 
 ### lib/military/milpac-cover.ts
 - `coverPath(memberId)` / `hasCover(memberId)` — the member's uploaded cover photo at `storage/uploads/cover/{id}.png`. Used by the milpac page (banner) and its `opengraph-image.tsx` (share-card ground). `app/api/uploads/cover/route.ts` still writes via its own cwd-relative string.
@@ -462,7 +462,7 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 - `GalleryAPI` — the shape returned by the gallery listing API: `{info, updated, featured[], years[{year, operations[{operation, stages[{stage, media[]}]}]}]}`.
 
 ### types/loadout.d.ts
-- `MemberLoadout` — `{_id, userId, name, description?, icon?, isDefault, shared, tags?, ratingAvg?, ratingCount?, ratingSum?, copyCount?, raw, createdAt, updatedAt}`. `icon` is a `KitIconKey` (`lib/loadout/kit-icons.ts`); absent or unrecognised renders `DEFAULT_KIT_ICON`. `shared` is the collection's whole privacy boundary: a shared ("public") kit appears on the owner's milpac and on `/community/kits` for anyone to copy, an unshared one is only ever sent to the owner's own browser — so **every read of another member's kits must filter on it**. `tags` — keys from `lib/loadout/tags.ts`, always via `normaliseTags`. `ratingAvg`/`ratingCount` — denormalised from `loadout_ratings`, what the shelf sorts/displays on; `ratingSum` is the running total they're derived from, maintained by atomic `$inc`-style delta inside the rating route's aggregation-pipeline update rather than a read-then-recompute. `copyCount` — distinct actors who copied it, from `loadout_copies`. Only `raw` (the ACE arsenal export, verbatim) is stored — `lib/loadout/parse.ts` parses at render, so improving the parser needs no migration. Web-only (not in the monorepo-root `types/`): `User` is shared with apps/bot and an unbounded per-member list has no business bloating every bot fetch of it.
+- `MemberLoadout` — `{_id, userId, name, description?, icon?, isDefault, shared, tags?, ratingAvg?, ratingCount?, ratingSum?, copyCount?, raw, createdAt, updatedAt}`. `icon` is a `KitIconKey` (`lib/loadout/kit-icons.ts`); absent or unrecognised renders `DEFAULT_KIT_ICON`. `shared` is the collection's whole privacy boundary: a shared ("public") kit appears on the owner's milpac and on `/kits` for anyone to copy, an unshared one is only ever sent to the owner's own browser — so **every read of another member's kits must filter on it**. `tags` — keys from `lib/loadout/tags.ts`, always via `normaliseTags`. `ratingAvg`/`ratingCount` — denormalised from `loadout_ratings`, what the shelf sorts/displays on; `ratingSum` is the running total they're derived from, maintained by atomic `$inc`-style delta inside the rating route's aggregation-pipeline update rather than a read-then-recompute. `copyCount` — distinct actors who copied it, from `loadout_copies`. Only `raw` (the ACE arsenal export, verbatim) is stored — `lib/loadout/parse.ts` parses at render, so improving the parser needs no migration. Web-only (not in the monorepo-root `types/`): `User` is shared with apps/bot and an unbounded per-member list has no business bloating every bot fetch of it.
 - `LoadoutRating` — `{_id, loadoutId, userId, stars: 1-5, createdAt, updatedAt}`. Unique on `{loadoutId, userId}` — that index *is* the one-rating-per-member rule. A collection rather than an array on the loadout so a rating carries a value per user and the loadout document (which is sent to the browser wholesale, `raw` included) never has to remember to strip raters to stay anonymous.
 - `LoadoutCopy` — `{_id, loadoutId, actorId, copies, firstCopiedAt, lastCopiedAt}`. `actorId` is a Discord id or `anon:<uuid>` for a signed-out visitor. Unique on `{loadoutId, actorId}`. `MemberLoadout.copyCount` counts documents here, not the `copies` field — the headline number is how many people took the kit, not how many times.
 
@@ -660,7 +660,7 @@ component so the active-cell rule is unit-testable on its own.
 - Default export `TacticalLoader({label='LOADING'})` — full-page military-HUD-styled loading screen (animated spinner, corner brackets, progress bar). Internal `Corner({position})` helper.
 
 #### components/container.tsx
-- **Synchronous server component.** Default export `Container({children?, title?, subtitle?, background?, backgroundUrl?, kicker?, lede?, aside?, rail?, sx?})` — the shell behind every public page that isn't the landing page: a left-anchored `Masthead` band plus a content wrapper, replacing the old centred 60vh banner. `title`/`subtitle`/`background`/`backgroundUrl`/`sx` are unchanged from before the redesign (`sx.bannerHeight` still takes `xsm|sm|md|lg`, now resolved to clamped pixel heights via `lib/shell/masthead.ts` rather than raw `vh`; `sx.maxWidth`/`sx.padding`/`sx.gap` still control the content area). New: `kicker` is the mono label above the title — purely opt-in, since a server component cannot derive it from the route (omit it and no kicker renders); `lede` overrides `subtitle` for the paragraph under the title; `aside` is the masthead's second column (only `/about` and `/join` pass one); `rail` (`RailItem[]`) renders a `SectionRail` below the masthead (only the About family passes one). Styles in `styles/shell.module.css`, not `./landing.css` (deleted).
+- **Synchronous server component.** Default export `Container({children?, title?, subtitle?, background?, backgroundUrl?, kicker?, lede?, aside?, rail?, sx?})` — the shell behind every public page that isn't the landing page: a left-anchored `Masthead` band plus a content wrapper, replacing the old centred 60vh banner. `title`/`subtitle`/`background`/`backgroundUrl`/`sx` are unchanged from before the redesign (`sx.bannerHeight` still takes `xsm|sm|md|lg`, now resolved to clamped pixel heights via `lib/shell/masthead.ts` rather than raw `vh`; `sx.maxWidth`/`sx.padding`/`sx.gap` still control the content area). New: `kicker` is the mono label above the title — purely opt-in, since a server component cannot derive it from the route (omit it and no kicker renders); `lede` overrides `subtitle` for the paragraph under the title; `aside` is the masthead's second column (only `/join` passes one); `rail` (`RailItem[]`) renders a `SectionRail` below the masthead (only the About family passes one). Styles in `styles/shell.module.css`, not `./landing.css` (deleted).
 
 #### components/callsign-card.tsx
 - `CallsignCard({title, images, children})` (named export) — hoverable image-header card with cursor-tracked diagonal shine effect.
@@ -802,13 +802,16 @@ choreography stays in that surface's own module.
   column: a heading row (optional live `status` badge), a stack of label/value rows (`AsideRow.accent`
   picks amber for the row that's the answer, not context), and an optional CTA link. Deliberately
   presentational — takes resolved strings, never a query, which is what keeps `Container` itself
-  synchronous for all ten consumers. Used by `/about` and `/join`.
+  synchronous for all ten consumers. Used by `/join`.
 
 #### components/ui/SectionRail.tsx
 - **Client** (reads `usePathname`). Default export `SectionRail({items: RailItem[]})` — the sticky
-  section rail rendered below the masthead when `Container` is passed a `rail` prop. Resolves the
-  active cell via `activeRailIndex` (`lib/shell/rail.ts`) and scrolls it into view on change, since
-  below ~900px the rail overflows to horizontal scroll and the active cell routinely lands offscreen.
+  section rail rendered below the masthead when `Container` is passed a `rail` prop. Cells size to
+  their labels over a 158px floor (116px below 900px) with their content centred, and the row itself
+  is centred (`justify-content: safe center` — plain `center` would push the leading cells past an
+  overflow container's scroll origin). Resolves the active cell via
+  `activeRailIndex` (`lib/shell/rail.ts`) and scrolls it into view on change, since below ~900px the
+  rail overflows to horizontal scroll and the active cell routinely lands offscreen.
   Being a client component here (rather than in the About shell) is what lets `about/shell.tsx` be a
   plain server component.
 
@@ -836,7 +839,7 @@ the mobile sheet share one source of truth. Layout and interaction live in
 `styles/navbar.module.css`; these files are structure, state and data.
 
 #### components/nav/nav-data.tsx
-- `NAV_ITEMS: NavItem[]` — the public navigation tree (six top-level items, MUI icons, each child carrying a `description` for the mega panel). Consumed by both `app/navbar.tsx` and `MobileSheet`. `Support` lives under `About Us` rather than at the top level.
+- `NAV_ITEMS: NavItem[]` — the public navigation tree (six top-level items, MUI icons, each child carrying a `description` for the mega panel). Consumed by both `app/navbar.tsx` and `MobileSheet`. `Support` lives under `Community` (the menu formerly labelled `Our Orbat`; its `href` is still `/community`) rather than at the top level.
 - `isItemActive(item, pathname)` — active check that also matches any child href.
 - Types `NavItem` / `NavChild`.
 
@@ -962,7 +965,7 @@ the mobile sheet share one source of truth. Layout and interaction live in
 
 ### middleware.ts
 - `middleware(req)` — one responsibility: rewrites the work-in-progress routes in `config.matcher` (and their subpaths) to `/wip` (renders `components/wip-page.tsx`) unless the `?bypass_wip` query param is present. It sets no headers — it used to set an `x-pathname` *response* header, which no server component could have read.
-- `config.matcher` — deliberately narrow: `/community/orbat`, `/community/retired`, `/community/bios` and their subpaths, and nothing else. It ran app-wide once, which also ran it on the internal `_rsc` requests a client navigation makes and made some of them fail silently (vercel/next.js#91723) — that was what broke the milpac profile tabs. Do not widen it; a server component that needs the current path must be passed it.
+- `config.matcher` — deliberately narrow: `/retired`, `/bios` and their subpaths, and nothing else (ORBAT was on the list until it was released; the whole `/community/*` tree was flattened to the top level, and a catch-all redirect in `next.config.ts` — not this matcher — is what keeps the old URLs working). It ran app-wide once, which also ran it on the internal `_rsc` requests a client navigation makes and made some of them fail silently (vercel/next.js#91723) — that was what broke the milpac profile tabs. Do not widen it; a server component that needs the current path must be passed it.
 
 ### themes/unit.ts
 - Default export: MUI dark theme (`createTheme`) — `primary.main:'#c90620'`, `secondary.main:'#242424'`, custom palette extensions `secondaryGrey` (`#3a629c`) and `light` (`#ffffff`) declared via TypeScript module augmentation (`declare module '@mui/material/styles'` + `'@mui/material/Button'` `ButtonPropsColorOverrides`). Typography: `Inter` base font, `Montserrat` for buttons, `h2` fontSize 34px. `MuiPaper` default `borderRadius:3`. Import as `UnitTheme` per CLAUDE.md convention (applied in root layout `ThemeProvider`).

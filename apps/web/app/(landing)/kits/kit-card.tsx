@@ -13,7 +13,7 @@ import type { KitIconKey } from '@/lib/loadout/kit-icons'
 import type { ShelfCard } from '@/lib/loadout/shelf'
 import { CopyKitButton } from './copy-kit'
 
-import s from '../../milpacs/[username]/profile.module.css'
+import s from '../milpacs/[username]/profile.module.css'
 import k from './kits.module.css'
 
 /**

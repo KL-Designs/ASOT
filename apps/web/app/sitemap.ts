@@ -17,10 +17,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/about/contact`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },
 
     // Community & roster
-    { url: `${BASE}/community/orbat`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
-    { url: `${BASE}/community/bios`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${BASE}/orbat`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
+    { url: `${BASE}/bios`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
     { url: `${BASE}/milpacs`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.7 },
-    { url: `${BASE}/community/retired`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
+    { url: `${BASE}/retired`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
 
     // Other public pages
     { url: `${BASE}/gallery`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.6 },

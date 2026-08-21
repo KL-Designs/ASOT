@@ -15,16 +15,11 @@ export const metadata: Metadata = {
 	description: "Learn about the Australian Special Operations Taskforce — our history, structure, and mission in the ARMA 3 milsim community.",
 }
 
-// The masthead aside carries a live roster figure, so this page cannot be
-// statically rendered. The other five About pages carry no live figure and are
-// left free to render statically.
-export const dynamic = 'force-dynamic'
-
 export default function Tab() {
 	return (
 		<AboutShell page='index'>
 		<section>
-			<SectionHead kicker='The unit' title='Who we are' more={{ href: '/community/orbat', label: 'Full ORBAT' }} />
+			<SectionHead kicker='The unit' title='Who we are' more={{ href: '/orbat', label: 'Full ORBAT' }} />
 
 			<CardGrid columns={4}>
 				<article className={s.lead}>

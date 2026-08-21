@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     } as QuizAttempt)
 
     const attemptId = attemptResult.insertedId.toString()
-    const quizUrl = `/community/quiz/${attemptId}`
+    const quizUrl = `/quiz/${attemptId}`
 
     // Create the task
     const task: Omit<Task, '_id'> = {

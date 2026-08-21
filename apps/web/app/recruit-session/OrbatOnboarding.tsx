@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * OrbatOnboarding — mirrors the visual layout of /community/orbat for use
+ * OrbatOnboarding — mirrors the visual layout of /orbat for use
  * during the recruitment onboarding ORBAT overview step.
  *
  * Shows the structural ORBAT (roles, no real member names) with the same

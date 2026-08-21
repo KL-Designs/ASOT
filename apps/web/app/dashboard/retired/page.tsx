@@ -249,7 +249,7 @@ export default function RetiredMembersImportPage() {
                         <span style={{ fontWeight: 700, fontSize: '1rem', color: 'rgba(237,237,237,0.35)' }}>{result.skipped}</span>
                     </div>
                     <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>
-                        Re-importing is safe — existing records are updated rather than duplicated. Visit <a href='/community/retired' target='_blank' style={{ color: 'var(--red)' }}>/community/retired</a> to see the wall.
+                        Re-importing is safe — existing records are updated rather than duplicated. Visit <a href='/retired' target='_blank' style={{ color: 'var(--red)' }}>/retired</a> to see the wall.
                     </div>
 
                     {/* Skipped rows breakdown */}

@@ -10,9 +10,9 @@ Scope: `app/(landing)/**`, `app/operations/**`, `app/members/**`, `app/tickets/*
 ## Root
 
 #### middleware.ts
-Rewrites the work-in-progress routes in its own narrow `config.matcher` (`/community/orbat`,
-`/community/retired`, `/community/bios` and their subpaths) to `/wip`, unless the URL has
-`?bypass_wip`. It runs on nothing else and sets no headers — see part H for why the app-wide matcher
+Rewrites the work-in-progress routes in its own narrow `config.matcher` (`/retired`, `/bios` and
+their subpaths) to `/wip`, unless the URL has `?bypass_wip`. ORBAT was on this list until it was
+released. It runs on nothing else and sets no headers — see part H for why the app-wide matcher
 and its `x-pathname` header are both gone.
 
 #### app/layout.tsx
@@ -87,14 +87,15 @@ navbar's status rail at the other end of the page. Reads `getFeaturedOp()`/`getR
 
 ### /about — Unit Info, on the Section Rail
 #### app/(landing)/about/shell.tsx
-**Async server component**, rendered by each of the six About pages rather than as a segment layout —
+**Server component**, rendered by each of the six About pages rather than as a segment layout —
 there is no `about/layout.tsx`. Holds the `ABOUT_PAGES` table (key/href/label/kicker/subtitle/
 background) that drives both the masthead copy and the rail, and takes the page as an explicit `page`
 key (`index|callsigns|contact|rules|values|faq`) because a server component cannot read the current
-path. It renders everything through `Container`, passing `rail={ABOUT_PAGES}`. Only `page='index'`
-gets an `aside` (`MastheadAside`, live roster count via `getRosterCount()`) — the five sub-pages have
-no live figures worth a second masthead column, and only `about/page.tsx` carries `force-dynamic`.
-Public.
+path. It renders everything through `Container`, passing `rail={ABOUT_PAGES}`. No page in the family
+passes an `aside` — none has a live figure worth a second masthead column, so all six render a
+full-width masthead. `about/page.tsx` no longer needs its `force-dynamic` either, now that the
+roster query is gone; in practice all six still build as dynamic, because the shared root layout's
+footer reads Mongo. Public.
 
 #### app/(landing)/about/page.tsx
 "Who We Are" on the card grid (`Card`/`CardGrid`, `MedalIcon`/`TargetIcon`), lead card carries the
@@ -132,25 +133,28 @@ consumers before this rebuild; `InfoCard` itself is still current, used by `/par
 
 ---
 
-### /community — Bios, Hall of Fame, ORBAT, Quiz, Retired Wall
-#### app/(landing)/community/bios/page.tsx
+### /bios, /hof, /kits, /orbat, /quiz, /retired — the community pages
+These five trees plus the quiz sat under `/community/*` until they were flattened to the top level
+(`/community/orbat` is `/orbat`, and so on). A catch-all `permanent` redirect in `next.config.ts`
+keeps every old URL working — indexed pages, Discord links, stored notification `actionUrl`s.
+#### app/(landing)/bios/page.tsx
 Server component: queries `Db.users` for HQ leadership roles, resolves ORBAT entries/profile via
 `resolveMilpacProfile`, renders bio cards with `/api/uploads/bio?id=` photo. Gated by
-`WIP_PAGES` env flag (shows `<WipPage/>`) — also intercepted by middleware's `WIP_PATHS` rewrite.
+`WIP_PAGES` env flag (shows `<WipPage/>`) — also intercepted by middleware's matcher rewrite.
 Public read (no login required to view).
 
-#### app/(landing)/community/bios/loading.tsx
+#### app/(landing)/bios/loading.tsx
 `TacticalLoader` Suspense fallback ("LOADING BIO DATA").
 
-#### app/(landing)/community/hof/layout.tsx
+#### app/(landing)/hof/layout.tsx
 Hall of Fame banner/container layout.
 
-#### app/(landing)/community/hof/page.tsx
+#### app/(landing)/hof/page.tsx
 Hall of Fame — currently **hardcoded example data** (5 fake members), TODO comment says to swap
 for a real `Db.users` query keyed on a HOF Discord role. Public, static for now.
 
-#### app/(landing)/community/kits/page.tsx
-The unit's shared-kit shelf, reached from the navbar's "Our Orbat" menu. Server component: reads
+#### app/(landing)/kits/page.tsx
+The unit's shared-kit shelf, reached from the navbar's "Community" menu. Server component: reads
 `Db.loadouts.find({shared: true})` (newest first) and `client.fetchAllMembers()`, builds one
 `CardData` per kit (name, `description`, `tags` via `normaliseTags`, `ratingAvg`/`ratingCount` plus
 `ratingScore` = `weightedScore()` computed once here, `copyCount`, the primary weapon with its
@@ -164,7 +168,7 @@ milpac's design system wholesale — `profile.module.css` supplies `.shell`/`.pa
 custom properties they define, `kits.module.css` only the shelf and card layout. `--acc` is per card,
 set to the owner's own Discord accent; the page chrome uses the unit red. Public, no login required.
 
-#### app/(landing)/community/kits/shelf.tsx
+#### app/(landing)/kits/shelf.tsx
 `'use client'` — the shelf's controls and grid: search box, the four sorts (Newest / Top rated /
 Most copied / A-Z, `SHELF_SORTS`), an AND tag filter bar with per-tag counts (`tagCounts`, counted
 over every card so a chip's number doesn't shift as you type), and 24-per-page numbered paging
@@ -175,7 +179,7 @@ only. Any change to query/tags/sort resets to page 1. Filter state is not mirror
 filtered shelf is not linkable. Renders one `<KitCard>` per shown kit, staggered entrance delay capped
 at 8 cards.
 
-#### app/(landing)/community/kits/kit-card.tsx
+#### app/(landing)/kits/kit-card.tsx
 `'use client'` — one kit on the shelf: owner avatar/name, `<TagChips>`, the owner's `description` when
 written, primary weapon + attachments, the gear grid, a read-only `<Stars avg count>` row
 (`components/loadout/stars.tsx`), and a footer with item count, copy count (seeded from the server,
@@ -183,39 +187,39 @@ corrected by the copy endpoint's own answer), a "View" link to `/milpacs/<canoni
 `<CopyKitButton>` (`copy-kit.tsx`). `CardData` (`ShelfCard` from `lib/loadout/shelf.ts` plus the
 rendered fields) is exported for `shelf.tsx` and `page.tsx` to share.
 
-#### app/(landing)/community/kits/copy-kit.tsx
+#### app/(landing)/kits/copy-kit.tsx
 Client `CopyKitButton`: copies a shared kit's raw ACE arsenal export via `copyText`
 (`@/lib/clipboard`), showing "Copied" for 1.8s. Borrows `.btn` from `profile.module.css`.
 
-#### app/(landing)/community/orbat/loading.tsx
+#### app/(landing)/orbat/loading.tsx
 `TacticalLoader` Suspense fallback ("LOADING ORBAT DATA").
 
-#### app/(landing)/community/orbat/page.tsx
+#### app/(landing)/orbat/page.tsx
 The full public ORBAT board: Company HQ hero, 1-1/1-2/1-3 platoon columns (`PlatoonColumn`,
 `UnitCard`, `MemberRow`), Gamemasters/Reservists cards. Pulls `fetchORBAT()` from `@/lib/orbat`,
 per-section colour/patch metadata from `Db.orbatSectionMeta`, links member names to
 `/milpacs/[username]`. Shows a "⚙ Manage ORBAT" link to `/dashboard/orbat` if
 `PERMISSIONS.admin.manageOrbat`. Intercepted by middleware `WIP_PATHS`. Public read.
 
-#### app/(landing)/community/quiz/[attemptId]/page.tsx
+#### app/(landing)/quiz/[attemptId]/page.tsx
 Server page for an in-progress/completed quiz attempt. Requires login (`redirect('/login')` if no
 `me`), validates the attempt belongs to the current user, shows static pass/fail/under-review
 screens or renders `<QuizClient/>` for an in-progress attempt. Reads/writes `Db.quizAttempts`.
 
-#### app/(landing)/community/quiz/[attemptId]/quiz-client.tsx
+#### app/(landing)/quiz/[attemptId]/quiz-client.tsx
 Client quiz-taking UI: section sidebar (`QuizSectionSidebar`), timer panel (`QuizTimerPanel`),
 question cards (`QuizQuestionCard`), instruction modal. Debounced auto-save + start/submit via
 `PATCH /api/community/quiz/[attemptId]` (`action: 'save'|'start'|'submit'`). Auto-submits on timer
 expiry.
 
-#### app/(landing)/community/retired/layout.tsx
+#### app/(landing)/retired/layout.tsx
 Sets metadata for the Retired Members wall.
 
-#### app/(landing)/community/retired/page.tsx
+#### app/(landing)/retired/page.tsx
 Thin wrapper — renders `<RetiredWall/>` (or `<WipPage/>` if `WIP_PAGES=true`). Also intercepted by
-middleware `WIP_PATHS` rewrite (note: `/community/retired` is in the WIP_PATHS list).
+middleware matcher rewrite (note: `/retired` is still in that matcher).
 
-#### app/(landing)/community/retired/RetiredWall.tsx
+#### app/(landing)/retired/RetiredWall.tsx
 Large client component: a pannable/zoomable "memorial wall" of plaques for honourably (HD) and
 generally (GD) discharged members, laid out via a custom grid-packing algorithm. Fetches member
 list from `/api/community/retired`, and on plaque click fetches a discharge snapshot from
@@ -826,7 +830,7 @@ calls itself — pure view.
 
 #### app/recruit-session/OrbatOnboarding.tsx
 Client static-data component: a simplified read-only ORBAT diagram (role titles only, no real
-members) mirroring `/community/orbat`'s visual style, used during the "ORBAT Overview" onboarding
+members) mirroring `/orbat`'s visual style, used during the "ORBAT Overview" onboarding
 step. Purely static `PLATOONS` data structure.
 
 #### app/recruit-session/StepContent.tsx
@@ -876,8 +880,8 @@ truncated portion.
 ### /wip — Work-In-Progress Placeholder
 #### app/wip/page.tsx
 Trivial wrapper rendering `<WipPage/>` (from `@/components/wip-page`). This is the rewrite target
-for `middleware.ts`'s `WIP_PATHS` list (`/community/orbat`, `/milpacs`, `/community/retired`,
-`/community/bios`) — visiting those paths without `?bypass_wip` serves this page's content instead
+for `middleware.ts`'s matcher (now `/retired` and `/bios`; `/milpacs` and `/orbat` have both been
+released) — visiting those paths without `?bypass_wip` serves this page's content instead
 (via Next.js rewrite, so the URL bar still shows the original path).
 
 ---
@@ -892,10 +896,10 @@ for `middleware.ts`'s `WIP_PATHS` list (`/community/orbat`, `/milpacs`, `/commun
   in (`isLoggedIn`, `isHQ`, `isJ6`, `isAllStaff`, `isSectionLeader` flags computed per-request).
 - **WIP gate**: `WIP_PAGES` env var (checked inside individual page components) and
   `middleware.ts`'s `WIP_PATHS` rewrite are two *independent* mechanisms — don't assume one implies
-  the other is wired up. They now target orbat/retired/bios only; **milpacs was released and needed
-  both removed**, since the middleware rewrite alone would still have hidden the whole tree.
-  `community/bios/page.tsx` checks `WIP_PAGES` explicitly; `community/retired/page.tsx` checks it
-  via its child render.
+  the other is wired up. They now target retired/bios only; **milpacs was released and needed both
+  removed**, since the middleware rewrite alone would still have hidden the whole tree, and **ORBAT
+  was released and needed only the middleware entry**, having never carried a `WIP_PAGES` check.
+  `bios/page.tsx` checks `WIP_PAGES` explicitly; `retired/page.tsx` checks it via its child render.
 - **Operation theming**: `pageTheme` (`modern` | `oldfashioned` | `scifi`) is threaded through
   almost every operations component (`doc-body.tsx`, `paged-view.tsx`, `section-nav.tsx`,
   `PageNavClient.tsx`, the main `[id]/page.tsx`) — any new operation-page component should accept

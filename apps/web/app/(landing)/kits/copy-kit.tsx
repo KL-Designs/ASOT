@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { copyText } from '@/lib/clipboard'
 import { UiIcon } from '@/components/loadout/kit-icons'
-import s from '../../milpacs/[username]/profile.module.css'
+import s from '../milpacs/[username]/profile.module.css'
 
 /**
  * Copies a shared kit's ACE arsenal export, for pasting straight back into the

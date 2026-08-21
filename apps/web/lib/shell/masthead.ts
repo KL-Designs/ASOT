@@ -13,14 +13,18 @@ export type BannerHeight = 'xsm' | 'sm' | 'md' | 'lg'
  *
  * These replace the `vh`-only heights in tailwind.config.ts. `md` was
  * `60vh` on desktop, which with the 94px navbar meant a reader on a 1080p
- * display saw a photograph and a title before any content. The clamps keep
- * the band responsive without letting it eat the viewport.
+ * display saw a photograph and a title before any content. Clamping fixed
+ * that but overshot — the band came out shallower than the photography it
+ * carries deserves — so the whole scale has since been lifted by roughly a
+ * quarter. `md`'s 440px ceiling plus the navbar is still under half a 1080p
+ * viewport, which is the property worth keeping: responsive, and never
+ * eating the fold.
  */
 const HEIGHTS: Record<BannerHeight, string> = {
-    xsm: 'clamp(110px, 16vh, 150px)',
-    sm: 'clamp(170px, 24vh, 250px)',
-    md: 'clamp(230px, 34vh, 340px)',
-    lg: 'clamp(280px, 44vh, 420px)',
+    xsm: 'clamp(140px, 20vh, 190px)',
+    sm: 'clamp(210px, 30vh, 320px)',
+    md: 'clamp(290px, 42vh, 440px)',
+    lg: 'clamp(350px, 52vh, 540px)',
 }
 
 export function bannerHeightValue(size?: BannerHeight): string {

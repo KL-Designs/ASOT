@@ -47,7 +47,7 @@ export default function Platoons({ stats }: { stats: PlatoonStat[] }) {
                 <SectionHead
                     kicker='Our units'
                     title='Join a platoon'
-                    more={{ href: '/community/orbat', label: 'Full ORBAT' }}
+                    more={{ href: '/orbat', label: 'Full ORBAT' }}
                 />
 
                 <div className={s.plats}>

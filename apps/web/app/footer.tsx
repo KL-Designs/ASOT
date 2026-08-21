@@ -30,9 +30,9 @@ const COLUMNS = [
         heading: 'Unit',
         links: [
             { label: 'About us', href: '/about' },
-            { label: 'ORBAT', href: '/community/orbat' },
+            { label: 'ORBAT', href: '/orbat' },
             { label: 'Callsigns', href: '/about/callsigns' },
-            { label: 'Biographies', href: '/community/bios' },
+            { label: 'Biographies', href: '/bios' },
             { label: 'MILPACS', href: '/milpacs' },
         ],
     },
@@ -42,8 +42,8 @@ const COLUMNS = [
             { label: 'All operations', href: '/operations' },
             { label: 'Interactive map', href: '/maps' },
             { label: 'Gallery', href: '/gallery' },
-            { label: 'Kits', href: '/community/kits' },
-            { label: 'Retired members', href: '/community/retired' },
+            { label: 'Kits', href: '/kits' },
+            { label: 'Retired members', href: '/retired' },
         ],
     },
     {
@@ -87,7 +87,8 @@ export default async function Footer() {
 
                     <div className={s.brand}>
                         <div className={s.m}>
-                            <Image src={Logo} alt='' width={44} height={44} quality={100} />
+                            {/* Oversized on purpose and sized down in CSS — see the note in navbar.tsx. */}
+                            <Image src={Logo} alt='' width={128} height={132} quality={100} />
                             <div className={s.w}>
                                 ASOT
                                 <span>Australian Special Operations Taskforce</span>

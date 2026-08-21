@@ -31,6 +31,13 @@ npm start             # Production server (Next.js + Hocuspocus on same port via
 npm run lint          # ESLint
 ```
 
+**Claude: don't run `npm run build` after every small change.** A build here takes minutes and
+proves nothing about a CSS tweak or a copy edit. Run it when it's the right tool — before committing
+or pushing, and when a change could plausibly break the build in a way the editor can't see (moving
+or renaming a route, since `typedRoutes: true` only regenerates its route union during a build;
+changing `next.config.ts`; touching anything in `serverExternalPackages`). For everything else,
+`npx tsc --noEmit` and the vitest suites are the fast checks — use those, or just make the change.
+
 Lint is also available from the repo root's `npm run menu` (Setup / one-off → Lint — web). The first-time setup wizard (init-db), terrain generation, and the migration scripts in `scripts/` are no longer separate npm scripts here — those remain menu-only, run from the repo root's `npm run menu` (see root `CLAUDE.md`).
 
 **`tests/` is a real Playwright E2E suite** (dashboard gate, permission-system migration behaviour, dev mode, hidden/privileged routes) — see `tests/README.md` for how it's wired (in-memory Mongo, fixed ports, seeded personas) and its design rationale/gotchas before adding or editing a spec. Run via `npm run test:e2e` (`:headed` / `:ui` / `:report` variants also exist) or the repo root's `npm run menu` → Testing category.

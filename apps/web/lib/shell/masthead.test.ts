@@ -8,10 +8,10 @@ import { bannerHeightValue } from './masthead'
 
 describe('bannerHeightValue', () => {
     test('maps each size to a clamped pixel height', () => {
-        expect(bannerHeightValue('xsm')).toBe('clamp(110px, 16vh, 150px)')
-        expect(bannerHeightValue('sm')).toBe('clamp(170px, 24vh, 250px)')
-        expect(bannerHeightValue('md')).toBe('clamp(230px, 34vh, 340px)')
-        expect(bannerHeightValue('lg')).toBe('clamp(280px, 44vh, 420px)')
+        expect(bannerHeightValue('xsm')).toBe('clamp(140px, 20vh, 190px)')
+        expect(bannerHeightValue('sm')).toBe('clamp(210px, 30vh, 320px)')
+        expect(bannerHeightValue('md')).toBe('clamp(290px, 42vh, 440px)')
+        expect(bannerHeightValue('lg')).toBe('clamp(350px, 52vh, 540px)')
     })
 
     test('defaults to md, matching the old Container default', () => {

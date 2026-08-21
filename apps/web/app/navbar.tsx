@@ -139,7 +139,14 @@ export default function Navbar() {
                             menu between them. See `.side` in the stylesheet. */}
                         <div className={s.side}>
                             <Link href='/' className={s.brand}>
-                                <Image src={Logo} alt='ASOT' className={s.brandMark} width={40} height={40} quality={100} priority />
+                                {/* 128x132, not 40x40, though .brandMark still paints it at 40px. For a
+                                    fixed-size image Next emits the srcset off `width` — at 40 that was a
+                                    48px raster, and 48px is below the size this emblem resolves at: the
+                                    arrows and the feather barbs disappear into grey in the downscale from
+                                    the 528px source, which is the mush that was on screen. 128 keeps them,
+                                    at 13.6KB (44.6KB for the 2x entry). The 128:132 pair is the source's
+                                    real 528x546 ratio rather than a square that lies about it. */}
+                                <Image src={Logo} alt='ASOT' className={s.brandMark} width={128} height={132} quality={100} priority />
                                 <span className={s.brandTxt}>
                                     <span className={s.brandName}>ASOT</span>
                                     <span className={s.brandSub}>Est. 2019 · Australia</span>

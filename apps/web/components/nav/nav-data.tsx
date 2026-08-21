@@ -9,10 +9,12 @@ import {
  * The public navigation tree, shared by the desktop bar and the mobile sheet so
  * the two can't drift apart.
  *
- * Six top-level items. `Support` used to sit alongside them but has moved into
- * `About Us`: it is the wellbeing/crisis-resources page, which the redesign's
- * DONATE button does not stand in for, but it doesn't earn a slot of its own
- * either — every item removed from the top level buys back roughly 90px of bar.
+ * Six top-level items. `Support` used to sit alongside them and no longer does:
+ * it is the wellbeing/crisis-resources page, which the redesign's DONATE button
+ * does not stand in for, but it doesn't earn a slot of its own either — every
+ * item removed from the top level buys back roughly 90px of bar. It now sits
+ * under `Community`, which is where the pages about looking after the people in
+ * the unit belong; `About Us` is about the unit itself.
  */
 
 export type NavChild = {
@@ -33,7 +35,7 @@ export type NavItem = {
      *
      * Opt-in per item rather than derived from how many children a menu has:
      * the card belongs where someone is already thinking about operations, and
-     * a count-based rule put it under `Our Orbat` — which has nothing to do with
+     * a count-based rule put it under `Community` — which has nothing to do with
      * what is on this weekend — while leaving `Operations` without it.
      */
     feature?: 'nextOp'
@@ -50,17 +52,17 @@ export const NAV_ITEMS: NavItem[] = [
             { name: 'Rules', href: '/about/rules', icon: <Gavel />, description: 'Unit rules and regulations' },
             { name: 'Principles & Values', href: '/about/values', icon: <AutoAwesome />, description: 'What we stand for' },
             { name: 'FAQ', href: '/about/faq', icon: <HelpOutline />, description: 'Frequently asked questions' },
-            { name: 'Support', href: '/support', icon: <SupportAgent />, description: 'Wellbeing and crisis resources' },
         ],
     },
     {
-        name: 'Our Orbat', href: '/community', icon: <Group />,
+        name: 'Community', href: '/orbat', icon: <Group />,
         children: [
-            { name: 'ORBAT', href: '/community/orbat', icon: <Group />, description: "ASOT's callsign structure" },
+            { name: 'ORBAT', href: '/orbat', icon: <Group />, description: "ASOT's callsign structure" },
             { name: 'MILPACS', href: '/milpacs', icon: <MilitaryTech />, description: 'Military Personnel Accounting Centre' },
-            { name: 'Kits', href: '/community/kits', icon: <Backpack />, description: 'Kits members have shared with the unit' },
-            { name: 'Retired Members', href: '/community/retired', icon: <EmojiEvents />, description: 'Members who have served with ASOT' },
-            { name: 'Biographies', href: '/community/bios', icon: <Badge />, description: 'Meet our staff' },
+            { name: 'Kits', href: '/kits', icon: <Backpack />, description: 'Kits members have shared with the unit' },
+            { name: 'Retired Members', href: '/retired', icon: <EmojiEvents />, description: 'Members who have served with ASOT' },
+            { name: 'Biographies', href: '/bios', icon: <Badge />, description: 'Meet our staff' },
+            { name: 'Support', href: '/support', icon: <SupportAgent />, description: 'Wellbeing and crisis resources' },
         ],
     },
     {

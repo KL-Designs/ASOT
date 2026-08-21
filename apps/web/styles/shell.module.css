@@ -20,7 +20,7 @@
 
 .band {
     position: relative;
-    height: var(--band-h, clamp(230px, 34vh, 340px));
+    height: var(--band-h, clamp(290px, 42vh, 440px));
     overflow: hidden;
     background: #0b0e10;
     display: flex;
@@ -42,14 +42,21 @@
 
 /*
    Two passes, matching .heroVeilSolo in landing.module.css. The horizontal
-   vignette is dark at both edges and clear through the middle, because the
-   photograph is at its best in the centre of the frame and that is where the
-   copy sits. The vertical pass seats the band under the navbar and lands its
-   bottom edge on --ink-0 rather than on a hard seam.
+   pass used to be a symmetric vignette that cleared to .1 by 40%, on the
+   reasoning that the photograph is at its best through the middle. It is —
+   but the copy is there too, and the kicker (10px, red) and lede (15.5px)
+   were being read off webbing and faces. The left ramp now holds real
+   darkness across the whole copy column and only lets the photograph through
+   past it, which is where the reader is looking at the picture rather than at
+   words. The right edge is unchanged: /join still parks an aside there.
 
-   The stops here must stay in step with the topo's `edges` mask. If they
-   drift, the contours outlive the darkening and read as a separate layer
-   floating over the photograph.
+   The vertical pass seats the band under the navbar and lands its bottom edge
+   on --ink-0 rather than on a hard seam.
+
+   The topo's `edges` mask goes transparent at 34%, before the veil finishes
+   its ramp — deliberate, in that order. The contours must not outlive the
+   darkening or they read as a separate layer floating over the photograph;
+   darkening that outlives the contours is just a scrim.
 */
 .veil {
     position: absolute;
@@ -57,10 +64,10 @@
     z-index: 2;
     background:
         linear-gradient(90deg,
-            rgba(6, 7, 9, .9) 0%,
-            rgba(6, 7, 9, .44) 18%,
-            rgba(6, 7, 9, .1) 40%,
-            rgba(6, 7, 9, .1) 60%,
+            rgba(6, 7, 9, .93) 0%,
+            rgba(6, 7, 9, .8) 26%,
+            rgba(6, 7, 9, .52) 46%,
+            rgba(6, 7, 9, .12) 64%,
             rgba(6, 7, 9, .5) 84%,
             rgba(6, 7, 9, .9) 100%),
         linear-gradient(180deg,
@@ -90,15 +97,20 @@
     grid-template-columns: minmax(0, 1fr);
 }
 
+/* The band's kicker, unlike the one on a body SectionHead, sits on a
+   photograph: --red at 10px against mid-tone webbing is the least legible
+   thing on the page. --red-hi carries the same signal with the contrast to
+   survive it, and the shadow gives every glyph its own edge. */
 .kick {
     display: flex;
     align-items: center;
     gap: 14px;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: .26em;
     text-transform: uppercase;
-    color: var(--red);
+    color: var(--red-hi);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, .9), 0 0 3px rgba(0, 0, 0, .8);
 }
 
 .kick::before {
@@ -138,13 +150,18 @@
 /* The rule that separates the lockup from the body copy — the same job the
    one above the landing hero's subtitle does. */
 .lede {
-    color: #c4c9cf;
-    font-size: 15.5px;
+    color: #eceff2;
+    font-size: 16px;
     line-height: 1.6;
     max-width: 52ch;
     margin: 18px 0 0;
     padding-top: 18px;
-    border-top: 1px solid rgba(255, 255, 255, .13);
+    border-top: 1px solid rgba(255, 255, 255, .18);
+    /* The title has carried a shadow since the redesign; the lede sits on the
+       same photograph in a fifth of the type size and needs one more, not
+       less. Tight and dark rather than broad and soft — a halo at this size
+       fattens the letterforms instead of separating them. */
+    text-shadow: 0 2px 12px rgba(0, 0, 0, .9), 0 0 3px rgba(0, 0, 0, .75);
 }
 
 /* ---------- body --------------------------------------------------------- */
@@ -278,18 +295,30 @@
    in the title it points at, and locks the family at six pages. Auto-fit keeps
    every real title, and a seventh page is a seventh cell.
 
-   Sticky under the navbar (28px status strip + 66px bar): on Rules and FAQ the
-   old rail was gone within one scroll, with no way back to the other five
-   sections but a return to the top.
+   Sticky to the viewport top. It was offset 94px to clear the navbar, which
+   assumed two things that aren't true: that the navbar stays put (it is
+   `position: sticky` inside a content-height wrapper in app/layout.tsx, so it
+   has no room to travel and leaves on the first scroll) and that it stays
+   94px tall (the 28px status strip collapses once scrolled). The offset just
+   left a dead band of page scrolling above the rail.
+
+   On Rules and FAQ the pre-redesign rail was gone within one scroll, with no
+   way back to the other five sections but a return to the top.
 */
 .rail {
     position: sticky;
-    top: 94px;
+    top: 0;
     z-index: 20;
     border-top: 1px solid var(--line-1);
     border-bottom: 1px solid var(--line-1);
     background: #0a0b0d;
     display: flex;
+    /* Centred, so six cells that only span half the width read as a deliberate
+       row rather than a left-aligned one that ran out. `safe` matters: plain
+       `center` on an overflow-x container pushes the first cells past the
+       scroll origin where they cannot be reached. */
+    justify-content: center;
+    justify-content: safe center;
     overflow-x: auto;
     padding: 0 var(--pad);
     scrollbar-width: none;
@@ -299,12 +328,25 @@
     display: none;
 }
 
+/*
+   A floor, not a fixed width. Sizing purely to the label left "FAQ" as a 79px
+   sliver next to a 254px "Rules & Expectations", which read as a broken cell
+   rather than a short one. The floor lifts the four short labels to a
+   comparable target while the two long ones still take the room they need —
+   the auto-fit behaviour above survives, it just has a minimum now.
+
+   Centred content follows from that: with a floor, a left-aligned label leaves
+   its dead space all on one side, and the cell looks mis-set rather than
+   generous.
+*/
 .railItem {
     position: relative;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 6px;
     flex: none;
+    min-width: 158px;
     white-space: nowrap;
     padding: 15px 22px 14px;
     border-left: 1px solid var(--line-1);
@@ -313,7 +355,6 @@
 
 .railItem:first-child {
     border-left: 0;
-    padding-left: 0;
 }
 
 .railItem:hover {
@@ -366,11 +407,8 @@
 
 @media (max-width: 900px) {
     .railItem {
+        min-width: 116px;
         padding: 12px 16px 11px;
-    }
-
-    .railItem:first-child {
-        padding-left: 0;
     }
 }
 

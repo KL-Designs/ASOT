@@ -1,9 +1,8 @@
 'use client'
 
-import React, { useCallback, useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 import { Kicker } from '@/components/ui/SectionHead'
-import { ChevronLeft, ChevronRight } from './icons'
 import s from '@/styles/gallery.module.css'
 
 /**
@@ -11,10 +10,15 @@ import s from '@/styles/gallery.module.css'
  *
  * The page this replaces ran the same idea as a CSS marquee on a duplicated
  * list, which is fine until someone wants to steer it: a `transform` animation
- * owns the element's position outright, so arrows and drag-scroll have nothing
- * to push against. This drives `scrollLeft` on a real scroller instead, so the
- * drift, the arrow buttons, a trackpad swipe and the scrollbar are all moving
- * the same one thing and none of them fight.
+ * owns the element's position outright, so drag-scroll has nothing to push
+ * against. This drives `scrollLeft` on a real scroller instead, so the drift, a
+ * drag, a trackpad swipe and the keyboard are all moving the same one thing and
+ * none of them fight.
+ *
+ * There are no arrow buttons. Grabbing the strip is what a strip of photographs
+ * invites, and it worked on touch already — the mouse just wasn't wired to the
+ * same gesture. Keyboard users still reach every tile with Tab, which scrolls
+ * it into view.
  *
  * The list is still rendered twice. Once the first copy has passed, the position
  * winds back by exactly one period — which lands on a frame showing the
@@ -86,9 +90,64 @@ export default function FeaturedRail({ images, onOpen }: {
         return () => cancelAnimationFrame(frame)
     }, [images.length])
 
-    const nudge = useCallback((direction: -1 | 1) => {
-        rail.current?.scrollBy({ left: direction * 600, behavior: 'smooth' })
-    }, [])
+    /*
+       Drag to pan, for the mouse only.
+
+       Touch and pen already pan this natively — that is what `overflow-x: auto`
+       buys — and hijacking their pointer events would trade momentum and
+       rubber-banding for a worse hand-rolled version of both. So the handlers
+       below bail on anything that isn't a mouse and let the browser do its job.
+
+       `moved` is the reason a drag doesn't open the lightbox: the tiles are
+       real buttons, so releasing the mouse after hauling the strip 300px fires
+       a click on whichever tile happens to be under the cursor. Past the slop
+       threshold that click is swallowed on the way down.
+    */
+    const drag = useRef<{ id: number; startX: number; startLeft: number; moved: number } | null>(null)
+    const dragged = useRef(false)
+    const [dragging, setDragging] = useState(false)
+    const DRAG_SLOP = 4
+
+    function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+        paused.current = true
+        dragged.current = false
+        if (e.pointerType !== 'mouse' || e.button !== 0) return
+        const el = rail.current
+        if (!el) return
+        drag.current = { id: e.pointerId, startX: e.clientX, startLeft: el.scrollLeft, moved: 0 }
+        el.setPointerCapture(e.pointerId)
+        setDragging(true)
+    }
+
+    function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+        const d = drag.current
+        const el = rail.current
+        if (!d || !el || e.pointerId !== d.id) return
+        const dx = e.clientX - d.startX
+        d.moved = Math.max(d.moved, Math.abs(dx))
+        el.scrollLeft = d.startLeft - dx
+    }
+
+    function onPointerEnd(e: React.PointerEvent<HTMLDivElement>) {
+        // A mouse that is still over the strip is still reading it; let
+        // onMouseLeave decide when the drift resumes.
+        if (e.pointerType !== 'mouse') paused.current = false
+
+        const d = drag.current
+        const el = rail.current
+        if (!d || !el || e.pointerId !== d.id) return
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
+        dragged.current = d.moved > DRAG_SLOP
+        drag.current = null
+        setDragging(false)
+    }
+
+    function onClickCapture(e: React.MouseEvent<HTMLDivElement>) {
+        if (!dragged.current) return
+        dragged.current = false
+        e.preventDefault()
+        e.stopPropagation()
+    }
 
     if (images.length === 0) return null
 
@@ -96,14 +155,6 @@ export default function FeaturedRail({ images, onOpen }: {
         <section className={s.strip}>
             <div className={s.stripH}>
                 <Kicker>Featured</Kicker>
-                <div className={s.stripBtns}>
-                    <button type='button' className={s.sbtn} onClick={() => nudge(-1)} aria-label='Scroll featured left'>
-                        <ChevronLeft />
-                    </button>
-                    <button type='button' className={s.sbtn} onClick={() => nudge(1)} aria-label='Scroll featured right'>
-                        <ChevronRight />
-                    </button>
-                </div>
             </div>
 
             {/* Held still while anyone is reading it, or dragging it, or tabbing
@@ -112,13 +163,16 @@ export default function FeaturedRail({ images, onOpen }: {
                 people. */}
             <div
                 ref={rail}
-                className={s.rail}
+                className={dragging ? `${s.rail} ${s.railDragging}` : s.rail}
                 onMouseEnter={() => { paused.current = true }}
                 onMouseLeave={() => { paused.current = false }}
                 onFocusCapture={() => { paused.current = true }}
                 onBlurCapture={() => { paused.current = false }}
-                onPointerDown={() => { paused.current = true }}
-                onPointerUp={() => { paused.current = false }}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerEnd}
+                onPointerCancel={onPointerEnd}
+                onClickCapture={onClickCapture}
             >
                 {[...images, ...images].map((img, i) => (
                     <button

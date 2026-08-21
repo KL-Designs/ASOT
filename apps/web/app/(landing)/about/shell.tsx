@@ -2,8 +2,6 @@ import React from 'react'
 
 import Container from '@/components/container'
 import { type RailItem } from '@/lib/shell/rail'
-import { getRosterCount } from '@/lib/landing'
-import MastheadAside from '@/components/ui/MastheadAside'
 
 import ImgAbout from '@/public/images/home/training2.png'
 import ImgCallsigns from '@/public/images/home/Gopro3.png'
@@ -84,33 +82,15 @@ const ABOUT_PAGES: AboutPage[] = [
     },
 ]
 
-export default async function AboutShell({ page, children }: {
+export default function AboutShell({ page, children }: {
     page: AboutPageKey
     children: React.ReactNode
 }) {
     const current = ABOUT_PAGES.find(p => p.key === page) ?? ABOUT_PAGES[0]
 
-    // Only the index page carries an aside — the five sub-pages have no live
-    // figures worth a second column, and a 340px band with an empty right half
-    // reads as the two-column composition with a hole in it. It is also the
-    // only page that pays for the roster query, and the only one that has to
-    // render dynamically because of it.
-    const isIndex = current.key === 'index'
-    const roster = isIndex ? await getRosterCount() : null
-
-    const aside = isIndex ? (
-        <MastheadAside
-            heading='At a glance'
-            status='Live'
-            rows={[
-                { label: 'Active members', value: roster != null ? String(roster) : '—' },
-                { label: 'Ops per week', value: '2' },
-                { label: 'Applications', value: 'Open', accent: true },
-            ]}
-            cta={{ href: '/join', label: 'Enlist now' }}
-        />
-    ) : undefined
-
+    // No aside on any of the six: none of them has a live figure worth a second
+    // column, and a 340px band with an empty right half reads as the two-column
+    // composition with a hole in it. The masthead runs full width instead.
     return (
         <Container
             title={current.label.toUpperCase()}
@@ -118,8 +98,7 @@ export default async function AboutShell({ page, children }: {
             lede={current.subtitle}
             background={current.background}
             rail={ABOUT_PAGES}
-            aside={aside}
-            sx={{ bannerHeight: 'md', maxWidth: 'max-w-md' }}
+            sx={{ bannerHeight: 'md', maxWidth: 'max-w-lg' }}
         >
             {children}
         </Container>
