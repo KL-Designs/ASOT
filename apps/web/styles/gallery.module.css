@@ -247,36 +247,6 @@
     gap: 16px;
 }
 
-.stripBtns {
-    margin-left: auto;
-    display: flex;
-    gap: 6px;
-}
-
-.sbtn {
-    width: 32px;
-    height: 32px;
-    display: grid;
-    place-items: center;
-    border: 1px solid var(--line-1);
-    background: none;
-    color: var(--txt-2);
-    transition: border-color .16s, color .16s, background .16s;
-    border-radius: 2px;
-    cursor: pointer;
-}
-
-.sbtn:hover {
-    border-color: var(--red);
-    color: #fff;
-    background: rgba(224, 35, 60, .08);
-}
-
-.sbtn svg {
-    width: 15px;
-    height: 15px;
-}
-
 /*
    The first tile lines up with the page gutter, but the strip still runs
    full-bleed off the right edge — that overflow is what tells you it scrolls.
@@ -284,8 +254,8 @@
    animation for control of scrollLeft every frame.
 
    Scrollable but with no scrollbar drawn. `overflow-x` has to stay `auto` —
-   that is the property that makes `scrollLeft` mean anything, and the drift,
-   the arrows and a trackpad swipe all move it. But a bar under a strip that is
+   that is the property that makes `scrollLeft` mean anything, and the drift, a
+   drag and a trackpad swipe all move it. But a bar under a strip that is
    already moving on its own reads as a stuck progress indicator, and Windows
    paints it permanently at full weight rather than the hairline other platforms
    fade in. The arrows are the affordance here.
@@ -304,6 +274,25 @@
     -ms-overflow-style: none;
     -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
     mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    /* Grabbable — the arrows that used to say "this scrolls" are gone, so the
+       cursor has to say it instead. */
+    cursor: grab;
+}
+
+/*
+   While a drag is live the cursor wins over every tile's own `zoom-in`, and
+   nothing selects: without this, hauling the strip left paints a text selection
+   across the whole page.
+*/
+.railDragging,
+.railDragging * {
+    cursor: grabbing;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.railDragging img {
+    -webkit-user-drag: none;
 }
 
 .rail::-webkit-scrollbar {
@@ -580,10 +569,29 @@
     align-items: start;
 }
 
-/* Clears the toolbar pinned above it — the one thing that stays put. */
+/*
+   Clears the toolbar pinned above it — the one thing that stays put.
+
+   Bounded and scrollable, because it holds three facets and the Operation list
+   is long. A sticky box with only `top` set and no height limit can end up
+   taller than the viewport, and the part hanging off the bottom is then
+   unreachable: the page scrolls, the pinned rail doesn't. Capping it means the
+   rail scrolls internally instead of hiding its last facet.
+*/
 .facetRail {
     position: sticky;
     top: 76px;
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.facetRail::-webkit-scrollbar {
+    width: 4px;
+}
+
+.facetRail::-webkit-scrollbar-thumb {
+    background: var(--line-2);
 }
 
 /* ---------- facets -------------------------------------------------------- */
@@ -644,9 +652,15 @@
     color: var(--red);
 }
 
+/*
+   260px showed eight operations out of dozens, which made the list read as a
+   peephole. This is a cap, not a height — Year has five entries and still sizes
+   to its content — so only the lists long enough to need the room take it, and
+   the `vh` term keeps it off the bottom of a short window.
+*/
 .fbody {
     padding: 11px 15px 14px;
-    max-height: 260px;
+    max-height: clamp(260px, 46vh, 520px);
     overflow: auto;
     scrollbar-width: thin;
 }

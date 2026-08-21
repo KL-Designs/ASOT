@@ -1,5 +1,4 @@
 ﻿import type { Metadata } from 'next'
-import Image from 'next/image'
 import type { Route } from 'next'
 import Link from 'next/link'
 import { connection } from 'next/server'
@@ -16,6 +15,12 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 
 import Card from './card'
+import Masthead from '@/components/ui/Masthead'
+import shell from '@/styles/shell.module.css'
+import ui from '@/styles/ui.module.css'
+import { fetchDefaultKitLines } from '@/lib/milpac-kits'
+import { coverIds } from '@/lib/military/milpac-cover'
+import r from './roster.module.css'
 import { buildSlugIndex, canonicalSegment, toSlugCandidate } from '@/lib/military/milpac-slug'
 import MilpacsNav from './nav'
 
@@ -43,7 +48,24 @@ export default async function Page() {
 		Db.orbatSectionMeta.find({}).toArray(),
 	])
 	const metaMap = new Map(metaDocs.map(m => [`${m.category}:${m.sectionTitle ?? ''}`, m]))
+
+	// A category-level patch is the one stored with `sectionTitle: null` — the
+	// platoon's own, as distinct from any of its callsigns'. Checking for the
+	// null record matters: without it a section's patch would be served up as the
+	// whole platoon's, which is what the route's own fallback would do.
+	const categoryPatch = (category: string) =>
+		metaDocs.some(m => m.category === category && !m.sectionTitle && m.patch)
+			? `/api/orbat/patch?category=${category}`
+			: undefined
 	const canManageOrbat = !!me && client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+
+	// One query for every card on the page. Depends on the member list, so it
+	// cannot join the Promise.all above.
+	const kitLines = await fetchDefaultKitLines(allMembers.map(m => m.id))
+
+	// One readdir for the whole roster rather than an existsSync per card.
+	const covers = coverIds()
+	const coverUrl = (id: string) => covers.has(id) ? `/api/uploads/cover?id=${id}` : undefined
 
 	// fetchAllMembers() returns raw Mongo documents — departmentRoleIds (ObjectId[])
 	// can't cross the Server->Client Component boundary as-is (Card below is
@@ -80,6 +102,11 @@ export default async function Page() {
 			subs: orbat.support.map(s => ({ id: slugify(s.title), label: s.title })),
 		},
 		{
+			id: 'gamemasters',
+			label: '1-0 Zulu',
+			subs: [],
+		},
+		{
 			id: 'reservists',
 			label: 'Reservists',
 			subs: [],
@@ -87,60 +114,57 @@ export default async function Page() {
 	]
 
 	return (
-		<div style={{ background: 'rgb(10,10,10)', minHeight: '100vh' }}>
+		<div className={shell.shell} style={{ minHeight: '100vh' }}>
 
-			{/* Hero Banner */}
-			<div className='relative w-full h-banner-sm md:h-banner-sm-md flex flex-col justify-end items-center overflow-hidden'>
-				<Image src={Banner} alt='Banner' fill className='object-cover object-center' loading='eager' />
-				<div className='absolute inset-0' style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.2) 40%, rgba(10,10,10,0.7) 75%, #0a0a0a 100%)' }} />
-				<div className='relative z-10 flex flex-col items-center gap-3 pb-10 px-6 text-center w-full'>
-					<h1 style={{ margin: 0, fontSize: 'clamp(2rem, 6vw, 3.5rem)', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>MILPACS</h1>
-					<div className='flex items-center gap-3' style={{ maxWidth: 360, width: '100%' }}>
-						<div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
-						<div style={{ height: 2, width: 48, background: 'var(--red)' }} />
-						<div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
-					</div>
-					<p style={{ margin: 0, fontSize: '0.75rem', opacity: 0.8, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.8)' }}>Military Personnel Accounting Centre</p>
-					{canManageOrbat && (
-						<Link href='/dashboard/orbat' style={{
-							fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-							color: 'rgba(219,0,29,0.85)', background: 'rgba(0,0,0,0.45)',
-							border: '1px solid rgba(219,0,29,0.35)', padding: '6px 16px', textDecoration: 'none',
-							display: 'inline-flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(4px)',
-						}}>
-							⚙ Manage ORBAT
+			{/* The same masthead the About family and every other public page uses,
+			    rather than the bespoke centred banner this page carried — same veil,
+			    same drifting topo, same clamped height, same left-anchored lockup. */}
+			<Masthead
+				title='MILPACS'
+				kicker='Personnel'
+				lede='Military Personnel Accounting Centre — every member of the unit, their billet, and what they carry.'
+				background={Banner}
+				bannerHeight='md'
+				actions={canManageOrbat
+					? (
+						<Link href='/dashboard/orbat' className={`${ui.btn} ${ui.btnGhost}`}>
+							<svg viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='1.7' strokeLinecap='round' strokeLinejoin='round' aria-hidden='true'>
+								<circle cx='12' cy='12' r='3' />
+								<path d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z' />
+							</svg>
+							Manage ORBAT
 						</Link>
-					)}
-				</div>
-			</div>
+					)
+					: undefined}
+			/>
 
 			<MilpacsNav sections={navSections} />
 
-			<div className='m-auto max-w-[1400px]' style={{ padding: '3rem 2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+			<div className={r.page}>
 
 				{/* ── India Company HQ ──────────────────────────────────── */}
-				<Section id='india-company' label='Command' title='India Company' rgb='219, 105, 105'>
-					<SubSection id='hq' title='Headquarters' rgb='219, 105, 105'>
-						<div className='flex flex-wrap gap-4 justify-center'>
+				<Section id='india-company' label='Command' title='India Company' rgb='219, 105, 105' patchUrl={categoryPatch('companyHQ')} count={1 + orbat.companyHQ.members.length}>
+					<SubSection id='hq' title='Headquarters' count={1 + orbat.companyHQ.members.length}>
+						<div className={r.grid}>
 							{[orbat.companyHQ.senior, ...orbat.companyHQ.members].map(m => {
 								const member = lookup(m.name)
-								return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} /> : null
+								return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
 							})}
 						</div>
 					</SubSection>
 				</Section>
 
 				{/* ── 1st Platoon — sections from ORBAT ───────────── */}
-				<Section id='1st-platoon' label='Saturday' title='1st Platoon' rgb='173, 114, 4' hexColor={metaMap.get('platoon11:')?.color}>
+				<Section id='1st-platoon' label='Saturday' title='1st Platoon' rgb='173, 114, 4' patchUrl={categoryPatch('platoon11')} hexColor={metaMap.get('platoon11:')?.color} count={orbat.platoon11.reduce((n, sec) => n + sec.members.length, 0)}>
 					{orbat.platoon11.map((section) => {
 						const secMeta = metaMap.get(`platoon11:${section.title}`)
 						const patchUrl = secMeta?.patch ? `/api/orbat/patch?category=platoon11&section=${encodeURIComponent(section.title)}` : undefined
 						return (
-							<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='173, 114, 4' hexColor={secMeta?.color ?? metaMap.get('platoon11:')?.color} patchUrl={patchUrl}>
-								<div className='flex flex-wrap gap-4 justify-center'>
+							<SubSection key={section.title} id={slugify(section.title)} title={section.title} count={section.members.length} hexColor={secMeta?.color ?? metaMap.get('platoon11:')?.color} patchUrl={patchUrl}>
+								<div className={r.grid}>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} /> : null
+										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -149,16 +173,16 @@ export default async function Page() {
 				</Section>
 
 				{/* ── 2nd Platoon — sections from ORBAT ───────────── */}
-				<Section id='2nd-platoon' label='Sunday' title='2nd Platoon' rgb='29, 116, 85' hexColor={metaMap.get('platoon12:')?.color}>
+				<Section id='2nd-platoon' label='Sunday' title='2nd Platoon' rgb='29, 116, 85' patchUrl={categoryPatch('platoon12')} hexColor={metaMap.get('platoon12:')?.color} count={orbat.platoon12.reduce((n, sec) => n + sec.members.length, 0)}>
 					{orbat.platoon12.map((section) => {
 						const secMeta = metaMap.get(`platoon12:${section.title}`)
 						const patchUrl = secMeta?.patch ? `/api/orbat/patch?category=platoon12&section=${encodeURIComponent(section.title)}` : undefined
 						return (
-							<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='29, 116, 85' hexColor={secMeta?.color ?? metaMap.get('platoon12:')?.color} patchUrl={patchUrl}>
-								<div className='flex flex-wrap gap-4 justify-center'>
+							<SubSection key={section.title} id={slugify(section.title)} title={section.title} count={section.members.length} hexColor={secMeta?.color ?? metaMap.get('platoon12:')?.color} patchUrl={patchUrl}>
+								<div className={r.grid}>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} /> : null
+										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -167,16 +191,16 @@ export default async function Page() {
 				</Section>
 
 				{/* ── Support Platoon (1-3) ─────────────────── */}
-				<Section id='support-platoon' label='Saturday & Sunday' title='Support Platoon' rgb='32, 102, 148' hexColor={metaMap.get('support:')?.color}>
+				<Section id='support-platoon' label='Saturday & Sunday' title='Support Platoon' rgb='32, 102, 148' patchUrl={categoryPatch('support')} hexColor={metaMap.get('support:')?.color} count={orbat.support.reduce((n, sec) => n + sec.members.length, 0)}>
 					{orbat.support.map((section) => {
 						const secMeta = metaMap.get(`support:${section.title}`)
 						const patchUrl = secMeta?.patch ? `/api/orbat/patch?category=support&section=${encodeURIComponent(section.title)}` : undefined
 						return (
-							<SubSection key={section.title} id={slugify(section.title)} title={section.title} rgb='32, 102, 148' hexColor={secMeta?.color ?? metaMap.get('support:')?.color} patchUrl={patchUrl}>
-								<div className='flex flex-wrap gap-4 justify-center'>
+							<SubSection key={section.title} id={slugify(section.title)} title={section.title} count={section.members.length} hexColor={secMeta?.color ?? metaMap.get('support:')?.color} patchUrl={patchUrl}>
+								<div className={r.grid}>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} /> : null
+										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -184,24 +208,45 @@ export default async function Page() {
 					})}
 				</Section>
 
+				{/* ── Gamemasters (1-0 Zulu) ─────────────── */}
+				{/* `fetchORBAT()` has always returned `gamemasters` and /orbat has
+				    always rendered it — this page just never read the key, which
+				    is why Zeus was missing from the roster entirely. */}
+				{orbat.gamemasters.length > 0 && (
+					<Section id='gamemasters' label='Mission Control' title='1-0 Zulu — Gamemasters' rgb='139, 92, 246' patchUrl={categoryPatch('gamemaster')} hexColor={metaMap.get('gamemaster:')?.color} count={orbat.gamemasters.length}>
+						<SubSection
+							title='Gamemasters'
+							count={orbat.gamemasters.length}
+							hexColor={metaMap.get('gamemaster:')?.color}
+						>
+							<div className={r.grid}>
+								{orbat.gamemasters.map(m => {
+									const member = lookup(m.name)
+									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
+								})}
+							</div>
+						</SubSection>
+					</Section>
+				)}
+
 				{/* ── Reservists ─────────────────────────── */}
-				<Section id='reservists' label='Reservists' title='Company Reservists' rgb='194, 8, 154'>
+				<Section id='reservists' label='Reservists' title='Company Reservists' rgb='194, 8, 154' count={orbat.activeReservists.length + orbat.inactiveReservists.length}>
 					{orbat.activeReservists.length > 0 && (
-						<SubSection title='Active' rgb='194, 8, 154'>
-							<div className='flex flex-wrap gap-4 justify-center'>
+						<SubSection title='Active' count={orbat.activeReservists.length} patchUrl={categoryPatch('activeReservist')}>
+							<div className={r.grid}>
 								{orbat.activeReservists.map(name => {
 									const member = lookup(name)
-									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Active Reservist' /> : null
+									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Active Reservist' kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
 								})}
 							</div>
 						</SubSection>
 					)}
 					{orbat.inactiveReservists.length > 0 && (
-						<SubSection title='Inactive' rgb='194, 8, 154'>
-							<div className='flex flex-wrap gap-4 justify-center' style={{ opacity: 0.5 }}>
+						<SubSection title='Inactive' count={orbat.inactiveReservists.length} patchUrl={categoryPatch('inactiveReservist')}>
+							<div className={r.grid} style={{ opacity: 0.5 }}>
 								{orbat.inactiveReservists.map(name => {
 									const member = lookup(name)
-									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Inactive Reservist' /> : null
+									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Inactive Reservist' kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
 								})}
 							</div>
 						</SubSection>
@@ -214,54 +259,34 @@ export default async function Page() {
 }
 
 
-function Section({ id, label, title, children, rgb, hexColor }: { id?: string; label: string; title: string; children: React.ReactNode; rgb: string; hexColor?: string }) {
+function Section({ id, label, title, children, rgb, hexColor, count, patchUrl }: { id?: string; label: string; title: string; children: React.ReactNode; rgb: string; hexColor?: string; count?: number; patchUrl?: string }) {
 	const effectiveRgb = hexColor ? hexToRgb(hexColor) : rgb
 	return (
-		<div
-			id={id}
-			className='flex flex-col gap-6'
-			style={{
-				scrollMarginTop: '60px',
-				padding: 'clamp(1.25rem, 4vw, 2rem)',
-				borderRadius: 8,
-				border: `1px solid rgba(${effectiveRgb}, 0.18)`,
-				borderTop: `2px solid rgba(${effectiveRgb}, 0.65)`,
-				background: `linear-gradient(160deg, rgba(${effectiveRgb}, 0.05) 0%, rgba(${effectiveRgb}, 0.02) 40%, transparent 100%)`,
-				boxShadow: `0 0 40px rgba(${effectiveRgb}, 0.06), 0 0 80px rgba(${effectiveRgb}, 0.03), inset 0 1px 0 rgba(${effectiveRgb}, 0.08)`,
-			}}
-		>
-			<div className='flex flex-col gap-3' style={{ alignItems: 'center', textAlign: 'center' }}>
-				<div style={{ fontSize: 'clamp(0.6rem, 1.8vw, 0.7rem)', fontWeight: 600, letterSpacing: '0.18em', color: `rgba(${effectiveRgb}, 0.85)`, textTransform: 'uppercase' }}>
-					{label}
+		<section id={id} className={r.section} style={{ ['--sec-rgb' as string]: effectiveRgb }}>
+			<div className={r.sectionHead}>
+				<div className={r.sectionRule} />
+				{patchUrl && <span className={r.sectionPlate}><img src={patchUrl} alt='' /></span>}
+				<div className={r.sectionWho}>
+					<div className={r.sectionLabel}>{label}</div>
+					<h2 className={r.sectionTitle}>{title}</h2>
 				</div>
-				<h2 style={{ fontSize: 'clamp(1.2rem, 5vw, 2rem)', fontWeight: 700, letterSpacing: '0.08em', margin: 0, textTransform: 'uppercase' }}>
-					{title}
-				</h2>
-				<div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
-					<div style={{ height: 1, flexGrow: 1, background: `rgba(${effectiveRgb}, 0.2)` }} />
-					<div style={{ width: 4, height: 4, background: `rgba(${effectiveRgb}, 1)`, transform: 'rotate(45deg)', flexShrink: 0 }} />
-					<div style={{ height: 1, flexGrow: 1, background: `rgba(${effectiveRgb}, 0.2)` }} />
-				</div>
+				{count !== undefined && (
+					<div className={r.sectionCount}>{count} Assigned</div>
+				)}
 			</div>
-			<div className='flex flex-col gap-4'>
-				{children}
-			</div>
-		</div>
+			{children}
+		</section>
 	)
 }
 
-
-function SubSection({ id, title, children, rgb, hexColor, patchUrl }: { id?: string; title: string; children: React.ReactNode; rgb: string; hexColor?: string; patchUrl?: string }) {
-	const effectiveRgb = hexColor ? hexToRgb(hexColor) : rgb
+function SubSection({ id, title, children, hexColor, patchUrl, count }: { id?: string; title: string; children: React.ReactNode; rgb?: string; hexColor?: string; patchUrl?: string; count?: number }) {
 	return (
-		<div id={id} className='flex flex-col gap-4' style={{ scrollMarginTop: '60px' }}>
-			<div className='flex items-center gap-3'>
-				<div style={{ height: 1, flexGrow: 1, background: `rgba(${effectiveRgb}, 0.15)` }} />
-				{patchUrl && <img src={patchUrl} alt='' style={{ width: 22, height: 22, objectFit: 'contain', flexShrink: 0, opacity: 0.85 }} />}
-				<h3 style={{ fontSize: 'clamp(0.65rem, 2vw, 1rem)', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: hexColor ? hexColor : 'rgba(237,237,237,0.45)', margin: 0, whiteSpace: 'nowrap' }}>
-					{title}
-				</h3>
-				<div style={{ height: 1, flexGrow: 1, background: `rgba(${effectiveRgb}, 0.15)` }} />
+		<div id={id} className={r.sub}>
+			<div className={r.subHead}>
+				{patchUrl && <span className={r.subPlate}><img src={patchUrl} alt='' className={r.subPatch} /></span>}
+				<h3 className={r.subTitle} style={hexColor ? { ['--sub-color' as string]: hexColor } : undefined}>{title}</h3>
+				<div className={r.subLine} />
+				{count !== undefined && <div className={r.subCount}>{count}</div>}
 			</div>
 			{children}
 		</div>

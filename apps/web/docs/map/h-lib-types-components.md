@@ -202,7 +202,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `isKitIcon(v)` / `kitIcon(v)` — narrow, or resolve-with-fallback. The check is against the **key list**, not `key in KIT_ICON_PATHS`: the value arrives in a JSON body and becomes a `Record` lookup on a public page, so `__proto__`/`constructor` must fall through to the default rather than resolve. Unit-tested in `kit-icons.test.ts`.
 
 ### lib/loadout/summary.ts
-- `summariseLoadout(kit: ParsedLoadout): KitSummary` — the headline of a kit for the `/community/kits` shelf: primary weapon + its attachments in arsenal order, headgear/uniform/vest/backpack classnames, and `itemCount`. Stacks count by multiplicity (six magazines is six items, not one) and worn/held gear counts too, so a kit that is all worn gear and no cargo does not read as empty; a non-finite stack count is skipped rather than turning the card's count into `NaN`. Pure; unit-tested in `summary.test.ts`.
+- `summariseLoadout(kit: ParsedLoadout): KitSummary` — the headline of a kit for the `/kits` shelf: primary weapon + its attachments in arsenal order, headgear/uniform/vest/backpack classnames, and `itemCount`. Stacks count by multiplicity (six magazines is six items, not one) and worn/held gear counts too, so a kit that is all worn gear and no cargo does not read as empty; a non-finite stack count is skipped rather than turning the card's count into `NaN`. Pure; unit-tested in `summary.test.ts`.
 
 ### lib/loadout/kit-line.ts
 - `formatKitLine(name, summary: KitSummary): string` — a kit compressed to the Discord dossier card's single foot line: kit name, primary weapon, vest, item count, `·`-joined, each segment truncated on its own bound (`MAX_CARD_NAME` 28, `MAX_ITEM` 32) and the assembled line clamped again at `MAX_LINE` (100, derived from the card's own pixel width) so an unbounded pasted item name or a huge item count can't push the line off the card. Pure; unit-tested in `kit-line.test.ts`.
@@ -239,10 +239,25 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `ShelfSort` — `'newest' | 'rated' | 'copied' | 'name'`. `SHELF_SORTS` — the four options with their labels, in menu order. `KITS_PER_PAGE` (24).
 - `ShelfCard` — the subset of a card these functions read (`id, name, tags, updatedAt, ratingAvg, ratingCount, ratingScore, copyCount, haystack`); every function is generic over `T extends ShelfCard` so the page's fuller `CardData` survives.
 - `matchesQuery(card, query)` — every whitespace-split term must appear in `card.haystack` (substring, not prefix, so "mg" finds both "MG" and "LMG"). `matchesTags(card, tags)` — AND, not OR. `sortCards(cards, sort)` — returns a new array (memo-safe), recency as the tiebreak on every sort. `pageCount(total, perPage?)` / `paginate(items, page, perPage?)` — never zero pages, clamps an out-of-range page rather than trusting it. `tagCounts(cards)` — the tags worth offering as filter chips (at least one match), with counts, in `KIT_TAG_KEYS` order.
-- Pure and React-free by design — the shelf component (`app/(landing)/community/kits/shelf.tsx`) is a thin state layer over these. Unit-tested in `shelf.test.ts`.
+- Pure and React-free by design — the shelf component (`app/(landing)/kits/shelf.tsx`) is a thin state layer over these. Unit-tested in `shelf.test.ts`.
+
+### lib/military/accent.ts
+- `resolveMemberAccent(member): string` — **the only thing that should read `profileAccent` or
+  `hexAccentColor` directly.** Priority: the member's own pick (set on their milpac) → their Discord
+  accent → `DEFAULT_ACCENT` (`#db001d`). Discord's `#000000` counts as *unset*, not as black — the
+  login callback stores no-accent that way, and treating it as a colour is what used to render those
+  members grey via `ensureVisible`. A member's own pick still passes through `ensureVisible`, since
+  every surface using this paints on near-black.
+- `normaliseHex(value)` — `#rrggbb` lower-cased or null. Used by `PUT /api/me/accent` to validate
+  before storing: the value lands in a `style` attribute on every surface showing that member.
+- Consumers: `lib/military/milpac-profile.ts`, the /milpacs roster card, `components/nav/AccountMenu`,
+  `app/api/me/token`, the landing `Hero`. They each resolved it themselves before and disagreed —
+  two applied the legibility floor, one didn't, and the fallbacks were a mix of `#db001d` and
+  `var(--red)`. Unit-tested in `accent.test.ts`.
 
 ### lib/military/milpac-cover.ts
 - `coverPath(memberId)` / `hasCover(memberId)` — the member's uploaded cover photo at `storage/uploads/cover/{id}.png`. Used by the milpac page (banner) and its `opengraph-image.tsx` (share-card ground). `app/api/uploads/cover/route.ts` still writes via its own cwd-relative string.
+- `coverIds(): Set<string>` — every id with a cover, from one `readdirSync`. What the /milpacs roster uses: `hasCover` is right for one member and wrong for 163, where it becomes 163 filesystem questions to answer one. Missing directory yields an empty set rather than throwing.
 - `fitCover(srcW, srcH, boxW, boxH): CropRect` — `object-fit: cover` as a centred source rectangle. Pure; unit-tested in `milpac-cover.test.ts`.
 - `readCoverImage(memberId, box?): Promise<string|null>` — decodes the cover with `@napi-rs/canvas` (which sniffs the real format, since the upload route names every file `.png` whatever it was), crops via `fitCover`, re-encodes to a JPEG data URI at the card's 1300×630. Data URI because satori resolves neither relative paths nor `background-image: url()`; re-encoded because covers are stored unresized and base64 inflates by a third. Returns `null` on any failure — the OG route must degrade to its drawn card, never 500. `MAX_COVER_BYTES` (25MB) bounds what reaches the decoder.
 
@@ -462,7 +477,7 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 - `GalleryAPI` — the shape returned by the gallery listing API: `{info, updated, featured[], years[{year, operations[{operation, stages[{stage, media[]}]}]}]}`.
 
 ### types/loadout.d.ts
-- `MemberLoadout` — `{_id, userId, name, description?, icon?, isDefault, shared, tags?, ratingAvg?, ratingCount?, ratingSum?, copyCount?, raw, createdAt, updatedAt}`. `icon` is a `KitIconKey` (`lib/loadout/kit-icons.ts`); absent or unrecognised renders `DEFAULT_KIT_ICON`. `shared` is the collection's whole privacy boundary: a shared ("public") kit appears on the owner's milpac and on `/community/kits` for anyone to copy, an unshared one is only ever sent to the owner's own browser — so **every read of another member's kits must filter on it**. `tags` — keys from `lib/loadout/tags.ts`, always via `normaliseTags`. `ratingAvg`/`ratingCount` — denormalised from `loadout_ratings`, what the shelf sorts/displays on; `ratingSum` is the running total they're derived from, maintained by atomic `$inc`-style delta inside the rating route's aggregation-pipeline update rather than a read-then-recompute. `copyCount` — distinct actors who copied it, from `loadout_copies`. Only `raw` (the ACE arsenal export, verbatim) is stored — `lib/loadout/parse.ts` parses at render, so improving the parser needs no migration. Web-only (not in the monorepo-root `types/`): `User` is shared with apps/bot and an unbounded per-member list has no business bloating every bot fetch of it.
+- `MemberLoadout` — `{_id, userId, name, description?, icon?, isDefault, shared, tags?, ratingAvg?, ratingCount?, ratingSum?, copyCount?, raw, createdAt, updatedAt}`. `icon` is a `KitIconKey` (`lib/loadout/kit-icons.ts`); absent or unrecognised renders `DEFAULT_KIT_ICON`. `shared` is the collection's whole privacy boundary: a shared ("public") kit appears on the owner's milpac and on `/kits` for anyone to copy, an unshared one is only ever sent to the owner's own browser — so **every read of another member's kits must filter on it**. `tags` — keys from `lib/loadout/tags.ts`, always via `normaliseTags`. `ratingAvg`/`ratingCount` — denormalised from `loadout_ratings`, what the shelf sorts/displays on; `ratingSum` is the running total they're derived from, maintained by atomic `$inc`-style delta inside the rating route's aggregation-pipeline update rather than a read-then-recompute. `copyCount` — distinct actors who copied it, from `loadout_copies`. Only `raw` (the ACE arsenal export, verbatim) is stored — `lib/loadout/parse.ts` parses at render, so improving the parser needs no migration. Web-only (not in the monorepo-root `types/`): `User` is shared with apps/bot and an unbounded per-member list has no business bloating every bot fetch of it.
 - `LoadoutRating` — `{_id, loadoutId, userId, stars: 1-5, createdAt, updatedAt}`. Unique on `{loadoutId, userId}` — that index *is* the one-rating-per-member rule. A collection rather than an array on the loadout so a rating carries a value per user and the loadout document (which is sent to the browser wholesale, `raw` included) never has to remember to strip raters to stay anonymous.
 - `LoadoutCopy` — `{_id, loadoutId, actorId, copies, firstCopiedAt, lastCopiedAt}`. `actorId` is a Discord id or `anon:<uuid>` for a signed-out visitor. Unique on `{loadoutId, actorId}`. `MemberLoadout.copyCount` counts documents here, not the `copies` field — the headline number is how many people took the kit, not how many times.
 
@@ -607,6 +622,34 @@ Server-side loaders for the public home page and footer — direct Mongo, no `/a
 Every loader catches independently and degrades to null/empty: the front door should lose one band,
 not the whole page.
 
+---
+
+### lib/shell/masthead.ts
+Pure helpers for the public page masthead (`components/container.tsx` / `components/ui/Masthead.tsx`).
+- `bannerHeightValue(size?: BannerHeight)` → the band's height as a clamped CSS value (`xsm|sm|md|lg`,
+  default `md`) — replaces the old `vh`-only Tailwind heights so a 1080p reader isn't shown a photo
+  and one word before any content.
+- Lives in `lib/` rather than beside the component because vitest only picks up `lib/**/*.test.ts`.
+
+### lib/milpac-kits.ts
+- `fetchDefaultKitLines(userIds): Promise<Map<string, MilpacKitLine>>` — each member's default
+  **public** kit reduced to `{primary, itemCount}`, in one query for a whole roster page. Filtered on
+  `isDefault && shared`; `shared` is the loadout collection's entire privacy boundary, so that half
+  is not optional. Each kit's `raw` is parsed inside its own try/catch — it is a verbatim member
+  paste, and one malformed export must not take the roster down.
+- Sits flat in `lib/` rather than in `lib/loadout/` on purpose: everything in that folder is pure and
+  React-free by design (the parser and shelf are unit-tested on that basis) and this is a Mongo read.
+  `lib/landing.ts` is the same pattern.
+
+### lib/shell/rail.ts
+Pure helpers for the sticky section rail (`components/ui/SectionRail.tsx`), kept out of the client
+component so the active-cell rule is unit-testable on its own.
+- `RailItem` — `{href, label}`.
+- `activeRailIndex(items, pathname)` → index of the active cell by **longest-prefix, segment-aware**
+  match, or `-1`. Exact-only matching would leave `/about/rules/appendix` with no active cell; a raw
+  `startsWith` would wrongly light `/about` on `/aboutus`.
+- `railIndex(i)` → the cell's displayed index, 1-based and zero-padded to two digits.
+
 ## 3. `components/**` — requested subset
 
 ### Top-level components/*.tsx
@@ -642,7 +685,7 @@ not the whole page.
 - Default export `TacticalLoader({label='LOADING'})` — full-page military-HUD-styled loading screen (animated spinner, corner brackets, progress bar). Internal `Corner({position})` helper.
 
 #### components/container.tsx
-- Default export `Container({children?, title?, subtitle?, background?, backgroundUrl?, sx?})` — standard page-banner-plus-content wrapper used across public pages; `sx.bannerHeight` selects Tailwind height classes (`xsm|sm|md|lg`), `sx.maxWidth`/`sx.padding`/`sx.gap` control content area. Imports `./landing.css`.
+- **Synchronous server component.** Default export `Container({children?, title?, subtitle?, background?, backgroundUrl?, kicker?, lede?, aside?, rail?, sx?})` — the shell behind every public page that isn't the landing page: a left-anchored `Masthead` band plus a content wrapper, replacing the old centred 60vh banner. `title`/`subtitle`/`background`/`backgroundUrl`/`sx` are unchanged from before the redesign (`sx.bannerHeight` still takes `xsm|sm|md|lg`, now resolved to clamped pixel heights via `lib/shell/masthead.ts` rather than raw `vh`; `sx.maxWidth`/`sx.padding`/`sx.gap` still control the content area). New: `kicker` is the mono label above the title — purely opt-in, since a server component cannot derive it from the route (omit it and no kicker renders); `lede` overrides `subtitle` for the paragraph under the title; `aside` is the masthead's second column (only `/join` passes one); `rail` (`RailItem[]`) renders a `SectionRail` below the masthead (only the About family passes one). Styles in `styles/shell.module.css`, not `./landing.css` (deleted).
 
 #### components/callsign-card.tsx
 - `CallsignCard({title, images, children})` (named export) — hoverable image-header card with cursor-tracked diagonal shine effect.
@@ -772,6 +815,50 @@ choreography stays in that surface's own module.
   `SteamIcon`, `YouTubeIcon`, `MailIcon`. Everything else on the site uses `@mui/icons-material` —
   only add here when the meaning genuinely isn't in that set.
 
+#### components/ui/Masthead.tsx
+- Default export `Masthead({title, kicker?, lede?, background?, backgroundUrl?, bannerHeight?, aside?,
+  actions?})` — the public page masthead itself: a photo band carrying the landing hero's two-pass
+  veil and drifting `Topo`, with title/kicker/lede in the left column and an optional `aside` in the
+  right. `actions` is page-level controls under the lede (a different thing from `aside`, which is
+  the second column) — `/milpacs` puts its "Manage ORBAT" link there. Rendered by
+  `components/container.tsx`, and directly by `app/(landing)/milpacs/page.tsx`, which needs the band
+  without the `Container` content column. Styles in `styles/shell.module.css`.
+
+#### components/ui/MastheadAside.tsx
+- Default export `MastheadAside({heading, status?, rows: AsideRow[], cta?})` — the masthead's second
+  column: a heading row (optional live `status` badge), a stack of label/value rows (`AsideRow.accent`
+  picks amber for the row that's the answer, not context), and an optional CTA link. Deliberately
+  presentational — takes resolved strings, never a query, which is what keeps `Container` itself
+  synchronous for all ten consumers. Used by `/join`.
+
+#### components/ui/SectionRail.tsx
+- **Client** (reads `usePathname`). Default export `SectionRail({items: RailItem[]})` — the sticky
+  section rail rendered below the masthead when `Container` is passed a `rail` prop. Cells size to
+  their labels over a 158px floor (116px below 900px) with their content centred, and the row itself
+  is centred (`justify-content: safe center` — plain `center` would push the leading cells past an
+  overflow container's scroll origin). Resolves the active cell via
+  `activeRailIndex` (`lib/shell/rail.ts`) and scrolls it into view on change, since below ~900px the
+  rail overflows to horizontal scroll and the active cell routinely lands offscreen.
+  Being a client component here (rather than in the About shell) is what lets `about/shell.tsx` be a
+  plain server component.
+
+#### components/ui/Card.tsx
+- Default export `Card({title, kicker?, ghost?, icon?, span?: 1|2|3|4|6, children?})` — the content
+  card used across the rebuilt About pages, plus named `CardGrid({columns: 4|6, children})`. `span`
+  is the fix for the ragged grid the old `InfoCard` produced: a card with more to say spans wider and
+  reflows its list into more columns instead of towering over its neighbours. `ghost` renders an
+  outlined numeral — only pass one where the number is real.
+
+#### components/ui/List.tsx
+- Default export `List({items: React.ReactNode[], columns?: 1|2|3})` — a real `<ul>` with a hanging
+  indent and a rule as its marker, replacing the old pattern of sibling `<Typography>` lines each
+  opening with a hyphen (which broke both wrapping and screen-reader semantics).
+
+#### components/ui/QaRow.tsx
+- Default export `QaRow({index, question, children})` — one FAQ entry (not an accordion — these
+  answers are indexed by search engines and found with Ctrl-F). Named `QaStack({columns?: 1|2,
+  children})` groups them. Used by `about/faq/page.tsx`.
+
 ### components/nav/*
 
 The Command Strip navbar, split out of `app/navbar.tsx` so the desktop bar and
@@ -779,7 +866,7 @@ the mobile sheet share one source of truth. Layout and interaction live in
 `styles/navbar.module.css`; these files are structure, state and data.
 
 #### components/nav/nav-data.tsx
-- `NAV_ITEMS: NavItem[]` — the public navigation tree (six top-level items, MUI icons, each child carrying a `description` for the mega panel). Consumed by both `app/navbar.tsx` and `MobileSheet`. `Support` lives under `About Us` rather than at the top level.
+- `NAV_ITEMS: NavItem[]` — the public navigation tree (six top-level items, MUI icons, each child carrying a `description` for the mega panel). Consumed by both `app/navbar.tsx` and `MobileSheet`. `Support` lives under `Community` (the menu formerly labelled `Our Orbat`; its `href` is still `/community`) rather than at the top level.
 - `isItemActive(item, pathname)` — active check that also matches any child href.
 - Types `NavItem` / `NavChild`.
 
@@ -904,8 +991,8 @@ the mobile sheet share one source of truth. Layout and interaction live in
 - `redirects()` — legacy path redirects (`/dashboard/gallery`→`/dashboard/j5`, `/community/tickets*`→`/tickets*`, `/feedback*`→`/tickets*`, `/ts`→`ts3server://` protocol link), plus canonical-host redirects (`www.asotmilsim.net`, `asotmilsim.net`, `asotmilsim.com` all → `NEXT_PUBLIC_BASEURL`) and http→https upgrade via `x-forwarded-proto` header check.
 
 ### middleware.ts
-- `middleware(req)` — two responsibilities: (1) `WIP_PATHS = ['/community/orbat','/milpacs','/community/retired','/community/bios']` — rewrites these (and subpaths) to `/wip` (renders `components/wip-page.tsx`) unless `?bypass_wip` query param is present; (2) injects `x-pathname` response header with the current pathname so server components can read the route without relying on internal Next.js APIs.
-- `config.matcher` — runs on all routes except `_next/static`, `_next/image`, `favicon.ico`.
+- `middleware(req)` — one responsibility: rewrites the work-in-progress routes in `config.matcher` (and their subpaths) to `/wip` (renders `components/wip-page.tsx`) unless the `?bypass_wip` query param is present. It sets no headers — it used to set an `x-pathname` *response* header, which no server component could have read.
+- `config.matcher` — deliberately narrow: `/retired`, `/bios` and their subpaths, and nothing else (ORBAT was on the list until it was released; the whole `/community/*` tree was flattened to the top level, and a catch-all redirect in `next.config.ts` — not this matcher — is what keeps the old URLs working). It ran app-wide once, which also ran it on the internal `_rsc` requests a client navigation makes and made some of them fail silently (vercel/next.js#91723) — that was what broke the milpac profile tabs. Do not widen it; a server component that needs the current path must be passed it.
 
 ### themes/unit.ts
 - Default export: MUI dark theme (`createTheme`) — `primary.main:'#c90620'`, `secondary.main:'#242424'`, custom palette extensions `secondaryGrey` (`#3a629c`) and `light` (`#ffffff`) declared via TypeScript module augmentation (`declare module '@mui/material/styles'` + `'@mui/material/Button'` `ButtonPropsColorOverrides`). Typography: `Inter` base font, `Montserrat` for buttons, `h2` fontSize 34px. `MuiPaper` default `borderRadius:3`. Import as `UnitTheme` per CLAUDE.md convention (applied in root layout `ThemeProvider`).

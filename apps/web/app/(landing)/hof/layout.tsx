@@ -13,6 +13,7 @@ export default function Layout({ children }: Readonly<{ children: React.ReactNod
 	return (
 		<Container
 			title='HALL OF FAME'
+			kicker='Honours'
 			subtitle='Recognising the members who have shown exceptional dedication, leadership, and service to ASOT.'
 			background={Banner}
 			sx={{ bannerHeight: 'sm', maxWidth: 'max-w-6xl', padding: '0px' }}

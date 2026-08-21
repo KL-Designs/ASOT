@@ -1,7 +1,7 @@
 import type { ParsedLoadout } from './parse'
 
 /**
- * The headline of a kit, for the community index at /community/kits.
+ * The headline of a kit, for the kit shelf at /kits.
  *
  * That page shows a card per shared kit rather than a full panel — a hundred
  * `LoadoutPanel`s on one page would be unreadable long before it was slow. What

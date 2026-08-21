@@ -23,6 +23,7 @@ export default async function Page() {
     return (
         <Container
             title='CREDITS'
+            kicker='Colophon'
             subtitle='The people who built this platform'
             background={BannerImg}
             sx={{ bannerHeight: 'sm', maxWidth: 'max-w-[1240px]', gap: 'gap-14', padding: '3rem 2rem' }}

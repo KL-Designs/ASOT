@@ -7,6 +7,7 @@ import { KeyboardArrowDown, Person, MilitaryTech, Tune, Dashboard as DashboardIc
 import Avatar from '@/components/member/avatar'
 import type { PromotionProgress } from '@/app/api/me/promotion-progress/route'
 import { memberLabel } from './member-label'
+import { resolveMemberAccent } from '@/lib/military/accent'
 import ProgressTrack from '@/components/ui/ProgressTrack'
 import s from '@/styles/navbar.module.css'
 
@@ -97,13 +98,12 @@ export default function AccountMenu({ user }: { user: User }) {
 
     const progress = promotion?.progress
 
-    /* The member's Discord accent colour, threaded through the chip and the
-       panel as one variable: avatar edge, panel top rule, rank line and the
-       progress bar all pick it up. Falls back to the unit red, which is what
-       every member without a custom accent gets. */
-    const accent = user.hexAccentColor
-        ? `#${user.hexAccentColor.replace('#', '')}`
-        : 'var(--red)'
+    /* The member's accent colour, threaded through the chip and the panel as one
+       variable: avatar edge, panel top rule, rank line and the progress bar all
+       pick it up. Resolved centrally so the chip cannot disagree with the
+       member's own milpac about what colour they are — it used to, by skipping
+       the legibility floor the other surfaces applied. */
+    const accent = resolveMemberAccent(user)
 
     return (
         <div

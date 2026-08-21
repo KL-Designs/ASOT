@@ -28,6 +28,7 @@ export default async function Page() {
     return (
         <Container
             title='UNIT LEADERSHIP'
+            kicker='Leadership'
             subtitle='Meet the leaders of ASOT'
             background={BannerImg}
             sx={{ bannerHeight: 'sm', maxWidth: 'max-w-[960px]', gap: 'gap-6' }}

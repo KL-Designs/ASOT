@@ -17,7 +17,7 @@ import { weightedScore } from '@/lib/loadout/rating'
 import { Shelf } from './shelf'
 import type { CardData } from './kit-card'
 
-import s from '../../milpacs/[username]/profile.module.css'
+import s from '../milpacs/[username]/profile.module.css'
 import k from './kits.module.css'
 
 /**

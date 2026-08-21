@@ -9,7 +9,7 @@ import {
 import { UiIcon } from '@/components/loadout/kit-icons'
 import { KitCard, type CardData } from './kit-card'
 
-import s from '../../milpacs/[username]/profile.module.css'
+import s from '../milpacs/[username]/profile.module.css'
 import k from './kits.module.css'
 
 /**
@@ -22,7 +22,7 @@ import k from './kits.module.css'
  * this file is state and markup.
  *
  * That state is not mirrored into the URL, so a filtered shelf is not
- * linkable and `/community/kits` always opens unfiltered. The alternative
+ * linkable and `/kits` always opens unfiltered. The alternative
  * makes every keystroke a navigation.
  */
 export function Shelf({ cards }: { cards: CardData[] }) {

@@ -31,6 +31,22 @@ npm start             # Production server (Next.js + Hocuspocus on same port via
 npm run lint          # ESLint
 ```
 
+**Claude: don't run `npm run build` after every small change.** A build here takes minutes and
+proves nothing about a CSS tweak or a copy edit. Run it when it's the right tool — before committing
+or pushing, and when a change could plausibly break the build in a way the editor can't see (moving
+or renaming a route, since `typedRoutes: true` only regenerates its route union during a build;
+changing `next.config.ts`; touching anything in `serverExternalPackages`). For everything else,
+`npx tsc --noEmit` and the vitest suites are the fast checks — use those, or just make the change.
+
+**Never run `npm run build` while a dev server is up.** `next build` and `next dev` share this app's
+`.next/` directory, and running the build against a live dev server corrupts it in both directions:
+the build fails collecting page data (`Cannot find module for page: /_not-found`) and the dev server
+starts returning 500 on *every* route until it is restarted. Check for a running `next dev` first
+(`Get-CimInstance Win32_Process -Filter "Name='node.exe'"`) and ask before stopping one — it is the
+user's process, and it is usually the thing they are looking at. The same goes for `rm -rf .next`,
+which additionally fails on Windows with "Device or resource busy" because the dev server holds
+handles inside it.
+
 Lint is also available from the repo root's `npm run menu` (Setup / one-off → Lint — web). The first-time setup wizard (init-db), terrain generation, and the migration scripts in `scripts/` are no longer separate npm scripts here — those remain menu-only, run from the repo root's `npm run menu` (see root `CLAUDE.md`).
 
 **`tests/` is a real Playwright E2E suite** (dashboard gate, permission-system migration behaviour, dev mode, hidden/privileged routes) — see `tests/README.md` for how it's wired (in-memory Mongo, fixed ports, seeded personas) and its design rationale/gotchas before adding or editing a spec. Run via `npm run test:e2e` (`:headed` / `:ui` / `:report` variants also exist) or the repo root's `npm run menu` → Testing category.
@@ -193,7 +209,7 @@ All global types live in `types/*.d.ts` and are declared in `global` scope — n
 - **Path alias**: `@/` maps to the project root (`tsconfig.json`). All imports use `@/lib/...`, `@/components/...`, etc.
 - **Tailwind `important: true`** is set — Tailwind utility classes override MUI styles by default.
 - **MUI theme**: `themes/unit.ts` — import `UnitTheme` for the MUI `ThemeProvider` (already applied in root layout).
-- **Middleware** injects `x-pathname` header on all routes so server components can read the current path without relying on Next.js internals.
+- **Middleware** only rewrites the work-in-progress routes listed in its own `config.matcher` (currently `/community/{orbat,retired,bios}`) — it deliberately does **not** run app-wide, because a broad matcher also runs on the internal `_rsc` requests a client-side navigation makes and silently breaks some of them (vercel/next.js#91723). It sets no `x-pathname` header and no other request/response header: a server component that needs the current path must be passed it explicitly by its caller.
 - **`@napi-rs/canvas`**, `unzipper`, `archiver`, and `ts3-nodejs-library` are marked as `serverExternalPackages` in `next.config.ts` — they ship native binaries and cannot be bundled by webpack.
 - **`yjs`** has a webpack alias to enforce a single instance (avoids Y.js version conflicts with TipTap).
 - **Skeleton accounts** (`isSkeletonAccount: true`) are CSV-imported users not yet matched to a Discord member — treat them as read-only stubs in member-facing logic.

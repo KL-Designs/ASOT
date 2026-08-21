@@ -1,0 +1,999 @@
+/* ============================================================================
+   ASOT — public page shell
+   ----------------------------------------------------------------------------
+   The masthead, the section rail and the content grid shared by every public
+   page that is not the landing page.
+
+   The vocabulary (notched buttons, section heads, the topo backdrop) lives in
+   ui.module.css; the landing page's own arrangement lives in
+   landing.module.css. This file is the third arrangement of the same pieces —
+   the one for pages that are read rather than pitched at.
+   ========================================================================== */
+
+.shell {
+    --pad: clamp(20px, 3.4vw, 54px);
+    background: var(--ink-0);
+    font-family: var(--font-ui);
+}
+
+/* ---------- band --------------------------------------------------------- */
+
+.band {
+    position: relative;
+    height: var(--band-h, clamp(290px, 42vh, 440px));
+    overflow: hidden;
+    background: #0b0e10;
+    display: flex;
+    align-items: center;
+}
+
+.bandImg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.bandImg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/*
+   Two passes, matching .heroVeilSolo in landing.module.css. The horizontal
+   pass used to be a symmetric vignette that cleared to .1 by 40%, on the
+   reasoning that the photograph is at its best through the middle. It is —
+   but the copy is there too, and the kicker (10px, red) and lede (15.5px)
+   were being read off webbing and faces. The left ramp now holds real
+   darkness across the whole copy column and only lets the photograph through
+   past it, which is where the reader is looking at the picture rather than at
+   words. The right edge is unchanged: /join still parks an aside there.
+
+   The vertical pass seats the band under the navbar and lands its bottom edge
+   on --ink-0 rather than on a hard seam.
+
+   The topo's `edges` mask goes transparent at 34%, before the veil finishes
+   its ramp — deliberate, in that order. The contours must not outlive the
+   darkening or they read as a separate layer floating over the photograph;
+   darkening that outlives the contours is just a scrim.
+*/
+.veil {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+        linear-gradient(90deg,
+            rgba(6, 7, 9, .93) 0%,
+            rgba(6, 7, 9, .8) 26%,
+            rgba(6, 7, 9, .52) 46%,
+            rgba(6, 7, 9, .12) 64%,
+            rgba(6, 7, 9, .5) 84%,
+            rgba(6, 7, 9, .9) 100%),
+        linear-gradient(180deg,
+            rgba(6, 7, 9, .5) 0%,
+            transparent 22%,
+            transparent 62%,
+            rgba(6, 7, 9, .92) 100%);
+}
+
+.bandIn {
+    position: relative;
+    z-index: 4;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--pad);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 48px;
+    align-items: center;
+}
+
+/* With no aside, the second column would sit empty and shove the copy left.
+   The band drops to one column instead — a composition in its own right rather
+   than the two-column one with a hole in it. */
+.bandInSolo {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* The band's kicker, unlike the one on a body SectionHead, sits on a
+   photograph: --red at 10px against mid-tone webbing is the least legible
+   thing on the page. --red-hi carries the same signal with the contrast to
+   survive it, and the shadow gives every glyph its own edge. */
+.kick {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .26em;
+    text-transform: uppercase;
+    color: var(--red-hi);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, .9), 0 0 3px rgba(0, 0, 0, .8);
+}
+
+.kick::before {
+    content: '';
+    height: 1px;
+    width: 34px;
+    background: var(--red-dim);
+    flex: none;
+}
+
+.kick::after {
+    content: '';
+    height: 1px;
+    flex: 1;
+    max-width: 200px;
+    background: linear-gradient(90deg, var(--red-dim), transparent);
+}
+
+.title {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: clamp(38px, 6vw, 72px);
+    line-height: .96;
+    letter-spacing: .01em;
+    margin: 14px 0 0;
+    text-shadow: 0 4px 30px rgba(0, 0, 0, .75);
+    text-wrap: balance;
+}
+
+/* Sub-page titles run long — "Rules & Expectations", "Principles & Values".
+   At the full display size they wrap to two lines and swamp the band. */
+.titleLong {
+    font-size: clamp(32px, 4.4vw, 52px);
+}
+
+/* The rule that separates the lockup from the body copy — the same job the
+   one above the landing hero's subtitle does. */
+.lede {
+    color: #eceff2;
+    font-size: 16px;
+    line-height: 1.6;
+    max-width: 52ch;
+    margin: 18px 0 0;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, .18);
+    /* The title has carried a shadow since the redesign; the lede sits on the
+       same photograph in a fifth of the type size and needs one more, not
+       less. Tight and dark rather than broad and soft — a halo at this size
+       fattens the letterforms instead of separating them. */
+    text-shadow: 0 2px 12px rgba(0, 0, 0, .9), 0 0 3px rgba(0, 0, 0, .75);
+}
+
+/* Page-level controls under the lede. Flex with a gap so a second one can be
+   added without the first needing a margin. */
+.bandActions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+/* ---------- body --------------------------------------------------------- */
+
+.body {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: clamp(38px, 4.6vw, 64px) var(--pad) 60px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(38px, 4.4vw, 62px);
+}
+
+@media (max-width: 1180px) {
+    .bandIn {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 860px) {
+    .title {
+        font-size: clamp(30px, 8vw, 42px);
+    }
+}
+
+/* ---------- masthead aside ----------------------------------------------- */
+
+/*
+   A 340px band is only justified if something lives beside the title. This is
+   the landing hero's operation card doing that job for a content page: live
+   figures the reader would otherwise have to go and look for.
+*/
+.aside {
+    background: rgba(9, 10, 12, .84);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--line-2);
+    border-top: 2px solid var(--red);
+}
+
+.asideH {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 15px;
+    border-bottom: 1px solid var(--line-1);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--live);
+}
+
+.asideH i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--live);
+    flex: none;
+}
+
+.asideH .rt {
+    margin-left: auto;
+    color: var(--txt-3);
+}
+
+.asideRows {
+    padding: 6px 15px 12px;
+}
+
+.asideRow {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line-1);
+}
+
+.asideRow:last-child {
+    border-bottom: 0;
+}
+
+.asideRow span {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.asideRow b {
+    margin-left: auto;
+    font-family: var(--font-disp);
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--txt-1);
+    letter-spacing: .03em;
+}
+
+.asideRow b.acc {
+    color: var(--amber);
+}
+
+.asideCta {
+    display: block;
+    margin: 0 15px 15px;
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+    background: var(--red);
+    color: #fff;
+    font-family: var(--font-cond);
+    font-weight: 700;
+    font-size: 13.5px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    transition: background .2s var(--nav-ease);
+}
+
+.asideCta:hover {
+    background: var(--red-hi);
+}
+
+/* ---------- section rail ------------------------------------------------- */
+
+/*
+   Cells size to their labels rather than dividing the width equally. Six equal
+   columns forces "Rules & Expectations" to be abbreviated in the rail but not
+   in the title it points at, and locks the family at six pages. Auto-fit keeps
+   every real title, and a seventh page is a seventh cell.
+
+   Sticky to the viewport top. It was offset 94px to clear the navbar, which
+   assumed two things that aren't true: that the navbar stays put (it is
+   `position: sticky` inside a content-height wrapper in app/layout.tsx, so it
+   has no room to travel and leaves on the first scroll) and that it stays
+   94px tall (the 28px status strip collapses once scrolled). The offset just
+   left a dead band of page scrolling above the rail.
+
+   On Rules and FAQ the pre-redesign rail was gone within one scroll, with no
+   way back to the other five sections but a return to the top.
+*/
+.rail {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    border-top: 1px solid var(--line-1);
+    border-bottom: 1px solid var(--line-1);
+    background: #0a0b0d;
+    display: flex;
+    /* Centred, so six cells that only span half the width read as a deliberate
+       row rather than a left-aligned one that ran out. `safe` matters: plain
+       `center` on an overflow-x container pushes the first cells past the
+       scroll origin where they cannot be reached. */
+    justify-content: center;
+    justify-content: safe center;
+    overflow-x: auto;
+    padding: 0 var(--pad);
+    scrollbar-width: none;
+}
+
+.rail::-webkit-scrollbar {
+    display: none;
+}
+
+/*
+   A floor, not a fixed width. Sizing purely to the label left "FAQ" as a 79px
+   sliver next to a 254px "Rules & Expectations", which read as a broken cell
+   rather than a short one. The floor lifts the four short labels to a
+   comparable target while the two long ones still take the room they need —
+   the auto-fit behaviour above survives, it just has a minimum now.
+
+   Centred content follows from that: with a floor, a left-aligned label leaves
+   its dead space all on one side, and the cell looks mis-set rather than
+   generous.
+*/
+.railItem {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    min-width: 158px;
+    white-space: nowrap;
+    padding: 15px 22px 14px;
+    border-left: 1px solid var(--line-1);
+    transition: background .18s var(--nav-ease);
+}
+
+.railItem:first-child {
+    border-left: 0;
+}
+
+.railItem:hover {
+    background: rgba(255, 255, 255, .02);
+}
+
+.railItem:focus-visible {
+    outline: 2px solid var(--red-hi);
+    outline-offset: -2px;
+}
+
+.railN {
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    letter-spacing: .2em;
+    color: var(--txt-3);
+}
+
+.railT {
+    font-family: var(--font-cond);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .11em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+}
+
+.railOn {
+    background: linear-gradient(180deg, rgba(219, 0, 29, .12), transparent 80%);
+}
+
+.railOn .railT {
+    color: var(--txt-1);
+}
+
+.railOn .railN {
+    color: var(--red);
+}
+
+.railOn::before {
+    content: '';
+    position: absolute;
+    left: -1px;
+    right: 0;
+    top: -1px;
+    height: 2px;
+    background: var(--red);
+    box-shadow: 0 0 14px rgba(219, 0, 29, .6);
+}
+
+@media (max-width: 900px) {
+    .railItem {
+        min-width: 116px;
+        padding: 12px 16px 11px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .railItem {
+        transition: none;
+    }
+}
+
+/* ---------- card grid ---------------------------------------------------- */
+
+.grid4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 18px;
+}
+
+.grid6 {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 18px;
+}
+
+.card {
+    position: relative;
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    padding: 22px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color .2s var(--nav-ease), background .2s var(--nav-ease);
+}
+
+.card:hover {
+    border-color: var(--line-2);
+    background: var(--ink-2);
+}
+
+/* An outlined numeral rather than a filled one — it marks the sequence
+   without competing with the heading beside it. Only used where the number is
+   real: Rules already calls its blocks "Section 1 — General". */
+.ghost {
+    position: absolute;
+    top: -14px;
+    right: 6px;
+    font-family: var(--font-disp);
+    font-size: 80px;
+    font-weight: 700;
+    color: transparent;
+    -webkit-text-stroke: 1px #1a1d23;
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+}
+
+.cardK {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .2em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+
+.cardIc {
+    width: 30px;
+    height: 30px;
+    color: var(--red);
+    margin-bottom: 14px;
+}
+
+.cardIc svg {
+    width: 100%;
+    height: 100%;
+}
+
+.card h3 {
+    font-family: var(--font-disp);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    margin: 0;
+    line-height: 1.15;
+    color: var(--txt-1);
+}
+
+.card p {
+    color: var(--txt-2);
+    font-size: 13.4px;
+    line-height: 1.6;
+    margin: 10px 0 0;
+}
+
+.s1 { grid-column: span 1; }
+.s2 { grid-column: span 2; }
+.s3 { grid-column: span 3; }
+.s4 { grid-column: span 4; }
+.s6 { grid-column: span 6; }
+
+/* ---------- list --------------------------------------------------------- */
+
+/*
+   A real <ul>. Rules § 4 was thirteen <Typography> elements each opening with
+   a hyphen — no list semantics, and a wrapped line ran back under its own
+   dash. The hanging indent here is the fix.
+*/
+.list {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.list li {
+    position: relative;
+    padding-left: 20px;
+    color: var(--txt-2);
+    font-size: 13.6px;
+    line-height: 1.6;
+}
+
+.list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 9px;
+    height: 1px;
+    background: var(--red);
+}
+
+/* CSS columns rather than a grid: the list reflows to one column on a narrow
+   screen with no markup change, and break-inside keeps an item whole. */
+.list2,
+.list3 {
+    display: block;
+    column-gap: 34px;
+}
+
+.list2 { columns: 2; }
+.list3 { columns: 3; }
+
+.list2 li,
+.list3 li {
+    break-inside: avoid;
+    margin-bottom: 9px;
+}
+
+/* ---------- Q&A ---------------------------------------------------------- */
+
+.qaStack {
+    margin-top: 16px;
+}
+
+.qaStack2 {
+    columns: 2;
+    column-gap: 38px;
+}
+
+.qa {
+    border-top: 1px solid var(--line-1);
+    padding: 15px 0;
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 14px;
+    break-inside: avoid;
+}
+
+.qa:first-child {
+    border-top: 0;
+    padding-top: 4px;
+}
+
+.qaN {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    color: var(--txt-3);
+    padding-top: 3px;
+}
+
+.qa h4 {
+    font-family: var(--font-cond);
+    font-size: 16.5px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--txt-1);
+}
+
+.qa p {
+    color: var(--txt-2);
+    font-size: 13.6px;
+    line-height: 1.6;
+    margin: 7px 0 0;
+}
+
+.qa a {
+    color: var(--amber);
+    border-bottom: 1px solid rgba(216, 172, 69, .4);
+}
+
+@media (max-width: 1180px) {
+    .grid4,
+    .grid6 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .s3, .s4, .s6 { grid-column: span 2; }
+    .list3 { columns: 2; }
+}
+
+@media (max-width: 860px) {
+    .grid4,
+    .grid6 {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .s2, .s3, .s4, .s6 { grid-column: span 1; }
+    .list2, .list3 { columns: 1; }
+    .qaStack2 { columns: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card { transition: none; }
+}
+
+/* ---------- lead card ---------------------------------------------------- */
+
+/* One card carrying the thesis, over a photograph, with smaller cards around
+   it — the .whyLead composition from the landing page. */
+.lead {
+    grid-column: span 2;
+    grid-row: span 2;
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.leadImg {
+    position: relative;
+    height: 170px;
+    flex: none;
+    overflow: hidden;
+}
+
+.leadImg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.leadImg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 40%, rgba(11, 12, 14, .7) 100%);
+}
+
+.leadBody {
+    padding: 24px;
+}
+
+.leadBody h3 {
+    font-family: var(--font-disp);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    margin: 0 0 12px;
+    line-height: 1.1;
+    color: var(--txt-1);
+}
+
+.leadBody p {
+    color: var(--txt-2);
+    font-size: 14px;
+    line-height: 1.62;
+    margin: 0 0 12px;
+}
+
+.leadBody p:last-child {
+    margin-bottom: 0;
+}
+
+/* ---------- schedule ----------------------------------------------------- */
+
+/*
+   Two DST windows side by side. The version this replaces was a stack of bold
+   labels each followed by a grey monospace chip, which made this the tallest
+   card on the page and forced its neighbour to end half a card early.
+*/
+.sched {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--line-1);
+    border: 1px solid var(--line-1);
+    margin: 14px 0 0;
+}
+
+.schedCol {
+    background: var(--ink-1);
+    padding: 15px 17px 17px;
+}
+
+.schedCol h4 {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin: 0 0 4px;
+    font-weight: 500;
+}
+
+.schedWin {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .1em;
+    color: var(--txt-3);
+    margin-bottom: 13px;
+}
+
+.schedRow {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 6px 0;
+    border-top: 1px solid rgba(255, 255, 255, .045);
+}
+
+.schedRow:first-of-type {
+    border-top: 0;
+}
+
+.schedRow span {
+    font-family: var(--font-cond);
+    font-size: 14px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+}
+
+.schedRow b {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--txt-1);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .04em;
+}
+
+/* Step off is the moment that actually matters — everything else on the card
+   is scaffolding around it. */
+.schedRow.schedHi b {
+    color: var(--red-hi);
+}
+
+.schedNote {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    color: var(--txt-3);
+    margin: 12px 0 0;
+}
+
+/*
+   The note is a <p> inside a Card, and `.card p` is (0,1,1) against this
+   class's (0,1,0) — so body copy won on both the size and the ink and the
+   mono caption rendered as an ordinary paragraph. Restating just those two
+   at (0,2,1) rather than weakening `.card p`, which every real paragraph on
+   these pages depends on.
+*/
+.card p.schedNote {
+    font-size: 10px;
+    color: var(--txt-3);
+}
+
+@media (max-width: 1180px) {
+    .lead { grid-column: span 2; grid-row: auto; }
+}
+
+@media (max-width: 860px) {
+    .lead { grid-column: span 1; }
+    .sched { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- contact channels --------------------------------------------- */
+
+/*
+   The one place on these pages where a non-red accent carries meaning rather
+   than decoration: Discord blurple, TeamSpeak cyan, red for email. The colour
+   arrives as a --acc custom property rather than the five hardcoded
+   accentColor/accentRgb prop pairs the previous card took.
+*/
+.channel {
+    border: 1px solid var(--line-1);
+    border-top: 2px solid var(--acc, var(--red));
+    background: var(--ink-1);
+    padding: 20px 20px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: background .2s var(--nav-ease);
+}
+
+.channel:hover {
+    background: var(--ink-2);
+}
+
+.channelH {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.channelH i {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, .05);
+    color: var(--acc, var(--red));
+    flex: none;
+}
+
+.channelH b {
+    font-family: var(--font-cond);
+    font-size: 15.5px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+}
+
+.channel p {
+    color: var(--txt-2);
+    font-size: 13.2px;
+    line-height: 1.58;
+    margin: 0;
+}
+
+.channelV {
+    margin-top: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .04em;
+    color: var(--acc, var(--red));
+    word-break: break-all;
+}
+
+.channels {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.widget {
+    border: 1px solid var(--line-1);
+    border-top: 2px solid var(--discord);
+    background: var(--ink-1);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* The widget's description sits under .widget, which has no `p` rule of its
+   own — without this it inherits browser-default 16px full-strength body text
+   beside three .channel p siblings. */
+.widget p {
+    color: var(--txt-2);
+    font-size: 13.2px;
+    line-height: 1.58;
+    margin: 0;
+}
+
+.widget iframe {
+    width: 100%;
+    height: 500px;
+    border: none;
+}
+
+/* ---------- callsign card ------------------------------------------------ */
+
+.csGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.cs {
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: border-color .2s var(--nav-ease), transform .2s var(--nav-ease);
+}
+
+.cs:hover {
+    border-color: var(--red-dim);
+    transform: translateY(-3px);
+}
+
+.csImg {
+    position: relative;
+    height: 118px;
+    overflow: hidden;
+    display: flex;
+}
+
+.csImg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(180deg, transparent 34%, rgba(11, 12, 14, .6) 74%, var(--ink-1) 100%);
+}
+
+/* The designation is already the identifier — a ghost numeral beside it would
+   be a second number saying nothing. */
+.csTag {
+    position: absolute;
+    z-index: 3;
+    left: 16px;
+    bottom: 10px;
+    font-family: var(--font-disp);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    line-height: 1;
+    color: #fff;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, .8);
+}
+
+.csBody {
+    padding: 16px 18px 18px;
+}
+
+.csBody p {
+    color: var(--txt-2);
+    font-size: 13.2px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/*
+   The old markup carried `flex flex-col gap-2` and explicit <br/>s; both went
+   and nothing replaced them, so every card's post-list paragraph butted
+   against its list and the four cards that run two paragraphs ran them
+   together. 10px is the same step `.card p` takes.
+*/
+.csBody p:not(:first-child) {
+    margin-top: 10px;
+}
+
+@media (max-width: 1180px) {
+    .channels, .csGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 860px) {
+    .channels, .csGrid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cs, .channel { transition: none; }
+}

@@ -164,6 +164,24 @@ const nextConfig: NextConfig = {
 				destination: '/tickets/:path*',
 				permanent: true,
 			},
+			// The rest of /community followed tickets up to the top level:
+			// /community/orbat is /orbat, and so on for bios, hof, kits, quiz
+			// and retired. One catch-all rather than six entries, because the
+			// mapping is the same for every one of them and a seventh page
+			// moved later shouldn't need a seventh rule. `:path*` matches zero
+			// or more segments, so the bare /community lands on `/` too — it
+			// never had a page of its own to keep.
+			//
+			// A redirect and not middleware: this repo's middleware matcher is
+			// kept deliberately narrow (see the docstring in middleware.ts —
+			// broad matchers run on the internal _rsc requests a client-side
+			// navigation makes and break some of them), and the two
+			// /community/tickets rules above already set the precedent.
+			{
+				source: '/community/:path*',
+				destination: '/:path*',
+				permanent: true,
+			},
 			{
 				source: '/feedback',
 				destination: '/tickets',

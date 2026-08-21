@@ -25,6 +25,19 @@ declare global {
         csvName?: string   // name as it appeared in the CSV
         csvRank?: string
 
+        /**
+         * The accent the member chose on their own milpac, as `#rrggbb`.
+         *
+         * Takes priority over `hexAccentColor` everywhere the site paints a
+         * member's colour — see `resolveMemberAccent` in
+         * `apps/web/lib/military/accent.ts`, which is the only thing that
+         * should be reading either of these directly. Absent means "no choice
+         * made", and the Discord accent is used instead.
+         */
+        profileAccent?: string | null
+
+        /** Discord's accent, refreshed on every website login. `#000000` is
+         *  what Discord reports for a member who has no accent set at all. */
         hexAccentColor: string
         accentColor: number
         avatar: string | null

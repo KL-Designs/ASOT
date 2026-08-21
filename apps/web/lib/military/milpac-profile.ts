@@ -1,9 +1,9 @@
-import { ensureVisible } from '@/lib/discord/color'
+import { resolveMemberAccent } from '@/lib/military/accent'
 import type { OrbatEntry } from '@/lib/orbat'
 import { rankNameFromAbbr } from '@/lib/military/ranks'
 
 export function resolveMilpacProfile(member: User, orbatEntry: OrbatEntry | null) {
-    const accent = ensureVisible(member.hexAccentColor || '#db001d')
+    const accent = resolveMemberAccent(member)
 
     const strippedNickname = member.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
     const displayName = strippedNickname || member.globalName || member.username

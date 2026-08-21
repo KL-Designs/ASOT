@@ -135,6 +135,13 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 - **POST** — multi-action TS account linking flow via body `action`: `init` (auto-match online TS client by expected nickname, stores verify code), `poke` (poke a manually chosen client with the code), `verify` (confirm code, saves `teamspeak` field on user), `notify` (poke linked account with expected nickname), `list` (list online clients for manual pick). Auth: any authenticated user. Collections: `Db.users`. Side effects: TeamSpeak `clientPoke`/`clientList` calls.
 - **DELETE** — unlinks the current user's TeamSpeak account (`$unset teamspeak/tsVerifyCode/tsPending`). Collections: `Db.users`.
 
+#### /api/me/accent
+- **PUT** — sets the caller's own `profileAccent` (body `{accent: '#rrggbb'}`, validated by
+  `normaliseHex`). **DELETE** — clears it and returns what they will now resolve to. Own-record only
+  by construction: no id parameter, no staff override, so it cannot recolour anyone else. Gate:
+  `client.fetchMe()`. Collections: `Db.users`. Side effects: `logAction('milpac.accent_set'|
+  'milpac.accent_clear')`.
+
 #### /api/me/token
 - **GET** — reads `token` cookie directly (no client.fetchMe() gate beyond cookie presence), resolves display name/color/avatar via `client.fetchMe(token)`; returns raw token to caller (used by TipTap collab client-side for `x-collab-token` header). Auth: `token` cookie presence only.
 

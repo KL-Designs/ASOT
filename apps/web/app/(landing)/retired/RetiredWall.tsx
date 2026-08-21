@@ -474,7 +474,7 @@ export default function RetiredWall() {
                 {selected?.discordId && (
                     <div style={{ marginTop: 20, paddingTop: 14, borderTop: '1px solid rgba(26,20,12,0.12)', textAlign: 'center' }}>
                         <a
-                            href={`/community/retired?member=${selected.discordId}`}
+                            href={`/retired?member=${selected.discordId}`}
                             style={{ fontFamily: "'Cinzel', serif", fontSize: '0.62rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(26,20,12,0.45)', textDecoration: 'none' }}
                             onClick={e => e.preventDefault()}
                         >
