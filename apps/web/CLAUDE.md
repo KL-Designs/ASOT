@@ -38,6 +38,15 @@ or renaming a route, since `typedRoutes: true` only regenerates its route union 
 changing `next.config.ts`; touching anything in `serverExternalPackages`). For everything else,
 `npx tsc --noEmit` and the vitest suites are the fast checks — use those, or just make the change.
 
+**Never run `npm run build` while a dev server is up.** `next build` and `next dev` share this app's
+`.next/` directory, and running the build against a live dev server corrupts it in both directions:
+the build fails collecting page data (`Cannot find module for page: /_not-found`) and the dev server
+starts returning 500 on *every* route until it is restarted. Check for a running `next dev` first
+(`Get-CimInstance Win32_Process -Filter "Name='node.exe'"`) and ask before stopping one — it is the
+user's process, and it is usually the thing they are looking at. The same goes for `rm -rf .next`,
+which additionally fails on Windows with "Device or resource busy" because the dev server holds
+handles inside it.
+
 Lint is also available from the repo root's `npm run menu` (Setup / one-off → Lint — web). The first-time setup wizard (init-db), terrain generation, and the migration scripts in `scripts/` are no longer separate npm scripts here — those remain menu-only, run from the repo root's `npm run menu` (see root `CLAUDE.md`).
 
 **`tests/` is a real Playwright E2E suite** (dashboard gate, permission-system migration behaviour, dev mode, hidden/privileged routes) — see `tests/README.md` for how it's wired (in-memory Mongo, fixed ports, seeded personas) and its design rationale/gotchas before adding or editing a spec. Run via `npm run test:e2e` (`:headed` / `:ui` / `:report` variants also exist) or the repo root's `npm run menu` → Testing category.

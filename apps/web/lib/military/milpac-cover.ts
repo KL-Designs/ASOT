@@ -1,4 +1,4 @@
-import { existsSync, statSync, readFileSync } from 'fs'
+import { existsSync, readdirSync, statSync, readFileSync } from 'fs'
 import { join } from 'path'
 
 /**
@@ -17,6 +17,31 @@ export function coverPath(memberId: string): string {
 
 export function hasCover(memberId: string): boolean {
     return existsSync(coverPath(memberId))
+}
+
+/** The directory `hasCover` looks in — one level up from `coverPath`. */
+function coverDir(): string {
+    return join(process.cwd(), '..', '..', 'storage', 'uploads', 'cover')
+}
+
+/**
+ * Every member id that has a cover, from a single directory read.
+ *
+ * `hasCover` is right for one member and wrong for a roster: /milpacs renders
+ * 163 cards, and asking the filesystem 163 separate questions to answer one is
+ * the sort of thing that only shows up as a slow page under load. Missing
+ * directory (a fresh install with no uploads yet) is an empty set, not a throw.
+ */
+export function coverIds(): Set<string> {
+    try {
+        return new Set(
+            readdirSync(coverDir())
+                .filter(name => name.endsWith('.png'))
+                .map(name => name.slice(0, -'.png'.length)),
+        )
+    } catch {
+        return new Set()
+    }
 }
 
 /**

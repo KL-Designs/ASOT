@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 interface NavSub { id: string; label: string }
 interface NavSection { id: string; label: string; subs: NavSub[] }
@@ -25,6 +25,29 @@ export default function MilpacsNav({ sections }: { sections: NavSection[] }) {
 		}
 	}
 
+	/*
+	   Publish the bar's own height so the roster's sticky callsign headers can
+	   pin directly beneath it.
+
+	   A constant would do at one width and be wrong at every other: this bar
+	   wraps (`flexWrap: 'wrap'`), so it is one row on a desktop and two or three
+	   on a laptop, and a header pinned to a guessed offset either floats in a gap
+	   or slides underneath the bar and disappears. Measuring is the only version
+	   that holds at every width.
+	*/
+	useLayoutEffect(() => {
+		const el = navRef.current
+		if (!el) return
+		const publish = () => document.documentElement.style.setProperty('--milpacs-nav-h', `${el.offsetHeight}px`)
+		publish()
+		const ro = new ResizeObserver(publish)
+		ro.observe(el)
+		return () => {
+			ro.disconnect()
+			document.documentElement.style.removeProperty('--milpacs-nav-h')
+		}
+	}, [])
+
 	// Close dropdown when clicking outside the nav
 	useEffect(() => {
 		const handler = (e: MouseEvent) => {
@@ -46,7 +69,7 @@ export default function MilpacsNav({ sections }: { sections: NavSection[] }) {
 			backdropFilter: 'blur(10px)',
 		}}>
 			<div style={{
-				maxWidth: 1400,
+				maxWidth: 1600,
 				margin: '0 auto',
 				padding: '0 2rem',
 				display: 'flex',

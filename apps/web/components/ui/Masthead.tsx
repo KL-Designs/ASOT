@@ -21,6 +21,7 @@ export default function Masthead({
     backgroundUrl,
     bannerHeight,
     aside,
+    actions,
 }: {
     title: string
     kicker?: string
@@ -29,6 +30,12 @@ export default function Masthead({
     backgroundUrl?: string
     bannerHeight?: BannerHeight
     aside?: React.ReactNode
+    /**
+     * Controls that belong to the page rather than beside it — /milpacs' ORBAT
+     * link for the members who can edit it. Sits under the lede in the left
+     * column; `aside` is the other column and a different thing entirely.
+     */
+    actions?: React.ReactNode
 }) {
     // Long titles wrap to two lines at the full display size and swamp the
     // band. The threshold is where "Rules & Expectations" (20) sits.
@@ -56,6 +63,7 @@ export default function Masthead({
                     {kicker && <div className={s.kick}>{kicker}</div>}
                     <h1 className={`${s.title} ${isLongTitle ? s.titleLong : ''}`}>{title}</h1>
                     {lede && <p className={s.lede}>{lede}</p>}
+                    {actions && <div className={s.bandActions}>{actions}</div>}
                 </div>
                 {aside}
             </div>

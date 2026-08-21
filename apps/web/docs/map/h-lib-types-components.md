@@ -241,8 +241,23 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `matchesQuery(card, query)` — every whitespace-split term must appear in `card.haystack` (substring, not prefix, so "mg" finds both "MG" and "LMG"). `matchesTags(card, tags)` — AND, not OR. `sortCards(cards, sort)` — returns a new array (memo-safe), recency as the tiebreak on every sort. `pageCount(total, perPage?)` / `paginate(items, page, perPage?)` — never zero pages, clamps an out-of-range page rather than trusting it. `tagCounts(cards)` — the tags worth offering as filter chips (at least one match), with counts, in `KIT_TAG_KEYS` order.
 - Pure and React-free by design — the shelf component (`app/(landing)/kits/shelf.tsx`) is a thin state layer over these. Unit-tested in `shelf.test.ts`.
 
+### lib/military/accent.ts
+- `resolveMemberAccent(member): string` — **the only thing that should read `profileAccent` or
+  `hexAccentColor` directly.** Priority: the member's own pick (set on their milpac) → their Discord
+  accent → `DEFAULT_ACCENT` (`#db001d`). Discord's `#000000` counts as *unset*, not as black — the
+  login callback stores no-accent that way, and treating it as a colour is what used to render those
+  members grey via `ensureVisible`. A member's own pick still passes through `ensureVisible`, since
+  every surface using this paints on near-black.
+- `normaliseHex(value)` — `#rrggbb` lower-cased or null. Used by `PUT /api/me/accent` to validate
+  before storing: the value lands in a `style` attribute on every surface showing that member.
+- Consumers: `lib/military/milpac-profile.ts`, the /milpacs roster card, `components/nav/AccountMenu`,
+  `app/api/me/token`, the landing `Hero`. They each resolved it themselves before and disagreed —
+  two applied the legibility floor, one didn't, and the fallbacks were a mix of `#db001d` and
+  `var(--red)`. Unit-tested in `accent.test.ts`.
+
 ### lib/military/milpac-cover.ts
 - `coverPath(memberId)` / `hasCover(memberId)` — the member's uploaded cover photo at `storage/uploads/cover/{id}.png`. Used by the milpac page (banner) and its `opengraph-image.tsx` (share-card ground). `app/api/uploads/cover/route.ts` still writes via its own cwd-relative string.
+- `coverIds(): Set<string>` — every id with a cover, from one `readdirSync`. What the /milpacs roster uses: `hasCover` is right for one member and wrong for 163, where it becomes 163 filesystem questions to answer one. Missing directory yields an empty set rather than throwing.
 - `fitCover(srcW, srcH, boxW, boxH): CropRect` — `object-fit: cover` as a centred source rectangle. Pure; unit-tested in `milpac-cover.test.ts`.
 - `readCoverImage(memberId, box?): Promise<string|null>` — decodes the cover with `@napi-rs/canvas` (which sniffs the real format, since the upload route names every file `.png` whatever it was), crops via `fitCover`, re-encodes to a JPEG data URI at the card's 1300×630. Data URI because satori resolves neither relative paths nor `background-image: url()`; re-encoded because covers are stored unresized and base64 inflates by a third. Returns `null` on any failure — the OG route must degrade to its drawn card, never 500. `MAX_COVER_BYTES` (25MB) bounds what reaches the decoder.
 
@@ -616,6 +631,16 @@ Pure helpers for the public page masthead (`components/container.tsx` / `compone
   and one word before any content.
 - Lives in `lib/` rather than beside the component because vitest only picks up `lib/**/*.test.ts`.
 
+### lib/milpac-kits.ts
+- `fetchDefaultKitLines(userIds): Promise<Map<string, MilpacKitLine>>` — each member's default
+  **public** kit reduced to `{primary, itemCount}`, in one query for a whole roster page. Filtered on
+  `isDefault && shared`; `shared` is the loadout collection's entire privacy boundary, so that half
+  is not optional. Each kit's `raw` is parsed inside its own try/catch — it is a verbatim member
+  paste, and one malformed export must not take the roster down.
+- Sits flat in `lib/` rather than in `lib/loadout/` on purpose: everything in that folder is pure and
+  React-free by design (the parser and shelf are unit-tested on that basis) and this is a Mongo read.
+  `lib/landing.ts` is the same pattern.
+
 ### lib/shell/rail.ts
 Pure helpers for the sticky section rail (`components/ui/SectionRail.tsx`), kept out of the client
 component so the active-cell rule is unit-testable on its own.
@@ -791,11 +816,13 @@ choreography stays in that surface's own module.
   only add here when the meaning genuinely isn't in that set.
 
 #### components/ui/Masthead.tsx
-- Default export `Masthead({title, kicker?, lede?, background?, backgroundUrl?, bannerHeight?, aside?})`
-  — the public page masthead itself: a photo band carrying the landing hero's two-pass veil and
-  drifting `Topo`, with title/kicker/lede in the left column and an optional `aside` in the right.
-  Rendered by `components/container.tsx`, not used directly by pages. Styles in
-  `styles/shell.module.css`.
+- Default export `Masthead({title, kicker?, lede?, background?, backgroundUrl?, bannerHeight?, aside?,
+  actions?})` — the public page masthead itself: a photo band carrying the landing hero's two-pass
+  veil and drifting `Topo`, with title/kicker/lede in the left column and an optional `aside` in the
+  right. `actions` is page-level controls under the lede (a different thing from `aside`, which is
+  the second column) — `/milpacs` puts its "Manage ORBAT" link there. Rendered by
+  `components/container.tsx`, and directly by `app/(landing)/milpacs/page.tsx`, which needs the band
+  without the `Container` content column. Styles in `styles/shell.module.css`.
 
 #### components/ui/MastheadAside.tsx
 - Default export `MastheadAside({heading, status?, rows: AsideRow[], cta?})` — the masthead's second

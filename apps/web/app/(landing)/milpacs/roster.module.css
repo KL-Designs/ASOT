@@ -1,0 +1,441 @@
+/* ============================================================================
+   MILPACS — roster card ("Patrol Board")
+   ----------------------------------------------------------------------------
+   Replaces the 180px portrait tile that carried a rank, a name and a billet and
+   nothing else. This one is the same member with the things a reader actually
+   wants off a roster: their colour, their face, a line of who they are, and
+   what they carry.
+
+   The palette is the site's own (globals.css); the type is the milpac personnel
+   file's (Oswald display, Barlow Condensed for names, JetBrains Mono for
+   labels). `--acc` is set inline per card by card.tsx — every member brings
+   their own, and it is the only member-specific hue on the card.
+   ========================================================================== */
+
+.grid {
+    display: grid;
+    /* auto-fill, not auto-fit: a section holding three people should leave the
+       other two columns empty rather than stretching three cards across the
+       full width and making a fireteam look like a platoon.
+
+       Left-aligned, and a grid rather than a centred flex-wrap, because the
+       columns then line up from one callsign to the next down the whole page —
+       which is what a roster of unequal sections wants. Centring was tried and
+       reverted: it broke that alignment for the sake of tidying the last row. */
+    grid-template-columns: repeat(auto-fill, minmax(228px, 1fr));
+    gap: 16px;
+}
+
+.card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--ink-1);
+    border: 1px solid var(--line-1);
+    border-top: 2px solid var(--acc);
+    color: inherit;
+    text-decoration: none;
+    transition: transform .22s var(--nav-ease), border-color .22s var(--nav-ease),
+                box-shadow .22s var(--nav-ease);
+}
+
+/*
+   A lift, not a tilt. The tile this replaces rotated up to 12deg under the
+   pointer, which on a card carrying three lines of copy meant the text sheared
+   away from the reader at the moment they leaned in to read it.
+*/
+.card:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--acc) 45%, var(--line-1));
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .5),
+                0 0 0 1px color-mix(in srgb, var(--acc) 22%, transparent);
+}
+
+.card:focus-visible {
+    outline: 2px solid var(--acc);
+    outline-offset: 2px;
+}
+
+/* ---------- banner ------------------------------------------------------- */
+
+/*
+   The member's milpac cover photo — the one they upload to their own file
+   (`/api/uploads/cover`), not their Discord banner. Discord banners were tried
+   first and are the wrong image twice over: they are Nitro-only, and this app
+   only ever learns one when the member happens to log into the website.
+
+   Plenty of members still have no cover, so the fallback matters: a wash built
+   from their own accent rather than an empty plate. Never blank, never
+   identical to their neighbour, and a real cover simply replaces it.
+*/
+.banner {
+    position: relative;
+    height: 68px;
+    flex: none;
+    overflow: hidden;
+    background:
+        linear-gradient(118deg,
+            color-mix(in srgb, var(--acc) 26%, var(--ink-3)) 0%,
+            color-mix(in srgb, var(--acc) 62%, #000) 52%,
+            var(--ink-2) 100%);
+}
+
+.banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* The same 1px scanline the milpac file and the public shell use, so a photo
+   banner sits in the page rather than on it. */
+.banner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .02) 0 1px, transparent 1px 3px);
+}
+
+/* ---------- identity ----------------------------------------------------- */
+
+.avatarWrap {
+    position: relative;
+    z-index: 1;
+    margin: -27px 15px 0;
+    width: 54px;
+    height: 54px;
+    flex: none;
+}
+
+.avatar {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 2px solid var(--acc);
+    background: var(--ink-3);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .6);
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 15px 14px;
+    flex: 1;
+}
+
+.rank {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--acc);
+}
+
+.name {
+    font-family: var(--font-disp);
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: .01em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+    margin: 0;
+    /* Names are member-supplied and some of them are long. */
+    overflow-wrap: anywhere;
+}
+
+.billet {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--txt-3);
+}
+
+.who {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/*
+   Three lines, clamped. A biography is free text with no length limit, and the
+   card's whole premise is that every card in a row is the same height.
+*/
+.bio {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--txt-2);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.bioEmpty {
+    composes: bio;
+    color: #3f444b;
+    font-style: italic;
+}
+
+/* ---------- kit ---------------------------------------------------------- */
+
+.kit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 15px;
+    flex: none;
+    border-top: 1px solid var(--line-1);
+    background: var(--ink-0);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--txt-3);
+}
+
+.kit svg {
+    flex: none;
+    color: var(--acc);
+}
+
+.kitText {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kitEmpty {
+    composes: kit;
+    color: #3f444b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .card {
+        transition: none;
+    }
+
+    .card:hover {
+        transform: none;
+    }
+}
+
+/* ============================================================================
+   Roster layout
+   ----------------------------------------------------------------------------
+   The page this replaces wrapped every callsign in a rounded, bordered, inner-
+   glowing box and then sat the lot in a 1400px column. Two problems, one cause:
+   a card inside a box inside a centred column spends most of a wide display on
+   chrome and margin, and this unit has 163 people to show.
+
+   So: no boxes, and the grid runs the full width. What tells you which callsign
+   you are looking at is the header, which pins under the jump-nav for as long
+   as you are inside that platoon.
+   ========================================================================== */
+
+.page {
+    --pad: clamp(20px, 3.4vw, 54px);
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 80px;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    /* The gap between callsigns lives here rather than on a parent `gap`: the
+       headers are full-bleed and butt up against the run of cards above them,
+       so the space belongs below the cards, not around the header. */
+    padding-bottom: 38px;
+    scroll-margin-top: calc(var(--milpacs-nav-h, 46px) + 8px);
+}
+
+/*
+   Pinned beneath the jump-nav, which measures itself into `--milpacs-nav-h`
+   (see nav.tsx — the bar wraps, so its height is not a constant). The fallback
+   covers the first paint before the measurement lands.
+
+   z-index sits below the nav's 100 so that when the two meet, this slides under
+   the bar rather than over it.
+*/
+.sectionHead {
+    position: sticky;
+    top: var(--milpacs-nav-h, 46px);
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px var(--pad);
+    background: rgba(10, 10, 10, .93);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(var(--sec-rgb), .22);
+    border-top: 1px solid var(--line-1);
+}
+
+.sectionRule {
+    width: 3px;
+    align-self: stretch;
+    min-height: 32px;
+    background: rgb(var(--sec-rgb));
+    flex: none;
+}
+
+/* The platoon's own patch, same plate as a callsign's but sized to its rank in
+   the hierarchy. `sectionTitle: null` in `Db.orbatSectionMeta` is the
+   platoon-level record — a different image from any of its callsigns'. */
+.sectionPlate {
+    width: 54px;
+    height: 54px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    padding: 5px;
+    border: 1px solid rgba(var(--sec-rgb), .34);
+    background:
+        linear-gradient(150deg, rgba(var(--sec-rgb), .18), rgba(var(--sec-rgb), .04) 70%),
+        var(--ink-1);
+}
+
+.sectionPlate img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.sectionWho {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.sectionLabel {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: rgba(var(--sec-rgb), .9);
+}
+
+.sectionTitle {
+    margin: 0;
+    font-family: var(--font-disp);
+    font-size: clamp(18px, 2.2vw, 25px);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+}
+
+.sectionCount {
+    margin-left: auto;
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: var(--txt-3);
+}
+
+/* ---------- callsign inside a platoon ------------------------------------ */
+
+.sub {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 26px var(--pad) 0;
+    scroll-margin-top: calc(var(--milpacs-nav-h, 46px) + 76px);
+}
+
+/* Left-anchored, with the rule running out to the right edge — everything else
+   on the page reads from the left margin now, and a centred callsign title in
+   the middle of a full-width grid has nothing to line up with. */
+/* A callsign with no patch gets no plate and no gap held open for one — the
+   header just starts at the title. Reserving the slot so titles line up down
+   the page was tried and looked like a missing image. */
+.subHead {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+/*
+   An insignia plate, not an icon.
+
+   At 22px and 85% opacity the section patch was smaller than the type beside
+   it and read as decoration on a rule. These are the unit's own callsign
+   patches and they are the fastest way to know which section you are looking
+   at, so they get a frame, full opacity, and enough size to resolve their
+   detail. The plate is what keeps the growth honest: the header row grows once,
+   to a fixed 44px, rather than by however tall a given patch image happens to
+   be.
+*/
+.subPlate {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    padding: 5px;
+    border: 1px solid rgba(var(--sec-rgb), .3);
+    background:
+        linear-gradient(150deg, rgba(var(--sec-rgb), .14), rgba(var(--sec-rgb), .03) 70%),
+        var(--ink-1);
+}
+
+.subPatch {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.subTitle {
+    margin: 0;
+    font-family: var(--font-cond);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--sub-color, var(--txt-2));
+}
+
+.subLine {
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, rgba(var(--sec-rgb), .28), transparent);
+}
+
+.subCount {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    font-weight: 500;
+    color: #3f444b;
+}
+
+@media (max-width: 700px) {
+    .sectionHead {
+        gap: 12px;
+    }
+
+    .sectionCount {
+        display: none;
+    }
+}

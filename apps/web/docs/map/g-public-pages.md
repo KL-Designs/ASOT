@@ -333,19 +333,43 @@ Sets page metadata ("MILPACS").
 `TacticalLoader` fallback ("LOADING PERSONNEL RECORDS").
 
 #### app/(landing)/milpacs/page.tsx
-The MILPACs index/roster: hero banner, sticky `<MilpacsNav/>` jump-nav, then sections for India
-Company HQ, 1st/2nd/Support Platoon (from `fetchORBAT()`), Reservists — each member rendered via
-`<Card/>`. Section colours/patches come from `Db.orbatSectionMeta`. Shows "⚙ Manage ORBAT" link
-to `/dashboard/orbat` for users with `PERMISSIONS.admin.manageOrbat`. **Live** — both WIP gates were
-removed (the `WIP_PAGES` check here and `/milpacs` in middleware's `WIP_PATHS`, which also covered
-`/milpacs/[username]`). Public read.
+The MILPACs index/roster. Renders the shared `Masthead` (not a bespoke banner any more — same veil,
+topo and clamped height as every other public page), passing the "Manage ORBAT" link for users with
+`PERMISSIONS.admin.manageOrbat` through its `actions` slot; then the sticky `<MilpacsNav/>` jump-nav,
+then a section per callsign: India Company HQ, 1st/2nd/Support Platoon, **Gamemasters (1-0 Zulu)**
+and Reservists, all from `fetchORBAT()`. Section colours/patches come from `Db.orbatSectionMeta`.
+**Live** — both WIP gates were removed (the `WIP_PAGES` check here and `/milpacs` in middleware's
+matcher, which also covered `/milpacs/[username]`). Public read.
+
+Layout is in `roster.module.css`: no section boxes and no max-width column — the card grid runs the
+full page width and each platoon's header pins under the jump-nav (at `--milpacs-nav-h`, which
+`nav.tsx` measures itself into, because that bar wraps and its height is not a constant). Cards sit
+in a left-aligned `auto-fill` grid so the columns line up from one callsign to the next down the
+page; a centred flex-wrap was tried and reverted, since tidying the last row cost that alignment.
+
+`orbat.gamemasters` was returned by `fetchORBAT()` and rendered by `/orbat` long before this page
+read it — Zeus was missing from the roster purely because the key was never used here. Don't drop it
+again when adding a callsign.
+
+One query feeds every card's kit: `fetchDefaultKitLines()` (`lib/milpac-kits.ts`), filtered on
+`shared: true`.
 
 #### app/(landing)/milpacs/card.tsx
-Client member card: tilt-on-hover 3D effect, links to the member's canonical milpac path via an
-optional `href` prop (the index builds these with `buildSlugIndex`/`canonicalSegment` so cards skip
-the redirect); falls back to `/milpacs/[username]`. Displays avatar
-(`Avatar` from `@/components/member/avatar`), rank abbreviation, name, role. Used by both the
-milpacs index and (indirectly via similar pattern) other roster pages.
+**Server** component (it was `'use client'` only to run a mouse-tilt; the hover treatment is CSS now,
+so 163 cards no longer ship a component of JS each). Links to the member's canonical milpac path via
+an optional `href` prop (the index builds these with `buildSlugIndex`/`canonicalSegment` so cards
+skip the redirect); falls back to `/milpacs/[username]`. Shows the member's Discord accent
+(`resolveMemberAccent` — their own pick first, then Discord, then unit red) as the card's `--acc`, their milpac cover photo, avatar (`Avatar` from
+`@/components/member/avatar`), rank abbreviation, name, billet, a 3-line-clamped `bio.content`, and
+their default public kit as a `MilpacKitLine`.
+
+The banner is the **milpac cover** (`/api/uploads/cover?id=`, the image a member uploads to their own
+file), not `member.bannerURL` — Discord banners were tried and are wrong twice over: Nitro-only, and
+only ever written when the member happens to log into the website. The page resolves them with
+`coverIds()` (one readdir) rather than `hasCover()` per card. Members with no cover fall back to a
+gradient built from their own accent rather than a blank plate; the same applies to `hexAccentColor`,
+written by that same login path and reading `#888888` via `ensureVisible` for anyone who has never
+signed in. Styles in `roster.module.css`.
 
 #### app/(landing)/milpacs/nav.tsx
 Client sticky nav bar with dropdown sub-sections; smooth-scrolls to `#section-id` anchors on the
@@ -422,7 +446,8 @@ column so the whole row is the button; promotions are a `<table>` (a `<tr>` cann
 same trigger, but only when the promotion history does not already offer that rank. Edit affordances: "Edit" link to
 `/members/[username]` shown to `J5-Media`; biography editable inline by the profile owner
 (`<BiographyEditor/>` posts to `/api/me`); cover photo upload by owner (`<CoverUpload/>` posts to
-`/api/uploads/cover`); `<RequestAwardButton/>` lets any other logged-in member nominate an award
+`/api/uploads/cover`); accent colour set by owner (`<AccentPicker/>` posts to `/api/me/accent`);
+`<RequestAwardButton/>` lets any other logged-in member nominate an award
 (`POST /api/award-request`). Public read (no login required to view a profile), but edit actions
 require login/role.
 
@@ -443,6 +468,13 @@ rendered for the profile owner (`isOwn`).
 #### app/(landing)/milpacs/[username]/cover-upload.tsx
 Client `CoverUpload`: file input to upload (`POST /api/uploads/cover`, multipart) or remove
 (`DELETE /api/uploads/cover`) the profile's cover banner image. Owner-only.
+
+#### app/(landing)/milpacs/[username]/accent-picker.tsx
+Client `AccentPicker`: a native colour input styled as the file's mono chips, in the banner badge row
+beside `CoverUpload` (the page's other owner-only control). `PUT /api/me/accent` to set,
+`DELETE` to clear. Saves on `change`, not `input` — a colour input fires `input` continuously while
+the pointer moves, which would be a write per pixel dragged. Reloads after saving, because the accent
+is painted server-side into `--acc` and into every other surface showing that member. Owner-only.
 
 #### app/(landing)/milpacs/[username]/certificate-link.tsx
 Client `CertificateViewer`: wraps arbitrary content (an award row, or a chip on the rank row) in a

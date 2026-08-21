@@ -19,6 +19,7 @@ import { hasCover as memberHasCover } from '@/lib/military/milpac-cover'
 import { resolveSegment } from '@/lib/military/milpac-slug'
 import { loadConfirmedOps, resolvePromotionPoints, resolveEnlistedDate, durationSince, getPromotionProgress } from '@/lib/military/milpac-stats'
 import { CoverUpload } from './cover-upload'
+import { AccentPicker } from './accent-picker'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
 import { ImageLightbox } from './image-lightbox'
@@ -317,7 +318,14 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 						/>
 					)
 					: null}
-				bannerActions={isOwn ? <CoverUpload hasCover={hasCover} /> : null}
+				bannerActions={isOwn
+					? (
+						<>
+							<CoverUpload hasCover={hasCover} />
+							<AccentPicker accent={profile.accent} isCustom={!!member.profileAccent} />
+						</>
+					)
+					: null}
 				identActions={canRequestAward
 					? (
 						<RequestAwardButton

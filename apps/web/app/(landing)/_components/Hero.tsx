@@ -13,6 +13,7 @@ import FireEmbers from '@/components/fire-embers'
 import MilitaryGrid from '@/components/military-grid'
 import PhysicsGame from '@/components/physics-game'
 import MinigameScoreboard from '@/components/minigame-scoreboard'
+import { resolveMemberAccent } from '@/lib/military/accent'
 
 import Wordmark from '@/public/ASOT.svg'
 import Banner from '@/public/images/home/PHQ2.png'
@@ -119,7 +120,7 @@ export default function Hero({ sotm, roster, opCard }: {
                 globalBest={globalBest}
                 globalBestName={globalBestName}
                 liveUserId={currentUser?.id}
-                liveAccentColor={currentUser?.hexAccentColor}
+                liveAccentColor={currentUser ? resolveMemberAccent(currentUser) : undefined}
             />
             <MinigameScoreboard
                 visible={gameDead}
