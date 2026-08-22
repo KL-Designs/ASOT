@@ -30,7 +30,6 @@ export default async function JoinPage() {
                     status='Open'
                     rows={[
                         { label: 'Minimum age', value: '17' },
-                        { label: 'Cost', value: 'Free' },
                         { label: 'Location', value: 'AU / NZ', accent: true },
                     ]}
                 />
