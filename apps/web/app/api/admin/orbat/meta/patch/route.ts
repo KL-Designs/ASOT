@@ -15,6 +15,8 @@ async function authStructure() {
 
 const UPLOAD_DIR = '../../storage/uploads/orbat'
 
+import { PATCH_PRESET, normaliseImage } from '@/lib/uploads/image'
+
 const MIME_TO_EXT: Record<string, string> = {
     'image/png': 'png',
     'image/jpeg': 'jpg',
@@ -52,9 +54,36 @@ export async function POST(request: NextRequest) {
 
     if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true })
 
-    const filename = `${category}-${randomUUID()}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
-    fs.writeFileSync(path.join(UPLOAD_DIR, filename), buffer)
+
+    /*
+       Bounded and re-encoded like every other upload but the gallery — with two
+       patch-specific carve-outs.
+
+       SVG passes through untouched: it is vector, already a few KB, and running
+       it through a raster pipeline would rasterise it at one fixed size and
+       throw away the reason to use it.
+
+       Everything else keeps its format (PATCH_PRESET.stillFormat is
+       'preserve'). Patches are insignia on a transparent ground drawn onto the
+       page's own plate; re-encoding them as JPEG would flatten the alpha and
+       put a solid box behind every patch on the site.
+    */
+    let outBuffer: Buffer = buffer
+    let outExt = ext
+
+    if (ext !== 'svg') {
+        const result = await normaliseImage(buffer, PATCH_PRESET)
+        if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
+
+        outBuffer = result.image.buffer
+        // From what was actually written, not from the upload's content-type:
+        // the filename is stored in Mongo and served back by extension.
+        outExt = result.image.format === 'jpeg' ? 'jpg' : result.image.format
+    }
+
+    const filename = `${category}-${randomUUID()}.${outExt}`
+    fs.writeFileSync(path.join(UPLOAD_DIR, filename), outBuffer)
 
     await Db.orbatSectionMeta.updateOne(
         { category, sectionTitle: title },

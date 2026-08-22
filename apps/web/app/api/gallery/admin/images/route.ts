@@ -54,6 +54,10 @@ export async function POST(request: NextRequest) {
         const dest = path.join(targetDir, safeName)
         // Extra check: dest must still be inside targetDir
         if (!dest.startsWith(targetDir + path.sep) && dest !== targetDir) continue
+        // Stored exactly as uploaded, deliberately. Every other image upload on the
+        // site is resized and re-encoded by `lib/uploads/image.ts`; the gallery is
+        // the one place whose entire purpose is the picture itself, so it keeps the
+        // full-resolution original. See GALLERY_IS_EXEMPT in lib/uploads/image-limits.
         fs.writeFileSync(dest, Buffer.from(await file.arrayBuffer()))
         saved.push(safeName)
     }

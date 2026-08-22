@@ -50,7 +50,7 @@ Scope: 42 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 - **GET** — bulk field-update endpoint driven entirely by query params (`title`, `date`, `loreDate`, `department`, `themeColor`, `pageTheme`, `coverImage`, `status`, `mapWorld`, `customTheme`, `isSingleMission`, `ownedBy`+`ownedByName`, `billetPoints`). `ownedBy`/`billetPoints` changes require J2 lead or `members.editRestricted`. Gate: `PERMISSIONS.operations.write` (plus extra check for owner/billet fields). Collections: `Db.operations`. Side effects: `logAction('operation.edit')`.
 
 #### /api/operations/upload
-- **POST** — uploads an image file (multipart `file` field), validates extension + magic-byte signature, writes to `./uploads/operations/{uuid}.{ext}`, returns URL for `/api/operations/image`. Gate: `PERMISSIONS.operations.write`. Collections: none (filesystem).
+- **POST** — uploads an image file (multipart `file` field), validates extension + magic-byte signature, bounds and re-encodes it via `normaliseImage(..., OPERATION_PRESET)`, writes to `./uploads/operations/{uuid}.{ext}`, returns URL for `/api/operations/image`. Gate: `PERMISSIONS.operations.write`. Collections: none (filesystem). The preset **preserves format** and the stored extension is taken from what was actually written, since this route serves images back by that extension — deriving it from the upload's own filename would let name and bytes disagree after a re-encode.
 
 #### /api/operations/zeus-notes
 - **GET** — paginated list of recent operations (title/date/status/zeusNotes) with `?search`/`?page` for the J6 notes tab. Gate: `PERMISSIONS.departments.j6`. Collections: `Db.operations`.

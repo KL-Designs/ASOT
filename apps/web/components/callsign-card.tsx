@@ -59,7 +59,11 @@ export function CallsignCard({ title, images, children }: { title: string, image
 			<div className={s.csImg}>
 				{images.map((img, i) => (
 					<div key={i} className='relative flex-1 h-full'>
-						<Image src={img} alt={title} fill className='object-cover' />
+						{/* `fill` with no `sizes` makes next/image assume 100vw and emit a
+						    srcset up to 3840w — for a band 118px tall in a grid card. That is
+						    how an 8K source here turned into a broken image rather than a slow
+						    one: Next was asked to render a 3840px variant of a 68MB PNG. */}
+						<Image src={img} alt={title} fill sizes='(max-width: 700px) 100vw, 420px' className='object-cover' />
 					</div>
 				))}
 				<span className={s.csTag}>{title.toUpperCase()}</span>

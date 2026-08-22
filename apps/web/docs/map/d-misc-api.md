@@ -202,11 +202,11 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 #### /api/uploads/bio
 - **GET** — `?id=` serves `./uploads/bio/<id>.jpg` bio photo. Auth: public/no auth (read).
-- **POST** — uploads/overwrites the caller's own bio photo (`./uploads/bio/<me.id>.jpg`). Auth: `hasPermission(user, 'uploads.bio')`.
+- **POST** — uploads/overwrites the caller's own bio photo (`./uploads/bio/<me.id>.jpg`). Auth: `hasPermission(user, 'uploads.bio')`. Bounded and re-encoded via `normaliseImage(..., BIO_PRESET)`. Animation is flattened here deliberately: the file is written as `.jpg` and served as `image/jpeg` unconditionally, so a stored GIF would be bytes and content-type disagreeing. Its **GET** also validates `id` as a snowflake — it was interpolated straight into a filesystem path.
 
 #### /api/uploads/cover
 - **GET** — `?id=` serves `./uploads/cover/<id>.png` cover photo. Auth: public/no auth (read). `id` must be a Discord snowflake — it is interpolated into a filesystem path, and before that check `?id=../../../../etc/passwd` resolved. `Content-Type` is sniffed from the bytes rather than assumed `image/png`, because covers are stored under a `.png` name whatever was uploaded and some are GIFs. `?still=1` returns the first frame of an animated cover as a real PNG (decoded via `@napi-rs/canvas`, imported lazily; falls through to the raw bytes if it will not decode) — the /milpacs roster asks for that so it can hold animation back until hover.
-- **POST** — uploads/overwrites the caller's own cover photo. Auth: any authenticated user.
+- **POST** — uploads/overwrites the caller's own cover photo. Auth: any authenticated user. Bounded and re-encoded via `normaliseImage(..., COVER_PRESET)`: >20MB is refused with 413 before the body is materialised, and everything else is scaled into 2560x1440 and compressed under 3MB. GIFs stay GIFs (the roster animates covers on hover).
 - **DELETE** — deletes the caller's own cover photo file. Auth: any authenticated user.
 
 #### /api/uploads
