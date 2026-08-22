@@ -4,6 +4,8 @@ import PERMISSIONS from '@/lib/permissions'
 import crypto from 'crypto'
 import fs from 'fs'
 
+import { OPERATION_PRESET, normaliseImage } from '@/lib/uploads/image'
+
 const ALLOWED_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp'])
 
 const MAGIC: Array<{ bytes: number[]; offset?: number }> = [
@@ -34,10 +36,21 @@ export async function POST(req: Request) {
 
     if (!isAllowedImage(buffer)) return NextResponse.json({ error: 'File content does not match an allowed image type' }, { status: 400 })
 
+    // Bounded and re-encoded like every other upload but the gallery.
+    // OPERATION_PRESET preserves the format so the stored extension still
+    // describes the bytes — this route serves images back by that extension.
+    const result = await normaliseImage(buffer, OPERATION_PRESET)
+    if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
+
+    // Taken from what was actually written rather than from the upload's own
+    // name: re-encoding can change the format, and the URL below has to agree
+    // with the file on disk.
+    const outExt = result.image.format === 'jpeg' ? 'jpg' : result.image.format
+
     const id = crypto.randomUUID()
 
     if (!fs.existsSync('../../storage/uploads/operations')) fs.mkdirSync('../../storage/uploads/operations', { recursive: true })
-    fs.writeFileSync(`../../storage/uploads/operations/${id}.${ext}`, buffer)
+    fs.writeFileSync(`../../storage/uploads/operations/${id}.${outExt}`, result.image.buffer)
 
-    return NextResponse.json({ url: `/api/operations/image?id=${id}&ext=${ext}` })
+    return NextResponse.json({ url: `/api/operations/image?id=${id}&ext=${outExt}` })
 }

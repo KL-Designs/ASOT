@@ -32,6 +32,10 @@ export async function POST(request: NextRequest) {
         if (!safeName) continue
         const dest = path.join(FEATURED_BASE, safeName)
         if (!dest.startsWith(FEATURED_BASE + path.sep) && dest !== FEATURED_BASE) continue
+        // Stored exactly as uploaded, deliberately. Every other image upload on the
+        // site is resized and re-encoded by `lib/uploads/image.ts`; the gallery is
+        // the one place whose entire purpose is the picture itself, so it keeps the
+        // full-resolution original. See GALLERY_IS_EXEMPT in lib/uploads/image-limits.
         fs.writeFileSync(dest, Buffer.from(await file.arrayBuffer()))
         saved.push(safeName)
     }

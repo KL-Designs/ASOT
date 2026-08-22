@@ -259,6 +259,20 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
   two applied the legibility floor, one didn't, and the fallbacks were a mix of `#db001d` and
   `var(--red)`. Unit-tested in `accent.test.ts`.
 
+### lib/uploads/image-limits.ts
+Client-safe (no sharp), so upload controls can quote the limit they enforce.
+- `MAX_UPLOAD_BYTES` (20MB) — the hard ceiling. Generous deliberately: a phone photo is routinely 5-15MB and its owner has done nothing wrong.
+- `MAX_INPUT_PIXELS` (300MP) — decompression-bomb guard, not a quality one. Has to sit above any real camera while refusing the gigapixel images a small crafted file expands into.
+- `ImagePreset` + `COVER_PRESET` / `BIO_PRESET` / `PATCH_PRESET` / `OPERATION_PRESET` — per-upload box, stored ceiling, `stillFormat` (`jpeg` | `preserve`) and animation policy. **`preserve` is not cosmetic:** ORBAT patches are insignia on a transparent ground, so JPEG would put a solid box behind every patch; operations store files by extension, so changing format would leave name and bytes disagreeing.
+- `GALLERY_IS_EXEMPT` — the gallery is the one upload deliberately stored as-is, since it is the only place whose purpose is the picture itself.
+
+### lib/uploads/image.ts
+- `normaliseImage(input, preset, opts?)` — bounds and re-encodes an upload; returns `{ok:true, image}` or `{ok:false, error}` where the error is written to be shown to the member verbatim. **Every upload is re-encoded, including one that would already have fit** — one invariant for every file on disk beats a long tail of individually-fine uploads. Compresses down a quality ladder, then shrinks dimensions and repeats, until it is under the preset's ceiling.
+- `sniffImageMime(buf)` — magic bytes, never the filename or client-supplied content-type. The cover that caused the incident was a **JPEG stored as `.png`**.
+- **Why it exists:** the upload routes wrote whatever bytes arrived. A 16320x7612 / 13.2MB cover (124MP, ~500MB of bitmap decoded) made /milpacs unusable and meant a ~500MB server allocation per OpenGraph card. `MAX_COVER_BYTES` (25MB) never caught it — bytes alone were the wrong measure.
+- **`failOn: 'none'` is load-bearing:** that same file is a JPEG with a recoverable defect (`1 extraneous bytes before marker 0xd2`). Browsers render it fine; libvips aborts by default, which would have meant refusing a file the member can plainly see working.
+- sharp, not a new dependency — it is already here and is what Next uses for image optimisation. It reads dimensions without decoding, streams the resize, and resizes animated GIFs without flattening them. Unit-tested in `image.test.ts` (sharp 0.33.5 cannot *construct* a multi-frame GIF, so the animated fixtures are single-frame — noted in the test).
+
 ### lib/military/milpac-cover.ts
 - `coverPath(memberId)` / `hasCover(memberId)` — the member's uploaded cover photo at `storage/uploads/cover/{id}.png`. Used by the milpac page (banner) and its `opengraph-image.tsx` (share-card ground). `app/api/uploads/cover/route.ts` still writes via its own cwd-relative string.
 - `coverIds(): Set<string>` — every id with a cover, from one `readdirSync`. What the /milpacs roster uses: `hasCover` is right for one member and wrong for 163, where it becomes 163 filesystem questions to answer one. Missing directory yields an empty set rather than throwing.

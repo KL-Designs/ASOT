@@ -55,6 +55,10 @@ export async function POST(request: NextRequest) {
     }
 
     fs.mkdirSync(SOTM_DIR, { recursive: true })
+    // Stored exactly as uploaded, deliberately. Every other image upload on the
+    // site is resized and re-encoded by `lib/uploads/image.ts`; the gallery is
+    // the one place whose entire purpose is the picture itself, so it keeps the
+    // full-resolution original. See GALLERY_IS_EXEMPT in lib/uploads/image-limits.
     fs.writeFileSync(dest, Buffer.from(await file.arrayBuffer()))
 
     const me = await client.fetchMe().catch(() => null)
