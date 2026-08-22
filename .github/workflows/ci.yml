@@ -23,13 +23,15 @@ permissions:
   contents: read
 
 env:
-  # No secrets, deliberately. `lib/mongo.ts` throws at import when these are
-  # unset and `next build` imports it while collecting page data, but nothing
-  # here ever connects: the client's `connect()` is fire-and-forget behind a
-  # `.catch`, so an address with nothing on it is enough. NEXT_PUBLIC_BASEURL
-  # only interpolates into redirect destinations in next.config.ts.
+  # No secrets, but emphatically not "no database". `lib/mongo.ts` throws at
+  # import when these are unset, and `next build` PRERENDERS pages that query
+  # Mongo for real (/ace among them) — so the build needs a server it can
+  # actually reach, which the `mongo` service on the web job provides. An empty
+  # database is enough; no prerendered page asserts on content.
   #
-  # Verified by running the build with exactly these three and no root .env.
+  # An earlier revision of this file claimed a dead address would do. It will
+  # not. That was "verified" on a dev machine with mongod already listening on
+  # 27017, which the build quietly connected to — the check proved nothing.
   MONGO_URI: mongodb://127.0.0.1:27017
   MONGO_DB: asot_ci
   NEXT_PUBLIC_BASEURL: https://ci.invalid
@@ -38,10 +40,25 @@ jobs:
   web:
     name: web — lint, types, unit tests, build
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+    # Required by the build, not by the tests: `next build` prerenders pages
+    # that hit the database. Empty is fine — this only has to accept a
+    # connection and answer queries.
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
         with:
           # Matches apps/web/dockerfile (node:22-alpine). Dev machines are on
           # 24; the gate has to fail where production would, not where dev does.
@@ -99,9 +116,9 @@ jobs:
     name: bot + milpac — types and tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
