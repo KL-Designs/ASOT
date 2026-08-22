@@ -31,9 +31,19 @@ export const config = {
     // The WIP list lives here rather than in a constant: `matcher` only accepts
     // literals, so a second copy in code could drift out of step with it.
     // `:path*` matches zero or more segments, so the bare path matches too.
+    //
+    // These moved out of /community with the rest of that tree. The matcher had
+    // to move with them or they would have gone live at their new paths — the
+    // redirect in next.config.ts sends /community/retired here, it does not
+    // gate anything.
+    //
+    // ORBAT is no longer on this list: it has been released. It needed only
+    // this entry removed, because it never carried the second, independent
+    // gate — the `WIP_PAGES` env check that bios and retired run inside their
+    // own page components. Milpacs needed both. Check for both before calling
+    // a page released.
     matcher: [
-        '/community/orbat/:path*',
-        '/community/retired/:path*',
-        '/community/bios/:path*',
+        '/retired/:path*',
+        '/bios/:path*',
     ],
 }

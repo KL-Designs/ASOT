@@ -19,6 +19,7 @@ import { hasCover as memberHasCover } from '@/lib/military/milpac-cover'
 import { resolveSegment } from '@/lib/military/milpac-slug'
 import { loadConfirmedOps, resolvePromotionPoints, resolveEnlistedDate, durationSince, getPromotionProgress } from '@/lib/military/milpac-stats'
 import { CoverUpload } from './cover-upload'
+import { AccentPicker } from './accent-picker'
 import { BiographyEditor } from './bio-editor'
 import { RequestAwardButton } from './RequestAwardButton'
 import { ImageLightbox } from './image-lightbox'
@@ -33,6 +34,8 @@ import { pickLoadoutId } from '@/lib/loadout/select'
 import { kitIcon } from '@/lib/loadout/kit-icons'
 import { normaliseTags } from '@/lib/loadout/tags'
 import { LoadoutManager } from './loadout-manager'
+import RankProgress from '@/components/ui/RankProgress'
+import { MedicalMenuLink } from './medical-menu-link'
 import s from './profile.module.css'
 
 
@@ -43,6 +46,15 @@ import s from './profile.module.css'
 // a badge misaligned against those without. They need the crop-a-known-region
 // treatment MedallionIcon uses, and nobody has measured the regions yet.
 // See docs/superpowers/specs/2026-08-17-milpac-redesign-design.md, risk R6.
+
+/**
+ * The one member whose overview carries the HZN-MED medical menu.
+ *
+ * An easter egg, matched against the Discord username or the milpac slug --
+ * see the `showMedicalMenu` gate below, ./medical-menu-link.tsx and app/(landing)/ace/.
+ */
+const MEDICAL_MENU_MEMBER = 'res'
+
 
 /**
  * The certificate slide code for an award, or undefined if it has none.
@@ -139,6 +151,15 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 	// Discord username — the uniformHash write, the certificate routes and the
 	// editor's /api/members calls all look members up by it.
 	const username = member.username
+
+	// Easter egg. Matched on both the username and the canonical segment: if this
+	// member later claims a name slug the canonical changes, and if they already
+	// hold one then `res` is the slug rather than the username. Either way the egg
+	// follows the person rather than whichever of the two the URL uses today.
+	const showMedicalMenu = username === MEDICAL_MENU_MEMBER
+		|| profile.canonical === MEDICAL_MENU_MEMBER
+	// Only queried for the one member who can see it — everyone else's milpac
+	// pays nothing for the egg.
 
 	// Build uniform/box data (also used for the corps badge)
 	const uniformData = buildUniformData(member, orbatEntry)
@@ -262,7 +283,7 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 
 	return (
 		<div
-			className={s.shell}
+			className={`command ${s.shell}`}
 			// The member's own Discord accent, everything else neutral. ensureVisible
 			// lifts a near-black accent off the background; the triplet has to be
 			// derived from the same value or the text colour and its tints disagree.
@@ -297,7 +318,14 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 						/>
 					)
 					: null}
-				bannerActions={isOwn ? <CoverUpload hasCover={hasCover} /> : null}
+				bannerActions={isOwn
+					? (
+						<>
+							<CoverUpload hasCover={hasCover} />
+							<AccentPicker accent={profile.accent} isCustom={!!member.profileAccent} />
+						</>
+					)
+					: null}
 				identActions={canRequestAward
 					? (
 						<RequestAwardButton
@@ -314,26 +342,11 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 
 			{/* Who this member is, and what they have been doing lately. */}
 			{tab === 'overview' && (
+				<>
 				<div className={`${s.page} ${s.pageLead}`}>
 					<div className={s.stack}>
-						{progress && !progress.atMax && !progress.billetOnly && (
-							<div>
-								<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 5 }}>
-									<span className={s.lbl} style={{ color: 'var(--acc)' }}>{member.milpac?.currentRank}</span>
-									<span className={s.crumb} style={{ margin: 0 }}>{progress.current} / {progress.required} pts</span>
-									<span className={s.lbl}>{progress.nextRank}</span>
-								</div>
-								<div style={{ height: 6, background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-									<div style={{
-										height: '100%',
-										width: `${progress.pct}%`,
-										minWidth: progress.pct > 0 ? 6 : 0,
-										background: 'var(--acc)',
-										boxShadow: '0 0 8px rgba(var(--acc-rgb),0.6)',
-									}} />
-								</div>
-							</div>
-						)}
+						{/* Shared with the navbar account menu — see components/ui/RankProgress. */}
+						<RankProgress currentRank={member.milpac?.currentRank} progress={progress} accent='var(--acc)' />
 						<Panel title='Personnel Summary' tag={`${member.milpac?.currentRank ?? ''} ${name}`.trim()} delay='.05s'>
 							{isOwn
 								? <BiographyEditor initial={member.bio?.content ?? null} accent={accent} />
@@ -445,6 +458,8 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 						)}
 					</div>
 				</div>
+				{showMedicalMenu && <MedicalMenuLink />}
+				</>
 			)}
 
 			{/* What they have earned, and the paperwork behind it. */}

@@ -302,7 +302,7 @@ export default function SopsPanel({ isJ4 }: { isJ4: boolean }) {
                 >
                     <div style={{ background: '#0e0e0e', border: `1px solid rgba(219,0,29,0.25)`, borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} CREATE SOP</div>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>{'//'} CREATE SOP</div>
                             <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>New Standard Operating Procedure</h3>
                         </div>
 
@@ -351,7 +351,7 @@ export default function SopsPanel({ isJ4 }: { isJ4: boolean }) {
 function SopCard({ sop, timeAgo, onOpen }: { sop: SopItem; timeAgo: (d: string) => string; onOpen: () => void }) {
     return (
         <div
-            style={{ border: '1px solid rgba(255,255,255,0.07)', borderTop: '2px solid rgba(219,0,29,0.3)', background: 'rgba(255,255,255,0.02)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer', transition: 'all 0.15s' }}
+            style={{ border: '1px solid rgba(255,255,255,0.07)', borderTop: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.02)', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer', transition: 'all 0.15s' }}
             onClick={onOpen}
             onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderTopColor = RED; el.style.background = 'rgba(219,0,29,0.04)' }}
             onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderTopColor = 'rgba(219,0,29,0.3)'; el.style.background = 'rgba(255,255,255,0.02)' }}

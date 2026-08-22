@@ -151,7 +151,7 @@ export default function RolesManagerPanel({ open, onClose }: Props) {
                 </div>
             </DialogTitle>
 
-            <div style={{ display: 'flex', borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--line-2)' }}>
                 <Button disableRipple onClick={() => switchTab('orbat')} sx={tabButtonSx(tab === 'orbat')}>ORBAT Roles</Button>
                 <Button disableRipple onClick={() => switchTab('department')} sx={tabButtonSx(tab === 'department')}>Department Roles</Button>
                 <Button disableRipple onClick={() => switchTab('permissions')} sx={tabButtonSx(tab === 'permissions')}>Permissions Explorer</Button>

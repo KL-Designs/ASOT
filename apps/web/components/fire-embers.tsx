@@ -2,7 +2,16 @@
 
 import { useRef, useEffect } from 'react'
 
-export default function FireEmbers() {
+/**
+ * Embers drifting up from the bottom edge.
+ *
+ * `style` is merged over the defaults so a caller can place the canvas in its
+ * own stacking context. The `zIndex: 0` default only works when the embers sit
+ * directly on a section background — put a veil or a scrim above them and they
+ * disappear under it, which is not obvious from the fact that they are drawn
+ * with `lighter` compositing.
+ */
+export default function FireEmbers({ style }: { style?: React.CSSProperties }) {
 	const canvasRef = useRef<HTMLCanvasElement>(null)
 
 	useEffect(() => {
@@ -104,6 +113,8 @@ export default function FireEmbers() {
 				height: 520,
 				pointerEvents: 'none',
 				zIndex: 0,
+				opacity: 0.75,
+				...style,
 			}}
 		/>
 	)

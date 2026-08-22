@@ -141,7 +141,7 @@ export default function EraOptionsTab() {
             {error && <div style={{ marginBottom: 12, fontSize: '0.72rem', color: 'rgba(219,0,29,0.8)' }}>{error}</div>}
 
             {/* Option list */}
-            <div style={{ border: '1px solid rgba(255,255,255,0.07)', borderTop: '2px solid rgba(219,0,29,0.4)' }}>
+            <div style={{ border: '1px solid rgba(255,255,255,0.07)', borderTop: '1px solid var(--line-2)' }}>
                 {/* Header */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 10, padding: '5px 14px', background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                     <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)' }}>ERA Name</span>
@@ -172,7 +172,7 @@ export default function EraOptionsTab() {
                                     }}
                                     style={{
                                         background: 'rgba(0,0,0,0.5)',
-                                        border: '1px solid rgba(219,0,29,0.4)',
+                                        border: '1px solid var(--line-2)',
                                         color: 'rgba(237,237,237,0.9)',
                                         borderRadius: 2,
                                         padding: '4px 8px',

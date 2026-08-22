@@ -226,7 +226,7 @@ export default function ActivityLogTab({ department, isJ4 = false }: Props) {
             {/* Detail modal (for entries without a URL) */}
             {modal && (
                 <div onClick={() => setModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div onClick={e => e.stopPropagation()} style={{ maxWidth: 520, width: '100%', background: 'rgb(13,13,13)', border: '1px solid rgba(255,255,255,0.12)', borderTop: '2px solid rgba(219,0,29,0.6)', padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div onClick={e => e.stopPropagation()} style={{ maxWidth: 520, width: '100%', background: 'rgb(13,13,13)', border: '1px solid rgba(255,255,255,0.12)', borderTop: '1px solid var(--line-2)', padding: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--foreground)', fontFamily: 'monospace' }}>{modal.action}</span>
                             <button onClick={() => setModal(null)} style={{ all: 'unset', cursor: 'pointer', fontSize: '0.65rem', color: 'rgba(237,237,237,0.3)' }}>✕</button>

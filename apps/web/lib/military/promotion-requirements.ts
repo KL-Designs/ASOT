@@ -258,3 +258,37 @@ export function getSuggestedRank(currentRankAbbr: string, points: number): strin
 
     return qualifying[qualifying.length - 1].abbr
 }
+
+/**
+ * The next rank up the current track and the points it wants, or null when
+ * there is nothing above (top of the track, or a rank that only comes by
+ * appointment).
+ *
+ * `getSuggestedRank` answers "what have they earned"; this answers "what are
+ * they working toward", which is what a progress bar needs. Billet-only entries
+ * (`minPts: null`) are skipped rather than treated as zero — they are not
+ * reachable by accumulating points, so showing them as a target would promise
+ * something the numbers cannot deliver.
+ */
+export function getNextThreshold(currentRankAbbr: string, points: number): { abbr: RankAbbr, minPts: number } | null {
+    const matchingTracks = RANK_TRACKS.filter(t => t.ranks.some(r => r.abbr === currentRankAbbr))
+    if (matchingTracks.length === 0) return null
+
+    const track =
+        matchingTracks.find(t => t.ranks.find(r => r.abbr === currentRankAbbr)?.minPts !== null)
+        ?? matchingTracks[0]
+
+    const earned = getSuggestedRank(currentRankAbbr, points)
+    // Measure from whichever is further along — the rank they hold or the one
+    // their points already justify — so a member pending promotion is not shown
+    // aiming at a target they have already cleared.
+    const held = track.ranks.findIndex(r => r.abbr === currentRankAbbr)
+    const due = earned ? track.ranks.findIndex(r => r.abbr === earned) : -1
+    const from = Math.max(held, due)
+
+    for (let i = from + 1; i < track.ranks.length; i++) {
+        const next = track.ranks[i]
+        if (next.minPts !== null) return { abbr: next.abbr, minPts: next.minPts }
+    }
+    return null
+}

@@ -170,12 +170,12 @@ export default function DeptLinksManagerCard({ department, canManage }: Props) {
 
     return (
         <div className='px-6 pt-6'>
-            <div style={{ position: 'relative', border: '1px solid rgba(219,0,29,0.42)', borderTop: '2px solid var(--red)', background: 'rgba(255,255,255,0.04)', padding: '16px 20px' }}>
+            <div style={{ position: 'relative', border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.04)', padding: '16px 20px' }}>
                 <CornerBrackets />
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> QUICK LINKS
+                    <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ color: 'var(--txt-4)' }}>{'//'}</span> QUICK LINKS
                     </span>
                     <Button size='small' startIcon={<Add sx={{ fontSize: 14 }} />} onClick={() => setModalState({ link: null })} sx={{ fontSize: '0.65rem' }}>
                         Add Link

@@ -64,7 +64,7 @@ const inputStyle: React.CSSProperties = {
     boxSizing: 'border-box',
     background: 'rgba(255,255,255,0.04)',
     border: '1px solid rgba(255,255,255,0.08)',
-    borderBottom: '2px solid rgba(219,0,29,0.4)',
+    borderBottom: '1px solid var(--line-2)',
     color: 'rgba(237,237,237,0.9)',
     fontSize: '0.85rem',
     padding: '8px 10px',
@@ -341,7 +341,7 @@ export default function RequestsTab({ isJ3Lead, myId }: { isJ3Lead: boolean; myI
                     onClick={e => { if (e.target === e.currentTarget) setShowForm(false) }}>
                     <div style={{ background: '#0e0e0e', border: `1px solid rgba(219,0,29,0.25)`, borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} REQUEST TRAINING</div>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>{'//'} REQUEST TRAINING</div>
                             <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Request a Training Session</h3>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -421,9 +421,9 @@ export default function RequestsTab({ isJ3Lead, myId }: { isJ3Lead: boolean; myI
             {rejectModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                     onClick={e => { if (e.target === e.currentTarget) setRejectModal(null) }}>
-                    <div style={{ background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.25)', borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div style={{ background: '#0e0e0e', border: '1px solid var(--line-2)', borderTop: `3px solid ${RED}`, padding: 28, width: '100%', maxWidth: 400, display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
-                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 6 }}>{'//'} REJECT REQUEST</div>
+                            <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>{'//'} REJECT REQUEST</div>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>Reject Training Request</h3>
                         </div>
                         <Field label='Reason (optional)'>

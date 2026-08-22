@@ -1112,7 +1112,7 @@ export default function IntelPackageViewer({ operationId, themeColor = '#c62828'
                                             COMMS CARD
                                         </div>
                                         {commsMode === 'custom' && commsGroups.length > 0 ? (
-                                            <div style={{ flex: 1, padding: '8px 10px', overflowY: 'auto' }}>
+                                            <div className='thin-scroll' style={{ flex: 1, padding: '8px 10px', overflowY: 'auto' }}>
                                                 {/* Header row */}
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 1fr 1fr 1fr', gap: 4, marginBottom: 5, paddingBottom: 4, borderBottom: '1px solid rgba(198,40,40,0.2)' }}>
                                                     {['CALLSIGN','SR PRIM','SR ALT','LR PRIM','LR ALT'].map(h => (

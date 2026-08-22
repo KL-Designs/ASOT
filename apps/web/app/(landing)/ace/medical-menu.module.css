@@ -1,0 +1,1338 @@
+/* ============================================================================
+   HZN-MED — medical menu.
+
+   A parody / reskin of the ARMA 3 ACE + KAT medical interface, rendered as a
+   modal on the site rather than the standalone page it was mocked up as.
+
+   Everything is scoped: the mockup's `:root` block is `.root` and its `body`
+   rules live on `.root` too, because a modal cannot claim the document. The
+   site's own tokens are deliberately not used — this is meant to look like the
+   game's UI, not like the rest of the site.
+   ========================================================================== */
+
+/* The page, not a scrim over one. It sits in the landing layout's flow under
+   the site nav rather than covering it, which is the whole difference between
+   what this was and what it is. */
+.page {
+    height: 100vh;
+    height: 100dvh;
+    display: grid;
+    /* Every pixel. The site's own chrome is hidden while this is up — see the
+       effect in MedicalMenu.tsx — so there is nothing to leave room for. */
+    padding: 0;
+    background: #08090a;
+    animation: fade .18s ease;
+}
+
+@keyframes fade {
+    from { opacity: 0 }
+}
+
+.root {
+    /*
+       ASOT's palette rather than ARMA's.
+
+       Two families, kept apart on purpose. `--hz-acc` is the unit's red and
+       belongs to the chrome — the title bar, the active tool, a selected limb,
+       a tag. `--red` is clinical and belongs to the casualty; it is deliberately
+       hotter and lighter so an alarm never reads as decoration and a heading
+       never reads as an alarm. Everything between them is grey, which is the
+       other half of the unit's look and the reason a colour means something
+       when it does appear.
+    */
+    --hz-acc: #e0223c;
+    --hz-bar: linear-gradient(180deg, #c8172f 0%, #a5101f 48%, #7d1122 100%);
+    --panel: rgba(11, 12, 14, .74);
+    --panel-line: rgba(255, 255, 255, .20);
+    --panel-line-sub: rgba(255, 255, 255, .09);
+    --txt: #f2f3f5;
+    --txt-dim: #9aa0a8;
+    --txt-mute: #5f656e;
+    --red: #ff6a5e;
+    --yellow: #d8ac45;
+    --green: #3ddc84;
+    --blue: #56a8e0;
+    --tan: #9aa0a8;
+    --hit: rgba(255, 255, 255, .06);
+    --hit-on: rgba(224, 34, 60, .24);
+    --font: "Bahnschrift", "DIN Alternate", "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
+
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: var(--font);
+    font-size: 15px;
+    color: var(--txt);
+    background: #0b0c0e;
+    border: 0;
+    -webkit-font-smoothing: antialiased;
+    animation: rise .22s cubic-bezier(.2, .7, .3, 1);
+}
+
+@keyframes rise {
+    from { opacity: 0; transform: translateY(10px) scale(.99) }
+}
+
+.root *,
+.root *::before,
+.root *::after {
+    box-sizing: border-box;
+}
+
+/* ---------- faux 3D scene behind the UI ---------- */
+.scene { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none }
+
+/* Grey, with one ember of the unit's red where the horizon used to be. The
+   khaki field this started as was ARMA's; the room it is in now is ours. */
+.sky {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(90% 60% at 50% 4%, rgba(224, 34, 60, .16) 0%, transparent 58%),
+        radial-gradient(120% 80% at 50% 8%, #2b2e33 0%, #1d2024 38%, #14161a 64%, #0b0c0e 100%);
+}
+
+.ground {
+    position: absolute;
+    left: -10%;
+    right: -10%;
+    top: 46%;
+    bottom: -10%;
+    background:
+        radial-gradient(80% 60% at 50% 0%, rgba(0, 0, 0, .28), transparent 70%),
+        linear-gradient(180deg, #26282c 0%, #17191c 45%, #0d0e10 100%);
+    transform: perspective(600px) rotateX(46deg);
+    transform-origin: 50% 0%;
+}
+
+.haze { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(150, 155, 165, .12), rgba(0, 0, 0, .62)) }
+.vig { position: absolute; inset: 0; box-shadow: inset 0 0 240px 60px rgba(0, 0, 0, .85) }
+.blur { position: absolute; inset: 0; backdrop-filter: blur(2px) }
+
+.grain {
+    position: absolute;
+    inset: 0;
+    opacity: .16;
+    mix-blend-mode: overlay;
+    background-image: repeating-linear-gradient(0deg, rgba(255, 255, 255, .10) 0 1px, transparent 1px 3px);
+}
+
+/* Medic silhouette and a pool under the casualty. Decorative only. */
+.medic {
+    position: absolute;
+    right: 14%;
+    bottom: -4%;
+    width: 38%;
+    height: 70%;
+    background: radial-gradient(45% 40% at 50% 30%, rgba(38, 40, 28, .95), rgba(20, 22, 16, 0) 70%);
+    filter: blur(6px);
+}
+
+.blood {
+    position: absolute;
+    left: 44%;
+    bottom: 16%;
+    width: 12%;
+    height: 5%;
+    background: radial-gradient(50% 50% at 50% 50%, rgba(120, 10, 8, .85), rgba(90, 8, 6, 0) 70%);
+    filter: blur(3px);
+}
+
+/* ---------- window chrome ---------- */
+.menu {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.titlebar {
+    background: var(--hz-bar);
+    border-bottom: 1px solid rgba(0, 0, 0, .55);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, .55);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 5px 14px;
+    flex: 0 0 auto;
+}
+
+.titlebar h1 {
+    margin: 0;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    color: #150407;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, .28);
+}
+
+.tag {
+    font-size: 10.5px;
+    letter-spacing: 1.6px;
+    font-weight: 700;
+    color: #2a2110;
+    background: rgba(255, 255, 255, .30);
+    border: 1px solid rgba(0, 0, 0, .28);
+    border-radius: 2px;
+    padding: 2px 6px;
+}
+
+.tagAlt { background: rgba(0, 0, 0, .18); color: #3a2d12 }
+
+/* How the run ended, for after the board has been waved away. */
+.tagWin { background: rgba(61, 220, 132, .85); color: #06301a }
+.tagDead { background: rgba(20, 20, 22, .82); color: #ff8b81; border-color: rgba(255, 106, 94, .55) }
+
+/* Rank sits in front of the name and needs to read as a separate word. */
+.rank {
+    margin-right: .45em;
+    font-weight: 600;
+    color: var(--tan);
+}
+
+/* Difficulty, and the button that deals a new casualty at it. */
+.diff {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    letter-spacing: 1.4px;
+    font-weight: 700;
+    color: #2a2110;
+}
+
+.diff select {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .8px;
+    color: #2a2110;
+    background: rgba(255, 255, 255, .30);
+    border: 1px solid rgba(0, 0, 0, .28);
+    border-radius: 2px;
+    padding: 2px 4px;
+    cursor: pointer;
+}
+
+.diff select:focus-visible { outline: 2px solid #2a2110; outline-offset: 1px }
+
+.newbtn {
+    font-family: inherit;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: #2a2110;
+    background: rgba(255, 255, 255, .30);
+    border: 1px solid rgba(0, 0, 0, .28);
+    border-radius: 2px;
+    padding: 3px 9px;
+    cursor: pointer;
+}
+
+.newbtn:hover { background: rgba(255, 255, 255, .5) }
+.spacer { flex: 1 }
+.meta { font-size: 12.5px; color: #2a2110; letter-spacing: .6px; font-weight: 600; opacity: .85 }
+
+.xbtn {
+    width: 22px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    color: #2a2110;
+    font-weight: 700;
+    border: 1px solid rgba(0, 0, 0, .25);
+    background: rgba(255, 255, 255, .16);
+    border-radius: 2px;
+    font-size: 13px;
+    padding: 0;
+    font-family: inherit;
+}
+
+.xbtn:hover { background: rgba(255, 255, 255, .34) }
+
+/* ---------- main grid ---------- */
+.grid {
+    flex: 1 1 auto;
+    display: grid;
+    min-height: 0;
+    grid-template-columns: minmax(290px, .95fr) minmax(300px, 1.25fr) minmax(270px, .88fr) minmax(280px, 1fr);
+    padding: 6px 12px 0;
+}
+
+.col { display: flex; flex-direction: column; min-height: 0; padding: 0 8px }
+
+.colhead {
+    text-align: center;
+    font-size: 19px;
+    letter-spacing: 1.2px;
+    font-weight: 700;
+    padding: 4px 0 6px;
+    color: #fff;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, .9);
+    border-bottom: 1px solid var(--panel-line);
+}
+
+.colhead .sub {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: var(--tan);
+    font-weight: 600;
+    opacity: .9;
+}
+
+/* ---------- the monitor, as a box on the floor ---------- */
+
+/* A bezel round it, because it is a machine rather than a region of the page —
+   and because everything inside goes dark together when nothing is attached. */
+.device {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-top: 6px;
+    background: linear-gradient(180deg, #23262a 0%, #191c1f 34%, #131618 100%);
+    border: 1px solid #2f343a;
+    border-radius: 7px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 8px 22px rgba(0, 0, 0, .6);
+    overflow: hidden;
+}
+
+.deviceAlarm { border-color: rgba(255, 106, 94, .55); box-shadow: inset 0 1px 0 rgba(255,255,255,.07), 0 0 0 1px rgba(255, 106, 94,.25), 0 8px 22px rgba(0,0,0,.6) }
+
+.deviceTop {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #2f343a;
+    background: rgba(0, 0, 0, .28);
+    font-family: monospace;
+    font-size: 9.5px;
+    letter-spacing: 1.6px;
+    color: var(--txt-mute);
+}
+
+.deviceName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.deviceState { color: var(--txt-dim) }
+
+.led { width: 7px; height: 7px; border-radius: 50%; background: #3a4046; flex: 0 0 auto }
+.ledOn { background: var(--green); box-shadow: 0 0 6px var(--green); animation: drip 2s ease-in-out infinite }
+
+/* The screen. Scrolls on its own so a stack of alarms cannot push the trace
+   off the top of the device. */
+.deviceScreen {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 8px 9px 10px;
+    background: radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, .04), transparent 70%), #0b0e10;
+}
+
+/* The rhythm, in words. A trace you have to recognise from the squiggle is a
+   trace you will get wrong. */
+.rhythmBand {
+    margin: 6px 0 2px;
+    padding: 5px 8px;
+    font-family: monospace;
+    font-size: 11px;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--green);
+    background: rgba(92, 191, 98, .1);
+    border: 1px solid rgba(92, 191, 98, .35);
+    border-radius: 2px;
+}
+
+.rhythmBand b { font-weight: 700 }
+.rhythmWarn { color: var(--yellow); background: rgba(216, 172, 69, .1); border-color: rgba(216, 172, 69, .4) }
+.rhythmBad { color: var(--red); background: rgba(255, 106, 94, .12); border-color: rgba(255, 106, 94, .5) }
+.rhythmOff { color: var(--txt-mute); background: rgba(255, 255, 255, .04); border-color: var(--panel-line-sub); text-transform: none; letter-spacing: .6px }
+
+.volRow { display: flex; align-items: center; gap: 8px; margin-top: 6px }
+.volRow > span { font-size: 9.5px; letter-spacing: 1.4px; color: var(--txt-mute); flex: 0 0 auto }
+.volRow > div { flex: 1; margin-top: 0 }
+
+/* One alarm per thing that is about to kill them. */
+.alarm {
+    margin-top: 5px;
+    padding: 5px 8px;
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+    background: rgba(255, 106, 94, .3);
+    border: 1px solid rgba(255, 106, 94, .75);
+    border-radius: 2px;
+}
+
+/* What to go and do about a machine that is not attached to anything. */
+.deviceHint {
+    margin-top: 6px;
+    font-size: 11.5px;
+    letter-spacing: .3px;
+    color: var(--txt-mute);
+}
+
+/* ---------- toolbar ---------- */
+.toolbar { display: flex; align-items: center; gap: 2px; padding: 6px 2px; flex-wrap: wrap }
+
+.tool {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: #fff;
+    opacity: .82;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .9));
+    position: relative;
+    background: none;
+    padding: 0;
+}
+
+.tool svg { width: 26px; height: 26px }
+.tool:hover { opacity: 1; background: var(--hit); border-color: var(--panel-line-sub) }
+.toolOn { opacity: 1; color: var(--hz-acc); background: var(--hit-on); border-color: rgba(224, 34, 60, .55) }
+.tool:hover.toolOn { background: var(--hit-on) }
+.kbd { position: absolute; right: 2px; bottom: 0; font-size: 9px; color: var(--txt-mute) }
+.toolsep { width: 1px; height: 26px; background: var(--panel-line); margin: 0 6px; flex: none }
+
+/*
+   The treatment underway.
+
+   The bar is a keyframe with its duration set inline, so the countdown costs no
+   state and no ticking render — it simply runs for as long as the action does.
+*/
+.progress {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    padding: 7px 10px 9px;
+    background: rgba(224, 34, 60, .10);
+    border: 1px solid rgba(224, 34, 60, .45);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progressLabel {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    letter-spacing: .4px;
+    color: var(--hz-acc);
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.progressX {
+    flex: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--txt-dim);
+    background: none;
+    border: 1px solid var(--panel-line-sub);
+    border-radius: 2px;
+    padding: 2px 8px;
+    cursor: pointer;
+}
+
+.progressX:hover { color: #fff; border-color: var(--panel-line) }
+
+.progress > i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    width: 0;
+    background: var(--hz-acc);
+    animation-name: fill;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+
+@keyframes fill {
+    to { width: 100% }
+}
+
+/* The machine's own bar. Blue rather than the unit's red, because it is the
+   one thing on this panel that is not you — and it can be filling at the same
+   time as one that is. */
+.progressBg {
+    background: rgba(86, 168, 224, .10);
+    border-color: rgba(86, 168, 224, .45);
+}
+
+.progressBg .progressLabel { color: var(--blue) }
+.progressBg > i { background: var(--blue) }
+
+/* ---------- panels ---------- */
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, .35);
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 8px 10px;
+}
+
+.panel::-webkit-scrollbar,
+.dockbody::-webkit-scrollbar { width: 9px }
+
+.panel::-webkit-scrollbar-thumb,
+.dockbody::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .18) }
+
+.panel::-webkit-scrollbar-track,
+.dockbody::-webkit-scrollbar-track { background: rgba(0, 0, 0, .25) }
+
+.hint { color: var(--txt-dim); font-size: 14px; padding: 4px 2px }
+
+.sectlabel {
+    font-size: 11px;
+    letter-spacing: 1.8px;
+    color: var(--hz-acc);
+    font-weight: 700;
+    margin: 8px 2px 5px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid rgba(224, 34, 60, .28);
+}
+
+.sectlabel:first-child { margin-top: 2px }
+
+/* treatment rows */
+.trow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    background: rgba(255, 255, 255, .045);
+    border: 1px solid var(--panel-line-sub);
+    color: var(--txt);
+    text-align: left;
+    font-family: inherit;
+    font-size: 14.5px;
+    padding: 7px 10px;
+    margin-bottom: 3px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.trow:hover:not(:disabled) { background: rgba(224, 34, 60, .18); border-color: rgba(224, 34, 60, .5) }
+.trow:active:not(:disabled) { transform: translateY(1px) }
+.trow:disabled { opacity: .34; cursor: not-allowed }
+.qty { margin-left: auto; font-size: 12px; color: var(--txt-mute); letter-spacing: .5px }
+
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--txt-mute); flex: 0 0 auto }
+.dotG { background: var(--green) }
+.dotY { background: var(--yellow) }
+.dotR { background: var(--red) }
+.dotB { background: var(--blue) }
+
+/* A shelf rather than a button: the label sits on the first line and the bag
+   sizes wrap onto the second. */
+.trowSizes { flex-wrap: wrap; cursor: default; padding-bottom: 8px }
+.trowSizes:hover { background: rgba(255, 255, 255, .045); border-color: var(--panel-line-sub) }
+
+.sizes { flex: 0 0 100%; display: flex; gap: 5px; margin-top: 7px }
+
+.sizebtn {
+    flex: 1 1 0;
+    font-family: monospace;
+    font-size: 12px;
+    letter-spacing: .6px;
+    color: var(--txt);
+    background: rgba(0, 0, 0, .4);
+    border: 1px solid var(--panel-line-sub);
+    border-radius: 2px;
+    padding: 5px 0;
+    cursor: pointer;
+}
+
+.sizebtn:hover:not(:disabled) { background: rgba(224, 34, 60, .22); border-color: rgba(224, 34, 60, .6); color: #fff }
+.sizebtn:active:not(:disabled) { transform: translateY(1px) }
+.sizebtn:disabled { opacity: .34; cursor: not-allowed }
+
+/* Nothing to offer: either nothing is selected, or the part is not asking
+   for anything this tool carries. */
+.nothing {
+    padding: 22px 4px;
+    font-size: 13px;
+    color: var(--txt-mute);
+    letter-spacing: .3px;
+}
+
+/* What the next dressing is going on, and what the chart says to use. */
+.advice {
+    margin-bottom: 8px;
+    padding: 7px 10px;
+    font-size: 12.5px;
+    letter-spacing: .2px;
+    color: var(--txt-dim);
+    background: rgba(224, 34, 60, .1);
+    border: 1px solid rgba(224, 34, 60, .38);
+    border-radius: 2px;
+}
+
+.advice b { color: var(--hz-acc); font-weight: 700 }
+
+/* The one the chart points at. */
+.trowBest { border-color: rgba(224, 34, 60, .6) }
+.trowBest:hover:not(:disabled) { border-color: rgba(224, 34, 60, .9) }
+
+.bestTag {
+    font-family: monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: #150407;
+    background: var(--hz-acc);
+    padding: 1px 5px;
+    border-radius: 2px;
+}
+
+/* A dressing on a clock, or a wound with nothing on it at all. */
+.slipping { color: var(--yellow) }
+
+/* Both hands on the casualty. Sited above the list rather than on the row that
+   started it, because the row that started it is usually on another tool. */
+.hands {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    padding: 7px 10px;
+    font-size: 13px;
+    letter-spacing: .3px;
+    color: var(--red);
+    font-weight: 700;
+    background: rgba(255, 106, 94, .12);
+    border: 1px solid rgba(255, 106, 94, .5);
+    border-radius: 2px;
+}
+
+.hands > span { flex: 1; min-width: 0 }
+
+.handsStop {
+    flex: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--red);
+    background: none;
+    border: 1px solid rgba(255, 106, 94, .6);
+    border-radius: 2px;
+    padding: 2px 10px;
+    cursor: pointer;
+}
+
+.handsStop:hover { color: #fff; background: rgba(255, 106, 94, .3); border-color: var(--red) }
+
+/* One hand on a bag. Not a wall like compressions are — a tax. */
+.oneHand > span { flex: 1; min-width: 0 }
+
+.oneHandStop {
+    flex: none;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--blue);
+    background: none;
+    border: 1px solid rgba(86, 168, 224, .55);
+    border-radius: 2px;
+    padding: 2px 10px;
+    cursor: pointer;
+}
+
+.oneHandStop:hover { color: #fff; background: rgba(86, 168, 224, .3); border-color: var(--blue) }
+
+.oneHand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+    padding: 6px 10px;
+    font-size: 12.5px;
+    letter-spacing: .3px;
+    color: var(--blue);
+    background: rgba(86, 168, 224, .12);
+    border: 1px solid rgba(86, 168, 224, .42);
+    border-radius: 2px;
+}
+
+/* The row you are waiting on fills itself, rather than a separate bar above
+   the list telling you about a button you can already see. Driven by the
+   animation's own duration: nothing on screen needs to know how far along it
+   is, so nothing has to re-render to show it. */
+.trowBusy {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(224, 34, 60, .6);
+    opacity: 1;
+    cursor: pointer;
+}
+
+.trowBusy:disabled { opacity: 1; cursor: pointer }
+
+/* The machine's row, filling in its own colour so a glance can tell which of
+   the two bars on screen is the one your hands are waiting on. */
+.trowMachine { border-color: rgba(86, 168, 224, .6) }
+.trowMachine .trowFill { background: rgba(86, 168, 224, .2); border-right-color: var(--blue) }
+.trowBusy > span, .trowBusy > div, .trowBusy > button { position: relative; z-index: 1 }
+
+.trowFill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0;
+    z-index: 0;
+    background: rgba(224, 34, 60, .2);
+    border-right: 2px solid var(--hz-acc);
+    animation: fill linear forwards;
+    pointer-events: none;
+}
+
+/* The seconds slot becomes the way out of it. */
+.rowAbort {
+    font-family: monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: var(--hz-acc);
+    background: none;
+    border: 1px solid rgba(224, 34, 60, .5);
+    border-radius: 2px;
+    padding: 2px 8px;
+    cursor: pointer;
+}
+
+.rowAbort:hover { color: #fff; border-color: var(--hz-acc); background: rgba(224, 34, 60, .2) }
+
+/* A row that has latched on — compressions are running until you say stop. */
+.trowOn {
+    background: rgba(255, 106, 94, .18);
+    border-color: rgba(255, 106, 94, .55);
+}
+
+.trowOn:hover:not(:disabled) { background: rgba(255, 106, 94, .26); border-color: rgba(255, 106, 94, .75) }
+
+/* ---------- body diagram ---------- */
+.bodywrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 0 0;
+}
+
+.bodySvg { height: 100%; max-height: 100%; width: 100%; overflow: visible }
+.part { cursor: pointer; transition: fill .18s ease, stroke .18s ease }
+.part:hover > * { stroke: #fff; stroke-width: 2.5 }
+
+.selbar {
+    flex: 0 0 auto;
+    text-align: center;
+    background: rgba(0, 0, 0, .82);
+    border: 1px solid var(--panel-line-sub);
+    padding: 6px 0;
+    font-size: 17px;
+    letter-spacing: 1.2px;
+    margin: 4px 26px 0;
+}
+
+.selbarNone { color: var(--txt-dim) }
+
+.legend {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+    font-size: 10.5px;
+    letter-spacing: .6px;
+    color: var(--txt-dim);
+    padding: 6px 0 2px;
+}
+
+.legend i {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    margin-right: 4px;
+    border-radius: 2px;
+    vertical-align: -1px;
+    border: 1px solid rgba(0, 0, 0, .5);
+}
+
+/* Hands on the chest, beating at the rate you are being asked to compress at:
+   the animation is the metronome, so 118/min is 0.508s a cycle. */
+.cprRing,
+.cprHands {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: compress .508s ease-in-out infinite;
+}
+
+.cprHands { animation-name: compressHands }
+
+@keyframes compress {
+    0%, 100% { transform: scale(1);   opacity: .95 }
+    45%      { transform: scale(.84); opacity: .6 }
+}
+
+@keyframes compressHands {
+    0%, 100% { transform: translateY(0) }
+    45%      { transform: translateY(3px) }
+}
+
+/* The bag, on the twelve-a-minute the label promises. */
+.bagSqueeze {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: squeeze 5s ease-in-out infinite;
+}
+
+@keyframes squeeze {
+    0%, 100% { transform: scale(1);    opacity: .55 }
+    8%       { transform: scale(1.14); opacity: 1 }
+    16%      { transform: scale(1);    opacity: .55 }
+}
+
+/* The things that are about to kill them, said loudly. */
+.flash { animation: flash .8s steps(1, end) infinite }
+
+@keyframes flash {
+    0%, 49%   { opacity: 1 }
+    50%, 100% { opacity: .32 }
+}
+
+/* A hole in the chest, and the chest filling up because of it.
+   `transform-box` is not optional here: `drip` scales, and an SVG group whose
+   transform-origin is the document's 0,0 does not pulse in place — it walks up
+   and to the left, which is how the wound ended up sitting outside the seal
+   that was supposed to be covering it. */
+.chestHole {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: drip 1s ease-in-out infinite;
+}
+.pneumoRing { animation: pneumo 1.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center }
+
+@keyframes pneumo {
+    0%, 100% { transform: scale(.9); opacity: .55 }
+    50%      { transform: scale(1.06); opacity: 1 }
+}
+
+/* The cuff's own light, so an attached monitor reads as a live one. */
+.cuffLed {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: drip 1.6s ease-in-out infinite;
+}
+
+/* What the casualty is saying. */
+.bubble { animation: fade .3s ease }
+.bubble text { font-family: inherit; letter-spacing: .2px }
+
+/* ---------- overview ---------- */
+.ovline { font-size: 16px; line-height: 1.34; letter-spacing: .2px }
+.ovlineRed { color: var(--red); font-weight: 700 }
+.ovlineYel { color: var(--yellow); font-weight: 700 }
+.ovlineDim { color: var(--txt-dim) }
+.ovlineGreen { color: var(--green); font-weight: 700 }
+.ovpart { margin-top: 14px }
+.ovpart h4 { margin: 0 0 1px; font-size: 16px; font-weight: 600; letter-spacing: .4px; color: #fff }
+.ovsub { font-size: 15px; color: var(--txt) }
+.ovsubB { color: var(--txt-mute) }
+
+.vitals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px 10px; margin: 6px 0 2px }
+.vit { background: rgba(255, 255, 255, .05); border: 1px solid var(--panel-line-sub); padding: 5px 8px }
+.vit .k { font-size: 10px; letter-spacing: 1.4px; color: var(--txt-mute) }
+.vit .v { font-size: 19px; font-weight: 700; letter-spacing: .5px; line-height: 1.1; font-variant-numeric: tabular-nums }
+.vit .v small { font-size: 11px; font-weight: 600; color: var(--txt-dim); letter-spacing: 1px }
+.vitWarn .v { color: var(--yellow) }
+.vitCrit .v { color: var(--red) }
+.vitOff .v { color: var(--txt-mute); font-weight: 400 }
+
+.ecg {
+    width: 100%;
+    height: 56px;
+    display: block;
+    background: rgba(0, 0, 0, .45);
+    border: 1px solid var(--panel-line-sub);
+    margin-top: 4px;
+}
+
+.bloodbar { height: 12px; background: rgba(0, 0, 0, .55); border: 1px solid var(--panel-line-sub); margin-top: 4px }
+.bloodbar>i { display: block; height: 100%; background: linear-gradient(90deg, #7d1512, #d0322a); transition: width .4s }
+
+/* The limb you clicked, drawn where you cannot miss it. The panel used to
+   make you hunt for it among five others in the same grey. */
+.ovpartSel {
+    margin: 4px 0 2px;
+    padding: 8px 10px 9px;
+    border-left: 3px solid var(--hz-acc);
+    background: rgba(224, 34, 60, .09);
+    border-radius: 0 2px 2px 0;
+}
+
+.ovpartSel h4 { color: var(--hz-acc); display: flex; align-items: center; gap: 8px }
+
+.selTag {
+    font-family: monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    color: #150407;
+    background: var(--hz-acc);
+    padding: 1px 5px;
+    border-radius: 2px;
+}
+
+/* Everything that is not the limb you clicked, under a line that says so. */
+.ovrule {
+    margin: 18px 0 2px;
+    padding-top: 8px;
+    border-top: 1px solid var(--panel-line-sub);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--txt-mute);
+}
+
+/* A bag running. The bar is what is left in it, so it empties as it works. */
+.infusion {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 3px;
+    padding: 4px 8px 6px;
+    background: rgba(255, 255, 255, .05);
+    border: 1px solid var(--panel-line-sub);
+    border-radius: 2px;
+    font-size: 12.5px;
+    letter-spacing: .3px;
+    overflow: hidden;
+}
+
+.infusion b {
+    margin-left: auto;
+    font-family: monospace;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+}
+
+.infusion > i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    transition: width .3s linear;
+}
+
+/* The drip, so a line that is running reads as running at a glance. */
+.infusionDrip {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    animation: drip 1.1s ease-in-out infinite;
+}
+
+@keyframes drip {
+    0%, 100% { opacity: .25; transform: scale(.7) }
+    50%      { opacity: 1;   transform: scale(1) }
+}
+
+/* The balloon, breathing slightly so it reads as inflated rather than drawn. */
+.balloon {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: balloon 2.4s ease-in-out infinite;
+}
+
+@keyframes balloon {
+    0%, 100% { transform: scale(1) }
+    50%      { transform: scale(1.06) }
+}
+
+/* The other clock, and the one you chose to start. */
+.reboa {
+    position: relative;
+    margin: 6px 0 2px;
+    padding: 5px 8px 7px;
+    background: rgba(216, 172, 69, .12);
+    border: 1px solid rgba(216, 172, 69, .5);
+    border-radius: 2px;
+    font-family: monospace;
+    font-size: 11px;
+    letter-spacing: 1.2px;
+    color: var(--yellow);
+    overflow: hidden;
+}
+
+.reboa b { color: var(--red); font-weight: 700 }
+
+.reboa > i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--yellow);
+    transition: width .3s linear;
+}
+
+/* The clock the casualty is racing, not the one the mission is. */
+.downtime {
+    position: relative;
+    margin: 6px 0 2px;
+    padding: 5px 8px 7px;
+    background: rgba(255, 106, 94, .12);
+    border: 1px solid rgba(255, 106, 94, .5);
+    border-radius: 2px;
+    font-family: monospace;
+    font-size: 11px;
+    letter-spacing: 1.2px;
+    color: var(--red);
+    overflow: hidden;
+}
+
+.downtime b { color: var(--yellow); font-weight: 700 }
+
+.downtime > i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 3px;
+    background: var(--red);
+    transition: width .3s linear;
+}
+
+/* The result. Covers the menu because there is nothing left to do to them. */
+.board {
+    position: absolute;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    background: rgba(5, 6, 6, .82);
+    backdrop-filter: blur(4px);
+    animation: fade .22s ease;
+}
+
+.boardCard {
+    min-width: min(420px, 82vw);
+    padding: 26px 34px 22px;
+    text-align: center;
+    background: rgba(12, 14, 13, .96);
+    border: 1px solid var(--panel-line);
+    border-top-width: 3px;
+}
+
+.boardWin .boardCard { border-top-color: var(--green) }
+.boardLose .boardCard { border-top-color: var(--red) }
+
+.boardTag {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.boardWin .boardTag { color: var(--green) }
+.boardLose .boardTag { color: var(--red) }
+
+.boardName {
+    margin-top: 8px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #fff;
+}
+
+.boardTime {
+    margin-top: 10px;
+    font-family: monospace;
+    font-size: 46px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 2px;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+.boardSub {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--txt-dim);
+    letter-spacing: .4px;
+}
+
+.boardBtns { display: flex; gap: 8px; justify-content: center; margin-top: 20px }
+
+.boardGo,
+.boardOut {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 8px 18px;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.boardGo {
+    color: #150407;
+    background: var(--hz-acc);
+    border: 1px solid var(--hz-acc);
+}
+
+.boardGo:hover { background: #ef4459 }
+
+.boardOut {
+    color: var(--txt-dim);
+    background: none;
+    border: 1px solid var(--panel-line-sub);
+}
+
+.boardOut:hover { color: #fff; border-color: var(--panel-line) }
+
+/* ---------- bottom docks ---------- */
+.docks {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--panel-line);
+    margin-top: 6px;
+    background: linear-gradient(180deg, rgba(210, 180, 120, .20), rgba(0, 0, 0, 0) 60%);
+}
+
+.dock { padding: 2px 20px 8px; min-height: 0; display: flex; flex-direction: column }
+
+/*
+   Quick View reports a fixed set of figures, so there is nothing to scroll to —
+   it sizes to its content and, being the taller of the two, sets the height of
+   the whole dock row.
+*/
+.dockQuick .dockbody { flex: 0 0 auto; overflow: visible; position: static }
+
+/*
+   The activity log is the half that grows without limit, and it must not be
+   what decides how tall the row is — left to contribute its own height it
+   pushed the docks up into the body diagram and never scrolled at all.
+
+   The body is absolutely positioned inside this wrapper, which takes it out of
+   flow: an out-of-flow box contributes nothing to its container's intrinsic
+   height, so the row is sized by Quick View alone and the log fills whatever
+   that comes to.
+*/
+.dockScroll {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.dock>h3 {
+    margin: 2px 0 4px;
+    text-align: center;
+    font-size: 16px;
+    letter-spacing: 1.4px;
+    color: #5aa9e8;
+    font-weight: 700;
+    text-shadow: 0 1px 4px #000;
+}
+
+.dockbody {
+    position: absolute;
+    inset: 0;
+    overflow: auto;
+    background: rgba(0, 0, 0, .55);
+    border: 1px solid var(--panel-line-sub);
+    padding: 5px 8px;
+    font-size: 13px;
+}
+
+.logline { padding: 1px 0; color: var(--txt-dim); letter-spacing: .2px }
+.logline b { color: var(--txt); font-weight: 600 }
+.logline .t { color: var(--hz-acc); font-variant-numeric: tabular-nums; margin-right: 6px }
+.loglineWarn b { color: var(--yellow) }
+.loglineBad b { color: var(--red) }
+.loglineGood b { color: var(--green) }
+
+.qvgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px }
+.qv { background: rgba(255, 255, 255, .05); border: 1px solid var(--panel-line-sub); padding: 4px 7px }
+.qv .k { font-size: 9.5px; letter-spacing: 1.2px; color: var(--txt-mute) }
+.qv .v { font-size: 15px; font-weight: 700 }
+.qvfull { grid-column: 1/-1 }
+
+.chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px }
+
+.qvNone { margin-top: 4px; font-size: 12px; color: var(--txt-mute) }
+
+/* A drug on board. Same shape as the chips beside it, with the drug's own
+   curve running along the bottom of it. */
+.doseChip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    letter-spacing: .4px;
+    padding: 2px 7px 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid var(--panel-line-sub);
+    color: var(--txt-dim);
+    overflow: hidden;
+}
+
+.doseChip b { font-family: monospace; font-weight: 700; color: var(--txt-mute); font-variant-numeric: tabular-nums }
+
+.doseChip em {
+    font-style: normal;
+    font-family: monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1.1px;
+    color: #fff;
+    background: var(--red);
+    padding: 0 4px;
+    border-radius: 2px;
+}
+
+.doseChip > i {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--hz-acc);
+    transition: width .3s linear;
+}
+
+.doseChipOver {
+    color: #ffb3ad;
+    border-color: rgba(255, 106, 94, .5);
+    background: rgba(255, 106, 94, .16);
+}
+
+.doseChipOver > i { background: var(--red) }
+
+.chip {
+    font-size: 11px;
+    letter-spacing: .6px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, .08);
+    border: 1px solid var(--panel-line-sub);
+    color: var(--txt-dim);
+}
+
+.chipR { color: #ffb3ad; border-color: rgba(255, 106, 94, .5); background: rgba(255, 106, 94, .16) }
+.chipG { color: #bdeec0; border-color: rgba(92, 191, 98, .5); background: rgba(92, 191, 98, .14) }
+.chipY { color: #f6e3a1; border-color: rgba(216, 172, 69, .5); background: rgba(216, 172, 69, .14) }
+.chipB { color: #bcdff7; border-color: rgba(86, 168, 224, .5); background: rgba(86, 168, 224, .14) }
+
+/* triage tag buttons */
+.triagerow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 4px 0 8px }
+
+.tri {
+    padding: 6px 2px;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 1px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid rgba(0, 0, 0, .5);
+    color: #10120f;
+    opacity: .55;
+    font-family: inherit;
+}
+
+.tri:hover { opacity: .85 }
+.triOn { opacity: 1; box-shadow: 0 0 0 2px #fff inset }
+.triMinor { background: #5cbf62 }
+.triDelayed { background: #e8c343 }
+.triImmediate { background: #ff6a5e }
+.triDeceased { background: #2b2b2b; color: #e8e8e8 }
+
+.cardfield { display: flex; gap: 6px; align-items: center; margin-bottom: 4px }
+.cardfield label { font-size: 11px; letter-spacing: 1.2px; color: var(--txt-mute); width: 74px; flex: 0 0 auto }
+
+.cardfield input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(0, 0, 0, .5);
+    border: 1px solid var(--panel-line-sub);
+    color: var(--txt);
+    font-family: inherit;
+    font-size: 13.5px;
+    padding: 4px 6px;
+}
+
+.cardfield input:focus { outline: none; border-color: var(--hz-acc) }
+
+.toastwrap {
+    position: absolute;
+    right: 18px;
+    top: 46px;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-end;
+    pointer-events: none;
+}
+
+.toast {
+    background: rgba(0, 0, 0, .86);
+    border: 1px solid var(--hz-acc);
+    color: #fff;
+    padding: 6px 14px;
+    font-size: 13.5px;
+    letter-spacing: .5px;
+    animation: tin .25s ease;
+}
+
+@keyframes tin {
+    from { opacity: 0; transform: translateX(12px) }
+}
+
+@media (max-width: 1280px) {
+    .grid { grid-template-columns: 1fr 1fr }
+    .colMonitor, .colOverview { grid-column: auto }
+    .dock { padding: 2px 12px 6px }
+}
+
+@media (max-width: 900px) {
+    .grid { grid-template-columns: 1fr }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page, .root, .toast { animation: none }
+}

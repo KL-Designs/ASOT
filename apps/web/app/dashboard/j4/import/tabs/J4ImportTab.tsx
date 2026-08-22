@@ -436,7 +436,7 @@ function RetiredRecordsImportTab() {
                         ))}
                     </Box>
                     {result.skippedRows.length > 0 && (
-                        <Box sx={{ border: '1px solid rgba(219,0,29,0.18)', p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: 200, overflowY: 'auto' }}>
+                        <Box sx={{ border: '1px solid var(--line-2)', p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: 200, overflowY: 'auto' }}>
                             <Typography fontSize='0.6rem' fontWeight={700} sx={{ letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', mb: 0.5 }}>Skipped Rows</Typography>
                             {result.skippedRows.map(r => (
                                 <Typography key={r.row} fontSize='0.7rem' sx={{ color: 'rgba(237,237,237,0.4)' }}>
@@ -562,7 +562,7 @@ function MemberEmailsImportTab() {
             {step === 'review' && analysis && (
                 <>
                     {/* Summary */}
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, px: 1.5, py: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(219,0,29,0.15)' }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, px: 1.5, py: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--line-2)' }}>
                         {[
                             [`${analysis.confirmed.length} auto-matched`, 'rgba(0,200,80,0.7)'],
                             [`${analysis.uncertain.length} need selection`, 'rgba(219,160,0,0.7)'],
@@ -725,7 +725,7 @@ export default function J4ImportTab() {
                 </Typography>
             </Box>
 
-            <Box sx={{ px: { xs: 3, md: 5 }, borderBottom: '1px solid rgba(219,0,29,0.3)' }}>
+            <Box sx={{ px: { xs: 3, md: 5 }, borderBottom: '1px solid var(--line-2)' }}>
                 <Tabs value={sub} onChange={(_, v) => setSub(v)} TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }} sx={{ minHeight: 38 }}>
                     {SUB_TABS.map((t, i) => (
                         <Tab key={i} icon={t.icon} iconPosition='start' label={t.label} sx={tabSx} />

@@ -2,10 +2,24 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { Typography, Divider } from '@mui/material'
 import { DateTime } from 'luxon'
 
+import List from '@/components/ui/List'
+import s from '@/styles/shell.module.css'
 
+
+
+/**
+ * `06:10 pm AEST` → `06:10 PM (AEST)`.
+ *
+ * The Intl output is restructured, not reformatted: this is exactly what the
+ * page has always printed, and the redesign only moved it into a table.
+ */
+function formatTime(time: string): string {
+    const [clock, meridiem, zone] = time.split(' ')
+    if (!meridiem || !zone) return time
+    return `${clock} ${meridiem.toUpperCase()} (${zone})`
+}
 
 export default function TimeZones() {
     interface LocalTime {
@@ -72,34 +86,41 @@ export default function TimeZones() {
 
     return (
         <>
-            <Typography>Our primary missions are run every Saturday and Sunday.</Typography>
-            <br />
-            <Typography>1 Platoon conducts missions on Saturday nights.</Typography>
-            <Typography>2 Platoon conducts missions on Sunday nights.</Typography>
-            <Typography>3 Platoon(Support Platoon) supports both Saturday and Sunday night missions.</Typography>
-            <br />
-            <Typography fontSize={14} className='mb-1' fontStyle={'italic'}>The times below have been converted to your local timezone.</Typography>
-            <Typography className='underline'>When Daylight savings is not observed (First Sunday of April – First Sunday of October):</Typography>
-            {localStandardTimes.map(({ label, time }, idx) => (
-                <Typography key={idx}>
-                    <b>{label}:</b>{' '}
-                    <span style={{ backgroundColor: 'var(--grey)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
-                        {time.split(' ')[0]} {time.split(' ')[1].toUpperCase()} ({time.split(' ')[2]})
-                    </span>
-                </Typography>
-            ))}
-            <br />
-            <Typography className='underline'>When Daylight savings is observed (First Sunday of October – First Sunday of April):</Typography>
-            {localDaylightTimes.map(({ label, time }, idx) => (
-                <Typography key={idx}>
-                    <b>{label}:</b>{' '}
-                    <span style={{ backgroundColor: 'var(--grey)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
-                        {time.split(' ')[0]} {time.split(' ')[1].toUpperCase()} ({time.split(' ')[2]})
-                    </span>
-                </Typography>
-            ))}
-            <br />
-            <Typography>We also run missions and trainings throughout the week but these are optional.</Typography>
+            <p>Our primary missions are run every Saturday and Sunday.</p>
+            <List
+                columns={3}
+                items={[
+                    '1 Platoon conducts missions on Saturday nights.',
+                    '2 Platoon conducts missions on Sunday nights.',
+                    '3 Platoon(Support Platoon) supports both Saturday and Sunday night missions.',
+                ]}
+            />
+
+            <div className={s.sched}>
+                <div className={s.schedCol}>
+                    <h4>When Daylight savings is not observed</h4>
+                    <span className={s.schedWin}>First Sunday of April – First Sunday of October</span>
+                    {localStandardTimes.map(({ label, time }, i) => (
+                        <div key={i} className={label === 'Step off' ? `${s.schedRow} ${s.schedHi}` : s.schedRow}>
+                            <span>{label}</span>
+                            <b>{formatTime(time)}</b>
+                        </div>
+                    ))}
+                </div>
+                <div className={s.schedCol}>
+                    <h4>When Daylight savings is observed</h4>
+                    <span className={s.schedWin}>First Sunday of October – First Sunday of April</span>
+                    {localDaylightTimes.map(({ label, time }, i) => (
+                        <div key={i} className={label === 'Step off' ? `${s.schedRow} ${s.schedHi}` : s.schedRow}>
+                            <span>{label}</span>
+                            <b>{formatTime(time)}</b>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <p className={s.schedNote}>The times above have been converted to your local timezone.</p>
+            <p>We also run missions and trainings throughout the week but these are optional.</p>
         </>
     )
 }

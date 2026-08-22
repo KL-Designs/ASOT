@@ -1277,7 +1277,7 @@ export default function IntelPackageEditor({ operationId, readOnly = false, them
                     </div>
 
                     {/* Form content */}
-                    <div style={{ flex: 1, padding: '24px 28px', overflowY: 'auto' }}>
+                    <div className='thin-scroll' style={{ flex: 1, padding: '24px 28px', overflowY: 'auto' }}>
                         {renderSlide(activeSlide)}
                     </div>
 

@@ -1,152 +1,167 @@
-import Image from 'next/image'
+import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 
-import { Typography } from '@mui/material'
-
-import Logo from '@/public/logo.png'
-import MapBg from '@/public/designs/map.png'
+import Button from '@/components/ui/Button'
+import Pulse from '@/components/ui/Pulse'
+import { CrateIcon, DiscordIcon, SteamIcon, YouTubeIcon, MailIcon } from '@/components/ui/icons'
 import Signature from '@/components/signature'
 import CreditsModal from '@/components/credits-modal'
 
+import { getFeaturedOp, getRosterCount } from '@/lib/landing'
+import Logo from '@/public/logo.png'
+import s from '@/styles/footer.module.css'
 
-const navColumns = [
+/**
+ * The site footer — "Command".
+ *
+ * A server component so the status panel carries real figures. It reads the
+ * same `lib/landing` loaders the home page does; both are behind
+ * `force-dynamic` pages, so this is one extra query per request rather than a
+ * second copy of the logic.
+ *
+ * `Support` and `Donate` used to be separate entries pointing at overlapping
+ * ideas. They are distinct here: Support is the wellbeing and crisis-resources
+ * page, Donate is money.
+ */
+
+const COLUMNS = [
     {
         heading: 'Unit',
         links: [
-            { label: 'Home', href: '/' },
-            { label: 'About Us', href: '/about' },
-            { label: 'ORBAT', href: '/community/orbat' },
-            { label: 'Biographies', href: '/community/bios' },
-            // { label: 'Hall of Fame', href: '/community/hof' },
-        ],
-    },
-    {
-        heading: 'Community',
-        links: [
-            { label: 'Gallery', href: '/gallery' },
-            { label: 'Partners', href: '/partnerships' },
-            { label: 'Support', href: '/support' },
-            { label: 'Donate', href: '/donate' },
+            { label: 'About us', href: '/about' },
+            { label: 'ORBAT', href: '/orbat' },
+            { label: 'Callsigns', href: '/about/callsigns' },
+            { label: 'Biographies', href: '/bios' },
             { label: 'MILPACS', href: '/milpacs' },
         ],
     },
     {
-        heading: 'About',
+        heading: 'Operations',
         links: [
+            { label: 'All operations', href: '/operations' },
+            { label: 'Interactive map', href: '/maps' },
+            { label: 'Gallery', href: '/gallery' },
+            { label: 'Kits', href: '/kits' },
+            { label: 'Retired members', href: '/retired' },
+        ],
+    },
+    {
+        heading: 'Joining',
+        links: [
+            { label: 'Enlist', href: '/join' },
             { label: 'Rules', href: '/about/rules' },
-            { label: 'Principles & Values', href: '/about/values' },
+            { label: 'Principles & values', href: '/about/values' },
             { label: 'FAQ', href: '/about/faq' },
-            { label: 'Callsigns', href: '/about/callsigns' },
             { label: 'Contact', href: '/about/contact' },
         ],
     },
 ]
 
+const SOCIALS = [
+    { label: 'Discord', href: 'https://discord.gg/asot', icon: <DiscordIcon /> },
+    { label: 'Steam', href: 'https://steamcommunity.com/groups/asotmilsim', icon: <SteamIcon /> },
+    { label: 'YouTube', href: 'https://www.youtube.com/@asotmilsim', icon: <YouTubeIcon /> },
+    { label: 'Contact', href: '/about/contact', icon: <MailIcon /> },
+]
 
-export default function Footer() {
+export default async function Footer() {
+    const [nextOp, roster] = await Promise.all([
+        getFeaturedOp().catch(() => null),
+        getRosterCount().catch(() => null),
+    ])
+
+    const opWhen = nextOp
+        ? new Date(nextOp.date).toLocaleString('en-AU', {
+            weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+        })
+        : null
+
     return (
-        <footer
-            style={{
-                borderTop: '2px solid var(--red)',
-                background: '#080808',
-                position: 'relative',
-                overflow: 'hidden',
-            }}
-        >
-            {/* Map background */}
-            <div className='absolute inset-0 pointer-events-none'>
-                <Image src={MapBg} alt='' fill className='object-cover opacity-[0.06]' />
-            </div>
+        <footer className={s.ft}>
+            <div className={s.pattern} aria-hidden='true' />
+            <div className={s.word} aria-hidden='true'>ASOT</div>
 
-            {/* Main content */}
-            <div className='relative z-10 w-full max-w-6xl mx-auto px-6 md:px-10 py-12 flex flex-col gap-5'>
+            <div className={s.in}>
+                <div className={s.grid}>
 
-                {/* Top row */}
-                <div className='flex flex-col md:flex-row gap-10 md:gap-6'>
-
-                    {/* Brand column */}
-                    <div className='flex flex-col gap-4 md:max-w-[260px] shrink-0'>
-                        <Image src={Logo} alt='ASOT Logo' width={56} quality={100} />
-                        <div>
-                            <Typography
-                                fontWeight={700}
-                                letterSpacing={3}
-                                fontSize='0.8rem'
-                                style={{ textTransform: 'uppercase', color: 'var(--foreground)' }}
-                            >
-                                Australian Special Operations Taskforce
-                            </Typography>
-                            <Typography
-                                fontSize='0.78rem'
-                                style={{ color: 'rgba(237,237,237,0.35)', marginTop: 6, lineHeight: 1.6 }}
-                            >
-                                A milsim ArmA 3 community focused on teamwork, realism, and a great game experience.
-                            </Typography>
+                    <div className={s.brand}>
+                        <div className={s.m}>
+                            {/* Oversized on purpose and sized down in CSS — see the note in navbar.tsx. */}
+                            <Image src={Logo} alt='' width={128} height={132} quality={100} />
+                            <div className={s.w}>
+                                ASOT
+                                <span>Australian Special Operations Taskforce</span>
+                            </div>
+                        </div>
+                        <p>
+                            An ArmA 3 milsim community built on teamwork, realism and a genuinely good
+                            game experience. Oceania&apos;s largest, running since 2019.
+                        </p>
+                        <div className={s.socials}>
+                            {SOCIALS.map(social => social.href.startsWith('http') ? (
+                                <a key={social.label} href={social.href} aria-label={social.label}
+                                    target='_blank' rel='noopener noreferrer'>
+                                    {social.icon}
+                                </a>
+                            ) : (
+                                <Link key={social.label} href={social.href as any} aria-label={social.label}>
+                                    {social.icon}
+                                </Link>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Spacer */}
-                    <div className='hidden md:block flex-1' />
+                    {COLUMNS.map(col => (
+                        <div key={col.heading} className={s.col}>
+                            <h5>{col.heading}</h5>
+                            {col.links.map(link => (
+                                <Link key={link.href} href={link.href as any}>{link.label}</Link>
+                            ))}
+                        </div>
+                    ))}
 
-                    {/* Nav columns */}
-                    <div className='grid grid-cols-2 sm:grid-cols-3 gap-8'>
-                        {navColumns.map(col => (
-                            <div key={col.heading} className='flex flex-col gap-3'>
-                                <Typography
-                                    fontSize='0.7rem'
-                                    fontWeight={700}
-                                    letterSpacing={3}
-                                    style={{ textTransform: 'uppercase', color: 'var(--red)' }}
-                                >
-                                    {col.heading}
-                                </Typography>
-                                <div className='flex flex-col gap-[6px]'>
-                                    {col.links.map(link => (
-                                        <Link key={link.label} href={link.href as any}>
-                                            <Typography
-                                                fontSize='0.8rem'
-                                                letterSpacing='0.04em'
-                                                style={{
-                                                    color: 'rgba(237,237,237,0.45)',
-                                                    transition: 'color 0.15s',
-                                                    cursor: 'pointer',
-                                                }}
-                                                className='hover:!text-[rgba(237,237,237,0.85)]'
-                                            >
-                                                {link.label}
-                                            </Typography>
-                                        </Link>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
+                    <div className={s.status}>
+                        <h5>Unit status</h5>
+                        <div className={s.r}>
+                            <span>Next op</span>
+                            <b className={opWhen ? s.a : undefined}>{opWhen ?? 'None scheduled'}</b>
+                        </div>
+                        <div className={s.r}>
+                            <span>Sign-ons</span>
+                            <b>{nextOp ? nextOp.attending : '—'}</b>
+                        </div>
+                        <div className={s.r}>
+                            <span>Active</span>
+                            <b>{roster ?? '—'}</b>
+                        </div>
+                        <div className={s.r}>
+                            <span>Applications</span>
+                            <b className={s.g}><Pulse />Open</b>
+                        </div>
+                        <Button variant='amber' size='sm' href='/donate' block>
+                            <CrateIcon /> Support the unit
+                        </Button>
                     </div>
 
                 </div>
 
-                {/* Credits button */}
-                <div className='flex justify-center'>
+                <div className={s.bottom}>
+                    <span className={s.c}>© {new Date().getFullYear()} Australian Special Operations Taskforce</span>
+
                     <CreditsModal />
-                </div>
 
-                {/* Divider */}
-                <div style={{ height: 1, background: 'linear-gradient(to right, rgba(219,0,29,0.4), rgba(255,255,255,0.06), transparent)' }} />
-
-                {/* Bottom row */}
-                <div className='flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center'>
-                    <Typography fontSize='0.7rem' letterSpacing={1} style={{ color: 'rgba(237,237,237,0.2)', textTransform: 'uppercase' }}>
-                        © {new Date().getFullYear()} Australian Special Operations Taskforce
-                    </Typography>
-
-                    <Link href='https://github.com/ItsKodas' target='_blank' rel='noopener noreferrer'>
-                        <Signature size='80px' color='rgba(237,237,237,0.15)' />
+                    <Link href='https://github.com/ItsKodas' target='_blank' rel='noopener noreferrer' className={s.sig}>
+                        <span className={s.l}>Site by</span>
+                        <Signature size='72px' color='var(--txt-1)' />
                     </Link>
 
-                    <Typography fontSize='0.68rem' style={{ color: 'rgba(237,237,237,0.18)', maxWidth: 560, lineHeight: 1.6, textAlign: 'right' }}>
-                        ARMA 2™ ARMA 3™ and Bohemia Interactive™ are trademarks of Bohemia Interactive. ASOT is an ArmA 3 online gaming community and is not affiliated with, associated with, or endorsed by the Australian Defence Force or the Australian Government.
-                    </Typography>
+                    <p className={s.legal}>
+                        <b>ArmA 2™, ArmA 3™ and Bohemia Interactive™ are trademarks of Bohemia Interactive.</b>{' '}
+                        ASOT is an ArmA 3 online gaming community and is not affiliated with, associated
+                        with, or endorsed by the Australian Defence Force or the Australian Government.
+                    </p>
                 </div>
-
             </div>
         </footer>
     )

@@ -534,7 +534,7 @@ export default function CourseWorkspaceClient({
 
                 {/* Sessions */}
                 <div>
-                    <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 12 }}>Sessions</div>
+                    <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 12 }}>Sessions</div>
                     {sessionsLoading ? (
                         <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.25)' }}>Loading…</div>
                     ) : sessions.length === 0 ? (
@@ -591,7 +591,7 @@ export default function CourseWorkspaceClient({
                 {/* Candidates */}
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>Candidates ({candidates.length})</div>
+                        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)' }}>Candidates ({candidates.length})</div>
                         <button type='button' onClick={() => setShowCandidateSearch(s => !s)}
                             style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: 'transparent', border: '1px solid rgba(219,0,29,0.25)', color: 'rgba(219,0,29,0.6)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
                             <Add style={{ fontSize: 11 }} /> Add Candidate
@@ -608,7 +608,7 @@ export default function CourseWorkspaceClient({
                                 value={candidateQuery}
                                 onChange={e => setCandidateQuery(e.target.value)}
                                 autoFocus
-                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '2px solid rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
+                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
                             />
                             {searchingCandidates && (
                                 <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.3)', marginTop: 8, padding: '4px 0' }}>Searching…</div>
@@ -672,7 +672,7 @@ export default function CourseWorkspaceClient({
                 {/* Staff */}
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>Staff ({staff.length})</div>
+                        <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)' }}>Staff ({staff.length})</div>
                         <button type='button' onClick={() => setShowStaffSearch(s => !s)}
                             style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 9px', background: 'transparent', border: '1px solid rgba(219,0,29,0.25)', color: 'rgba(219,0,29,0.6)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
                             <Add style={{ fontSize: 11 }} /> Add Staff
@@ -690,7 +690,7 @@ export default function CourseWorkspaceClient({
                                     value={staffQuery}
                                     onChange={e => setStaffQuery(e.target.value)}
                                     autoFocus
-                                    style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '2px solid rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
+                                    style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
                                 />
                                 <select value={newStaffRole} onChange={e => setNewStaffRole(e.target.value as typeof newStaffRole)}
                                     style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.6)', fontSize: '0.65rem', padding: '7px 8px', cursor: 'pointer', outline: 'none' }}>
@@ -799,7 +799,7 @@ export default function CourseWorkspaceClient({
                                                     placeholder='Comment (optional)'
                                                     value={reviewComment}
                                                     onChange={e => setReviewComment(e.target.value)}
-                                                    style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: '2px solid rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.9)', fontSize: '0.68rem', padding: '5px 8px', outline: 'none' }}
+                                                    style={{ flex: 1, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.68rem', padding: '5px 8px', outline: 'none' }}
                                                 />
                                                 <button type='button' onClick={() => handleReviewProposal(p._id, 'approve')}
                                                     style={{ padding: '4px 10px', background: 'transparent', border: '1px solid rgba(80,200,120,0.35)', color: 'rgba(80,200,120,0.8)', fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
@@ -1062,7 +1062,7 @@ export default function CourseWorkspaceClient({
 
             {/* Main content */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '28px 36px' }}>
-                <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 6 }}>
+                <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>
                     {trainingTypeName} — {instanceRef}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
@@ -1105,7 +1105,7 @@ export default function CourseWorkspaceClient({
                                 onChange={e => setReopenReason(e.target.value)}
                                 placeholder='Explain why this course needs to be reopened…'
                                 rows={3}
-                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: '2px solid rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.9)', fontSize: '0.75rem', padding: '8px 10px', outline: 'none', resize: 'vertical' }}
+                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.75rem', padding: '8px 10px', outline: 'none', resize: 'vertical' }}
                             />
                         </div>
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -1148,14 +1148,14 @@ export default function CourseWorkspaceClient({
                                     <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 5 }}>Entity ID / Reference</div>
                                     <input type='text' value={proposeForm.entityId} onChange={e => setProposeForm(f => ({ ...f, entityId: e.target.value }))}
                                         placeholder='Candidate name, session ref, etc.'
-                                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: '2px solid rgba(219,0,29,0.3)', color: 'rgba(237,237,237,0.9)', fontSize: '0.72rem', padding: '7px 10px', outline: 'none' }} />
+                                        style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.72rem', padding: '7px 10px', outline: 'none' }} />
                                 </div>
                             )}
                             <div>
                                 <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 5 }}>Field / What to change *</div>
                                 <input type='text' value={proposeForm.fieldPath} onChange={e => setProposeForm(f => ({ ...f, fieldPath: e.target.value }))}
                                     placeholder='e.g. notes, candidate status, session date…'
-                                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: '2px solid rgba(219,0,29,0.3)', color: 'rgba(237,237,237,0.9)', fontSize: '0.72rem', padding: '7px 10px', outline: 'none' }} />
+                                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.72rem', padding: '7px 10px', outline: 'none' }} />
                             </div>
                             <div>
                                 <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 5 }}>Current Value</div>
@@ -1168,7 +1168,7 @@ export default function CourseWorkspaceClient({
                                 <textarea value={proposeForm.proposedValue} onChange={e => setProposeForm(f => ({ ...f, proposedValue: e.target.value }))}
                                     placeholder='What it should be changed to…'
                                     rows={3}
-                                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: '2px solid rgba(219,0,29,0.4)', color: 'rgba(237,237,237,0.9)', fontSize: '0.72rem', padding: '7px 10px', outline: 'none', resize: 'vertical' }} />
+                                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.72rem', padding: '7px 10px', outline: 'none', resize: 'vertical' }} />
                             </div>
                         </div>
 

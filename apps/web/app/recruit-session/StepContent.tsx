@@ -410,7 +410,7 @@ function BgContent({ bp, lp }: { bp: BgProgress, lp: LivePreview }) {
 }
 
 // ── ORBAT diagram ─────────────────────────────────────────────────────────────
-// Visual structure mirrors the community ORBAT page at /community/orbat.
+// Visual structure mirrors the ORBAT page at /orbat.
 // Four platoon columns with colored headers, section cards, and highlight/zoom.
 // Zoom anchors to the selected column using transform-origin.
 

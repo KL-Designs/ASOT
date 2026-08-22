@@ -56,7 +56,7 @@ const conditions = [
 
 export default function Page() {
 	return (
-		<Container title="DONATE TO ASOT" subtitle="Any donations are appreciated and will entirely go towards covering the costs of the community." background={Banner} sx={{ bannerHeight: 'md', maxWidth: 'max-w-6xl' }}>
+		<Container title="DONATE TO ASOT" kicker="Support the unit" subtitle="Any donations are appreciated and will entirely go towards covering the costs of the community." background={Banner} sx={{ bannerHeight: 'md', maxWidth: 'max-w-6xl' }}>
 
 			{/* PayPal CTA */}
 			<div style={{

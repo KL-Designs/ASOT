@@ -10,15 +10,36 @@ Scope: `app/(landing)/**`, `app/operations/**`, `app/members/**`, `app/tickets/*
 ## Root
 
 #### middleware.ts
-Injects `x-pathname` header on every request (except `_next` assets). Also intercepts `WIP_PATHS`
-(`/community/orbat`, `/milpacs`, `/community/retired`, `/community/bios`) and rewrites them to `/wip`
-unless the URL has `?bypass_wip`. Public, runs on every route.
+Rewrites the work-in-progress routes in its own narrow `config.matcher` (`/retired`, `/bios` and
+their subpaths) to `/wip`, unless the URL has `?bypass_wip`. ORBAT was on this list until it was
+released. It runs on nothing else and sets no headers — see part H for why the app-wide matcher
+and its `x-pathname` header are both gone.
 
 #### app/layout.tsx
-Root HTML layout: Montserrat font, MUI `ThemeProvider` with `UnitTheme`, `CustomCursor`, and the
-site `Navbar`/`Footer` (from `app/(landing)/navbar.tsx` / `footer.tsx`) wrapping `{children}` for
-the entire app (both landing and dashboard trees share this shell). Sets dynamic `metadataBase`
-from request headers. Public.
+Root HTML layout: MUI `ThemeProvider` with `UnitTheme`, `CustomCursor`, and the site
+`Navbar`/`Footer` (from `app/navbar.tsx` / `app/footer.tsx`) wrapping `{children}` for the entire
+app (both landing and dashboard trees share this shell). Sets dynamic `metadataBase` from request
+headers. Public.
+
+Fonts: Montserrat stays the `<body>` font. Barlow Condensed, Oswald, JetBrains Mono and Inter are
+also loaded via `next/font/google` and exposed as CSS variables on `<html>`; `styles/globals.css`
+wraps each in a `--font-cond` / `--font-disp` / `--font-mono` / `--font-ui` alias with its fallback
+stack, and components reference only those. Declared site-wide rather than scoped to the navbar so
+other surfaces can adopt the display/mono faces.
+
+#### app/navbar.tsx
+The **Command Strip** site navigation (client component) — three bands: a `StatusRail` carrying the
+next operation and live presence, the 66px bar itself, and a `MobileSheet` below 1200px. Fetches
+`/api/me` on mount for auth state and `useNavStatus()` for the rail. Renders the brand plate, the
+six-item menu with hover-opened mega panels (912px, or 640px "compact" for short menus; the `<li>`
+is `position: static` so a panel anchors to the bar and can never be pushed off-screen), the right
+cluster (icon buttons, DONATE, the auth-dependent primary action, `AccountMenu`), and the
+scroll-to-top button. Sub-components live in `components/nav/*`; all layout in
+`styles/navbar.module.css`. Public — signed-out visitors get ENLIST (`/join`) in the primary slot.
+
+**Right-cluster hierarchy is deliberate:** only one element is ever solid-filled — whichever is the
+primary action for the current auth state. DONATE stays an amber ghost so it never competes with it.
+Don't add a second filled button without re-thinking the whole cluster.
 
 ---
 
@@ -27,63 +48,113 @@ from request headers. Public.
 Route-group layout for all `(landing)` pages; sets default OG/Twitter image. No auth gate — public.
 
 #### app/(landing)/page.tsx
-The marketing homepage. Hero with a physics minigame (`PhysicsGame`, `MinigameScoreboard`),
-Screenshot-of-the-Month banner (`/api/gallery/sotm`), member count (`/api/membercount`), an
-`OpsTeaser` sub-component that fetches `/api/operations?status=Active,Upcoming,Completed&limit=3`
-and renders operation cards linking to `/operations/[id]`, plus static feature/platoon sections.
-Fully public, no auth.
+The public home page — a **server component** (`force-dynamic`). Every figure comes out of Mongo
+through `lib/landing.ts`, so the page renders complete instead of filling in after mount. Sections
+in order: hero, stat readout, intel board, why, platoons, gallery strip, enlist band. Sub-components
+live in `app/(landing)/_components/`; layout in `styles/landing.module.css`; the shared vocabulary
+(notched buttons, pulses, section heads, progress tracks, topo) in `components/ui/` +
+`styles/ui.module.css`. Fully public, no auth.
+
+**The page leads with what is happening next.** The version it replaced was an about page: it
+explained who the unit is four separate times and never told a returning member anything
+actionable, and its operations section was headed "Recent & Upcoming" above three cards all marked
+COMPLETED. Don't reintroduce a layout that buries the next operation.
+
+#### app/(landing)/_components/*
+- `Hero.tsx` — **client**. Variant A "overlay": copy lower-left over the Screenshot of the Month,
+  the `public/ASOT.svg` lockup, CTAs, live roster facts. Hosts the physics minigame (`PhysicsGame`,
+  `MinigameScoreboard`, `FireEmbers`) and the `id10t` keyboard easter egg, fading the copy out while
+  the game is active. Takes the next-op card as a prop so that card stays server-rendered.
+- `NextOpCard.tsx` — next operation with a live `Countdown` and sign-on track. The block that gives
+  the page a job.
+- `StatReadout.tsx` — four-up figure bar. Only the roster figure is live.
+- `IntelBoard.tsx` — featured operation + operations log (upcoming ahead of completed, status dot
+  per row).
+- `WhySection.tsx` — lead card + four cards, replacing ~4,800px of alternating text/image blocks.
+- `Platoons.tsx` — three platoon cards with live member/section counts from the ORBAT.
+- `GalleryStrip.tsx` — six images drawn at random from `storage/gallery/featured`. Captions are
+  filenames tidied up; the gallery stores no titles, dates or photographer credits.
+- `EnlistBand.tsx` — the three-step enlistment path above the final CTA.
+
+#### app/footer.tsx
+The site footer ("Command") — a **server component**. Five columns: brand + socials, three link
+columns, and a live unit-status panel (next op, sign-ons, roster, applications) that bookends the
+navbar's status rail at the other end of the page. Reads `getFeaturedOp()`/`getRosterCount()` from
+`lib/landing.ts`. Styles in `styles/footer.module.css`. Keeps `CreditsModal` and the Dakoda
+`Signature`, the latter on a proper plate rather than floating in the legal text.
 
 ---
 
-### /about — Unit Info Tabs
-#### app/(landing)/about/layout.tsx
-Tab-strip layout for the About section (About, Callsigns, Contact, Rules, Values, FAQ). Preloads
-sibling background images. Public.
+### /about — Unit Info, on the Section Rail
+#### app/(landing)/about/shell.tsx
+**Server component**, rendered by each of the six About pages rather than as a segment layout —
+there is no `about/layout.tsx`. Holds the `ABOUT_PAGES` table (key/href/label/kicker/subtitle/
+background) that drives both the masthead copy and the rail, and takes the page as an explicit `page`
+key (`index|callsigns|contact|rules|values|faq`) because a server component cannot read the current
+path. It renders everything through `Container`, passing `rail={ABOUT_PAGES}`. No page in the family
+passes an `aside` — none has a live figure worth a second masthead column, so all six render a
+full-width masthead. `about/page.tsx` no longer needs its `force-dynamic` either, now that the
+roster query is gone; in practice all six still build as dynamic, because the shared root layout's
+footer reads Mongo. Public.
 
 #### app/(landing)/about/page.tsx
-Static "Who Are We" info cards (uses `<TimeZones/>` sub-component). Public, no API calls.
+"Who We Are" on the card grid (`Card`/`CardGrid`, `MedalIcon`/`TargetIcon`), lead card carries the
+unit photo and copy; the schedule card embeds `<TimeZones/>`. Public, no API calls.
 
 #### app/(landing)/about/callsigns/page.tsx
-Static callsign registry (India 0A, 1-0, Gamemasters, 1-1/1-2/1-3 platoons, Reservists) via
-`CallsignCard` components. Public, purely static content.
+Callsign registry (India 0A, 1-0, Gamemasters, 1-1/1-2/1-3 platoons, Reservists) via `CallsignCard` +
+`List`. Public, purely static content.
 
 #### app/(landing)/about/contact/page.tsx
-Static contact cards (TeamSpeak, Facebook, Email) + embedded Discord widget iframe. Public.
+Contact cards (TeamSpeak, Facebook, Email, own `Channel` helper) + embedded Discord widget iframe.
+Public.
 
 #### app/(landing)/about/faq/page.tsx
-Static FAQ list via `InfoCard`. Public.
+FAQ grouped into three `Card`s (`Joining ASOT` / `Game & setup` / `Playing with us`) of `QaRow`/
+`QaStack` entries, not an accordion — answers stay indexed by search engines and found with Ctrl-F.
+Public.
 
 #### app/(landing)/about/rules/page.tsx
-Static rules/expectations sections. Public.
+Rules/expectations as real `List`s inside `Card`/`CardGrid` (General, Attendance, TeamSpeak, …).
+Public.
 
 #### app/(landing)/about/timezones.tsx
 Client component: computes and displays op load-in/briefing/step-off times converted to the
-visitor's local timezone (standard vs. daylight saving), using `luxon`. Used inside `about/page.tsx`.
+visitor's local timezone (standard vs. daylight saving) as a two-column schedule table, using
+`luxon`. Used inside `about/page.tsx`'s schedule `Card`.
 
 #### app/(landing)/about/values/page.tsx
-Static "Principles & Values" content. Public.
+"Principles & Values" on the card grid (`Card`/`CardGrid`, one grid for values, one for operating
+principles). Public.
+
+None of the six About pages use `components/info-card.tsx` any more — they were the last public
+consumers before this rebuild; `InfoCard` itself is still current, used by `/partnerships` and
+`/support` below.
 
 ---
 
-### /community — Bios, Hall of Fame, ORBAT, Quiz, Retired Wall
-#### app/(landing)/community/bios/page.tsx
+### /bios, /hof, /kits, /orbat, /quiz, /retired — the community pages
+These five trees plus the quiz sat under `/community/*` until they were flattened to the top level
+(`/community/orbat` is `/orbat`, and so on). A catch-all `permanent` redirect in `next.config.ts`
+keeps every old URL working — indexed pages, Discord links, stored notification `actionUrl`s.
+#### app/(landing)/bios/page.tsx
 Server component: queries `Db.users` for HQ leadership roles, resolves ORBAT entries/profile via
 `resolveMilpacProfile`, renders bio cards with `/api/uploads/bio?id=` photo. Gated by
-`WIP_PAGES` env flag (shows `<WipPage/>`) — also intercepted by middleware's `WIP_PATHS` rewrite.
+`WIP_PAGES` env flag (shows `<WipPage/>`) — also intercepted by middleware's matcher rewrite.
 Public read (no login required to view).
 
-#### app/(landing)/community/bios/loading.tsx
+#### app/(landing)/bios/loading.tsx
 `TacticalLoader` Suspense fallback ("LOADING BIO DATA").
 
-#### app/(landing)/community/hof/layout.tsx
+#### app/(landing)/hof/layout.tsx
 Hall of Fame banner/container layout.
 
-#### app/(landing)/community/hof/page.tsx
+#### app/(landing)/hof/page.tsx
 Hall of Fame — currently **hardcoded example data** (5 fake members), TODO comment says to swap
 for a real `Db.users` query keyed on a HOF Discord role. Public, static for now.
 
-#### app/(landing)/community/kits/page.tsx
-The unit's shared-kit shelf, reached from the navbar's "Our Orbat" menu. Server component: reads
+#### app/(landing)/kits/page.tsx
+The unit's shared-kit shelf, reached from the navbar's "Community" menu. Server component: reads
 `Db.loadouts.find({shared: true})` (newest first) and `client.fetchAllMembers()`, builds one
 `CardData` per kit (name, `description`, `tags` via `normaliseTags`, `ratingAvg`/`ratingCount` plus
 `ratingScore` = `weightedScore()` computed once here, `copyCount`, the primary weapon with its
@@ -97,7 +168,7 @@ milpac's design system wholesale — `profile.module.css` supplies `.shell`/`.pa
 custom properties they define, `kits.module.css` only the shelf and card layout. `--acc` is per card,
 set to the owner's own Discord accent; the page chrome uses the unit red. Public, no login required.
 
-#### app/(landing)/community/kits/shelf.tsx
+#### app/(landing)/kits/shelf.tsx
 `'use client'` — the shelf's controls and grid: search box, the four sorts (Newest / Top rated /
 Most copied / A-Z, `SHELF_SORTS`), an AND tag filter bar with per-tag counts (`tagCounts`, counted
 over every card so a chip's number doesn't shift as you type), and 24-per-page numbered paging
@@ -108,7 +179,7 @@ only. Any change to query/tags/sort resets to page 1. Filter state is not mirror
 filtered shelf is not linkable. Renders one `<KitCard>` per shown kit, staggered entrance delay capped
 at 8 cards.
 
-#### app/(landing)/community/kits/kit-card.tsx
+#### app/(landing)/kits/kit-card.tsx
 `'use client'` — one kit on the shelf: owner avatar/name, `<TagChips>`, the owner's `description` when
 written, primary weapon + attachments, the gear grid, a read-only `<Stars avg count>` row
 (`components/loadout/stars.tsx`), and a footer with item count, copy count (seeded from the server,
@@ -116,39 +187,39 @@ corrected by the copy endpoint's own answer), a "View" link to `/milpacs/<canoni
 `<CopyKitButton>` (`copy-kit.tsx`). `CardData` (`ShelfCard` from `lib/loadout/shelf.ts` plus the
 rendered fields) is exported for `shelf.tsx` and `page.tsx` to share.
 
-#### app/(landing)/community/kits/copy-kit.tsx
+#### app/(landing)/kits/copy-kit.tsx
 Client `CopyKitButton`: copies a shared kit's raw ACE arsenal export via `copyText`
 (`@/lib/clipboard`), showing "Copied" for 1.8s. Borrows `.btn` from `profile.module.css`.
 
-#### app/(landing)/community/orbat/loading.tsx
+#### app/(landing)/orbat/loading.tsx
 `TacticalLoader` Suspense fallback ("LOADING ORBAT DATA").
 
-#### app/(landing)/community/orbat/page.tsx
+#### app/(landing)/orbat/page.tsx
 The full public ORBAT board: Company HQ hero, 1-1/1-2/1-3 platoon columns (`PlatoonColumn`,
 `UnitCard`, `MemberRow`), Gamemasters/Reservists cards. Pulls `fetchORBAT()` from `@/lib/orbat`,
 per-section colour/patch metadata from `Db.orbatSectionMeta`, links member names to
 `/milpacs/[username]`. Shows a "⚙ Manage ORBAT" link to `/dashboard/orbat` if
 `PERMISSIONS.admin.manageOrbat`. Intercepted by middleware `WIP_PATHS`. Public read.
 
-#### app/(landing)/community/quiz/[attemptId]/page.tsx
+#### app/(landing)/quiz/[attemptId]/page.tsx
 Server page for an in-progress/completed quiz attempt. Requires login (`redirect('/login')` if no
 `me`), validates the attempt belongs to the current user, shows static pass/fail/under-review
 screens or renders `<QuizClient/>` for an in-progress attempt. Reads/writes `Db.quizAttempts`.
 
-#### app/(landing)/community/quiz/[attemptId]/quiz-client.tsx
+#### app/(landing)/quiz/[attemptId]/quiz-client.tsx
 Client quiz-taking UI: section sidebar (`QuizSectionSidebar`), timer panel (`QuizTimerPanel`),
 question cards (`QuizQuestionCard`), instruction modal. Debounced auto-save + start/submit via
 `PATCH /api/community/quiz/[attemptId]` (`action: 'save'|'start'|'submit'`). Auto-submits on timer
 expiry.
 
-#### app/(landing)/community/retired/layout.tsx
+#### app/(landing)/retired/layout.tsx
 Sets metadata for the Retired Members wall.
 
-#### app/(landing)/community/retired/page.tsx
+#### app/(landing)/retired/page.tsx
 Thin wrapper — renders `<RetiredWall/>` (or `<WipPage/>` if `WIP_PAGES=true`). Also intercepted by
-middleware `WIP_PATHS` rewrite (note: `/community/retired` is in the WIP_PATHS list).
+middleware matcher rewrite (note: `/retired` is still in that matcher).
 
-#### app/(landing)/community/retired/RetiredWall.tsx
+#### app/(landing)/retired/RetiredWall.tsx
 Large client component: a pannable/zoomable "memorial wall" of plaques for honourably (HD) and
 generally (GD) discharged members, laid out via a custom grid-packing algorithm. Fetches member
 list from `/api/community/retired`, and on plaque click fetches a discharge snapshot from
@@ -185,18 +256,46 @@ Client joke/meme page — grid of static images from `/public/thomo/`. Public, n
 ---
 
 ### /gallery — Operation Screenshot Gallery
+Public. Side rail of filters against a masonry grid, styled from `styles/gallery.module.css`.
+Data from `GET /api/gallery` (nested `years[].operations[].stages[].media[]`) plus
+`GET /api/gallery/sotm`; images served via `/api/gallery/fetch?...`, `/api/gallery/featured?img=`
+and `/api/gallery/sotm/image`.
+
+Storage holds years → operations → missions → filenames and nothing else, so there is no
+photographer, tag or like data anywhere on the page — those facets don't exist rather than
+rendering empty.
+
 #### app/(landing)/gallery/layout.tsx
-Sets banner/container chrome for the gallery route (title "GALLERY").
+Metadata only. Deliberately does **not** wrap the route in `Container` — the page renders its own
+banner, and it runs edge-to-edge so the featured strip can overflow the viewport.
 
 #### app/(landing)/gallery/page.tsx
-Client gallery browser: filter bar (Year → Operation → Mission/Stage), image grid, lightbox with
-keyboard nav, and a rotating "featured" carousel. Data from `GET /api/gallery` (returns nested
-`years[].operations[].stages[].media[]`), images served via `/api/gallery/fetch?...` and
-`/api/gallery/featured?img=`. Public.
+Client orchestrator (~200 lines): loads the archive + SOTM, owns filter/sort/view/paging state and
+the lightbox, composes the components below. Page size 48.
 
-#### app/(landing)/gallery/context.tsx
-Dead/commented-out file — an abandoned `GalleryContext` scaffold, all code commented out. No
-current usage.
+#### app/(landing)/gallery/gallery-data.ts
+Pure helpers, no React. `flatten()` turns the storage tree into a flat `Photo[]`;
+`splitOperation()` strips the `"1. "` ordering prefix off folder names (kept for sorting, never
+printed); `matches(photo, filters, skip)` — `skip` is what makes facet counts mean "how many if I
+tick this"; `sortPhotos`, `groupByOperation`, `archiveStats`.
+
+#### app/(landing)/gallery/_components/
+- `GalleryBanner.tsx` — half-height header: crumb, title, archive figures (photographs /
+  operations / missions / earliest year, all counted from the tree) and the screenshot of the
+  month. Drops the SOTM column entirely when none is set.
+- `FeaturedRail.tsx` — auto-scrolling featured strip. Drives `scrollLeft` on a real scroller via
+  rAF (not a CSS marquee) so the drift, the arrows and a trackpad swipe all move the same thing;
+  list rendered twice and wrapped at the halfway point for a seamless loop. Pauses on
+  hover/focus/pointer-down, off entirely under `prefers-reduced-motion`.
+- `Toolbar.tsx` — search, running result count, sort, view switcher, and active filters as
+  removable pills. Exports `GridView` / `SortKey`.
+- `FacetRail.tsx` — Year / Operation / Mission facets as checkbox rows with live counts.
+  Mission only appears once an operation is selected.
+- `PhotoGrid.tsx` — masonry / contact sheet / grouped-by-operation. Masonry spans are computed
+  from the measured column width and each image's real `naturalWidth/naturalHeight`; plain
+  lazy `<img>` rather than `next/image` (thousands of files, and the ratio is needed).
+- `Lightbox.tsx` — generic over archive photo / featured shot / SOTM. Download + copy link.
+- `icons.tsx` — the line icon set, kept off MUI so the toolbar reads as one kit.
 
 ---
 
@@ -204,7 +303,9 @@ current usage.
 #### app/(landing)/join/page.tsx
 Server page: shows Screenshot-of-the-Month banner (from `Db.siteSettings` `screenshotOfMonth`
 doc) then renders `<JoinForm/>` inside a `Suspense`, plus a dev-only `<DevTestApplicationButton/>`
-when `NODE_ENV==='development'`. Public — no auth (this is the pre-membership application).
+when `NODE_ENV==='development'`. `Container` gets an `aside` (`MastheadAside`: Applications/Open,
+minimum age, cost, location) — one of only two consumers that pass one, alongside `/about`.
+Public — no auth (this is the pre-membership application).
 
 #### app/(landing)/join/JoinForm.tsx
 Large client multi-step (7-step) application wizard: Discord OAuth verification
@@ -232,23 +333,80 @@ Sets page metadata ("MILPACS").
 `TacticalLoader` fallback ("LOADING PERSONNEL RECORDS").
 
 #### app/(landing)/milpacs/page.tsx
-The MILPACs index/roster: hero banner, sticky `<MilpacsNav/>` jump-nav, then sections for India
-Company HQ, 1st/2nd/Support Platoon (from `fetchORBAT()`), Reservists — each member rendered via
-`<Card/>`. Section colours/patches come from `Db.orbatSectionMeta`. Shows "⚙ Manage ORBAT" link
-to `/dashboard/orbat` for users with `PERMISSIONS.admin.manageOrbat`. **Live** — both WIP gates were
-removed (the `WIP_PAGES` check here and `/milpacs` in middleware's `WIP_PATHS`, which also covered
-`/milpacs/[username]`). Public read.
+The MILPACs index/roster. Renders the shared `Masthead` (not a bespoke banner any more — same veil,
+topo and clamped height as every other public page), passing the "Manage ORBAT" link for users with
+`PERMISSIONS.admin.manageOrbat` through its `actions` slot; then the sticky `<MilpacsNav/>` jump-nav,
+then a section per callsign: India Company HQ, 1st/2nd/Support Platoon, **Gamemasters (1-0 Zulu)**
+and Reservists, all from `fetchORBAT()`. Section colours/patches come from `Db.orbatSectionMeta`.
+**Live** — both WIP gates were removed (the `WIP_PAGES` check here and `/milpacs` in middleware's
+matcher, which also covered `/milpacs/[username]`). Public read.
+
+Layout is in `roster.module.css`: no section boxes and no max-width column — the card grid runs the
+full page width and each platoon's header pins under the jump-nav (at `--milpacs-nav-h`, which
+`nav.tsx` measures itself into, because that bar wraps and its height is not a constant). Cards sit
+in a left-aligned `auto-fill` grid so the columns line up from one callsign to the next down the
+page; a centred flex-wrap was tried and reverted, since tidying the last row cost that alignment.
+
+`orbat.gamemasters` was returned by `fetchORBAT()` and rendered by `/orbat` long before this page
+read it — Zeus was missing from the roster purely because the key was never used here. Don't drop it
+again when adding a callsign.
+
+One query feeds every card's kit: `fetchDefaultKitLines()` (`lib/milpac-kits.ts`), filtered on
+`shared: true`.
 
 #### app/(landing)/milpacs/card.tsx
-Client member card: tilt-on-hover 3D effect, links to the member's canonical milpac path via an
-optional `href` prop (the index builds these with `buildSlugIndex`/`canonicalSegment` so cards skip
-the redirect); falls back to `/milpacs/[username]`. Displays avatar
-(`Avatar` from `@/components/member/avatar`), rank abbreviation, name, role. Used by both the
-milpacs index and (indirectly via similar pattern) other roster pages.
+**Server** component (it was `'use client'` only to run a mouse-tilt; the hover treatment is CSS now,
+so 163 cards no longer ship a component of JS each). Links to the member's canonical milpac path via
+an optional `href` prop (the index builds these with `buildSlugIndex`/`canonicalSegment` so cards
+skip the redirect); falls back to `/milpacs/[username]`. Shows the member's Discord accent
+(`resolveMemberAccent` — their own pick first, then Discord, then unit red) as the card's `--acc`, their milpac cover photo, avatar (`Avatar` from
+`@/components/member/avatar`), rank abbreviation, name, billet, a 3-line-clamped `bio.content`, and
+their default public kit as a `MilpacKitLine`.
+
+The banner is the **milpac cover** (`/api/uploads/cover?id=`, the image a member uploads to their own
+file), not `member.bannerURL` — Discord banners were tried and are wrong twice over: Nitro-only, and
+only ever written when the member happens to log into the website. The page resolves them with
+`coverIds()` (one readdir) rather than `hasCover()` per card. Members with no cover fall back to a
+gradient built from their own accent rather than a blank plate; the same applies to `hexAccentColor`,
+written by that same login path and reading `#888888` via `ensureVisible` for anyone who has never
+signed in. Styles in `roster.module.css`.
 
 #### app/(landing)/milpacs/nav.tsx
 Client sticky nav bar with dropdown sub-sections; smooth-scrolls to `#section-id` anchors on the
 milpacs index page.
+
+### app/(landing)/ace/ — HZN-MED
+
+`/ace`. A parody of ARMA's ACE + KAT medical interface, and the only thing on the site
+that is a game: you are handed a casualty off the ORBAT and have to keep them alive.
+Began as a modal inside one member's milpac and outgrew it. **Unlisted rather than
+gated** — no nav entry and `robots: noindex`; the milpac link above is how you are
+meant to find it. Public read, no writes, nothing persisted: close the page and the
+casualty is gone.
+
+- `page.tsx` — server. Samples the roster and renders the client half. Metadata only.
+- `ace-client.tsx` — `next/dynamic({ ssr: false })` around the menu, because it is
+  entirely a client machine (AudioContext, animation frame, 250 ms sim loop). Answers
+  the menu's Close with a navigation back to `/milpacs/res`.
+- `casualties.ts` — server-only. Samples up to 40 names off the ORBAT
+  (`Db.orbatPositions` → `Db.users`, projected) so the patient is somebody in the unit,
+  with rank, callsign and avatar. Deliberately **not** `fetchORBAT()` — that loads the
+  whole collection for four fields.
+- `model.ts` — the casualty and the rules about them. Pure and serialisable: wound
+  types and the bandage chart, fluids and dilution, the drug table with onsets/durations
+  /overdose thresholds, rhythms, the airway, consciousness, what counts as stable.
+  **The place to change how anything behaves.**
+- `actions.ts` — the treatment tables (`TOOLS`, `ACTIONS`, `visibleRows`, `blockedBy`)
+  and `simulate()`, the 250 ms tick. Every `run` mutates the casualty it is handed and
+  returns what to say about it; the component clones first, which is also the seam a
+  server would slot into.
+- `MedicalMenu.tsx` — the whole UI. A `live` ref keeps the sim loop and your clicks
+  from forking off the same render; the ECG runs on its own animation frame rather than
+  React state.
+- `audio.ts` — the monitor's voice. Synthesised (oscillators + one noise buffer),
+  context created lazily inside a user gesture, and nothing in it throws.
+- `icons.tsx` / `medical-menu.module.css` — toolbar glyphs, and the standalone
+  document's CSS scoped onto a `.root` class.
 
 #### app/(landing)/milpacs/[username]/layout.tsx
 Clears default OG/Twitter images (overridden per-profile by `opengraph-image.tsx`).
@@ -288,9 +446,16 @@ column so the whole row is the button; promotions are a `<table>` (a `<tr>` cann
 same trigger, but only when the promotion history does not already offer that rank. Edit affordances: "Edit" link to
 `/members/[username]` shown to `J5-Media`; biography editable inline by the profile owner
 (`<BiographyEditor/>` posts to `/api/me`); cover photo upload by owner (`<CoverUpload/>` posts to
-`/api/uploads/cover`); `<RequestAwardButton/>` lets any other logged-in member nominate an award
+`/api/uploads/cover`); accent colour set by owner (`<AccentPicker/>` posts to `/api/me/accent`);
+`<RequestAwardButton/>` lets any other logged-in member nominate an award
 (`POST /api/award-request`). Public read (no login required to view a profile), but edit actions
 require login/role.
+
+#### app/(landing)/milpacs/[username]/medical-menu-link.tsx
+The only link to `/ace`. Rendered at the foot of one member's overview — see the
+`MEDICAL_MENU_MEMBER` gate in `milpac-file.tsx` — as a dim caduceus that only unrolls
+into a label on hover. A plain `<Link>` with its own CSS module, so every other milpac
+carries nothing at all for it.
 
 #### app/(landing)/milpacs/[username]/RequestAwardButton.tsx
 Client modal: lets a logged-in member (not the profile owner) nominate an award for this member,
@@ -303,6 +468,13 @@ rendered for the profile owner (`isOwn`).
 #### app/(landing)/milpacs/[username]/cover-upload.tsx
 Client `CoverUpload`: file input to upload (`POST /api/uploads/cover`, multipart) or remove
 (`DELETE /api/uploads/cover`) the profile's cover banner image. Owner-only.
+
+#### app/(landing)/milpacs/[username]/accent-picker.tsx
+Client `AccentPicker`: a native colour input styled as the file's mono chips, in the banner badge row
+beside `CoverUpload` (the page's other owner-only control). `PUT /api/me/accent` to set,
+`DELETE` to clear. Saves on `change`, not `input` — a colour input fires `input` continuously while
+the pointer moves, which would be a write per pixel dragged. Reloads after saving, because the accent
+is painted server-side into `--acc` and into every other surface showing that member. Owner-only.
 
 #### app/(landing)/milpacs/[username]/certificate-link.tsx
 Client `CertificateViewer`: wraps arbitrary content (an award row, or a chip on the rank row) in a
@@ -441,7 +613,19 @@ Resolves the target member, fetches confirmed-attendance-derived operation histo
 Large client staff-editing form for a member's MILPAC record: rank (drag-reorderable via
 `@dnd-kit`), promotions/awards/qualifications history (with duplicate-detection colour coding),
 promotion-point calculation (`calculatePromotionPoints`/`calculateOpPoints` from
-`@/lib/military/points`), suggested-rank helper (`getSuggestedRank`). Promotions and awards each
+`@/lib/military/points`), suggested-rank helper (`getSuggestedRank`).
+
+Built on the dashboard kit (`@/components/dashboard`); its root carries `.dash` so the staff
+palette applies here too, on what is otherwise a public route. Billet Points is a stack of
+`PointsLine` rows — label, the rate it earns, a `Stepper`, and its contribution — with the two
+attendance-derived rows `locked`, since a stepper there would imply an edit that cannot stick. A
+`Meter` fed by `getNextThreshold` shows the total against the next rank on the member's track, and
+award/qualification contributions are read-only `Chip`s rather than the paragraph of running text
+that used to act as a legend. Save is a sticky `SaveBar` at the foot of the form rather than a
+permanent button in the header: it appears once something is dirty and counts the *fields* that
+will change, diffing a `snapshot()` of the payload against a `baseline` ref that moves on a
+successful save — so touching a promotion and undoing it returns the count to zero. Discard
+restores every field from the `member` prop. Promotions and awards each
 carry an **Issued By** rank + name (`issuedByRank` stores the full rank name, `RankSelect`'s value
 contract) — that pair signs the member's rendered certificate, so it is a record of who authorised
 the award, not just a note. `PUT /api/members/[username]` stamps both from the editing staffer when
@@ -678,7 +862,7 @@ calls itself — pure view.
 
 #### app/recruit-session/OrbatOnboarding.tsx
 Client static-data component: a simplified read-only ORBAT diagram (role titles only, no real
-members) mirroring `/community/orbat`'s visual style, used during the "ORBAT Overview" onboarding
+members) mirroring `/orbat`'s visual style, used during the "ORBAT Overview" onboarding
 step. Purely static `PLATOONS` data structure.
 
 #### app/recruit-session/StepContent.tsx
@@ -728,8 +912,8 @@ truncated portion.
 ### /wip — Work-In-Progress Placeholder
 #### app/wip/page.tsx
 Trivial wrapper rendering `<WipPage/>` (from `@/components/wip-page`). This is the rewrite target
-for `middleware.ts`'s `WIP_PATHS` list (`/community/orbat`, `/milpacs`, `/community/retired`,
-`/community/bios`) — visiting those paths without `?bypass_wip` serves this page's content instead
+for `middleware.ts`'s matcher (now `/retired` and `/bios`; `/milpacs` and `/orbat` have both been
+released) — visiting those paths without `?bypass_wip` serves this page's content instead
 (via Next.js rewrite, so the URL bar still shows the original path).
 
 ---
@@ -744,10 +928,10 @@ for `middleware.ts`'s `WIP_PATHS` list (`/community/orbat`, `/milpacs`, `/commun
   in (`isLoggedIn`, `isHQ`, `isJ6`, `isAllStaff`, `isSectionLeader` flags computed per-request).
 - **WIP gate**: `WIP_PAGES` env var (checked inside individual page components) and
   `middleware.ts`'s `WIP_PATHS` rewrite are two *independent* mechanisms — don't assume one implies
-  the other is wired up. They now target orbat/retired/bios only; **milpacs was released and needed
-  both removed**, since the middleware rewrite alone would still have hidden the whole tree.
-  `community/bios/page.tsx` checks `WIP_PAGES` explicitly; `community/retired/page.tsx` checks it
-  via its child render.
+  the other is wired up. They now target retired/bios only; **milpacs was released and needed both
+  removed**, since the middleware rewrite alone would still have hidden the whole tree, and **ORBAT
+  was released and needed only the middleware entry**, having never carried a `WIP_PAGES` check.
+  `bios/page.tsx` checks `WIP_PAGES` explicitly; `retired/page.tsx` checks it via its child render.
 - **Operation theming**: `pageTheme` (`modern` | `oldfashioned` | `scifi`) is threaded through
   almost every operations component (`doc-body.tsx`, `paged-view.tsx`, `section-nav.tsx`,
   `PageNavClient.tsx`, the main `[id]/page.tsx`) — any new operation-page component should accept

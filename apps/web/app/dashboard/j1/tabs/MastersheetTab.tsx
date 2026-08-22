@@ -246,7 +246,7 @@ function DischargeSnapshotModal({ discordId, displayName, onClose }: { discordId
                 },
             }}
         >
-            <DialogTitle style={{ padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.1)' }}>
+            <DialogTitle style={{ padding: '16px 20px', borderBottom: '1px solid var(--line-2)' }}>
                 <div className='flex items-center justify-between'>
                     <div>
                         <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
@@ -278,7 +278,7 @@ function DischargeSnapshotModal({ discordId, displayName, onClose }: { discordId
                             <SnapField label='Points at Discharge' value={snapshot.pointsAtDischarge != null ? String(snapshot.pointsAtDischarge) : null} />
                             <SnapField label='Processed By' value={snapshot.createdByName} />
                         </div>
-                        <div style={{ borderTop: '1px solid rgba(219,0,29,0.1)', paddingTop: 16 }}>
+                        <div style={{ borderTop: '1px solid var(--line-2)', paddingTop: 16 }}>
                             <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 10 }}>
                                 Milpac at Discharge
                             </div>
@@ -539,10 +539,10 @@ export default function MastersheetTab() {
                                 {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
                             </span>
                             <div className='flex items-center gap-1'>
-                                <button onClick={() => setPage(p => p - 1)} disabled={page === 0} style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === 0 ? 'default' : 'pointer' }}>
+                                <button onClick={() => setPage(p => p - 1)} disabled={page === 0} style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid var(--line-2)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === 0 ? 'default' : 'pointer' }}>
                                     ‹ Prev
                                 </button>
-                                <button onClick={() => setPage(p => p + 1)} disabled={page === totalPages - 1} style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', color: page === totalPages - 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === totalPages - 1 ? 'default' : 'pointer' }}>
+                                <button onClick={() => setPage(p => p + 1)} disabled={page === totalPages - 1} style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid var(--line-2)', color: page === totalPages - 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === totalPages - 1 ? 'default' : 'pointer' }}>
                                     Next ›
                                 </button>
                             </div>

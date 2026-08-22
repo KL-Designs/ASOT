@@ -15,6 +15,47 @@
 	--red: rgb(219, 0, 29);
 	--grey: rgba(255, 255, 255, 0.12);
 	--dark-grey: rgb(19, 19, 19);
+
+	/* ── Command Strip palette ────────────────────────────────────────────
+	   Introduced with the navbar redesign. Four graded ink levels and two
+	   hairline weights rather than a pile of one-off rgba() values, so panels,
+	   rails and dividers stack consistently. Amber is the "information /
+	   support" accent (status rail, donate); red stays the primary accent.
+	   Site-wide because the rest of the site is expected to adopt them. */
+	--ink-0: #08090a;
+	--ink-1: #0b0c0e;
+	--ink-2: #111317;
+	--ink-3: #171a1f;
+
+	--line-1: #1e2127;
+	--line-2: #2a2e36;
+
+	--txt-1: #f2f3f5;
+	--txt-2: #9aa0a8;
+	--txt-3: #5f656e;
+
+	--red-hi: #ff4257;
+	--red-dim: #7d1122;
+	--red-glow: rgba(224, 35, 60, 0.35);
+	/* Gold rather than the yellower #f5b93f it started as. This is the shared
+	   "information / support" accent — status rail, next-op times, the donate
+	   button and progress-bar tips all draw on it, so they shift together. */
+	--amber: #d8ac45;
+	--live: #3ddc84;
+	--discord: #5865f2;
+
+	--nav-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+	/* ── Type ─────────────────────────────────────────────────────────────
+	   The next/font variables are declared on <html> in app/layout.tsx; these
+	   aliases add the fallback stacks in one place so a component only ever
+	   references --font-cond / --font-disp / --font-mono / --font-ui.
+	   `cond` is the interface face, `disp` display headings, `mono` data and
+	   labels, `ui` body copy. Montserrat remains the default body font. */
+	--font-cond: var(--font-barlow-condensed), 'Arial Narrow', system-ui, sans-serif;
+	--font-disp: var(--font-oswald), var(--font-barlow-condensed), 'Arial Narrow', system-ui, sans-serif;
+	--font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+	--font-ui: var(--font-inter), system-ui, sans-serif;
 }
 
 :target {
@@ -41,11 +82,25 @@ body {
 }
 
 @media (pointer: fine) {
-	html, body, * { cursor: none !important; }
-	body.suppress-custom-cursor,
-	body.suppress-custom-cursor * { cursor: auto !important; }
-	body.cursor-disabled,
-	body.cursor-disabled * { cursor: auto !important; }
+	/*
+	   Hide the native cursor only while the custom one is actually being drawn.
+
+	   This was previously an unconditional `* { cursor: none !important }` with
+	   `* { cursor: auto !important }` layered back on when the custom cursor was
+	   off. That does not restore anything: `auto` is not "whatever this element
+	   would normally use", it is the plain arrow (text over text runs), and the
+	   `!important` beat every author `cursor: pointer` underneath it. Turning
+	   the custom cursor off therefore left links and buttons with no pointer.
+
+	   Scoping the rule off instead means that when the cursor is disabled no
+	   cursor declaration applies at all, and every element falls back to its own.
+	*/
+	html:has(body:not(.cursor-disabled):not(.suppress-custom-cursor)),
+	body:not(.cursor-disabled):not(.suppress-custom-cursor),
+	body:not(.cursor-disabled):not(.suppress-custom-cursor) * {
+		cursor: none !important;
+	}
+
 	/* Map area keeps cursor:none even when the site cursor is suppressed */
 	body.suppress-custom-cursor [data-map-area],
 	body.suppress-custom-cursor [data-map-area] * { cursor: none !important; }
@@ -221,6 +276,49 @@ select option {
 	background: #474747;
 }
 
+/* Thin, fading overlay scrollbars — operations editor only (visual-fixes
+   spec). Opt in per-container with `.thin-scroll` rather than touching the
+   site-wide rule above, so every other page keeps the default chunky
+   scrollbar unless it happens to reuse a component that already carries
+   this class. Width is fixed at 8px regardless of the thumb's visibility,
+   so nothing reflows when it fades in/out — only its own background-color
+   ever changes. Track, corner and arrow buttons are fully transparent.
+   Firefox has no per-element fade or true overlay support, so it falls back
+   to a plain thin (non-overlay) scrollbar via scrollbar-width/-color. */
+.thin-scroll {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.thin-scroll::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+.thin-scroll::-webkit-scrollbar-track,
+.thin-scroll::-webkit-scrollbar-corner {
+	background: transparent;
+}
+.thin-scroll::-webkit-scrollbar-button {
+	display: none;
+	width: 0;
+	height: 0;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+	background-color: transparent;
+	border-radius: 4px;
+	transition: background-color 0.2s ease;
+}
+/* Fades in on hover, or while the scroll-fade hook (useThinScrollFade) has
+   marked the container as actively scrolling. Hover keeps working even
+   where the hook isn't wired up, per the CSS-only fallback the spec calls
+   out as acceptable. */
+.thin-scroll:hover::-webkit-scrollbar-thumb,
+.thin-scroll.is-scrolling::-webkit-scrollbar-thumb {
+	background-color: rgba(255, 255, 255, 0.18);
+}
+.thin-scroll::-webkit-scrollbar-thumb:hover {
+	background-color: rgba(255, 255, 255, 0.3);
+}
+
 
 /* ─── Operation Document Editor & Viewer ─────────────────────────────────── */
 
@@ -248,13 +346,22 @@ select option {
 
 /* ── Editor (always uses site red) ───────────────────────────────────────── */
 
+/* The editable region's own ground (visual-fixes spec §3) — a hairline
+   border plus a ground one step lighter than the column background so the
+   writable area reads as a distinct surface rather than blending into the
+   page, without going back to a heavy boxed card. The per-section rule in
+   CollabEditor.tsx (.op-editor-{sectionId}) layers the focus ring on top. */
 .op-editor {
     color: rgba(237, 237, 237, 0.85);
     font-size: 0.92rem;
     line-height: 1.75;
     outline: none;
     min-height: 80px;
-    padding: 36px 48px;
+    padding: 28px 36px;
+    background: var(--s1);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    transition: box-shadow 0.15s, border-color 0.15s;
 }
 
 .op-editor h1 {

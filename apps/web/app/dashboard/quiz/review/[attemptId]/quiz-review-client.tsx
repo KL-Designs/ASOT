@@ -199,9 +199,9 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
     // Button style: faint colour by default, bright when selected
     const decisionBtnSx = (active: boolean, variant: 'pass' | 'fail' | 'review') => {
         const colors = {
-            pass:   { faint: 'rgba(34,197,94,0.25)',  bright: 'rgba(34,197,94,0.7)',  faintBg: 'rgba(34,197,94,0.05)',  brightBg: 'rgba(34,197,94,0.18)',  text: 'rgba(34,197,94,0.9)'  },
-            fail:   { faint: 'rgba(239,68,68,0.25)',  bright: 'rgba(239,68,68,0.7)',  faintBg: 'rgba(239,68,68,0.05)',  brightBg: 'rgba(239,68,68,0.18)',  text: 'rgba(239,68,68,0.9)'  },
-            review: { faint: 'rgba(245,158,11,0.25)', bright: 'rgba(245,158,11,0.7)', faintBg: 'rgba(245,158,11,0.05)', brightBg: 'rgba(245,158,11,0.12)', text: 'rgba(245,158,11,0.9)' },
+            pass:   { faint: 'color-mix(in srgb, var(--live) 25%, transparent)',  bright: 'color-mix(in srgb, var(--live) 70%, transparent)',  faintBg: 'color-mix(in srgb, var(--live) 5%, transparent)',  brightBg: 'color-mix(in srgb, var(--live) 18%, transparent)',  text: 'color-mix(in srgb, var(--live) 90%, transparent)'  },
+            fail:   { faint: 'color-mix(in srgb, var(--red) 25%, transparent)',  bright: 'color-mix(in srgb, var(--red) 70%, transparent)',  faintBg: 'color-mix(in srgb, var(--red) 5%, transparent)',  brightBg: 'color-mix(in srgb, var(--red) 18%, transparent)',  text: 'color-mix(in srgb, var(--red) 90%, transparent)'  },
+            review: { faint: 'color-mix(in srgb, var(--amber) 25%, transparent)', bright: 'color-mix(in srgb, var(--amber) 70%, transparent)', faintBg: 'color-mix(in srgb, var(--amber) 5%, transparent)', brightBg: 'color-mix(in srgb, var(--amber) 12%, transparent)', text: 'color-mix(in srgb, var(--amber) 90%, transparent)' },
         }
         const c = colors[variant]
         return {
@@ -275,7 +275,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                     )}
 
                     {error && (
-                        <div style={{ padding: '8px 16px', fontSize: '0.65rem', color: 'rgba(239,68,68,0.9)', background: 'rgba(239,68,68,0.08)', lineHeight: 1.5 }}>
+                        <div style={{ padding: '8px 16px', fontSize: '0.65rem', color: 'color-mix(in srgb, var(--red) 90%, transparent)', background: 'color-mix(in srgb, var(--red) 8%, transparent)', lineHeight: 1.5 }}>
                             {error}
                         </div>
                     )}
@@ -292,7 +292,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                                     background: decision === 'pass'
                                         ? 'rgba(22,163,74,0.9)'
                                         : decision === 'fail'
-                                            ? 'rgba(239,68,68,0.85)'
+                                            ? 'color-mix(in srgb, var(--red) 85%, transparent)'
                                             : 'rgba(217,119,6,0.85)',
                                     border: '1px solid transparent',
                                     fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
@@ -310,7 +310,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
             )}
 
             {submitted && (
-                <div style={{ padding: '16px', fontSize: '0.7rem', color: 'rgba(34,197,94,0.8)', textAlign: 'center' }}>
+                <div style={{ padding: '16px', fontSize: '0.7rem', color: 'color-mix(in srgb, var(--live) 80%, transparent)', textAlign: 'center' }}>
                     Decision submitted. Redirecting…
                 </div>
             )}
@@ -320,8 +320,8 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                     <span style={{
                         display: 'block', textAlign: 'center', padding: '8px',
                         fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                        color: attempt.status === 'passed' ? 'rgba(34,197,94,0.8)' : 'rgba(239,68,68,0.8)',
-                        border: attempt.status === 'passed' ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(239,68,68,0.3)',
+                        color: attempt.status === 'passed' ? 'color-mix(in srgb, var(--live) 80%, transparent)' : 'color-mix(in srgb, var(--red) 80%, transparent)',
+                        border: attempt.status === 'passed' ? '1px solid color-mix(in srgb, var(--live) 30%, transparent)' : '1px solid color-mix(in srgb, var(--red) 30%, transparent)',
                     }}>
                         {attempt.status === 'passed' ? 'Passed' : 'Failed'}
                     </span>
@@ -401,7 +401,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                                             <span style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.2em', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>
                                                 {String(si + 1).padStart(2, '0')}
                                             </span>
-                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.75)' }}>
+                                            <span style={{ fontSize: '0.6rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)' }}>
                                                 {section.title}
                                             </span>
                                         </div>
@@ -461,7 +461,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                     {!isClosed && !submitted && (
                         <div style={{ marginTop: 32, border: '1px solid rgba(255,255,255,0.1)', borderTop: `2px solid ${RED}` }}>
                             <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.35)' }}>
-                                <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>
+                                <span style={{ fontSize: '0.5rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                                     {'// DECISION'}
                                 </span>
                             </div>
@@ -498,8 +498,8 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                         <div style={{
                             fontSize: '1.4rem', fontWeight: 800, letterSpacing: '0.04em', fontFamily: 'monospace', lineHeight: 1,
                             color: isClosed
-                                ? attempt.status === 'passed' ? 'rgba(34,197,94,0.85)' : 'rgba(239,68,68,0.85)'
-                                : isPassing ? 'rgba(34,197,94,0.85)' : 'rgba(239,68,68,0.75)',
+                                ? attempt.status === 'passed' ? 'color-mix(in srgb, var(--live) 85%, transparent)' : 'color-mix(in srgb, var(--red) 85%, transparent)'
+                                : isPassing ? 'color-mix(in srgb, var(--live) 85%, transparent)' : 'color-mix(in srgb, var(--red) 75%, transparent)',
                         }}>
                             {earnedPoints} <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>/ {totalPoints}</span>
                         </div>
@@ -511,7 +511,7 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                             <div style={{
                                 position: 'absolute', left: 0, top: 0, height: '100%',
                                 width: `${Math.min(100, (earnedPoints / totalPoints) * 100)}%`,
-                                background: isPassing ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.6)',
+                                background: isPassing ? 'color-mix(in srgb, var(--live) 70%, transparent)' : 'color-mix(in srgb, var(--red) 60%, transparent)',
                                 transition: 'width 0.3s, background 0.3s',
                             }} />
                             {/* Pass mark indicator */}
@@ -530,9 +530,9 @@ export default function QuizReviewClient({ quiz, attempt, canEscalate, isJ4 }: P
                         </div>
                         <span style={{
                             fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                            color: attempt.status === 'passed'  ? 'rgba(34,197,94,0.85)'
-                                 : attempt.status === 'failed'  ? 'rgba(239,68,68,0.85)'
-                                 :                                'rgba(245,158,11,0.85)',
+                            color: attempt.status === 'passed'  ? 'color-mix(in srgb, var(--live) 85%, transparent)'
+                                 : attempt.status === 'failed'  ? 'color-mix(in srgb, var(--red) 85%, transparent)'
+                                 :                                'color-mix(in srgb, var(--amber) 85%, transparent)',
                         }}>
                             {attempt.status.replace('_', ' ')}
                         </span>

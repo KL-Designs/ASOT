@@ -1,0 +1,1274 @@
+/* ============================================================================
+   ASOT — Command Strip navigation
+   ----------------------------------------------------------------------------
+   A CSS module rather than Tailwind/`sx` on purpose: the bar leans on notched
+   clip-paths, masked backdrops and a lot of hover choreography, all of which
+   read far better as plain CSS than as long utility strings. It also sidesteps
+   the repo's `important: true` Tailwind setting, which would otherwise make
+   these rules fight the utilities used elsewhere on the page.
+
+   Palette and font tokens are the site-wide ones defined in globals.css.
+   ========================================================================== */
+
+/* ---------- shell -------------------------------------------------------- */
+
+.nav {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    font-family: var(--font-cond);
+    background: var(--ink-1);
+
+    /* Every control in the right cluster measures from this. They were three
+       separate `height: 36px` declarations that happened to agree — which is a
+       coincidence, not a guarantee, and the account chip still read taller
+       because its 1px border and the avatar's glow sit outside that box. */
+    --nav-ctl-h: 40px;
+}
+
+/* Several controls here are <button> for behaviour rather than <a> — ENLIST
+   runs a transition, the menu labels open panels. Browsers give buttons the
+   default arrow, so without this they'd feel dead next to the links beside
+   them whenever the custom cursor is off. */
+.nav button {
+    cursor: pointer;
+}
+
+/* Scrolled: the bar goes translucent and the status rail collapses away,
+   handing the vertical space back to the page. */
+.navScrolled {
+    background: rgba(11, 12, 14, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+/* ---------- status rail -------------------------------------------------- */
+
+.strip {
+    height: 28px;
+    background: #050607;
+    border-bottom: 1px solid var(--line-1);
+    position: relative;
+    z-index: 11;
+    display: flex;
+    align-items: center;
+    padding: 0 22px;
+    gap: 16px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+    overflow: hidden;
+    transition: height 0.3s ease, opacity 0.25s ease;
+}
+
+.stripHidden {
+    height: 0;
+    opacity: 0;
+    border-bottom-color: transparent;
+}
+
+.strip .sep {
+    width: 1px;
+    height: 11px;
+    background: var(--line-2);
+    flex: none;
+}
+
+.strip .hi {
+    color: var(--txt-2);
+}
+
+/*
+   globals.css carries `@layer base { :where(p, a) { font-size: 1rem } }`. A value
+   declared on the element beats an inherited one no matter how low its
+   specificity, so every <a> in the rail was being set to 16px while the spans
+   beside it inherited the rail's 10px. Opting links back into inheritance is the
+   fix; the same trap applies to any link that carries text directly rather than
+   through a child with its own size.
+*/
+.strip a {
+    font-size: inherit;
+    letter-spacing: inherit;
+}
+
+.strip .amb {
+    color: var(--amber);
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+a.amb:hover {
+    color: #f0cd7e;
+}
+
+.strip .right {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    white-space: nowrap;
+}
+
+.strip .presence {
+    display: flex;
+    align-items: center;
+}
+
+.strip .muster {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--txt-2);
+    white-space: nowrap;
+}
+
+.pulse {
+    position: relative;
+    width: 6px;
+    height: 6px;
+    display: inline-block;
+    margin-right: 6px;
+    flex: none;
+}
+
+.pulse i,
+.pulse b {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--live);
+}
+
+.pulse i {
+    animation: ping 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+    opacity: 0.65;
+}
+
+.pulseIdle i,
+.pulseIdle b {
+    background: var(--txt-3);
+}
+
+.pulseIdle i {
+    animation: none;
+}
+
+@keyframes ping {
+
+    75%,
+    100% {
+        transform: scale(2.6);
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pulse i {
+        animation: none;
+    }
+}
+
+/* ---------- cursor toggle ------------------------------------------------ */
+
+/*
+   The glyph is the custom cursor in miniature — dot alone when off, dot inside
+   a ring when on. The ring scales up from the dot rather than fading in, which
+   is the same gesture the real cursor makes when it resolves around a target.
+*/
+.cursorToggle {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    flex: none;
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--txt-3);
+    transition: color 0.18s;
+}
+
+.cursorToggle:hover {
+    color: var(--txt-1);
+}
+
+.cursorToggle.on {
+    color: var(--txt-2);
+}
+
+/* Both parts are centred the same way — `inset: 0` plus `margin: auto` against
+   a fixed size — so they are concentric by construction. Centring the dot with
+   the grid and the ring with a negative half-size margin left the two resolving
+   through different rounding, which is visible at 4px. */
+.cursorToggle .dot,
+.cursorToggle .ring {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    border-radius: 50%;
+    box-sizing: border-box;
+}
+
+.cursorToggle .dot {
+    width: 4px;
+    height: 4px;
+    background: currentColor;
+}
+
+.cursorToggle .ring {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid currentColor;
+    opacity: 0;
+    /* Collapsed onto the dot, so switching on reads as the ring growing out
+       of it rather than as a second shape appearing. */
+    transform: scale(0.26);
+    transition: opacity 0.18s var(--nav-ease), transform 0.26s var(--nav-ease);
+}
+
+.cursorToggle.on .ring {
+    opacity: 1;
+    transform: scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cursorToggle .ring {
+        transition: opacity 0.18s;
+        transform: scale(1);
+    }
+}
+
+/* There is no custom cursor on a touch pointer — CustomCursor bails on
+   `pointer: coarse` — so the control would toggle nothing. */
+@media (pointer: coarse) {
+    .cursorToggle {
+        display: none;
+    }
+}
+
+/* ---------- bar ---------------------------------------------------------- */
+
+.bar {
+    height: 66px;
+    position: relative;
+    border-bottom: 1px solid var(--line-1);
+}
+
+.inner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 22px;
+}
+
+/* ---------- brand plate -------------------------------------------------- */
+
+/*
+   The brand and the right cluster are both `flex: 1 1 0`, so they take an equal
+   share of whatever the menu leaves behind and the menu lands on the true
+   centre of the bar — not merely the middle of the leftover space, which is
+   what `margin-left: auto` on the right cluster would give when the two flanks
+   are different widths (they are: the cluster is roughly twice the brand).
+
+   Absolute-positioning the menu would centre it too, but a fixed-width element
+   in the middle of a flex row can overlap its neighbours as the viewport
+   narrows. Here the flanks' automatic minimum size floors them at their content
+   width, so a bar too tight to centre in slides the menu off-centre instead of
+   letting anything collide. It also keeps the menu in flow, which is what lets
+   the mega panels go on anchoring to `.inner` rather than to the menu.
+*/
+.side {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+/*
+   The bar is a fixed 66px, so the plate's height is mark + padding*2 and what
+   matters is the air left over. 40px puts the plate at 56px with 5px top and
+   bottom. 46px was tried and fills it to 60px — the plate then sits close enough
+   to the bar's edge that the eye takes one boundary for the other, so it reads
+   as a taller bar even though `.bar` never changes. 40 is the ceiling before
+   that starts happening.
+*/
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    flex: none;
+    position: relative;
+    padding: 8px 20px 8px 14px;
+    background: linear-gradient(90deg, #15171b, #0e1013);
+    clip-path: polygon(0 0, 100% 0, calc(100% - 13px) 100%, 0 100%);
+}
+
+.brand::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--red);
+}
+
+.brandMark {
+    width: 40px;
+    height: 40px;
+    flex: none;
+    object-fit: contain;
+}
+
+.brandTxt {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+}
+
+.brandName {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: 0.14em;
+    color: var(--txt-1);
+}
+
+.brandSub {
+    font-family: var(--font-mono);
+    font-size: 7.6px;
+    letter-spacing: 0.19em;
+    color: var(--txt-3);
+    margin-top: 3px;
+    white-space: nowrap;
+}
+
+/* ---------- primary menu ------------------------------------------------- */
+
+.menu {
+    flex: none;
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* Panels anchor to the bar, not the item, so a right-hand menu can never push
+   its 912px panel off-screen. */
+.menu>li {
+    position: static;
+    display: flex;
+    align-items: center;
+}
+
+.mi {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    padding: 0 16px;
+    position: relative;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+    transition: color 0.18s var(--nav-ease);
+    white-space: nowrap;
+    background: none;
+    border: 0;
+    font-family: inherit;
+}
+
+.mi .chev {
+    width: 14px;
+    height: 14px;
+    opacity: 0.5;
+    transition: transform 0.22s var(--nav-ease), opacity 0.18s;
+}
+
+.menu>li:hover .mi,
+.menu>li.isOpen .mi {
+    color: #fff;
+}
+
+.menu>li:hover .chev,
+.menu>li.isOpen .chev {
+    transform: rotate(180deg);
+    opacity: 1;
+}
+
+/* Targeting brackets — they converge on the label rather than fading in. */
+.mi .br {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-color: var(--red);
+    border-style: solid;
+    border-width: 0;
+    opacity: 0;
+    transition: opacity 0.2s var(--nav-ease), transform 0.25s var(--nav-ease);
+}
+
+.mi .tl {
+    top: 15px;
+    left: 8px;
+    border-top-width: 1.5px;
+    border-left-width: 1.5px;
+    transform: translate(4px, 4px);
+}
+
+.mi .tr {
+    top: 15px;
+    right: 8px;
+    border-top-width: 1.5px;
+    border-right-width: 1.5px;
+    transform: translate(-4px, 4px);
+}
+
+.mi .bl {
+    bottom: 15px;
+    left: 8px;
+    border-bottom-width: 1.5px;
+    border-left-width: 1.5px;
+    transform: translate(4px, -4px);
+}
+
+.mi .brr {
+    bottom: 15px;
+    right: 8px;
+    border-bottom-width: 1.5px;
+    border-right-width: 1.5px;
+    transform: translate(-4px, -4px);
+}
+
+.menu>li:hover .br,
+.menu>li.isOpen .br {
+    opacity: 1;
+    transform: translate(0, 0);
+}
+
+.menu>li.active .mi {
+    color: #fff;
+    background: linear-gradient(0deg, rgba(224, 35, 60, 0.16), transparent 72%);
+}
+
+.menu>li.active .mi::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: var(--red);
+}
+
+/* ---------- right cluster ------------------------------------------------ */
+
+.util {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+}
+
+.icons {
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+.ubtn {
+    width: 54px;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    color: var(--txt-3);
+    border-left: 1px solid var(--line-1);
+    transition: color 0.18s, background 0.18s;
+    position: relative;
+    background: none;
+    border-top: 0;
+    border-right: 0;
+    border-bottom: 0;
+}
+
+.icons .ubtn:last-child {
+    border-right: 1px solid var(--line-1);
+}
+
+.ubtn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.ubtn svg {
+    width: 17px;
+    height: 17px;
+}
+
+/* The three actions are the shared `components/ui/Button` — only their
+   in-bar geometry and spacing live here. The silhouette, the variants and the
+   inset-face trick that survives the notch are all in ui.module.css.
+
+   Descendant selector on purpose, for the same reason `.navAct.actDonate`
+   below is compound: every property in this block is also set by `.btn` in
+   ui.module.css, and at equal specificity the winner is whichever module the
+   bundler happens to emit last. It emitted ui last, so these buttons were
+   silently running at `.btn`'s 46px and standing a head taller than the
+   account chip beside them. `.nav .navAct` settles it. */
+.nav .navAct {
+    height: var(--nav-ctl-h);
+    padding: 0 16px;
+    font-size: 13.5px;
+    gap: 8px;
+}
+
+/* Same tie, same fix — `.btn svg` sets 16px. */
+.nav .navAct svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* Icon only at rest, at every width — the crate reads on its own, and next to a
+   labelled primary action two labels made the pair compete, which is the
+   opposite of the volume difference it's meant to have.
+
+   The label unfurls on hover and on keyboard focus rather than being absent:
+   an icon alone is only obvious once you already know what it is. `gap` goes to
+   zero and the spacing moves onto the label's own margin, or the collapsed
+   label would still be holding 8px of dead air open beside the icon.
+
+   `aria-label` on the anchor carries the name regardless of hover state.
+   The mobile sheet keeps it permanently open: see `.macts`. */
+.actDonate {
+    margin-left: 14px;
+}
+
+/*
+   Compound selector on purpose. `.btn` in ui.module.css also sets `gap`, and at
+   equal specificity the winner depends on which module the bundler emits last —
+   which is not something to leave to chance for the one rule that decides
+   whether this button looks symmetric. `.navAct.actDonate` outranks both.
+*/
+.navAct.actDonate {
+    padding: 0 12px;
+    gap: 0;
+}
+
+.actDonate .lbl {
+    display: block;
+    max-width: 0;
+    min-width: 0;
+    margin-left: 0;
+    padding: 0;
+    opacity: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    transition:
+        max-width 0.28s var(--nav-ease),
+        margin-left 0.28s var(--nav-ease),
+        opacity 0.18s var(--nav-ease);
+}
+
+.actDonate:hover .lbl,
+.actDonate:focus-visible .lbl {
+    max-width: 9ch;
+    margin-left: 8px;
+    opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .actDonate .lbl {
+        transition: none;
+    }
+}
+
+.actPrimary {
+    margin-left: 10px;
+}
+
+/* ---------- account chip ------------------------------------------------- */
+
+.acctWrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.acct {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: var(--nav-ctl-h);
+    margin-left: 10px;
+    padding: 0 10px 0 5px;
+    border: 1px solid var(--line-1);
+    border-radius: 3px;
+    transition: border-color 0.18s, background 0.18s;
+    position: relative;
+    background: none;
+}
+
+.acct:hover,
+.acct.isOpen {
+    border-color: var(--line-2);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 2px;
+    flex: none;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line-2);
+}
+
+/* Inside the account chip the avatar takes the member's own accent colour —
+   see `--acct-accent` in AccountMenu. Elsewhere (the mobile sheet footer) it
+   keeps the neutral hairline above. */
+.acctWrap .avatar {
+    border-color: var(--acct-accent, var(--line-2));
+    box-shadow: 0 0 8px 0 color-mix(in srgb, var(--acct-accent, var(--red)) 35%, transparent);
+    transition: box-shadow 0.2s;
+}
+
+.acctWrap .acct:hover .avatar,
+.acctWrap.isOpen .avatar {
+    box-shadow: 0 0 14px 2px color-mix(in srgb, var(--acct-accent, var(--red)) 45%, transparent);
+}
+
+.acct .who {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    color: var(--txt-2);
+    line-height: 1.4;
+    text-align: left;
+    text-transform: uppercase;
+    max-width: 132px;
+    overflow: hidden;
+}
+
+.acct .who span {
+    display: block;
+    color: var(--txt-3);
+    font-size: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.acct .chev {
+    width: 14px;
+    height: 14px;
+    opacity: 0.45;
+    color: var(--txt-2);
+}
+
+/* ---------- mega panel --------------------------------------------------- */
+
+/*
+   Anchored to `.inner` rather than to the item it hangs off — the `<li>`s are
+   `position: static` for exactly this reason — and centred on the bar, which is
+   where the menu now sits. A panel centred on the bar cannot be pushed
+   off-screen by a right-hand item the way one anchored to its own item could.
+*/
+.dd {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateX(-50%) translateY(-6px);
+    transition: opacity 0.2s var(--nav-ease), transform 0.24s var(--nav-ease), visibility 0.2s;
+    z-index: 50;
+    width: 912px;
+    max-width: calc(100vw - 44px);
+}
+
+/* Short menus drop the featured card rather than padding it with dead space. */
+.ddCompact {
+    width: 640px;
+}
+
+.menu>li:hover .dd,
+.menu>li.isOpen .dd {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+.ddCard {
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    border-top: 2px solid var(--red);
+    box-shadow: 0 26px 60px -14px rgba(0, 0, 0, 0.85);
+    display: flex;
+}
+
+.megaRail {
+    width: 150px;
+    flex: none;
+    background: #0a0b0d;
+    border-right: 1px solid var(--line-1);
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.megaRail .lbl {
+    font-family: var(--font-disp);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    line-height: 1.05;
+    color: var(--txt-1);
+}
+
+.megaRail .cnt {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    color: var(--txt-3);
+    margin-top: 8px;
+}
+
+.megaLinks {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-content: start;
+}
+
+/*
+   Centred rather than top-aligned. The grid stretches every item to the height
+   of the tallest in its row, so a one-line description sat pinned to the top of
+   a cell sized by a two-line one — which read as the text hanging off the
+   divider above it rather than sitting in its own space.
+*/
+.ddItem {
+    display: flex;
+    gap: 11px;
+    padding: 14px 15px;
+    position: relative;
+    transition: background 0.16s;
+    align-items: center;
+    border-right: 1px solid var(--line-1);
+    border-bottom: 1px solid var(--line-1);
+}
+
+.megaLinks .ddItem:nth-child(2n) {
+    border-right: 0;
+}
+
+.ddItem:hover {
+    background: var(--ink-3);
+}
+
+.ddItem::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    background: var(--red);
+    transform: scaleY(0);
+    transition: transform 0.2s var(--nav-ease);
+}
+
+.ddItem:hover::before {
+    transform: scaleY(1);
+}
+
+/* The 2px nudge that held the icon on the title's baseline goes with the top
+   alignment it was correcting for. */
+.ddItem .ic {
+    width: 17px;
+    height: 17px;
+    flex: none;
+    color: var(--txt-3);
+    transition: color 0.16s;
+}
+
+.ddItem:hover .ic {
+    color: var(--red);
+}
+
+.ddItem .tt {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+    line-height: 1.2;
+}
+
+.ddItem .ds {
+    display: block;
+    font-family: var(--font-ui);
+    font-size: 11.4px;
+    color: var(--txt-3);
+    margin-top: 4px;
+    line-height: 1.35;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.megaFeat {
+    width: 248px;
+    flex: none;
+    border-left: 1px solid var(--line-1);
+    padding: 16px;
+    background: #0a0b0d;
+}
+
+.featImg {
+    height: 92px;
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(150deg, #2b2116, #151a20 60%, #0e1013);
+    border: 1px solid var(--line-1);
+}
+
+/* Covers are wider than this 92px band, so they crop rather than letterbox —
+   and they sit slightly dimmed, because at full strength a bright banner
+   out-shouts the panel of links it is sitting beside. It brightens on hover
+   with the rest of the card. */
+.featCover {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    opacity: 0.82;
+    transition: opacity 0.2s var(--nav-ease);
+}
+
+.megaFeat:hover .featCover {
+    opacity: 1;
+}
+
+.featImg .tag {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2;
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    letter-spacing: 0.18em;
+    background: var(--red);
+    color: #fff;
+    padding: 3px 7px;
+    border-radius: 1px;
+}
+
+.featT {
+    font-family: var(--font-disp);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 12px 0 5px;
+    color: var(--txt-1);
+}
+
+.featM {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.13em;
+    color: var(--amber);
+}
+
+/* ---------- account dropdown --------------------------------------------- */
+
+.acctDd {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 250px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity 0.2s var(--nav-ease), transform 0.24s var(--nav-ease), visibility 0.2s;
+    z-index: 60;
+}
+
+.acctWrap.isOpen .acctDd {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.acctDd .card {
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    border-top: 2px solid var(--acct-accent, var(--red));
+    box-shadow: 0 26px 60px -14px rgba(0, 0, 0, 0.85);
+    padding: 6px 0;
+}
+
+.acctDd .hd {
+    padding: 12px 15px 13px;
+    border-bottom: 1px solid var(--line-1);
+    margin-bottom: 6px;
+}
+
+.acctDd .hd .r {
+    font-family: var(--font-cond);
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+}
+
+.acctDd .hd .rank {
+    color: var(--acct-accent, var(--red));
+}
+
+.acctDd .hd .u {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    color: var(--txt-3);
+    margin-top: 4px;
+    text-transform: uppercase;
+}
+
+/* The bar itself is the shared ProgressTrack; the menu only asks for a
+   thinner track and its own top margin. */
+.acctDd .hd .progress {
+    margin-top: 10px;
+}
+
+.acctDd .hd .pts {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    color: var(--amber);
+    margin-top: 6px;
+    text-transform: uppercase;
+}
+
+.acctDd .item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 15px;
+    font-family: var(--font-cond);
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+    transition: background 0.15s, color 0.15s;
+    background: none;
+    border: 0;
+    text-align: left;
+}
+
+.acctDd .item:hover {
+    background: var(--ink-3);
+    color: #fff;
+}
+
+.acctDd .item svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
+    color: var(--txt-3);
+    transition: color 0.15s;
+}
+
+.acctDd .item:hover svg {
+    color: var(--acct-accent, var(--red));
+}
+
+.acctDd .rule {
+    height: 1px;
+    background: var(--line-1);
+    margin: 6px 0;
+}
+
+.acctDd .out,
+.acctDd .out svg {
+    color: var(--red);
+}
+
+.acctDd .out:hover {
+    color: var(--red-hi);
+}
+
+.acctDd .out:hover svg {
+    color: var(--red-hi);
+}
+
+/* An impersonation session is loud on purpose — it is not a normal state. */
+.acctDd .warn,
+.acctDd .warn svg {
+    color: var(--amber);
+}
+
+/* ---------- burger ------------------------------------------------------- */
+
+.burger {
+    display: none;
+    margin-left: auto;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    gap: 4px;
+    align-content: center;
+    background: none;
+    border: 0;
+}
+
+.burger i {
+    display: block;
+    width: 19px;
+    height: 1.5px;
+    background: var(--txt-2);
+}
+
+.burger i:nth-child(2) {
+    width: 13px;
+    background: var(--red);
+}
+
+/* ---------- responsive --------------------------------------------------- */
+
+@media (max-width: 1439px) {
+    .brandSub {
+        display: none;
+    }
+
+    .brand {
+        padding: 9px 18px 9px 14px;
+    }
+
+    .mi {
+        padding: 0 12px;
+    }
+
+    .acct .who {
+        display: none;
+    }
+
+    .acct {
+        padding: 0 6px 0 5px;
+    }
+}
+
+@media (max-width: 1199px) {
+
+    .menu,
+    .icons,
+    .actDonate,
+    .actPrimary,
+    .acctWrap {
+        display: none;
+    }
+
+    .burger {
+        display: grid;
+    }
+
+    /* A phone-width rail carries the operation and nothing else — the muster
+       call and roster count are the first things to go. */
+    .strip .hi,
+    .strip .muster,
+    .strip .sep,
+    .strip .rosterCount {
+        display: none;
+    }
+}
+
+/* ---------- mobile sheet ------------------------------------------------- */
+
+.sheet {
+    background: var(--ink-1);
+    border-bottom: 1px solid var(--line-1);
+    max-height: calc(100vh - 94px);
+    overflow-y: auto;
+}
+
+/* The action pair sits above the links — the first thing a thumb reaches, in
+   the same left-to-right order as desktop so muscle memory carries over. */
+.macts {
+    display: flex;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #131519;
+    background: #0a0b0d;
+}
+
+/* In the sheet the pair goes full width and the donate label comes back —
+   there is room for it here, and at this size the notch is the only thing
+   marking them as ASOT rather than generic buttons. */
+.macts .navAct {
+    flex: 1;
+    height: 40px;
+    margin: 0;
+    font-size: 13px;
+}
+
+/* Permanently open in the sheet — there the two actions are full-width and sit
+   in among the navigation links, where a lone icon reads as an unlabelled
+   control rather than a quieter one. */
+.macts .actDonate .lbl {
+    max-width: none;
+    margin-left: 8px;
+    opacity: 1;
+}
+
+.grp {
+    padding: 11px 16px 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+}
+
+.mrow {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 11px 16px;
+    border-bottom: 1px solid #131519;
+    width: 100%;
+    background: none;
+    border-left: 0;
+    border-right: 0;
+    border-top: 0;
+    text-align: left;
+}
+
+.mrow .ic {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--txt-3);
+}
+
+.mrow .tt {
+    font-family: var(--font-cond);
+    font-size: 14.5px;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+    flex: 1;
+}
+
+.mrow.on {
+    background: rgba(224, 35, 60, 0.07);
+    box-shadow: inset 2px 0 0 var(--red);
+}
+
+.mrow.on .ic {
+    color: var(--red);
+}
+
+.msub .mrow {
+    padding-left: 34px;
+}
+
+.msub .mrow .tt {
+    font-size: 13px;
+    color: var(--txt-2);
+    letter-spacing: 0.09em;
+}
+
+/* The account row pins to the bottom of the sheet — thumb reach, and it
+   doubles as the sign-out affordance. */
+.mfoot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-top: 1px solid var(--line-1);
+    background: #0a0b0d;
+}
+
+.mfoot .who {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.15em;
+    color: var(--txt-2);
+    line-height: 1.4;
+    text-transform: uppercase;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.mfoot .who span {
+    display: block;
+    color: var(--txt-3);
+    font-size: 8.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mfoot .sign {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    color: var(--red);
+    text-transform: uppercase;
+    background: none;
+    border: 0;
+    flex: none;
+}
+
+/* ---------- scroll-to-top ------------------------------------------------ */
+
+.toTop {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 50;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 10, 0.85);
+    border: 1px solid rgba(224, 35, 60, 0.35);
+    color: rgba(237, 237, 237, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 0 6px 1px rgba(224, 35, 60, 0.18);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    transition: opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
+.toTopShown {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.toTop:hover {
+    border-color: rgba(224, 35, 60, 0.7);
+    color: rgba(237, 237, 237, 1);
+    box-shadow: 0 0 16px 4px rgba(224, 35, 60, 0.5), 0 0 4px 1px rgba(224, 35, 60, 0.4);
+}

@@ -294,7 +294,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                 },
             }}
         >
-            <DialogTitle style={{ padding: '16px 20px', borderBottom: '1px solid rgba(219,0,29,0.22)' }}>
+            <DialogTitle style={{ padding: '16px 20px', borderBottom: '1px solid var(--line-2)' }}>
                 <div className='flex items-center justify-between'>
                     <div>
                         <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
@@ -328,11 +328,11 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                         <Field label='In-Game Name' value={app.inGameName} />
                         {app.age && app.age < 17 ? (
                             <div>
-                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 3 }}>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--amber)', marginBottom: 3 }}>
                                     Age ⚠
                                 </div>
-                                <div style={{ fontSize: '0.82rem', color: '#f59e0b', fontWeight: 700 }}>
-                                    {app.age} <span style={{ fontSize: '0.68rem', fontWeight: 400, color: 'rgba(245,158,11,0.7)' }}>— Under 17</span>
+                                <div style={{ fontSize: '0.82rem', color: 'var(--amber)', fontWeight: 700 }}>
+                                    {app.age} <span style={{ fontSize: '0.68rem', fontWeight: 400, color: 'color-mix(in srgb, var(--amber) 70%, transparent)' }}>— Under 17</span>
                                 </div>
                             </div>
                         ) : (
@@ -362,14 +362,14 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                     )}
 
                     {app.ownsArma === false && (
-                        <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: '#f59e0b', lineHeight: 1.6 }}>
+                        <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: 'var(--amber)', lineHeight: 1.6 }}>
                             ⚠ Applicant does not currently own ARMA 3 — must purchase before officially joining.
                         </div>
                     )}
 
                     {app.ageExemptionNote && (
-                        <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderLeft: '3px solid #f59e0b' }}>
-                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 5 }}>
+                        <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', borderLeft: '3px solid #f59e0b' }}>
+                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--amber)', marginBottom: 5 }}>
                                 Age Exemption / Vouch Note
                             </div>
                             <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
@@ -429,7 +429,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                             <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 6 }}>
                                 Experience
                             </div>
-                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.7, background: 'rgba(255,255,255,0.04)', padding: '10px 12px', border: '1px solid rgba(219,0,29,0.08)' }}>
+                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', whiteSpace: 'pre-wrap', lineHeight: 1.7, background: 'rgba(255,255,255,0.04)', padding: '10px 12px', border: '1px solid var(--line-2)' }}>
                                 {app.experience}
                             </div>
                         </div>
@@ -447,7 +447,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                         const raw: string = check.status ?? ''
                         const st = raw === 'YES' ? 'CLEAR' : raw === 'REVIEW' ? 'GD' : raw
                         const j4StatusLine = app.j4ReviewStatus && (
-                            <div style={{ marginTop: 6, fontSize: '0.72rem', fontWeight: 700, color: app.j4ReviewStatus === 'approved' ? '#00c364' : app.j4ReviewStatus === 'rejected' ? 'var(--red)' : '#f59e0b' }}>
+                            <div style={{ marginTop: 6, fontSize: '0.72rem', fontWeight: 700, color: app.j4ReviewStatus === 'approved' ? '#00c364' : app.j4ReviewStatus === 'rejected' ? 'var(--red)' : 'var(--amber)' }}>
                                 J4 decision: {app.j4ReviewStatus.toUpperCase()}
                                 {app.j4ReviewedByName && <span style={{ fontWeight: 400, color: 'rgba(237,237,237,0.4)' }}> by {app.j4ReviewedByName}</span>}
                                 {app.j4ReviewNote && <span style={{ fontWeight: 400, color: 'rgba(237,237,237,0.5)' }}> — {app.j4ReviewNote}</span>}
@@ -462,17 +462,17 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                         )
                         if (st === 'HD') return (
                             <div style={{ padding: '10px 14px', background: 'rgba(0,120,255,0.06)', border: '1px solid rgba(0,120,255,0.3)', borderLeft: '3px solid #60a5fa' }}>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#60a5fa', marginBottom: 4 }}>Returning Member — Honourable Discharge (HD)</div>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--info)', marginBottom: 4 }}>Returning Member — Honourable Discharge (HD)</div>
                                 <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>{check.details}</div>
                                 <div style={{ marginTop: 5, fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}>No restrictions — applicant may proceed normally.</div>
                                 {j4StatusLine}
                             </div>
                         )
                         if (st === 'GD') return (
-                            <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b' }}>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 4 }}>Returning Member — General Discharge (GD)</div>
+                            <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 35%, transparent)', borderLeft: '3px solid #f59e0b' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--amber)', marginBottom: 4 }}>Returning Member — General Discharge (GD)</div>
                                 <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>{check.details}</div>
-                                <div style={{ marginTop: 5, fontSize: '0.72rem', color: 'rgba(245,158,11,0.7)' }}>Recruiter may continue at their discretion. J4 notification is optional.</div>
+                                <div style={{ marginTop: 5, fontSize: '0.72rem', color: 'color-mix(in srgb, var(--amber) 70%, transparent)' }}>Recruiter may continue at their discretion. J4 notification is optional.</div>
                                 {(app as any).j4GDNotified && <div style={{ marginTop: 5, fontSize: '0.72rem', color: '#00c364' }}>✓ J4 has been notified</div>}
                                 {j4StatusLine}
                             </div>
@@ -486,8 +486,8 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                             </div>
                         )
                         return (
-                            <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b' }}>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 4 }}>Returning Member Check — {raw}</div>
+                            <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 35%, transparent)', borderLeft: '3px solid #f59e0b' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--amber)', marginBottom: 4 }}>Returning Member Check — {raw}</div>
                                 <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', lineHeight: 1.6 }}>{check.details}</div>
                                 {j4StatusLine}
                             </div>
@@ -495,7 +495,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                     })()}
 
                     {/* Divider */}
-                    <div style={{ borderTop: '1px solid rgba(219,0,29,0.22)', paddingTop: 16 }}>
+                    <div style={{ borderTop: '1px solid var(--line-2)', paddingTop: 16 }}>
                         <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 14 }}>
                             Review
                         </div>
@@ -514,7 +514,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
 
                             {/* Recruiter assignment + decision — grouped */}
                             {app.status !== 'accepted' && app.status !== 'rejected' && (
-                                <div style={{ border: '1px solid rgba(219,0,29,0.18)', background: 'rgba(255,255,255,0.02)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.02)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
                                     {/* Assign Recruiter form — only shown in assign mode (J1 Lead) */}
                                     {isLead && assigningMode && (
@@ -539,7 +539,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                     <button
                                                         onClick={() => setRecruiter(null)}
                                                         title='Remove recruiter'
-                                                        style={{ background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
+                                                        style={{ background: 'transparent', border: '1px solid var(--line-2)', cursor: 'pointer', color: 'rgba(237,237,237,0.4)', padding: '6px 8px', display: 'flex', alignItems: 'center' }}
                                                     >
                                                         <LinkOff style={{ fontSize: 16 }} />
                                                     </button>
@@ -549,7 +549,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                             {/* New assignment: deadline + notification notice */}
                                             {recruiter && recruiter.id !== app.assignedReviewerId && (
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                                                    <div style={{ fontSize: '0.72rem', color: '#f59e0b' }}>
+                                                    <div style={{ fontSize: '0.72rem', color: 'var(--amber)' }}>
                                                         ● Will assign <strong>{recruiter.displayName}</strong> — they'll receive a task notification
                                                     </div>
                                                     <div className='flex flex-wrap items-center gap-2'>
@@ -576,7 +576,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                                 min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
                                                                 style={{
                                                                     background: 'rgba(255,255,255,0.04)',
-                                                                    border: '1px solid rgba(219,0,29,0.32)',
+                                                                    border: '1px solid var(--line-2)',
                                                                     color: 'rgba(237,237,237,0.85)',
                                                                     padding: '7px 10px',
                                                                     fontSize: '0.82rem',
@@ -616,7 +616,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                     {isLead && !assigningMode && app.assignedReviewerName && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                             <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)' }}>
-                                                Assigned recruiter: <strong style={{ color: '#f59e0b' }}>{app.assignedReviewerName}</strong>
+                                                Assigned recruiter: <strong style={{ color: 'var(--amber)' }}>{app.assignedReviewerName}</strong>
                                                 {app.assignedByLeadName && <span style={{ color: 'rgba(237,237,237,0.2)' }}> (assigned by {app.assignedByLeadName})</span>}
                                             </div>
                                             {/* Note field for send back — always visible to lead when a recruiter is assigned */}
@@ -638,16 +638,16 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                     {/* Show assigned recruiter info to non-leads */}
                                     {!isLead && app.assignedReviewerName && (
                                         <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)' }}>
-                                            Assigned recruiter: <span style={{ color: '#f59e0b' }}>{app.assignedReviewerName}</span>
+                                            Assigned recruiter: <span style={{ color: 'var(--amber)' }}>{app.assignedReviewerName}</span>
                                         </div>
                                     )}
 
                                     {/* Action Required banner — shown to recruiter when application is returned */}
                                     {isAssignedRecruiter && !isLead && app.status === 'returned' && (
-                                        <div style={{ padding: '10px 14px', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--amber) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 35%, transparent)', borderLeft: '3px solid #f59e0b', display: 'flex', flexDirection: 'column', gap: 8 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                                                <Warning style={{ fontSize: 15, color: '#f59e0b', flexShrink: 0 }} />
-                                                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#f59e0b' }}>Action Required — Sent Back for Review</div>
+                                                <Warning style={{ fontSize: 15, color: 'var(--amber)', flexShrink: 0 }} />
+                                                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--amber)' }}>Action Required — Sent Back for Review</div>
                                             </div>
                                             <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>
                                                 A J1 lead has reviewed this application and sent it back. Review the note below, make any necessary changes, then resubmit.
@@ -664,7 +664,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                     {(() => {
                                         const hasRecruiter = !!app.assignedReviewerId
                                         const j4Override = !hasRecruiter && isJ4 && !isLead
-                                        const dividerStyle: React.CSSProperties = { borderTop: '1px solid rgba(219,0,29,0.15)', paddingTop: 10, marginTop: 4 }
+                                        const dividerStyle: React.CSSProperties = { borderTop: '1px solid var(--line-2)', paddingTop: 10, marginTop: 4 }
                                         const btnBase: React.CSSProperties = { fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '7px 18px', cursor: 'pointer' }
 
                                         // Recruiter resubmit (returned status only)
@@ -694,7 +694,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                         <button
                                                             onClick={() => { if (canAssign) handleSave() }}
                                                             disabled={saving || !canAssign}
-                                                            style={{ ...btnBase, background: 'rgba(0,120,255,0.15)', border: '1px solid rgba(0,120,255,0.4)', color: '#60a5fa', cursor: canAssign && !saving ? 'pointer' : 'not-allowed', opacity: saving || !canAssign ? 0.45 : 1 }}
+                                                            style={{ ...btnBase, background: 'rgba(0,120,255,0.15)', border: '1px solid rgba(0,120,255,0.4)', color: 'var(--info)', cursor: canAssign && !saving ? 'pointer' : 'not-allowed', opacity: saving || !canAssign ? 0.45 : 1 }}
                                                         >
                                                             {saving ? '…' : '✓ Assign Recruiter'}
                                                         </button>
@@ -714,7 +714,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                         if (isJ4 && isJ4ReviewPending) {
                                             return (
                                                 <div style={dividerStyle}>
-                                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: '#f59e0b', marginBottom: 8 }}>
+                                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--amber)', marginBottom: 8 }}>
                                                         J4 Review Required
                                                     </div>
                                                     <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.6)', marginBottom: 10, lineHeight: 1.6 }}>
@@ -765,14 +765,14 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                         // Recruiter recommendation panel (assigned non-lead)
                                         if (isAssignedRecruiter && !isLead) {
                                             const gdNotifyBanner = returningStatus === 'GD' && !(app as any).j4GDNotified && (
-                                                <div style={{ padding: '8px 12px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderLeft: '3px solid #f59e0b', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                                                    <div style={{ fontSize: '0.74rem', color: '#f59e0b', lineHeight: 1.5 }}>
+                                                <div style={{ padding: '8px 12px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', borderLeft: '3px solid #f59e0b', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                                                    <div style={{ fontSize: '0.74rem', color: 'var(--amber)', lineHeight: 1.5 }}>
                                                         This applicant has a General Discharge. You may continue, but can optionally notify J4.
                                                     </div>
                                                     <button
                                                         onClick={handleNotifyJ4Optional}
                                                         disabled={notifyingJ4}
-                                                        style={{ ...btnBase, fontSize: '0.65rem', padding: '5px 12px', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b', flexShrink: 0, opacity: notifyingJ4 ? 0.5 : 1, cursor: notifyingJ4 ? 'not-allowed' : 'pointer' }}
+                                                        style={{ ...btnBase, fontSize: '0.65rem', padding: '5px 12px', background: 'color-mix(in srgb, var(--amber) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 40%, transparent)', color: 'var(--amber)', flexShrink: 0, opacity: notifyingJ4 ? 0.5 : 1, cursor: notifyingJ4 ? 'not-allowed' : 'pointer' }}
                                                     >
                                                         {notifyingJ4 ? '…' : 'Notify J4 (Optional)'}
                                                     </button>
@@ -780,7 +780,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                             )
                                             if (app.recruiterRecommendation) {
                                                 const recLabel = app.recruiterRecommendation === 'approve' ? 'APPROVE' : app.recruiterRecommendation === 'deny' ? 'DENY' : 'PEND'
-                                                const recColor = app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : '#f59e0b'
+                                                const recColor = app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : 'var(--amber)'
                                                 return (
                                                     <div style={dividerStyle}>
                                                         {gdNotifyBanner}
@@ -829,7 +829,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                         <button
                                                             onClick={() => handleRecommend('pend')}
                                                             disabled={statusChanging}
-                                                            style={{ ...btnBase, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', color: '#f59e0b', opacity: statusChanging ? 0.5 : 1 }}
+                                                            style={{ ...btnBase, background: 'color-mix(in srgb, var(--amber) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', color: 'var(--amber)', opacity: statusChanging ? 0.5 : 1 }}
                                                         >
                                                             ⏸ Pend (flag for lead)
                                                         </button>
@@ -842,7 +842,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                         if (j4Override) {
                                             return (
                                                 <div style={dividerStyle}>
-                                                    <div style={{ fontSize: '0.65rem', color: '#f59e0b', marginBottom: 8, letterSpacing: '0.05em' }}>
+                                                    <div style={{ fontSize: '0.65rem', color: 'var(--amber)', marginBottom: 8, letterSpacing: '0.05em' }}>
                                                         ⚠ No recruiter assigned — J4 override
                                                     </div>
                                                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -860,7 +860,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                     {app.recruiterRecommendation && (
                                                         <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)', marginBottom: 10, fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)' }}>
                                                             Recruiter recommends:{' '}
-                                                            <span style={{ fontWeight: 700, color: app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : '#f59e0b' }}>
+                                                            <span style={{ fontWeight: 700, color: app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : 'var(--amber)' }}>
                                                                 {app.recruiterRecommendation.toUpperCase()}
                                                             </span>
                                                         </div>
@@ -868,13 +868,13 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                                                         <button onClick={() => handleStatusChange('accepted')} disabled={statusChanging} style={{ ...btnBase, background: 'rgba(0,195,100,0.15)', border: '1px solid rgba(0,195,100,0.4)', color: '#00c364', opacity: statusChanging ? 0.5 : 1 }}>✓ Accept</button>
                                                         <button onClick={() => handleStatusChange('rejected')} disabled={statusChanging} style={{ ...btnBase, background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'var(--red)', opacity: statusChanging ? 0.5 : 1 }}>✗ Reject</button>
-                                                        <button onClick={() => setAssigningMode(true)} style={{ ...btnBase, background: 'rgba(0,120,255,0.1)', border: '1px solid rgba(0,120,255,0.35)', color: '#60a5fa' }}>＋ Assign Recruiter</button>
+                                                        <button onClick={() => setAssigningMode(true)} style={{ ...btnBase, background: 'rgba(0,120,255,0.1)', border: '1px solid rgba(0,120,255,0.35)', color: 'var(--info)' }}>＋ Assign Recruiter</button>
                                                         {hasRecruiter && (
                                                             <button
                                                                 onClick={handleSendBack}
                                                                 disabled={statusChanging || !recruiterNote.trim()}
                                                                 title={!recruiterNote.trim() ? 'Enter a note for the recruiter before sending back' : 'Send back to recruiter for review'}
-                                                                style={{ ...btnBase, background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)', color: '#f59e0b', cursor: !recruiterNote.trim() ? 'not-allowed' : 'pointer', opacity: statusChanging || !recruiterNote.trim() ? 0.45 : 1 }}
+                                                                style={{ ...btnBase, background: 'color-mix(in srgb, var(--amber) 10%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 35%, transparent)', color: 'var(--amber)', cursor: !recruiterNote.trim() ? 'not-allowed' : 'pointer', opacity: statusChanging || !recruiterNote.trim() ? 0.45 : 1 }}
                                                             >
                                                                 ↩ Send Back
                                                             </button>
@@ -904,7 +904,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                     <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)' }}>@{linkedMember.username}</span>
                                                 )}
                                                 {linkedMember.discharged && (
-                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '1px 5px' }}>DISCHARGED</span>
+                                                    <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', padding: '1px 5px' }}>DISCHARGED</span>
                                                 )}
                                                 {linkedMember.isSkeleton && (
                                                     <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 5px' }}>CSV</span>
@@ -956,7 +956,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                                                 <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.3)' }}>@{option.username}</span>
                                                             )}
                                                             {option.discharged && (
-                                                                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', padding: '1px 4px' }}>DISCHARGED</span>
+                                                                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 30%, transparent)', padding: '1px 4px' }}>DISCHARGED</span>
                                                             )}
                                                             {option.isSkeleton && (
                                                                 <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', color: 'rgba(237,237,237,0.35)', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 4px' }}>CSV</span>
@@ -976,7 +976,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                         noOptionsText={<span style={{ fontSize: '0.8rem' }}>No members found</span>}
                                         fullWidth
                                         PaperComponent={({ children, ...props }) => (
-                                            <div {...props as React.HTMLAttributes<HTMLDivElement>} style={{ background: '#1a1a1a', border: '1px solid rgba(219,0,29,0.32)', borderRadius: 0, marginTop: 2 }}>
+                                            <div {...props as React.HTMLAttributes<HTMLDivElement>} style={{ background: '#1a1a1a', border: '1px solid var(--line-2)', borderRadius: 0, marginTop: 2 }}>
                                                 {children}
                                             </div>
                                         )}
@@ -1007,23 +1007,23 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                             </div>
 
                             {isJ4 && (
-                                <div style={{ marginTop: 8, borderTop: '1px solid rgba(239,68,68,0.15)', paddingTop: 12 }}>
+                                <div style={{ marginTop: 8, borderTop: '1px solid color-mix(in srgb, var(--red) 15%, transparent)', paddingTop: 12 }}>
                                     {!confirmDelete ? (
                                         <button
                                             type='button'
                                             onClick={() => setConfirmDelete(true)}
-                                            style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(239,68,68,0.5)', background: 'none', border: '1px solid rgba(239,68,68,0.2)', padding: '4px 12px', cursor: 'pointer' }}
+                                            style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'color-mix(in srgb, var(--red) 50%, transparent)', background: 'none', border: '1px solid color-mix(in srgb, var(--red) 20%, transparent)', padding: '4px 12px', cursor: 'pointer' }}
                                         >
                                             Delete Application
                                         </button>
                                     ) : (
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                            <span style={{ fontSize: '0.72rem', color: 'rgba(239,68,68,0.7)' }}>Permanently delete this application?</span>
+                                            <span style={{ fontSize: '0.72rem', color: 'color-mix(in srgb, var(--red) 70%, transparent)' }}>Permanently delete this application?</span>
                                             <button
                                                 type='button'
                                                 onClick={handleDelete}
                                                 disabled={deleting}
-                                                style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', background: '#ef4444', border: 'none', padding: '4px 12px', cursor: 'pointer' }}
+                                                style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', background: 'var(--red)', border: 'none', padding: '4px 12px', cursor: 'pointer' }}
                                             >
                                                 {deleting ? 'Deleting...' : 'Confirm Delete'}
                                             </button>
@@ -1216,7 +1216,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
             </div>
 
             {/* Column headers */}
-            <div className='grid gap-3 px-4 py-2 mx-4 mt-3' style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+            <div className='grid gap-3 px-4 py-2 mx-4 mt-3' style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid var(--line-2)' }}>
                 {([
                     { label: 'Discord', key: 'discordUsername' },
                     { label: 'In-Game Name', key: 'inGameName' },
@@ -1261,7 +1261,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                         <div
                             key={app._id}
                             className='grid gap-3 px-4 py-3 cursor-pointer transition-colors'
-                            style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid rgba(219,0,29,0.08)' }}
+                            style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid var(--line-2)' }}
                             onClick={() => setSelected(app)}
                             onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -1292,30 +1292,30 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                                     <LinkIcon style={{ fontSize: 14, color: '#00c364' }} titleAccess={`Linked: ${app.linkedUserDisplayName}`} />
                                 )}
                                 {app.j4ReviewStatus === 'pending' && (
-                                    <span title='J4 review pending' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', padding: '1px 5px' }}>J4</span>
+                                    <span title='J4 review pending' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 35%, transparent)', padding: '1px 5px' }}>J4</span>
                                 )}
                                 {(() => {
                                     const rs = (app.returningMemberCheck as any)?.status as string | undefined
                                     const st = rs === 'YES' ? 'CLEAR' : rs === 'REVIEW' ? 'GD' : rs
                                     if (!st || st === 'CLEAR') return null
                                     const c = st === 'HD'
-                                        ? { bg: 'rgba(0,120,255,0.1)', border: 'rgba(0,120,255,0.35)', text: '#60a5fa' }
+                                        ? { bg: 'rgba(0,120,255,0.1)', border: 'rgba(0,120,255,0.35)', text: 'var(--info)' }
                                         : st === 'DD'
                                         ? { bg: 'rgba(219,0,29,0.1)', border: 'rgba(219,0,29,0.4)', text: 'var(--red)' }
-                                        : { bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.35)', text: '#f59e0b' }
+                                        : { bg: 'color-mix(in srgb, var(--amber) 10%, transparent)', border: 'color-mix(in srgb, var(--amber) 35%, transparent)', text: 'var(--amber)' }
                                     return <span title={`Returning member: ${st}`} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: c.text, background: c.bg, border: `1px solid ${c.border}`, padding: '1px 5px' }}>{st}</span>
                                 })()}
                                 {app.recruiterRecommendation && !app.j4ReviewStatus && (
-                                    <span title={`Recruiter: ${app.recruiterRecommendation}`} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : '#f59e0b', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 5px' }}>REC</span>
+                                    <span title={`Recruiter: ${app.recruiterRecommendation}`} style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: app.recruiterRecommendation === 'approve' ? '#00c364' : app.recruiterRecommendation === 'deny' ? 'var(--red)' : 'var(--amber)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.12)', padding: '1px 5px' }}>REC</span>
                                 )}
                                 {app.returningMemberCheck?.status === 'YES' && (
                                     <span title='Returning member' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#00c364', background: 'rgba(0,195,100,0.12)', border: '1px solid rgba(0,195,100,0.35)', padding: '1px 5px' }}>RTN</span>
                                 )}
                                 {app.returningMemberCheck?.status === 'REVIEW' && (
-                                    <span title='Returning member — J4 review required' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.35)', padding: '1px 5px' }}>RTN</span>
+                                    <span title='Returning member — J4 review required' style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 35%, transparent)', padding: '1px 5px' }}>RTN</span>
                                 )}
                             </div>
-                            <span style={{ fontSize: '0.7rem', color: app.assignedReviewerName ? 'rgba(245,158,11,0.8)' : 'rgba(237,237,237,0.2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <span style={{ fontSize: '0.7rem', color: app.assignedReviewerName ? 'color-mix(in srgb, var(--amber) 80%, transparent)' : 'rgba(237,237,237,0.2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {app.assignedReviewerName ?? '—'}
                             </span>
                         </div>
@@ -1323,7 +1323,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
 
                     {/* Pagination */}
                     {totalPages > 1 && (
-                        <div className='flex items-center justify-between px-4 py-3' style={{ borderTop: '1px solid rgba(219,0,29,0.22)' }}>
+                        <div className='flex items-center justify-between px-4 py-3' style={{ borderTop: '1px solid var(--line-2)' }}>
                             <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.35)' }}>
                                 {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
                             </span>
@@ -1331,7 +1331,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                                 <button
                                     onClick={() => setPage(p => p - 1)}
                                     disabled={page === 0}
-                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === 0 ? 'default' : 'pointer' }}
+                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid var(--line-2)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === 0 ? 'default' : 'pointer' }}
                                 >
                                     ‹ Prev
                                 </button>
@@ -1357,7 +1357,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                                 <button
                                     onClick={() => setPage(p => p + 1)}
                                     disabled={page === totalPages - 1}
-                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.32)', color: page === totalPages - 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === totalPages - 1 ? 'default' : 'pointer' }}
+                                    style={{ fontSize: '0.72rem', fontWeight: 700, padding: '4px 10px', background: 'transparent', border: '1px solid var(--line-2)', color: page === totalPages - 1 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.6)', cursor: page === totalPages - 1 ? 'default' : 'pointer' }}
                                 >
                                     Next ›
                                 </button>

@@ -64,7 +64,7 @@ const DIFF_SECTION: React.CSSProperties = {
 }
 const DIFF_LABEL: React.CSSProperties = {
     fontFamily: "'Oswald', Arial, sans-serif", fontSize: '0.6rem', fontWeight: 700,
-    letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)',
+    letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)',
     marginBottom: 6,
 }
 
@@ -231,7 +231,7 @@ function HistoryDiffModal({ entry, prev, onClose }: {
     return (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
             onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-            <div style={{ background: '#0d0d0d', border: '1px solid rgba(219,0,29,0.2)', borderTop: `3px solid ${RED}`, width: '100%', maxWidth: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ background: '#0d0d0d', border: '1px solid var(--line-2)', borderTop: `3px solid ${RED}`, width: '100%', maxWidth: 720, maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
                     <History sx={{ fontSize: 14, color: 'rgba(219,0,29,0.6)' }} />
                     <div style={{ flex: 1 }}>
@@ -417,7 +417,7 @@ export default function GuideEditorPage({ guide: initialGuide, guideId, isEditab
 
             {/* ── Page header ──────────────────────────────────────────────────────── */}
             <div style={{
-                borderBottom: '1px solid rgba(219,0,29,0.3)',
+                borderBottom: '1px solid var(--line-2)',
                 padding: '10px 20px',
                 display: 'flex',
                 alignItems: 'center',
@@ -432,7 +432,7 @@ export default function GuideEditorPage({ guide: initialGuide, guideId, isEditab
                     <ArrowBack sx={{ fontSize: 12 }} /> Back
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '0.45rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace', marginBottom: 1 }}>
+                    <div style={{ fontSize: '0.45rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', marginBottom: 1 }}>
                         {'//'} {guideTypeLabel} · {guide.docRef}
                     </div>
                     <div style={{ fontSize: '0.88rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -509,7 +509,7 @@ export default function GuideEditorPage({ guide: initialGuide, guideId, isEditab
 
                         {/* Actions */}
                         <div style={{ padding: '18px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', marginBottom: 2, fontFamily: 'monospace' }}>{'//'} ACTIONS</div>
+                            <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 2, fontFamily: 'monospace' }}>{'//'} ACTIONS</div>
 
                             {reviewMsg && (
                                 <div style={{ fontSize: '0.62rem', fontWeight: 700, color: 'rgba(80,200,120,0.8)', padding: '6px 10px', border: '1px solid rgba(80,200,120,0.2)', background: 'rgba(80,200,120,0.04)' }}>
@@ -563,7 +563,7 @@ export default function GuideEditorPage({ guide: initialGuide, guideId, isEditab
 
                         {/* Guide info */}
                         <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 9 }}>
-                            <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>{'//'} INFO</div>
+                            <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>{'//'} INFO</div>
                             {[
                                 { label: 'Reference',    value: guide.docRef, mono: true },
                                 { label: 'Type',         value: guideTypeLabel },
@@ -586,7 +586,7 @@ export default function GuideEditorPage({ guide: initialGuide, guideId, isEditab
                                 onDragLeave={() => setSidebarDragOver(false)}
                                 onDrop={async e => { e.preventDefault(); e.stopPropagation(); setSidebarDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) await sidebarUpload(f) }}
                             >
-                                <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace', marginBottom: 10 }}>{'//'} ADD IMAGE</div>
+                                <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', marginBottom: 10 }}>{'//'} ADD IMAGE</div>
 
                                 {/* Main trigger button */}
                                 <button
@@ -626,7 +626,7 @@ export default function GuideEditorPage({ guide: initialGuide, guideId, isEditab
                         {/* Colours */}
                         {editMode && (
                             <div style={{ padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace' }}>{'//'} COLOURS</div>
+                                <div style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>{'//'} COLOURS</div>
 
                                 {/* Section Accent */}
                                 <div>
@@ -681,7 +681,7 @@ export default function GuideEditorPage({ guide: initialGuide, guideId, isEditab
                                 style={{ padding: '10px 16px 8px', display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', cursor: 'pointer', width: '100%', textAlign: 'left' }}
                             >
                                 <History sx={{ fontSize: 12, color: 'rgba(219,0,29,0.5)' }} />
-                                <span style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)', fontFamily: 'monospace', flex: 1 }}>HISTORY</span>
+                                <span style={{ fontSize: '0.48rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace', flex: 1 }}>HISTORY</span>
                                 {historyOpen
                                     ? <ExpandLess sx={{ fontSize: 14, color: 'rgba(219,0,29,0.4)' }} />
                                     : <ExpandMore sx={{ fontSize: 14, color: 'rgba(219,0,29,0.4)' }} />

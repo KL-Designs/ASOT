@@ -256,7 +256,7 @@ export default function PromotionTicketsTab({ displayName, userId }: { displayNa
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                                 <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(219,0,29,0.42)' }}>
+                                    <tr style={{ borderBottom: '1px solid var(--line-2)' }}>
                                         {['Member', 'Action', 'Proposed Rank', 'Status', 'Date'].map(h => (
                                             <th key={h} style={{ textAlign: 'left', padding: '6px 12px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
                                                 {h}
@@ -292,12 +292,12 @@ export default function PromotionTicketsTab({ displayName, userId }: { displayNa
                                 <button
                                     onClick={() => setPage(p => p - 1)}
                                     disabled={page === 0}
-                                    style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid rgba(219,0,29,0.25)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: page === 0 ? 'default' : 'pointer' }}
+                                    style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid var(--line-2)', color: page === 0 ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: page === 0 ? 'default' : 'pointer' }}
                                 >Prev</button>
                                 <button
                                     onClick={() => setPage(p => p + 1)}
                                     disabled={(page + 1) * PAGE_SIZE >= myTickets.length}
-                                    style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid rgba(219,0,29,0.25)', color: (page + 1) * PAGE_SIZE >= myTickets.length ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: (page + 1) * PAGE_SIZE >= myTickets.length ? 'default' : 'pointer' }}
+                                    style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', padding: '3px 10px', background: 'none', border: '1px solid var(--line-2)', color: (page + 1) * PAGE_SIZE >= myTickets.length ? 'rgba(237,237,237,0.2)' : 'rgba(237,237,237,0.5)', cursor: (page + 1) * PAGE_SIZE >= myTickets.length ? 'default' : 'pointer' }}
                                 >Next</button>
                             </div>
                         )}

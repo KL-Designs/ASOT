@@ -1297,7 +1297,7 @@ export default function IntelImagesTab() {
     return (
         <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Sub-tabs */}
-            <div style={{ borderBottom: '1px solid rgba(219,0,29,0.22)', padding: '0 20px', flexShrink: 0 }}>
+            <div style={{ borderBottom: '1px solid var(--line-2)', padding: '0 20px', flexShrink: 0 }}>
                 <Tabs
                     value={tab}
                     onChange={(_, v) => setTab(v)}

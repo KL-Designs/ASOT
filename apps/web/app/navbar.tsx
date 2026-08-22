@@ -1,98 +1,65 @@
-﻿'use client'
+'use client'
 
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
-import { useState, useEffect } from 'react'
+import {
+    Search, KeyboardArrowDown, KeyboardArrowUp,
+    Dashboard as DashboardIcon, AccountCircle,
+} from '@mui/icons-material'
 
-import { Button, IconButton, Drawer, Divider, Menu, MenuItem, Collapse, Switch } from '@mui/material'
-import { AccountCircle, Home, School, Group, MilitaryTech, TrackChanges, Collections, Handshake, Support, VolunteerActivism, Login, Logout, Menu as MenuIcon, ArrowRight, ArrowDropDown, InfoOutlined, Tag, ContactMail, Gavel, AutoAwesome, HelpOutline, AccountTree, Badge, Close, ExpandMore, ExpandLess, EmojiEvents, KeyboardArrowUp, Person, Dashboard as DashboardIcon, Api, Tune, MapOutlined, Mouse, Backpack } from '@mui/icons-material'
+import { CrateIcon } from '@/components/ui/icons'
+import Button from '@/components/ui/Button'
+import { useEnlistTransition, EnlistFadeOverlay } from '@/components/enlist-transition'
 
-import Navigation from '@/styles/navigation.module.css'
-import { rankNameFromAbbr } from '@/lib/military/ranks'
-import Avatar from '@/components/member/avatar'
 import NotificationBell from '@/app/dashboard/_components/NotificationBell'
+import AccountMenu from '@/components/nav/AccountMenu'
+import MobileSheet from '@/components/nav/MobileSheet'
+import Topo from '@/components/ui/Topo'
+import StatusRail from '@/components/nav/StatusRail'
+import { useNavStatus, formatOpTime } from '@/components/nav/useNavStatus'
+import type { NavOp } from '@/app/api/nav/status/route'
+import { NAV_ITEMS, isItemActive, type NavItem } from '@/components/nav/nav-data'
 
+import s from '@/styles/navbar.module.css'
 import Logo from '@/public/logo.png'
-import MapBg from '@/public/designs/map.png'
 
+/* ============================================================================
+   ASOT — Command Strip navigation
 
+   Three horizontal bands: a status rail carrying the next operation and live
+   presence, the bar itself, and (below 1200px) a sheet.
 
-type SubLink = {
-    name: string
-    link: string
-    icon: React.JSX.Element
-    description: string
-}
+   The right-hand cluster deliberately runs at four different volumes — solid
+   primary, amber ghost, hairline account chip, borderless icon buttons — and
+   only one element is ever solid-filled: whichever is the primary action for
+   the current auth state. If everything is loud, nothing is.
 
-type Link = ({
-    name: string
-    href: string
-    icon: React.JSX.Element
-    subLinks?: undefined
-} | {
-    name: string
-    href: string
-    icon: React.JSX.Element
-    subLinks: SubLink[]
-})
-
-
+   Layout and interaction live in styles/navbar.module.css; this file is
+   structure, state and data.
+   ========================================================================== */
 
 export default function Navbar() {
-
-    const [sideMenuOpen, setSideMenuOpen] = useState(false)
-    const [user, setUser] = useState<User | null>(null)
-    const [scrolled, setScrolled] = useState(false)
-    const [scrollBtnHovered, setScrollBtnHovered] = useState(false)
     const pathname = usePathname()
 
-    const Links: Link[] = [
-        { name: 'Home', href: '/', icon: <Home /> },
-        {
-            name: 'About Us', href: '/about', icon: <School />,
-            subLinks: [
-                { name: 'About Us', link: '/about', icon: <InfoOutlined />, description: 'Learn about our unit and history' },
-                { name: 'Callsigns', link: '/about/callsigns', icon: <Tag />, description: 'Platoon and section callsigns' },
-                { name: 'Contact', link: '/about/contact', icon: <ContactMail />, description: 'Get in touch with us' },
-                { name: 'Rules', link: '/about/rules', icon: <Gavel />, description: 'Unit rules and regulations' },
-                { name: 'Principles & Values', link: '/about/values', icon: <AutoAwesome />, description: 'What we stand for' },
-                { name: 'FAQ', link: '/about/faq', icon: <HelpOutline />, description: 'Frequently asked questions' },
-            ]
-        },
-        {
-            name: 'Our Orbat', href: '/community', icon: <AccountTree />,
-            subLinks: [
-                { name: 'ORBAT', link: '/community/orbat', icon: <Group />, description: "ASOT's Callsign Structure" },
-                { name: 'MILPACS', link: '/milpacs', icon: <MilitaryTech />, description: 'Military Personnel Accounting Centre' },
-                { name: 'Kits', link: '/community/kits', icon: <Backpack />, description: 'Kits members have shared with the unit' },
-                { name: 'Retired Members', link: '/community/retired', icon: <EmojiEvents />, description: 'Members who have served with ASOT' },
-                { name: 'Biographies', link: '/community/bios', icon: <Badge />, description: 'Meet our Staff' },
-                // { name: 'Hall of Fame', link: '/community/hof', icon: <EmojiEvents />, description: 'Honoured unit members' },
-            ]
-        },
-        {
-            name: 'Operations', href: '/operations', icon: <TrackChanges />,
-            subLinks: [
-                { name: 'Operations', link: '/operations', icon: <TrackChanges />, description: 'Browse all unit operations' },
-                { name: 'Interactive Map', link: '/maps', icon: <MapOutlined />, description: 'Explore available maps interactively' },
-            ]
-        },
-        { name: 'Gallery', href: '/gallery', icon: <Collections /> },
-        { name: 'Partners', href: '/partnerships', icon: <Handshake /> },
-        { name: 'Support', href: '/support', icon: <Support /> },
-    ]
+    const [user, setUser] = useState<User | null>(null)
+    const [openMenu, setOpenMenu] = useState<string | null>(null)
+    const [sheetOpen, setSheetOpen] = useState(false)
+    const [scrolled, setScrolled] = useState(false)
 
+    const root = useRef<HTMLElement>(null)
+    const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+    const status = useNavStatus()
+    const isMember = !!(user as any)?.isMember
+    const { fading: enlistFading, enlist } = useEnlistTransition()
 
     useEffect(() => {
         fetch('/api/me')
             .then(res => res.json())
-            .then(json => {
-                if (json.error) return
-                setUser(json)
-            })
+            .then(json => { if (!json.error) setUser(json) })
             .catch(() => { })
     }, [])
 
@@ -102,600 +69,269 @@ export default function Navbar() {
         return () => window.removeEventListener('scroll', handleScroll)
     }, [])
 
+    // A click outside, a route change or Escape all close everything.
+    useEffect(() => {
+        const onDown = (e: PointerEvent) => {
+            if (root.current && !root.current.contains(e.target as Node)) setOpenMenu(null)
+        }
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') { setOpenMenu(null); setSheetOpen(false) }
+        }
+        document.addEventListener('pointerdown', onDown)
+        document.addEventListener('keydown', onKey)
+        return () => {
+            document.removeEventListener('pointerdown', onDown)
+            document.removeEventListener('keydown', onKey)
+        }
+    }, [])
+
+    useEffect(() => { setOpenMenu(null); setSheetOpen(false) }, [pathname])
+
+    // A short close delay so the cursor can cross the gap from the label down
+    // into the panel without the panel vanishing underneath it.
+    const enterItem = (name: string) => { clearTimeout(closeTimer.current); setOpenMenu(name) }
+    const leaveItem = () => { closeTimer.current = setTimeout(() => setOpenMenu(null), 120) }
+
+    /* The two action buttons. Built here rather than in each surface so the bar
+       and the mobile sheet can never style the same button differently. */
+    const donateButton = (
+        <Button variant='amber' href='/donate' aria-label='Donate'
+            className={`${s.navAct} ${s.actDonate}`}>
+            <CrateIcon />
+            <span className={s.lbl}>Donate</span>
+        </Button>
+    )
+    const primaryButton = isMember
+        ? (
+            <Button variant='dark' href='/dashboard' className={`${s.navAct} ${s.actPrimary}`}>
+                <DashboardIcon />Dashboard
+            </Button>
+        )
+        : user
+            ? (
+                <Button variant='red' href='/me' className={`${s.navAct} ${s.actPrimary}`}>
+                    <AccountCircle />Profile
+                </Button>
+            )
+            : (
+                // Same action as the homepage hero's "Enlist Now" — fade the
+                // screen to black, then the join video. Shared so the two can't
+                // drift; see components/enlist-transition.
+                <Button variant='red' onClick={enlist} className={`${s.navAct} ${s.actPrimary}`}>
+                    Enlist
+                </Button>
+            )
 
     return (
         <>
-            <div
-                className='sticky top-0 z-50'
-                style={{
-                    width: '100%',
-                    borderBottom: '1px solid var(--primary)',
-                    backgroundColor: scrolled ? 'rgba(10,10,10,0.82)' : 'var(--background)',
-                    backdropFilter: scrolled ? 'blur(16px)' : 'none',
-                    WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none',
-                    boxShadow: '0 0.65rem 10px rgba(0,0,0,0.5)',
-                    transition: 'background-color 0.3s ease, backdrop-filter 0.3s ease',
-                }}
-            >
+            <EnlistFadeOverlay fading={enlistFading} />
 
-                <div className='absolute w-full h-full' style={{ top: 0, left: 0 }}>
-                    <Image src={MapBg} alt='map' fill className='object-cover opacity-15' />
-                </div>
+            <header ref={root} className={`${s.nav} ${scrolled ? s.navScrolled : ''}`}>
 
-                <div className='flex flex-row justify-between gap-10 px-[30px]' style={{ zIndex: 1, padding: scrolled ? '7px 30px' : '11px 30px', transition: 'padding 0.3s ease' }}>
-                    <div className='min-w-[50px] self-center flex flex-row items-center gap-x-3'>
-                        <Link href='/'>
-                            <IconButton style={{ padding: 0 }}>
-                                <Image src={Logo} width={scrolled ? 36 : 42} quality={100} alt='Logo' style={{ transition: 'width 0.3s ease' }} />
-                            </IconButton>
-                        </Link>
-                    </div>
+                <StatusRail status={status} hidden={scrolled} />
 
-                    <div className='hidden md:flex flex-row flex-wrap justify-end gap-x-10 gap-y-2 self-center'>
-                        {Links.map((link) => {
-                            if (!link.subLinks) {
-                                const isActive = link.href === '/' ? pathname === '/' : pathname.startsWith(link.href)
-                                return (
-                                    <Link key={link.name} href={link.href as any} target='_self'>
-                                        <Button
-                                            startIcon={link.icon}
-                                            color='light'
-                                            size='small'
-                                            sx={{
-                                                position: 'relative',
-                                                overflow: 'hidden',
-                                                borderBottom: isActive ? '2px solid var(--red)' : '2px solid transparent',
-                                                borderRadius: '4px',
-                                                paddingLeft: '12px',
-                                                paddingRight: '12px',
-                                                opacity: isActive ? 1 : 0.75,
-                                                fontSize: '0.9rem',
-                                                transition: 'border-color 0.2s, opacity 0.2s',
-                                                '&:hover': {
-                                                    borderBottom: '2px solid var(--red)',
-                                                    opacity: 1,
-                                                },
-                                                '&::after': {
-                                                    content: '""',
-                                                    position: 'absolute',
-                                                    inset: 0,
-                                                    background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.18) 50%, transparent 65%)',
-                                                    transform: 'translateX(-100%)',
-                                                    pointerEvents: 'none',
-                                                },
-                                                '&:hover::after': {
-                                                    animation: 'navShimmer 0.5s ease forwards',
-                                                },
-                                                '@keyframes navShimmer': {
-                                                    from: { transform: 'translateX(-100%)' },
-                                                    to: { transform: 'translateX(100%)' },
-                                                },
-                                                '&:hover .MuiButton-startIcon': { color: 'var(--red)' },
-                                                '& .MuiButton-startIcon': { transition: 'color 0.2s' },
-                                            }}
-                                        >
-                                            {link.name}
-                                        </Button>
-                                    </Link>
-                                )
-                            }
+                <nav className={s.bar} aria-label='Primary'>
+                    <Topo opacity={0.065} driftSeconds={720} />
 
-                            const isActive = pathname.startsWith(link.href)
-                            return <DropDownMenu key={link.name} data={link} isActive={isActive} />
-                        })}
-                    </div>
-
-                    <div className='flex self-center gap-x-3'>
-                        <Link href='/donate' title='Donate' className='self-center'>
-                            <div className={Navigation['nav-button']}>
-                                <VolunteerActivism />
-                            </div>
-                        </Link>
-
-                        {user && (user as any).isMember && (
-                            <div className='self-center hidden md:flex items-center gap-x-3'>
-                                <Link href='/dashboard' title='Dashboard'>
-                                    <div className={Navigation['nav-button']} style={{ color: '#00c3ff', borderColor: 'rgba(0,195,255,0.4)', filter: 'drop-shadow(0 0 4px rgba(0,195,255,0.3))' }}>
-                                        <DashboardIcon style={{ fontSize: 20 }} />
-                                    </div>
-                                </Link>
-                                <NotificationBell />
-                            </div>
-                        )}
-
-                        {user ?
-                            <ProfileDropdown user={user} />
-                            :
-                            <Link href='/login' title='Login'>
-                                <div className={Navigation['nav-button']}>
-                                    <AccountCircle />
-                                </div>
+                    <div className={s.inner}>
+                        {/* Wrapped so it can claim an equal share of the free space
+                            against the right cluster — that is what centres the
+                            menu between them. See `.side` in the stylesheet. */}
+                        <div className={s.side}>
+                            <Link href='/' className={s.brand}>
+                                {/* 128x132, not 40x40, though .brandMark still paints it at 40px. For a
+                                    fixed-size image Next emits the srcset off `width` — at 40 that was a
+                                    48px raster, and 48px is below the size this emblem resolves at: the
+                                    arrows and the feather barbs disappear into grey in the downscale from
+                                    the 528px source, which is the mush that was on screen. 128 keeps them,
+                                    at 13.6KB (44.6KB for the 2x entry). The 128:132 pair is the source's
+                                    real 528x546 ratio rather than a square that lies about it. */}
+                                <Image src={Logo} alt='ASOT' className={s.brandMark} width={128} height={132} quality={100} priority />
+                                <span className={s.brandTxt}>
+                                    <span className={s.brandName}>ASOT</span>
+                                    <span className={s.brandSub}>Est. 2019 · Australia</span>
+                                </span>
                             </Link>
-                        }
+                        </div>
 
-                        <div className={Navigation['nav-button'] + ' visible md:hidden'} onClick={() => setSideMenuOpen(true)}>
-                            <MenuIcon />
+                        <ul className={s.menu}>
+                            {NAV_ITEMS.map(item => (
+                                <MenuItem
+                                    key={item.name}
+                                    item={item}
+                                    active={isItemActive(item, pathname)}
+                                    open={openMenu === item.name}
+                                    onEnter={() => item.children && enterItem(item.name)}
+                                    onLeave={leaveItem}
+                                    onToggle={() => setOpenMenu(openMenu === item.name ? null : item.name)}
+                                    nextOp={status?.nextOp ?? null}
+                                />
+                            ))}
+                        </ul>
+
+                        <div className={s.util}>
+                            <div className={s.icons}>
+                                {/* There is no site-wide search; MILPACS is the
+                                    member directory this icon is reaching for. */}
+                                <Link href='/milpacs' className={s.ubtn} aria-label='Member directory'>
+                                    <Search />
+                                </Link>
+                                {isMember && (
+                                    <span className={s.ubtn}><NotificationBell /></span>
+                                )}
+                                {!user && (
+                                    <Link href='/login' className={s.ubtn} aria-label='Sign in'>
+                                        <AccountCircle />
+                                    </Link>
+                                )}
+                            </div>
+
+                            {donateButton}
+                            {primaryButton}
+                            {user && <AccountMenu user={user} />}
+
+                            <button
+                                type='button'
+                                className={s.burger}
+                                onClick={() => setSheetOpen(v => !v)}
+                                aria-expanded={sheetOpen}
+                                aria-label='Menu'
+                            >
+                                <i /><i /><i />
+                            </button>
                         </div>
                     </div>
-                </div>
+                </nav>
 
-            </div>
+                {sheetOpen && (
+                    <MobileSheet
+                        pathname={pathname}
+                        user={user}
+                        actions={<>{donateButton}{primaryButton}</>}
+                        onNavigate={() => setSheetOpen(false)}
+                    />
+                )}
+            </header>
 
-            {/* Scroll to top */}
             <button
+                type='button'
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                onMouseEnter={() => setScrollBtnHovered(true)}
-                onMouseLeave={() => setScrollBtnHovered(false)}
-                style={{
-                    position: 'fixed',
-                    bottom: 28,
-                    right: 28,
-                    zIndex: 50,
-                    width: 40,
-                    height: 40,
-                    background: 'rgba(10,10,10,0.85)',
-                    border: `1px solid rgba(219,0,29,${scrollBtnHovered ? 0.7 : 0.35})`,
-                    color: scrollBtnHovered ? 'rgba(237,237,237,1)' : 'rgba(237,237,237,0.75)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    boxShadow: scrollBtnHovered
-                        ? '0 0 16px 4px rgba(219,0,29,0.5), 0 0 4px 1px rgba(219,0,29,0.4)'
-                        : '0 0 6px 1px rgba(219,0,29,0.18)',
-                    transition: 'opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease, color 0.25s ease',
-                    opacity: scrolled ? 1 : 0,
-                    pointerEvents: scrolled ? 'auto' : 'none',
-                    transform: scrolled ? 'translateY(0)' : 'translateY(10px)',
-                }}
+                className={`${s.toTop} ${scrolled ? s.toTopShown : ''}`}
+                aria-label='Scroll to top'
             >
                 <KeyboardArrowUp style={{ fontSize: 22 }} />
             </button>
-
-            <Drawer
-                open={sideMenuOpen}
-                onClose={() => setSideMenuOpen(false)}
-                slotProps={{
-                    paper: {
-                        style: {
-                            width: 280,
-                            background: '#0a0a0a',
-                            borderRight: '1px solid rgba(219, 0, 29, 0.3)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                        }
-                    }
-                }}
-            >
-                <div className='flex justify-between items-center p-[12px_16px]'>
-                    <Link href='/' onClick={() => setSideMenuOpen(false)}>
-                        <Image src={Logo} width={45} alt='Logo' />
-                    </Link>
-                    <IconButton onClick={() => setSideMenuOpen(false)} style={{ color: 'rgba(237,237,237,0.6)' }}>
-                        <Close />
-                    </IconButton>
-                </div>
-
-                <Divider style={{ borderColor: 'rgba(219, 0, 29, 0.4)' }} />
-
-                <div className='flex-1 overflow-y-auto p-2'>
-                    {Links.map(link => (
-                        <MobileNavItem key={link.name} link={link} onClose={() => setSideMenuOpen(false)} />
-                    ))}
-                </div>
-
-                {(user as any)?.isMember && (
-                    <>
-                        <Divider style={{ borderColor: 'rgba(0,195,255,0.2)' }} />
-                        <Link href='/dashboard' onClick={() => setSideMenuOpen(false)}>
-                            <div
-                                className='flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors'
-                                style={{
-                                    color: '#00c3ff',
-                                    background: 'rgba(0,195,255,0.05)',
-                                }}
-                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,195,255,0.1)')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,195,255,0.05)')}
-                            >
-                                <DashboardIcon style={{ fontSize: 20, filter: 'drop-shadow(0 0 6px #00c3ff)' }} />
-                                <div className='flex flex-col'>
-                                    <span style={{ fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.1em', textShadow: '0 0 10px rgba(0,195,255,0.6)' }}>
-                                        DASHBOARD
-                                    </span>
-                                    <span style={{ fontSize: '0.65rem', color: 'rgba(0,195,255,0.5)', letterSpacing: '0.05em' }}>
-                                        Member access
-                                    </span>
-                                </div>
-                            </div>
-                        </Link>
-                    </>
-                )}
-
-                <Divider style={{ borderColor: 'rgba(255,255,255,0.08)' }} />
-
-                <div className='flex gap-2 p-3'>
-                    <Link href='/donate' className='flex-1' onClick={() => setSideMenuOpen(false)}>
-                        <Button variant='outlined' color='primary' fullWidth startIcon={<VolunteerActivism />} size='small'>Donate</Button>
-                    </Link>
-                    {user ? (
-                        <>
-                            <Link href='/me' onClick={() => setSideMenuOpen(false)}>
-                                <div className='relative w-[36px] h-[36px]'><Avatar user={user} /></div>
-                            </Link>
-                        </>
-                    ) : (
-                        <Link href='/login' className='flex-1' onClick={() => setSideMenuOpen(false)}>
-                            <Button variant='outlined' color='inherit' fullWidth startIcon={<Login />} size='small'
-                                style={{ borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(237,237,237,0.7)' }}>
-                                Login
-                            </Button>
-                        </Link>
-                    )}
-                </div>
-            </Drawer>
         </>
     )
 }
 
+/* ---------------------------------------------------------------------------
+   One top-level item, plus its mega panel.
 
-function MobileNavItem({ link, onClose }: { link: Link, onClose: () => void }) {
-    const [expanded, setExpanded] = useState(false)
+   The <li> is `position: static` so the panel anchors to the bar rather than to
+   the item — a 912px panel hanging off a right-hand item would otherwise be
+   pushed off-screen.
+   ------------------------------------------------------------------------- */
 
-    if (!link.subLinks) return (
-        <Link href={link.href as any} onClick={onClose}>
-            <div className='flex items-center gap-3 px-3 py-[10px] rounded-md cursor-pointer transition-colors hover:bg-white/5'
-                style={{ color: 'rgba(237,237,237,0.7)' }}>
-                <span className='flex text-[20px]'>{link.icon}</span>
-                <span style={{ fontSize: '0.85rem', fontWeight: 500, letterSpacing: '0.06em' }}>{link.name.toUpperCase()}</span>
-            </div>
-        </Link>
-    )
+function MenuItem({ item, active, open, onEnter, onLeave, onToggle, nextOp }: {
+    item: NavItem
+    active: boolean
+    open: boolean
+    onEnter: () => void
+    onLeave: () => void
+    onToggle: () => void
+    nextOp: NavOp | null
+}) {
+    const classes = [active ? s.active : '', open ? s.isOpen : ''].filter(Boolean).join(' ')
 
-    return (
-        <div>
-            <div
-                className='flex items-center gap-3 px-3 py-[10px] rounded-md cursor-pointer transition-colors hover:bg-white/5'
-                style={{
-                    borderLeft: expanded ? '2px solid var(--red)' : '2px solid transparent',
-                    color: expanded ? 'var(--foreground)' : 'rgba(237,237,237,0.7)',
-                }}
-                onClick={() => setExpanded(!expanded)}
-            >
-                <span className='flex text-[20px]' style={{ color: expanded ? 'var(--red)' : 'inherit' }}>{link.icon}</span>
-                <span className='flex-1' style={{ fontSize: '0.85rem', fontWeight: 500, letterSpacing: '0.06em' }}>{link.name.toUpperCase()}</span>
-                {expanded ? <ExpandLess style={{ fontSize: 18, opacity: 0.5 }} /> : <ExpandMore style={{ fontSize: 18, opacity: 0.5 }} />}
-            </div>
-
-            <Collapse in={expanded}>
-                <div className='pl-4 pb-1 flex flex-col gap-[2px]'>
-                    {link.subLinks.map(sub => (
-                        <Link key={sub.link} href={sub.link as any} onClick={onClose}>
-                            <div className='flex items-center gap-3 px-3 py-2 rounded cursor-pointer transition-colors hover:bg-white/5'
-                                style={{ color: 'rgba(237,237,237,0.6)' }}>
-                                <span className='flex text-[18px]' style={{ color: 'rgba(219, 0, 29, 0.8)' }}>{sub.icon}</span>
-                                <span style={{ fontSize: '0.82rem' }}>{sub.name}</span>
-                            </div>
-                        </Link>
-                    ))}
-                </div>
-            </Collapse>
-        </div>
-    )
-}
-
-
-function ProfileDropdown({ user }: { user: User }) {
-    const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
-    const [orbatEntry, setOrbatEntry] = React.useState<{ role: string; section: string } | null | undefined>(undefined)
-    const [avatarHovered, setAvatarHovered] = React.useState(false)
-    const [isImpersonating, setIsImpersonating] = React.useState(false)
-    const [cursorEnabled, setCursorEnabled] = React.useState(true)
-    const open = Boolean(anchorEl)
-
-    React.useEffect(() => {
-        setIsImpersonating(document.cookie.split(';').some(c => c.trim().startsWith('is_impersonating=')))
-        setCursorEnabled(localStorage.getItem('cursor-disabled') !== 'true')
-    }, [])
-
-    function toggleCursor() {
-        const next = !cursorEnabled
-        setCursorEnabled(next)
-        localStorage.setItem('cursor-disabled', next ? 'false' : 'true')
-        window.dispatchEvent(new CustomEvent('cursor-toggle', { detail: { disabled: !next } }))
-    }
-
-    async function handleLogout() {
-        await fetch('/api/logout', { method: 'POST' })
-        window.location.href = '/'
-    }
-
-    async function handleReturnToMyAccount() {
-        await fetch('/api/admin/impersonate/return', { method: 'POST' })
-        window.location.href = '/me'
-    }
-
-    const userRoles = (user as any).roles as Role[] | undefined
-    const isAdmin = !!(user as any).isMember
-
-    const accent = user.hexAccentColor ? `#${user.hexAccentColor.replace('#', '')}` : '#DB001D'
-    const strippedNickname = user.guild?.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()
-    const displayName = strippedNickname || user.globalName || user.username
-    const parts = displayName.split(' ')
-    const name = user.name || (parts.length > 1 ? parts.slice(1).join(' ') : displayName)
-    const rankAbbr = user.milpac?.currentRank || null
-    const rank = rankAbbr ? rankNameFromAbbr(rankAbbr) : null
-
-    function handleOpen(e: React.MouseEvent<HTMLElement>) {
-        setAnchorEl(e.currentTarget)
-        if (orbatEntry === undefined) {
-            fetch('/api/me/orbat')
-                .then(r => r.json())
-                .then(data => setOrbatEntry(data ?? null))
-                .catch(() => setOrbatEntry(null))
-        }
-    }
-
-    return (
+    const label = (
         <>
-            {/* Navbar avatar button — square with accent border */}
-            <div
-                className='flex-shrink-0'
-                role='button'
-                title={displayName}
-                onClick={handleOpen}
-                onMouseEnter={() => setAvatarHovered(true)}
-                onMouseLeave={() => setAvatarHovered(false)}
-                style={{
-                    position: 'relative',
-                    width: 38,
-                    height: 38,
-                    borderRadius: 6,
-                    border: `1px solid ${accent}`,
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                    boxShadow: avatarHovered ? `0 0 16px 4px ${accent}88` : `0 0 8px 0 ${accent}55`,
-                    transition: 'box-shadow 0.2s',
-                    cursor: 'pointer',
-                }}
-            >
-                <Avatar user={user} borderRadius='4px' />
-            </div>
-
-            <Menu
-                anchorEl={anchorEl}
-                open={open}
-                onClose={() => setAnchorEl(null)}
-                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-                slotProps={{
-                    list: { style: { padding: 0 } },
-                    paper: {
-                        style: {
-                            background: 'rgba(10,10,10,0.97)',
-                            backdropFilter: 'blur(16px)',
-                            WebkitBackdropFilter: 'blur(16px)',
-                            borderTop: `2px solid ${accent}`,
-                            border: '1px solid rgba(255,255,255,0.08)',
-                            borderRadius: 6,
-                            minWidth: 210,
-                            overflow: 'hidden',
-                        }
-                    }
-                }}
-            >
-                {/* Mini profile header */}
-                <div style={{ padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-                    <div style={{ position: 'relative', width: 46, height: 46, borderRadius: 6, border: `2px solid ${accent}`, overflow: 'hidden', flexShrink: 0, boxShadow: `0 0 10px 0 ${accent}44` }}>
-                        <Avatar user={user} borderRadius='4px' />
-                    </div>
-                    <div style={{ overflow: 'hidden' }}>
-                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--foreground)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {name}
-                        </div>
-                        {rank && (
-                            <div style={{ fontSize: '0.9rem', color: accent, fontWeight: 600, marginTop: 2, letterSpacing: '0.05em' }}>
-                                {rank}
-                            </div>
-                        )}
-                        <div style={{ fontSize: '0.70rem', color: 'rgba(237,237,237,0.4)', marginTop: 1 }}>
-                            {orbatEntry === undefined
-                                ? '...'
-                                : orbatEntry
-                                    ? orbatEntry.role
-                                    : null}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Menu items */}
-                <div style={{ padding: '6px 8px' }}>
-                    <Link href='/me'>
-                        <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
-                            sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
-                            <Person style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
-                            <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>PROFILE</span>
-                        </MenuItem>
-                    </Link>
-                    <Link href={`/milpacs/${user.username}`}>
-                        <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
-                            sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
-                            <MilitaryTech style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
-                            <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>MY MILPAC</span>
-                        </MenuItem>
-                    </Link>
-                    <Link href='/optionals'>
-                        <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
-                            sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
-                            <Tune style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
-                            <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>OPTIONALS</span>
-                        </MenuItem>
-                    </Link>
-                    {isAdmin && (
-                        <>
-                            <div style={{ borderTop: '1px solid rgba(0,195,255,0.15)', margin: '6px 0' }} />
-                            <Link href='/dashboard'>
-                                <MenuItem onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px', background: 'rgba(0,195,255,0.04)' }}
-                                    sx={{ '&:hover': { backgroundColor: 'rgba(0,195,255,0.1) !important' } }}>
-                                    <DashboardIcon style={{ fontSize: 17, color: '#00c3ff', filter: 'drop-shadow(0 0 4px #00c3ff)' }} />
-                                    <span style={{ fontSize: '0.80rem', fontWeight: 600, letterSpacing: '0.06em', color: '#00c3ff', textShadow: '0 0 8px rgba(0,195,255,0.5)' }}>DASHBOARD</span>
-                                </MenuItem>
-                            </Link>
-                        </>
-                    )}
-                    {isImpersonating && (
-                        <>
-                            <div style={{ borderTop: '1px solid rgba(255,165,0,0.2)', margin: '6px 0' }} />
-                            <MenuItem
-                                onClick={handleReturnToMyAccount}
-                                style={{ gap: 10, borderRadius: 4, padding: '8px 10px', background: 'rgba(255,165,0,0.04)' }}
-                                sx={{ '&:hover': { backgroundColor: 'rgba(255,165,0,0.1) !important' } }}
-                            >
-                                <Person style={{ fontSize: 17, color: 'rgba(255,165,0,0.8)' }} />
-                                <span style={{ fontSize: '0.80rem', fontWeight: 600, letterSpacing: '0.06em', color: 'rgba(255,165,0,0.9)' }}>RETURN TO MY ACCOUNT</span>
-                            </MenuItem>
-                        </>
-                    )}
-                    <MenuItem component={Link} href='/preferences' onClick={() => setAnchorEl(null)} style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
-                        sx={{ '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' } }}>
-                        <Tune style={{ fontSize: 17, color: 'rgba(237,237,237,0.45)' }} />
-                        <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.75)' }}>PREFERENCES</span>
-                    </MenuItem>
-                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)', margin: '6px 0' }} />
-                    <MenuItem
-                        onClick={handleLogout}
-                        style={{ gap: 10, borderRadius: 4, padding: '8px 10px' }}
-                        sx={{ '&:hover': { backgroundColor: 'rgba(219,0,29,0.08)' } }}
-                    >
-                        <Logout style={{ fontSize: 17, color: 'rgba(219,0,29,0.6)' }} />
-                        <span style={{ fontSize: '0.80rem', fontWeight: 500, letterSpacing: '0.06em', color: 'rgba(219,0,29,0.7)' }}>LOGOUT</span>
-                    </MenuItem>
-                </div>
-            </Menu>
+            <span className={`${s.br} ${s.tl}`} />
+            <span className={`${s.br} ${s.tr}`} />
+            <span className={`${s.br} ${s.bl}`} />
+            <span className={`${s.br} ${s.brr}`} />
+            {item.name}
+            {item.children && <KeyboardArrowDown className={s.chev} />}
         </>
+    )
+
+    return (
+        <li className={classes} onMouseEnter={onEnter} onMouseLeave={onLeave}>
+            {item.children ? (
+                <button
+                    type='button'
+                    className={s.mi}
+                    aria-haspopup='true'
+                    aria-expanded={open}
+                    onClick={onToggle}
+                >
+                    {label}
+                </button>
+            ) : (
+                <Link href={item.href as any} className={s.mi}>{label}</Link>
+            )}
+
+            {item.children && <MegaPanel item={item} nextOp={nextOp} />}
+        </li>
     )
 }
 
+function MegaPanel({ item, nextOp }: { item: NavItem, nextOp: NavOp | null }) {
+    const children = item.children!
+    const withFeature = item.feature === 'nextOp' && !!nextOp
 
-function DropDownMenu({ data, isActive }: { data: Link, isActive: boolean }) {
-    const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
-    const open = Boolean(anchorEl)
-    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-        setAnchorEl(event.currentTarget)
-    }
-    const handleClose = () => {
-        setAnchorEl(null)
-    }
-
-    const cols = (data.subLinks?.length ?? 0) > 3 ? 2 : 1
+    // Odd counts leave a single item on the last row; without this the row
+    // above it keeps a border that now separates nothing.
+    const lastRowFrom = children.length - (children.length % 2 === 0 ? 2 : 1)
 
     return (
-        <div>
-            <Button
-                id="basic-button"
-                variant='text'
-                color='light'
-                size='small'
-                aria-controls={open ? 'basic-menu' : undefined}
-                aria-haspopup="true"
-                aria-expanded={open ? 'true' : undefined}
-                startIcon={data.icon}
-                endIcon={open ? <ArrowRight /> : <ArrowDropDown />}
-                onClick={handleClick}
-                sx={{
-                    position: 'relative',
-                    overflow: 'hidden',
-                    borderBottom: isActive ? '2px solid var(--red)' : '2px solid transparent',
-                    borderRadius: '4px',
-                    paddingLeft: '12px',
-                    paddingRight: '12px',
-                    opacity: isActive ? 1 : 0.75,
-                    fontSize: '0.9rem',
-                    transition: 'border-color 0.2s, opacity 0.2s',
-                    '&:hover': {
-                        borderBottom: '2px solid var(--red)',
-                        opacity: 1,
-                    },
-                    '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        inset: 0,
-                        background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.18) 50%, transparent 65%)',
-                        transform: 'translateX(-100%)',
-                        pointerEvents: 'none',
-                    },
-                    '&:hover::after': {
-                        animation: 'navShimmer 0.5s ease forwards',
-                    },
-                    '@keyframes navShimmer': {
-                        from: { transform: 'translateX(-100%)' },
-                        to: { transform: 'translateX(100%)' },
-                    },
-                    '&:hover .MuiButton-startIcon': { color: 'var(--red)' },
-                    '& .MuiButton-startIcon': { transition: 'color 0.2s' },
-                }}
-            >
-                {data.name}
-            </Button>
-            <Menu
-                id="basic-menu"
-                anchorEl={anchorEl}
-                open={open}
-                onClose={handleClose}
-                slotProps={{
-                    list: { 'aria-labelledby': 'basic-button', style: { padding: '8px' } },
-                    paper: {
-                        style: {
-                            background: 'rgba(10,10,10,0.95)',
-                            backdropFilter: 'blur(16px)',
-                            WebkitBackdropFilter: 'blur(16px)',
-                            borderTop: '2px solid var(--red)',
-                            border: '1px solid rgba(219, 0, 29, 0.25)',
-                            borderRadius: 0,
-                            minWidth: cols === 2 ? 520 : 280,
-                        }
-                    }
-                }}
-            >
-                <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '4px' }}>
-                    {data.subLinks?.map(link => (
-                        <Link key={link.link} href={link.link as any}>
-                            <MenuItem
-                                onClick={handleClose}
-                                style={{ borderRadius: 4, padding: '10px 12px', alignItems: 'flex-start', gap: 12 }}
-                                sx={{
-                                    '&:hover': { backgroundColor: 'rgba(219, 0, 29, 0.08)' },
-                                    '&:hover .sublink-icon': { borderColor: 'rgba(219, 0, 29, 0.6)', color: 'var(--red)' },
-                                }}
-                            >
-                                <div
-                                    className='sublink-icon'
-                                    style={{
-                                        flexShrink: 0,
-                                        padding: 8,
-                                        border: '1px solid rgba(219, 0, 29, 0.25)',
-                                        background: 'rgba(219, 0, 29, 0.08)',
-                                        color: 'rgba(237, 237, 237, 0.6)',
-                                        display: 'flex',
-                                        transition: 'border-color 0.2s, color 0.2s',
-                                    }}
-                                >
-                                    {link.icon}
-                                </div>
-                                <div>
-                                    <div style={{ fontWeight: 600, fontSize: '0.8rem', letterSpacing: '0.08em', color: 'var(--foreground)' }}>
-                                        {link.name.toUpperCase()}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'rgba(237, 237, 237, 0.45)', marginTop: 2 }}>
-                                        {link.description}
-                                    </div>
-                                </div>
-                            </MenuItem>
+        // A short menu goes compact — unless it is carrying the operation card,
+        // which needs the full width to sit beside the links rather than under.
+        <div className={`${s.dd} ${children.length >= 4 || withFeature ? '' : s.ddCompact}`}>
+            <div className={s.ddCard}>
+                <div className={s.megaRail}>
+                    <span className={s.lbl}>{item.name}</span>
+                    <span className={s.cnt}>{String(children.length).padStart(2, '0')} Sections</span>
+                </div>
+
+                <div className={s.megaLinks}>
+                    {children.map((child, i) => (
+                        <Link
+                            key={child.href}
+                            href={child.href as any}
+                            className={s.ddItem}
+                            style={i >= lastRowFrom ? { borderBottom: 0 } : undefined}
+                        >
+                            <span className={s.ic}>{child.icon}</span>
+                            <span style={{ minWidth: 0 }}>
+                                <span className={s.tt}>{child.name}</span>
+                                <span className={s.ds}>{child.description}</span>
+                            </span>
                         </Link>
                     ))}
                 </div>
-            </Menu>
+
+                {/* Short menus drop the featured card rather than padding it
+                    with dead space — as does a panel with no operation to show. */}
+                {withFeature && (
+                    <Link href={`/operations/${nextOp!.id}` as any} className={s.megaFeat}>
+                        {/* The operation's own banner when it has one. Covers are
+                            arbitrary stored URLs, so next/image would mean
+                            allow-listing every host they can come from — a plain
+                            img is the honest choice, the same call the landing
+                            page's card makes. Without a cover the topo field
+                            stands in, so the card never shows a broken box. */}
+                        <div className={s.featImg}>
+                            {nextOp!.coverImage
+                                ? <img src={nextOp!.coverImage} alt='' className={s.featCover} />
+                                : <Topo opacity={0.32} driftSeconds={900} mask='none' />}
+                            <span className={s.tag}>Next Op</span>
+                        </div>
+                        <div className={s.featT}>{nextOp!.title}</div>
+                        <div className={s.featM}>{formatOpTime(nextOp!.date)}</div>
+                    </Link>
+                )}
+            </div>
         </div>
     )
 }

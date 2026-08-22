@@ -113,10 +113,13 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 ---
 
-### me (6 files)
+### me (7 files)
 
 #### /api/me/orbat
 - **GET** — returns the current user's ORBAT position entry (`getOrbatEntryByUserId`). Auth: any authenticated user (`client.fetchMe()`).
+
+#### /api/me/promotion-progress
+- **GET** — the caller's progress toward their next rank, for the navbar account menu: `{ currentRank, progress }`. Runs the same `loadConfirmedOps` → `resolvePromotionPoints` → `getPromotionProgress` chain (`lib/military/milpac-stats.ts`) the milpac file renders its bar from, so the two can never disagree. `progress` is `null` (no rank / rank on no known track), `{ atMax }`, `{ billetOnly }`, or the full `{ nextRank, required, current, pct }`. Auth: any authenticated user (`client.fetchMe()`). Collections: `Db.operationAttendance`, `Db.operations` (via `loadConfirmedOps`).
 
 #### /api/me/roles
 - **GET** — `?has=role1,role2` checks whether current user holds any of the given Discord roles. Auth: any authenticated user.
@@ -132,11 +135,25 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 - **POST** — multi-action TS account linking flow via body `action`: `init` (auto-match online TS client by expected nickname, stores verify code), `poke` (poke a manually chosen client with the code), `verify` (confirm code, saves `teamspeak` field on user), `notify` (poke linked account with expected nickname), `list` (list online clients for manual pick). Auth: any authenticated user. Collections: `Db.users`. Side effects: TeamSpeak `clientPoke`/`clientList` calls.
 - **DELETE** — unlinks the current user's TeamSpeak account (`$unset teamspeak/tsVerifyCode/tsPending`). Collections: `Db.users`.
 
+#### /api/me/accent
+- **PUT** — sets the caller's own `profileAccent` (body `{accent: '#rrggbb'}`, validated by
+  `normaliseHex`). **DELETE** — clears it and returns what they will now resolve to. Own-record only
+  by construction: no id parameter, no staff override, so it cannot recolour anyone else. Gate:
+  `client.fetchMe()`. Collections: `Db.users`. Side effects: `logAction('milpac.accent_set'|
+  'milpac.accent_clear')`.
+
 #### /api/me/token
 - **GET** — reads `token` cookie directly (no client.fetchMe() gate beyond cookie presence), resolves display name/color/avatar via `client.fetchMe(token)`; returns raw token to caller (used by TipTap collab client-side for `x-collab-token` header). Auth: `token` cookie presence only.
 
 #### /api/me/reset-token
 - **POST** — "log out of all devices": regenerates the caller's `token` field (`GenerateToken()` from `lib/encryption.ts`), invalidating every other browser/device's cookie in one shot (single-token-per-user auth, see CLAUDE.md). Sets the new token as this request's own `token` cookie so the current session isn't logged out. Auth: any authenticated user. Collections: `Db.users`. Logs `member.reset-login-token` via `logAction()`. Used by `app/me/ResetTokenButton.tsx`.
+
+---
+
+### nav (1 file)
+
+#### /api/nav/status
+- **GET** — the numbers behind the navbar's status rail: `{ nextOp, teamspeakOnline, roster }`. `nextOp` is the soonest `Upcoming`/`Active` operation starting less than six hours ago or later (an op runs for hours, so "next" is not simply `date >= now`); `In Development` is excluded because this route is **public and unauthenticated** — the rail renders on every page including signed-out landing. It carries `{ id, title, date, status, stage, rsvpOpen, attending, confirmed }`, the last four read off the op's `Db.operationAttendance` doc (only `records.rsvp`/`records.confirmed` are projected — `records` snapshots every member's unit/section/role and the rail needs two counts off it). `stage`/`rsvpOpen` are what let the rail tell "nobody has signed on yet" apart from "nobody can sign on yet". `teamspeakOnline` reads `getOnlineCache()` without refreshing it (cold cache → `null`); `roster` is a **distinct** count of `userId`s holding a filled `Db.orbatPositions` slot, excluding `category: 'inactiveReservist'` — reservists share that collection with platoon/HQ/gamemaster slots and are told apart only by `category`, so a plain filled-slot count both includes members flagged inactive and double-counts anyone holding two slots. Every field is independently nullable and each source is caught separately, so one failure drops a segment rather than the rail. `Cache-Control: no-store`. Collections: `Db.operations`, `Db.orbatPositions`. Consumed by `components/nav/useNavStatus.ts`.
 
 ---
 

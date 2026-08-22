@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef, useMemo, Suspense, createCont
 import { usePathname, useRouter } from 'next/navigation'
 import { Drawer, Dialog, DialogContent } from '@mui/material'
 import StaffSidebar from './StaffSidebar'
+import { ToastProvider } from '@/components/dashboard'
+import s from '@/styles/dashboard.module.css'
 
 export interface DashboardPermissions {
     displayName: string
@@ -82,7 +84,15 @@ export default function StaffDashboardShell({
 
     return (
         <LockoutContext.Provider value={contextValue}>
-            <div className='flex w-full h-full'>
+            {/*
+                `.dash` is where the dashboard's own tokens live — the four-step
+                surface scale and the status palette — so every screen inside
+                inherits them without importing anything. ToastProvider sits
+                here for the same reason: one toast host for the whole portal
+                rather than one per screen that wants to confirm a save.
+            */}
+            <ToastProvider>
+            <div className={`${s.dash} flex w-full h-full`}>
 
                 {/* Desktop sidebar */}
                 <div
@@ -93,8 +103,8 @@ export default function StaffDashboardShell({
                         position: 'sticky',
                         top: 0,
                         alignSelf: 'flex-start',
-                        borderRight: '1px solid rgba(219,0,29,0.18)',
-                        background: 'rgba(8,8,8,0.98)',
+                        borderRight: '1px solid var(--line-1)',
+                        background: 'var(--ink-1)',
                     }}
                 >
                     <Suspense>
@@ -113,7 +123,7 @@ export default function StaffDashboardShell({
                         transform: 'translateY(-50%)',
                         zIndex: 51,
                         background: 'rgba(8,8,8,0.92)',
-                        border: '1px solid rgba(219,0,29,0.25)',
+                        border: '1px solid var(--line-2)',
                         borderLeft: 'none',
                         borderRadius: '0 6px 6px 0',
                         padding: '14px 7px',
@@ -148,8 +158,8 @@ export default function StaffDashboardShell({
                     PaperProps={{
                         sx: {
                             width: 260,
-                            background: 'rgba(8,8,8,0.99)',
-                            borderRight: '1px solid rgba(219,0,29,0.18)',
+                            background: 'var(--ink-1)',
+                            borderRight: '1px solid var(--line-1)',
                         },
                     }}
                 >
@@ -179,7 +189,7 @@ export default function StaffDashboardShell({
                     }}
                 >
                     <DialogContent style={{ padding: '28px 28px 24px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                        <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', fontFamily: 'monospace' }}>
+                        <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                             {'// OVERDUE TASKS'}
                         </div>
                         <div style={{ fontSize: '0.9rem', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)', lineHeight: 1.2 }}>
@@ -211,6 +221,7 @@ export default function StaffDashboardShell({
                 </Dialog>
 
             </div>
+            </ToastProvider>
         </LockoutContext.Provider>
     )
 }

@@ -23,7 +23,7 @@ const cellSx: React.CSSProperties = {
 const hdrSx: React.CSSProperties = {
     padding: '7px 12px', fontSize: '0.58rem', fontWeight: 700,
     letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)',
-    background: 'rgba(0,0,0,0.45)', borderBottom: '1px solid rgba(219,0,29,0.2)',
+    background: 'rgba(0,0,0,0.45)', borderBottom: '1px solid var(--line-2)',
     whiteSpace: 'nowrap',
 }
 
@@ -37,7 +37,7 @@ const stickyNameCell: React.CSSProperties = {
 }
 
 const inputEditSx: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(219,0,29,0.4)',
+    background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line-2)',
     color: '#ededed', fontSize: '0.72rem', padding: '3px 6px',
     width: '100%', outline: 'none', boxSizing: 'border-box',
 }
@@ -50,7 +50,7 @@ function ReturnBadge({ value }: { value: string }) {
     const v = value?.trim().toUpperCase()
     let bg = 'rgba(255,255,255,0.06)', color = 'rgba(237,237,237,0.4)'
     if (v === 'YES')         { bg = 'rgba(0,195,100,0.12)';   color = 'rgb(0,195,100)' }
-    else if (v === 'REVIEW') { bg = 'rgba(245,158,11,0.12)';  color = '#f59e0b' }
+    else if (v === 'REVIEW') { bg = 'color-mix(in srgb, var(--amber) 12%, transparent)';  color = 'var(--amber)' }
     else if (v === 'NO')     { bg = 'rgba(219,0,29,0.12)';    color = 'var(--red)' }
     else if (v === 'INDEFINITE') { bg = 'rgba(139,92,246,0.12)'; color = '#a78bfa' }
     return (
@@ -64,7 +64,7 @@ function TypeBadge({ value }: { value: string }) {
     const v = value?.trim().toUpperCase()
     let color = 'rgba(237,237,237,0.4)'
     if (v === 'GD') color = 'rgb(0,195,100)'
-    else if (v === 'HD') color = '#60a5fa'
+    else if (v === 'HD') color = 'var(--info)'
     else if (v === 'DD') color = 'var(--red)'
     return <span style={{ fontSize: '0.65rem', fontWeight: 700, color }}>{v || '—'}</span>
 }
@@ -72,10 +72,10 @@ function TypeBadge({ value }: { value: string }) {
 function DisciplineLevelBadge({ value }: { value: string }) {
     const v = value?.trim()
     let bg = 'rgba(255,255,255,0.06)', color = 'rgba(237,237,237,0.45)'
-    if (v === 'Verbal Warning')       { bg = 'rgba(245,158,11,0.08)';  color = '#f59e0b' }
+    if (v === 'Verbal Warning')       { bg = 'color-mix(in srgb, var(--amber) 8%, transparent)';  color = 'var(--amber)' }
     if (v === 'Formal Warning')       { bg = 'rgba(251,146,60,0.1)';   color = '#fb923c' }
     if (v === 'First Strike')         { bg = 'rgba(219,0,29,0.1)';     color = '#f87171' }
-    if (v === 'Second Strike')        { bg = 'rgba(219,0,29,0.18)';    color = '#ef4444' }
+    if (v === 'Second Strike')        { bg = 'rgba(219,0,29,0.18)';    color = 'var(--red)' }
     if (v === 'Removal from Section') { bg = 'rgba(139,92,246,0.1)';   color = '#a78bfa' }
     if (v === 'Removal from Unit')    { bg = 'rgba(219,0,29,0.25)';    color = 'var(--red)' }
     return (
@@ -89,7 +89,7 @@ function SearchInput({ value, onChange, placeholder }: { value: string; onChange
     return (
         <input type='text' value={value} onChange={e => onChange(e.target.value)}
             placeholder={placeholder ?? 'Search…'}
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.2)', color: '#ededed', fontSize: '0.72rem', padding: '5px 10px', outline: 'none', width: 220 }}
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid var(--line-2)', color: '#ededed', fontSize: '0.72rem', padding: '5px 10px', outline: 'none', width: 220 }}
         />
     )
 }
@@ -174,7 +174,7 @@ function SyncScrollTable({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <div style={{ border: '1px solid rgba(219,0,29,0.15)', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ border: '1px solid var(--line-2)', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <div ref={topRef} onScroll={syncBot} style={{ overflowX: 'scroll', overflowY: 'hidden', height: 14, flexShrink: 0, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                 <div ref={mirrorRef} style={{ height: 1, minWidth: '100%' }} />
             </div>
@@ -252,9 +252,9 @@ type RecycleBinItem = {
 }
 
 const TAB_BADGE: Record<string, { label: string; color: string }> = {
-    billet:     { label: 'Billet',     color: '#60a5fa' },
+    billet:     { label: 'Billet',     color: 'var(--info)' },
     leaving:    { label: 'Leaving',    color: '#a78bfa' },
-    denied:     { label: 'Denied',     color: '#f59e0b' },
+    denied:     { label: 'Denied',     color: 'var(--amber)' },
     discipline: { label: 'Discipline', color: 'var(--red)' },
 }
 
@@ -322,9 +322,9 @@ function LeavingHistoryTab({ refreshKey }: { refreshKey: number }) {
     function cellBg(rowId: string, field: string): React.CSSProperties {
         const id = `leaving:${rowId}:${field}`
         if (ctx.jumpTarget?.tab === 'leaving' && ctx.jumpTarget.rowId === rowId && ctx.jumpTarget.field === field)
-            return { background: 'rgba(59,130,246,0.12)', outline: '1px solid rgba(59,130,246,0.35)' }
+            return { background: 'color-mix(in srgb, var(--info) 12%, transparent)', outline: '1px solid color-mix(in srgb, var(--info) 35%, transparent)' }
         if (ctx.pendingChanges.has(id))
-            return { background: 'rgba(245,158,11,0.07)', outline: '1px solid rgba(245,158,11,0.25)' }
+            return { background: 'color-mix(in srgb, var(--amber) 7%, transparent)', outline: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)' }
         return {}
     }
 
@@ -448,9 +448,9 @@ function LeavingHistoryTab({ refreshKey }: { refreshKey: number }) {
 
             {totalPages > 1 && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button disabled={page === 1} onClick={() => setPage(p => p - 1)} style={{ background: 'none', border: '1px solid rgba(219,0,29,0.2)', color: page === 1 ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === 1 ? 'default' : 'pointer', fontSize: '0.65rem' }}>←</button>
+                    <button disabled={page === 1} onClick={() => setPage(p => p - 1)} style={{ background: 'none', border: '1px solid var(--line-2)', color: page === 1 ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === 1 ? 'default' : 'pointer', fontSize: '0.65rem' }}>←</button>
                     <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)' }}>Page {page} of {totalPages}</span>
-                    <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} style={{ background: 'none', border: '1px solid rgba(219,0,29,0.2)', color: page === totalPages ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === totalPages ? 'default' : 'pointer', fontSize: '0.65rem' }}>→</button>
+                    <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} style={{ background: 'none', border: '1px solid var(--line-2)', color: page === totalPages ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === totalPages ? 'default' : 'pointer', fontSize: '0.65rem' }}>→</button>
                 </div>
             )}
 
@@ -531,9 +531,9 @@ function DeniedApplicationsTab({ refreshKey }: { refreshKey: number }) {
     function cellBg(rowId: string, field: string): React.CSSProperties {
         const id = `denied:${rowId}:${field}`
         if (ctx.jumpTarget?.tab === 'denied' && ctx.jumpTarget.rowId === rowId && ctx.jumpTarget.field === field)
-            return { background: 'rgba(59,130,246,0.12)', outline: '1px solid rgba(59,130,246,0.35)' }
+            return { background: 'color-mix(in srgb, var(--info) 12%, transparent)', outline: '1px solid color-mix(in srgb, var(--info) 35%, transparent)' }
         if (ctx.pendingChanges.has(id))
-            return { background: 'rgba(245,158,11,0.07)', outline: '1px solid rgba(245,158,11,0.25)' }
+            return { background: 'color-mix(in srgb, var(--amber) 7%, transparent)', outline: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)' }
         return {}
     }
 
@@ -620,9 +620,9 @@ function DeniedApplicationsTab({ refreshKey }: { refreshKey: number }) {
 
             {totalPages > 1 && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button disabled={page === 1} onClick={() => setPage(p => p - 1)} style={{ background: 'none', border: '1px solid rgba(219,0,29,0.2)', color: page === 1 ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === 1 ? 'default' : 'pointer', fontSize: '0.65rem' }}>←</button>
+                    <button disabled={page === 1} onClick={() => setPage(p => p - 1)} style={{ background: 'none', border: '1px solid var(--line-2)', color: page === 1 ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === 1 ? 'default' : 'pointer', fontSize: '0.65rem' }}>←</button>
                     <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)' }}>Page {page} of {totalPages}</span>
-                    <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} style={{ background: 'none', border: '1px solid rgba(219,0,29,0.2)', color: page === totalPages ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === totalPages ? 'default' : 'pointer', fontSize: '0.65rem' }}>→</button>
+                    <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} style={{ background: 'none', border: '1px solid var(--line-2)', color: page === totalPages ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === totalPages ? 'default' : 'pointer', fontSize: '0.65rem' }}>→</button>
                 </div>
             )}
 
@@ -712,9 +712,9 @@ function DisciplineTab({ refreshKey }: { refreshKey: number }) {
     function cellBg(rowId: string, field: string): React.CSSProperties {
         const id = `discipline:${rowId}:${field}`
         if (ctx.jumpTarget?.tab === 'discipline' && ctx.jumpTarget.rowId === rowId && ctx.jumpTarget.field === field)
-            return { background: 'rgba(59,130,246,0.12)', outline: '1px solid rgba(59,130,246,0.35)' }
+            return { background: 'color-mix(in srgb, var(--info) 12%, transparent)', outline: '1px solid color-mix(in srgb, var(--info) 35%, transparent)' }
         if (ctx.pendingChanges.has(id))
-            return { background: 'rgba(245,158,11,0.07)', outline: '1px solid rgba(245,158,11,0.25)' }
+            return { background: 'color-mix(in srgb, var(--amber) 7%, transparent)', outline: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)' }
         return {}
     }
 
@@ -841,9 +841,9 @@ function DisciplineTab({ refreshKey }: { refreshKey: number }) {
 
             {totalPages > 1 && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button disabled={page === 1} onClick={() => setPage(p => p - 1)} style={{ background: 'none', border: '1px solid rgba(219,0,29,0.2)', color: page === 1 ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === 1 ? 'default' : 'pointer', fontSize: '0.65rem' }}>←</button>
+                    <button disabled={page === 1} onClick={() => setPage(p => p - 1)} style={{ background: 'none', border: '1px solid var(--line-2)', color: page === 1 ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === 1 ? 'default' : 'pointer', fontSize: '0.65rem' }}>←</button>
                     <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)' }}>Page {page} of {totalPages}</span>
-                    <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} style={{ background: 'none', border: '1px solid rgba(219,0,29,0.2)', color: page === totalPages ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === totalPages ? 'default' : 'pointer', fontSize: '0.65rem' }}>→</button>
+                    <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} style={{ background: 'none', border: '1px solid var(--line-2)', color: page === totalPages ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === totalPages ? 'default' : 'pointer', fontSize: '0.65rem' }}>→</button>
                 </div>
             )}
 
@@ -935,7 +935,7 @@ function RecycleBinTab() {
                 {loading ? 'Loading…' : `${total} item${total !== 1 ? 's' : ''} in recycle bin`}
             </div>
 
-            <div style={{ border: '1px solid rgba(219,0,29,0.15)' }}>
+            <div style={{ border: '1px solid var(--line-2)' }}>
                 <table style={{ borderCollapse: 'collapse', width: '100%' }}>
                     <thead style={{ position: 'sticky', top: 0, zIndex: 3 }}>
                         <tr>
@@ -992,9 +992,9 @@ function RecycleBinTab() {
 
             {totalPages > 1 && (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <button disabled={page === 1} onClick={() => setPage(p => p - 1)} style={{ background: 'none', border: '1px solid rgba(219,0,29,0.2)', color: page === 1 ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === 1 ? 'default' : 'pointer', fontSize: '0.65rem' }}>←</button>
+                    <button disabled={page === 1} onClick={() => setPage(p => p - 1)} style={{ background: 'none', border: '1px solid var(--line-2)', color: page === 1 ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === 1 ? 'default' : 'pointer', fontSize: '0.65rem' }}>←</button>
                     <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)' }}>Page {page} of {totalPages}</span>
-                    <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} style={{ background: 'none', border: '1px solid rgba(219,0,29,0.2)', color: page === totalPages ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === totalPages ? 'default' : 'pointer', fontSize: '0.65rem' }}>→</button>
+                    <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} style={{ background: 'none', border: '1px solid var(--line-2)', color: page === totalPages ? 'rgba(237,237,237,0.2)' : '#ededed', padding: '4px 12px', cursor: page === totalPages ? 'default' : 'pointer', fontSize: '0.65rem' }}>→</button>
                 </div>
             )}
 
@@ -1045,7 +1045,7 @@ function ReviewModal({
 
     return (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,0.72)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div style={{ background: '#0e0e0e', border: '1px solid rgba(219,0,29,0.25)', width: '100%', maxWidth: 600, maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ background: '#0e0e0e', border: '1px solid var(--line-2)', width: '100%', maxWidth: 600, maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                     <div>
                         <div style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Review Changes</div>
@@ -1201,7 +1201,7 @@ export default function MasterSheetTab() {
                 {/* Header */}
                 <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
                     <div>
-                        <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.65)', marginBottom: 4 }}>
+                        <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 4 }}>
                             J4 — Administration
                         </div>
                         <div style={{ fontSize: '1rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6 }}>
@@ -1235,7 +1235,7 @@ export default function MasterSheetTab() {
                 </div>
 
                 {/* Sub-tab selector */}
-                <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid rgba(219,0,29,0.2)', marginBottom: 20 }}>
+                <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--line-2)', marginBottom: 20 }}>
                     {tabs.map(t => (
                         <button key={t.key} onClick={() => switchTab(t.key)} style={{
                             background: 'none', border: 'none', cursor: 'pointer', padding: '10px 20px',

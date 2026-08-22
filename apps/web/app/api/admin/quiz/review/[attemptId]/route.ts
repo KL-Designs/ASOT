@@ -113,7 +113,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
             type: 'quiz_result',
             title: 'BCT Quiz Result',
             body: 'Congratulations, you have passed the BCT Confirmation Quiz. Your J3 trainer will be in touch with you shortly.',
-            actionUrl: `/community/quiz/${attemptId}`,
+            actionUrl: `/quiz/${attemptId}`,
             relatedId: attemptId,
         })
 
@@ -158,7 +158,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
             type: 'quiz_result',
             title: 'BCT Quiz Result',
             body: 'Unfortunately, you did not meet the requirements for this quiz. Your J3 trainer will be in touch with you shortly.',
-            actionUrl: `/community/quiz/${attemptId}`,
+            actionUrl: `/quiz/${attemptId}`,
             relatedId: attemptId,
         })
 
@@ -220,7 +220,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ att
             type: 'quiz_result',
             title: 'Quiz under review',
             body: 'Your quiz requires further review. Your result may be delayed. We appreciate your patience.',
-            actionUrl: `/community/quiz/${attemptId}`,
+            actionUrl: `/quiz/${attemptId}`,
             relatedId: attemptId,
         })
 

@@ -152,7 +152,7 @@ function ConfirmDialog({ open, title, body, danger, onConfirm, onCancel }: {
 
 // ── Storage donut ─────────────────────────────────────────────────────────────
 
-const STORAGE_PALETTE = { database: '#00c3ff', gallery: '#db001d', uploads: '#f59e0b' }
+const STORAGE_PALETTE = { database: '#00c3ff', gallery: '#db001d', uploads: 'var(--amber)' }
 const storageTooltipStyle = {
     contentStyle: { background: '#111', border: '1px solid rgba(219,0,29,0.32)', borderRadius: 0, fontSize: '0.78rem', color: '#ededed' },
     cursor: { fill: 'rgba(255,255,255,0.04)' },
@@ -647,8 +647,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
             <div
                 style={{
                     position: 'relative',
-                    border: '1px solid rgba(219,0,29,0.42)',
-                    borderTop: '2px solid var(--red)',
+                    border: '1px solid var(--line-2)',
                     background: 'rgba(255,255,255,0.04)',
                     padding: '16px 20px',
                     display: 'flex',
@@ -660,7 +659,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                 <div>
                     <Typography fontSize='0.52rem' fontWeight={700} letterSpacing={3}
                         style={{ textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)', marginBottom: 2, fontFamily: 'monospace' }}>
-                        <span style={{ color: 'rgba(219,0,29,0.35)' }}>{'//'}</span> J4 — Administration
+                        <span style={{ color: 'var(--txt-4)' }}>{'//'}</span> J4 — Administration
                     </Typography>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <Typography fontWeight={700} fontSize='0.9rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
@@ -670,7 +669,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                             <MuiTooltip title={resticHealthy ? 'Restic binary: OK' : 'Restic binary: not found or not runnable'}>
                                 <div style={{ display: 'inline-flex', lineHeight: 0 }}>
                                     {resticHealthy
-                                        ? <CheckCircleOutline sx={{ fontSize: 15, color: 'rgba(34,197,94,0.85)' }} />
+                                        ? <CheckCircleOutline sx={{ fontSize: 15, color: 'color-mix(in srgb, var(--live) 85%, transparent)' }} />
                                         : <ErrorOutline sx={{ fontSize: 15, color: 'rgba(219,0,29,0.85)' }} />}
                                 </div>
                             </MuiTooltip>
@@ -1030,7 +1029,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
             </div>
 
             {/* Storage usage */}
-            <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', paddingTop: 20 }}>
+            <div style={{ borderTop: '1px solid var(--line-2)', paddingTop: 20 }}>
                 <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3}
                     style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 16 }}>
                     Storage Usage
@@ -1059,7 +1058,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
 
             {/* Upload & revert — backups.restore only */}
             {canRestore && (
-                <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', paddingTop: 20 }}>
+                <div style={{ borderTop: '1px solid var(--line-2)', paddingTop: 20 }}>
                     <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3}
                         style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 12 }}>
                         Upload & Revert
@@ -1111,7 +1110,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                     </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                         <label style={{
-                            border: '1px solid rgba(219,0,29,0.25)',
+                            border: '1px solid var(--line-2)',
                             padding: '6px 14px',
                             cursor: 'pointer',
                             fontSize: '0.7rem',
@@ -1161,7 +1160,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
             )}
 
             {/* Settings */}
-            <div style={{ borderTop: '1px solid rgba(219,0,29,0.12)', paddingTop: 20 }}>
+            <div style={{ borderTop: '1px solid var(--line-2)', paddingTop: 20 }}>
                 <Typography fontSize='0.65rem' fontWeight={700} letterSpacing={3}
                     style={{ textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 16 }}>
                     Auto-Backup Settings

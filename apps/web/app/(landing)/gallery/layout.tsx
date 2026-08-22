@@ -1,24 +1,22 @@
-import { Metadata } from "next"
-
-import Container from '@/components/container'
-
-import Banner from '@/public/images/home/adf_peaking3.png'
-
+import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-	title: "Gallery | Australian Special Operations Taskforce",
-	description: "Photos and screenshots from Australian Special Operations Taskforce operations, training, and community events.",
+    title: 'Gallery | Australian Special Operations Taskforce',
+    description: 'Photos and screenshots from Australian Special Operations Taskforce operations, training, and community events.',
 }
 
-
-export default function Page({ children }: Readonly<{ children: React.ReactNode }>) {
-	return (
-		<Container title='GALLERY' background={Banner} sx={{ bannerHeight: 'xsm', maxWidth: '100%', padding: '0px' }}>
-			<div className='py-5 px-4 md:px-10 w-full'>
-
-				{children}
-
-			</div>
-		</Container>
-	)
+/**
+ * No `Container` here any more.
+ *
+ * Container's job is the standard page banner — a photograph with the page name
+ * centred on it — and the gallery now carries its own, which does the same work
+ * at half the height while also holding the archive's figures and the monthly
+ * winner. Keeping both would have printed "GALLERY" twice, one under the other.
+ *
+ * The page also runs edge-to-edge on purpose: the featured strip's overflow off
+ * the right of the viewport is what tells you it scrolls, and Container's fixed
+ * gutters would have boxed that in.
+ */
+export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
+    return <>{children}</>
 }

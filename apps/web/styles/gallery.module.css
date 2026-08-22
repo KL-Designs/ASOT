@@ -1,0 +1,1258 @@
+/* ============================================================================
+   ASOT — Gallery
+   ----------------------------------------------------------------------------
+   The archive page, rebuilt on the Command Strip language.
+
+   Layout is fixed rather than switchable: a side rail of filters against a
+   masonry grid. The mockup offered both axes as toggles because it was a
+   mockup; here the choice is made and the chrome that made it goes away.
+
+   The shared vocabulary (buttons, topo, kicker, pulse) lives in ui.module.css.
+   Only what is specific to browsing a photo archive is here.
+   ========================================================================== */
+
+.page {
+    --pad: clamp(18px, 3.2vw, 52px);
+    --gap: 12px;
+    background: var(--ink-0);
+}
+
+/* ---------- page banner --------------------------------------------------- */
+
+/*
+   Half the height of the one it replaces, and given something to do. The old
+   banner was ~300px of screenshot with the word GALLERY centred on it; this one
+   carries the archive's own numbers and promotes the monthly winner into the
+   header, which is where a "screenshot of the month" belongs.
+*/
+.banner {
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line-1);
+    background: var(--ink-0);
+}
+
+.bannerBg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.bannerBg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Weighted left, where the copy is, and lifted again at the right edge so the
+   SOTM card has something to sit against rather than floating on a photograph. */
+.bannerVeil {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+        linear-gradient(90deg, rgba(6, 7, 9, .95) 0%, rgba(6, 7, 9, .8) 40%, rgba(6, 7, 9, .4) 70%, rgba(6, 7, 9, .75) 100%),
+        linear-gradient(180deg, rgba(6, 7, 9, .6), transparent 40%, rgba(6, 7, 9, .9));
+}
+
+.bannerIn {
+    position: relative;
+    z-index: 4;
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: clamp(30px, 3.6vw, 48px) var(--pad);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 400px;
+    gap: 44px;
+    align-items: center;
+}
+
+/* No screenshot of the month set is a normal state, not a broken one — the
+   column simply goes away rather than leaving a 400px hole. */
+.bannerSolo {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.crumb {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+    margin-bottom: 14px;
+}
+
+.crumb b {
+    color: var(--red);
+    font-weight: 500;
+}
+
+.bTitle {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    font-size: clamp(38px, 5.4vw, 68px);
+    line-height: .92;
+    letter-spacing: .02em;
+    margin: 0;
+    text-transform: uppercase;
+    color: var(--txt-1);
+}
+
+.bLede {
+    color: #c1c6cc;
+    font-size: 15px;
+    line-height: 1.6;
+    max-width: 52ch;
+    margin: 16px 0 0;
+}
+
+.bstats {
+    display: flex;
+    margin-top: 26px;
+    border-top: 1px solid rgba(255, 255, 255, .14);
+    padding-top: 20px;
+    flex-wrap: wrap;
+}
+
+.bstats>div {
+    padding-right: 30px;
+    margin-right: 30px;
+    border-right: 1px solid rgba(255, 255, 255, .12);
+}
+
+.bstats>div:last-child {
+    border-right: 0;
+    margin-right: 0;
+    padding-right: 0;
+}
+
+.bstats .n {
+    font-family: var(--font-disp);
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+.bstats .l {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .2em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+    margin-top: 7px;
+}
+
+/* ---------- screenshot of the month --------------------------------------- */
+
+.sotm {
+    position: relative;
+    border: 1px solid var(--line-2);
+    border-top: 2px solid var(--amber);
+    background: rgba(9, 10, 12, .82);
+    backdrop-filter: blur(10px);
+}
+
+.sotmH {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 15px;
+    border-bottom: 1px solid var(--line-1);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--amber);
+}
+
+.sotmH svg {
+    width: 13px;
+    height: 13px;
+    flex: none;
+}
+
+.sotmH .m {
+    margin-left: auto;
+    color: var(--txt-3);
+}
+
+/* A button, so it is reachable by keyboard — hence the explicit reset. */
+.sotmImg {
+    display: block;
+    width: 100%;
+    height: 180px;
+    padding: 0;
+    border: 0;
+    position: relative;
+    overflow: hidden;
+    cursor: zoom-in;
+    background: linear-gradient(150deg, #2b2116, #151a20 60%, #0e1013);
+}
+
+.sotmImg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.sotmB {
+    padding: 15px;
+}
+
+.sotmT {
+    font-family: var(--font-disp);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    line-height: 1.15;
+    color: var(--txt-1);
+}
+
+.sotmBy {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .15em;
+    color: var(--txt-3);
+    margin-top: 9px;
+    text-transform: uppercase;
+}
+
+.sotmBy b {
+    color: var(--txt-1);
+    font-weight: 500;
+}
+
+/* ---------- featured strip ------------------------------------------------ */
+
+.strip {
+    border-bottom: 1px solid var(--line-1);
+    background: #0a0b0d;
+    padding: 26px 0;
+    position: relative;
+}
+
+.stripH {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 0 var(--pad) 16px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/*
+   The first tile lines up with the page gutter, but the strip still runs
+   full-bleed off the right edge — that overflow is what tells you it scrolls.
+   No scroll-snap here: the rail advances itself, and snapping would fight the
+   animation for control of scrollLeft every frame.
+
+   Scrollable but with no scrollbar drawn. `overflow-x` has to stay `auto` —
+   that is the property that makes `scrollLeft` mean anything, and the drift, a
+   drag and a trackpad swipe all move it. But a bar under a strip that is
+   already moving on its own reads as a stuck progress indicator, and Windows
+   paints it permanently at full weight rather than the hairline other platforms
+   fade in. The arrows are the affordance here.
+
+   Full-bleed, and no page gutter. A carousel that stops short of the edge has
+   to explain where it ends; one that runs off both sides doesn't. The mask does
+   the explaining instead — tiles arrive and leave through a fade rather than
+   being cut off at a hard border, which is what makes it read as a strip
+   passing through the window rather than a row that happens to overflow.
+*/
+.rail {
+    display: flex;
+    gap: var(--gap);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+    /* Grabbable — the arrows that used to say "this scrolls" are gone, so the
+       cursor has to say it instead. */
+    cursor: grab;
+}
+
+/*
+   While a drag is live the cursor wins over every tile's own `zoom-in`, and
+   nothing selects: without this, hauling the strip left paints a text selection
+   across the whole page.
+*/
+.railDragging,
+.railDragging * {
+    cursor: grabbing;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.railDragging img {
+    -webkit-user-drag: none;
+}
+
+.rail::-webkit-scrollbar {
+    display: none;
+}
+
+.railItem {
+    position: relative;
+    flex: none;
+    width: 280px;
+    height: 158px;
+    overflow: hidden;
+    border: 1px solid var(--line-1);
+    transition: border-color .2s var(--nav-ease);
+    cursor: zoom-in;
+    background: var(--ink-2);
+    padding: 0;
+}
+
+.railItem:hover {
+    border-color: var(--red-dim);
+}
+
+.railItem img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .5s var(--nav-ease);
+}
+
+.railItem:hover img {
+    transform: scale(1.05);
+}
+
+/* ---------- toolbar ------------------------------------------------------- */
+
+/*
+   Pinned to the viewport, not to the navbar.
+
+   It reserved 66px for the bar above it, which is what the navbar measures —
+   but the navbar never occupies that space once you scroll. `.nav` is
+   `position: sticky` inside `#site-navbar`, a flex item sized to exactly the
+   navbar's own height, and a sticky box cannot travel outside its containing
+   block: with no slack to move in, it scrolls away like anything else. So the
+   reserved band held nothing, and the grid showed through above the toolbar in
+   a 66px strip — the clipping.
+*/
+.toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    background: rgba(8, 9, 10, .94);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--line-1);
+}
+
+.tbIn {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 12px var(--pad);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.search {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    max-width: 380px;
+}
+
+.search svg {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px;
+    height: 15px;
+    color: var(--txt-3);
+    pointer-events: none;
+}
+
+.search input {
+    width: 100%;
+    height: 38px;
+    padding: 0 12px 0 36px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    border-radius: 2px;
+    font-size: 13.5px;
+    font-family: var(--font-ui);
+    color: var(--txt-1);
+    transition: border-color .16s, background .16s;
+    outline: none;
+}
+
+.search input::placeholder {
+    color: var(--txt-3);
+}
+
+.search input:focus {
+    border-color: var(--red);
+    background: var(--ink-3);
+}
+
+.count {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    color: var(--txt-2);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.count b {
+    color: #fff;
+    font-weight: 500;
+}
+
+.tbRight {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.sel {
+    position: relative;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 12px;
+    border: 1px solid var(--line-1);
+    background: var(--ink-2);
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .13em;
+    color: var(--txt-2);
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.sel select {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.sel svg {
+    width: 12px;
+    height: 12px;
+    opacity: .5;
+}
+
+.viewseg {
+    display: flex;
+    border: 1px solid var(--line-1);
+    border-radius: 2px;
+    overflow: hidden;
+    height: 38px;
+}
+
+.viewseg button {
+    width: 40px;
+    display: grid;
+    place-items: center;
+    color: var(--txt-3);
+    background: none;
+    border: 0;
+    transition: background .16s, color .16s;
+    cursor: pointer;
+}
+
+.viewseg button+button {
+    border-left: 1px solid var(--line-1);
+}
+
+.viewseg button.on {
+    background: var(--red);
+    color: #fff;
+}
+
+.viewseg svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* ---------- active-filter pills ------------------------------------------- */
+
+.pills {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 0 var(--pad) 12px;
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 28px;
+    padding: 0 6px 0 11px;
+    border: 1px solid var(--red-dim);
+    background: rgba(224, 35, 60, .09);
+    color: var(--txt-1);
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+}
+
+.pill button {
+    width: 16px;
+    height: 16px;
+    display: grid;
+    place-items: center;
+    color: var(--txt-3);
+    background: none;
+    border: 0;
+    border-radius: 2px;
+    transition: color .14s, background .14s;
+    cursor: pointer;
+}
+
+.pill button:hover {
+    color: #fff;
+    background: var(--red);
+}
+
+.pill svg {
+    width: 9px;
+    height: 9px;
+}
+
+.clearall {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .14em;
+    color: var(--txt-3);
+    text-transform: uppercase;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    background: none;
+    border: 0;
+    transition: color .16s;
+    cursor: pointer;
+}
+
+.clearall:hover {
+    color: var(--red);
+}
+
+/* ---------- shell --------------------------------------------------------- */
+
+.shell {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 26px var(--pad) 80px;
+    display: grid;
+    grid-template-columns: 262px minmax(0, 1fr);
+    gap: 30px;
+    align-items: start;
+}
+
+/*
+   Clears the toolbar pinned above it — the one thing that stays put.
+
+   Bounded and scrollable, because it holds three facets and the Operation list
+   is long. A sticky box with only `top` set and no height limit can end up
+   taller than the viewport, and the part hanging off the bottom is then
+   unreachable: the page scrolls, the pinned rail doesn't. Capping it means the
+   rail scrolls internally instead of hiding its last facet.
+*/
+.facetRail {
+    position: sticky;
+    top: 76px;
+    max-height: calc(100vh - 96px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.facetRail::-webkit-scrollbar {
+    width: 4px;
+}
+
+.facetRail::-webkit-scrollbar-thumb {
+    background: var(--line-2);
+}
+
+/* ---------- facets -------------------------------------------------------- */
+
+/*
+   One control everywhere: a checkbox row with a live count.
+
+   The page this replaces used three different interaction patterns side by side
+   — a vertical list for year, numbered chips for operation, a third list for
+   mission — so a visitor had to work out each one separately. A facet with no
+   matches dims rather than disappearing, which keeps the archive's shape
+   visible instead of making options flicker in and out as you filter.
+*/
+.facet {
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    margin-bottom: 12px;
+}
+
+.facet>summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 13px 15px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+}
+
+.facet>summary::-webkit-details-marker {
+    display: none;
+}
+
+.facet>summary .n {
+    margin-left: auto;
+    color: var(--txt-3);
+    font-size: 9px;
+}
+
+.facet>summary .cv {
+    width: 10px;
+    height: 10px;
+    transition: transform .2s;
+    color: var(--txt-3);
+    flex: none;
+}
+
+.facet[open]>summary .cv {
+    transform: rotate(180deg);
+}
+
+.facet[open]>summary {
+    border-bottom: 1px solid var(--line-1);
+    color: var(--red);
+}
+
+/*
+   260px showed eight operations out of dozens, which made the list read as a
+   peephole. This is a cap, not a height — Year has five entries and still sizes
+   to its content — so only the lists long enough to need the room take it, and
+   the `vh` term keeps it off the bottom of a short window.
+*/
+.fbody {
+    padding: 11px 15px 14px;
+    max-height: clamp(260px, 46vh, 520px);
+    overflow: auto;
+    scrollbar-width: thin;
+}
+
+.fbody::-webkit-scrollbar {
+    width: 4px;
+}
+
+.fbody::-webkit-scrollbar-thumb {
+    background: var(--line-2);
+}
+
+.fopt {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    cursor: pointer;
+    position: relative;
+}
+
+.fopt:hover .fname {
+    color: #fff;
+}
+
+.fbox {
+    width: 14px;
+    height: 14px;
+    flex: none;
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    display: grid;
+    place-items: center;
+    transition: background .14s, border-color .14s;
+}
+
+.fopt input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.fopt input:checked~.fbox {
+    background: var(--red);
+    border-color: var(--red);
+}
+
+.fbox svg {
+    width: 9px;
+    height: 9px;
+    color: #fff;
+    opacity: 0;
+    transition: opacity .14s;
+}
+
+.fopt input:checked~.fbox svg {
+    opacity: 1;
+}
+
+.fname {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    color: var(--txt-2);
+    transition: color .14s;
+    line-height: 1.3;
+}
+
+.fopt input:checked~.fname {
+    color: #fff;
+}
+
+.fcount {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--txt-3);
+    flex: none;
+}
+
+.fzero {
+    opacity: .34;
+    pointer-events: none;
+}
+
+/* ---------- grid ---------------------------------------------------------- */
+
+.grid {
+    display: grid;
+    gap: var(--gap);
+    grid-template-columns: repeat(4, 1fr);
+}
+
+/*
+   Masonry. `grid-auto-rows` is a 10px unit and each tile spans however many of
+   those its measured aspect ratio needs — see `layoutMasonry` in PhotoGrid.
+   `dense` backfills the holes that leaves.
+*/
+.gridMasonry {
+    grid-auto-rows: 10px;
+    row-gap: 0;
+    grid-auto-flow: dense;
+}
+
+.gridMasonry .tile {
+    margin-bottom: var(--gap);
+}
+
+/* Contact sheet: one ratio for everything, for dense scanning. */
+.gridUniform .tile {
+    aspect-ratio: 16 / 10;
+}
+
+.tile {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line-1);
+    cursor: zoom-in;
+    transition: border-color .2s;
+    background: var(--ink-2);
+    padding: 0;
+    display: block;
+    width: 100%;
+}
+
+.tile:hover {
+    border-color: var(--red-dim);
+}
+
+.tile img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform .55s var(--nav-ease);
+}
+
+.tile:hover img {
+    transform: scale(1.055);
+}
+
+/*
+   The grid this replaces showed bare images: no operation, no mission, no
+   hover state, so a visitor could not tell what they were looking at without
+   opening it.
+*/
+.meta {
+    position: absolute;
+    inset: auto 0 0 0;
+    z-index: 4;
+    padding: 30px 13px 12px;
+    background: linear-gradient(180deg, transparent, rgba(6, 7, 9, .94));
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity .24s var(--nav-ease), transform .24s var(--nav-ease);
+    text-align: left;
+}
+
+.tile:hover .meta,
+.tile:focus-visible .meta {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.metaT {
+    font-family: var(--font-cond);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: #fff;
+    line-height: 1.2;
+    display: block;
+}
+
+.metaS {
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+    margin-top: 6px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.metaS b {
+    color: var(--amber);
+    font-weight: 500;
+}
+
+.zoom {
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    z-index: 5;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    background: rgba(6, 7, 9, .75);
+    border: 1px solid var(--line-2);
+    color: #fff;
+    opacity: 0;
+    transform: scale(.85);
+    transition: opacity .2s var(--nav-ease), transform .2s var(--nav-ease);
+    border-radius: 2px;
+}
+
+.tile:hover .zoom {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.zoom svg {
+    width: 13px;
+    height: 13px;
+}
+
+/* ---------- grouped by operation ------------------------------------------ */
+
+.opgroup {
+    margin-bottom: 38px;
+}
+
+.opgroupH {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--line-1);
+    flex-wrap: wrap;
+}
+
+.opgroupH .t {
+    font-family: var(--font-disp);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    line-height: 1;
+    color: var(--txt-1);
+}
+
+.opgroupH .m {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.opgroupH .m b {
+    color: var(--amber);
+    font-weight: 500;
+}
+
+/* Only rendered when a group is holding photographs back. */
+.opgroupH .more {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+    background: none;
+    border: 0;
+    padding: 0;
+    transition: color .16s;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.opgroupH .more:hover {
+    color: var(--red);
+}
+
+/* ---------- empty / load more --------------------------------------------- */
+
+.empty {
+    border: 1px dashed var(--line-2);
+    padding: 60px 30px;
+    text-align: center;
+}
+
+.empty .t {
+    font-family: var(--font-disp);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+}
+
+.empty p {
+    color: var(--txt-3);
+    font-size: 13.5px;
+    margin: 10px 0 20px;
+}
+
+.loadmore {
+    display: flex;
+    justify-content: center;
+    padding-top: 34px;
+}
+
+/* ---------- lightbox ------------------------------------------------------ */
+
+.lb {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(5, 6, 7, .96);
+    backdrop-filter: blur(8px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+}
+
+.lbStage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 56px 70px;
+    min-width: 0;
+}
+
+.lbImg {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+}
+
+.lbImg img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.lbNav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 64px;
+    display: grid;
+    place-items: center;
+    background: rgba(11, 12, 14, .8);
+    border: 1px solid var(--line-1);
+    color: var(--txt-2);
+    transition: color .16s, border-color .16s, background .16s;
+    z-index: 3;
+    cursor: pointer;
+}
+
+.lbNav:hover {
+    color: #fff;
+    border-color: var(--red);
+    background: rgba(224, 35, 60, .14);
+}
+
+.lbNav:disabled {
+    opacity: .3;
+    cursor: default;
+    pointer-events: none;
+}
+
+.lbNav svg {
+    width: 18px;
+    height: 18px;
+}
+
+.lbPrev {
+    left: 14px;
+}
+
+.lbNext {
+    right: 14px;
+}
+
+.lbClose {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 5;
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-1);
+    color: var(--txt-2);
+    transition: color .16s, border-color .16s;
+    background: rgba(11, 12, 14, .8);
+    cursor: pointer;
+}
+
+.lbClose:hover {
+    color: #fff;
+    border-color: var(--red);
+}
+
+.lbClose svg {
+    width: 15px;
+    height: 15px;
+}
+
+.lbIdx {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .18em;
+    color: var(--txt-3);
+}
+
+.lbSide {
+    border-left: 1px solid var(--line-1);
+    background: var(--ink-1);
+    padding: 26px 24px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.lbK {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .22em;
+    color: var(--red);
+    text-transform: uppercase;
+}
+
+.lbTitle {
+    font-family: var(--font-disp);
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    margin: 12px 0 0;
+    line-height: 1.08;
+    color: var(--txt-1);
+    overflow-wrap: anywhere;
+}
+
+.lbRows {
+    margin-top: 22px;
+    border-top: 1px solid var(--line-1);
+}
+
+.lbRows .r {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 11px 0;
+    border-bottom: 1px solid var(--line-1);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.lbRows .r b {
+    color: var(--txt-1);
+    font-weight: 500;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.lbActs {
+    margin-top: auto;
+    padding-top: 24px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.lbActs>* {
+    flex: 1;
+    min-width: 120px;
+}
+
+/* ---------- responsive ---------------------------------------------------- */
+
+@media (max-width: 1240px) {
+    .bannerIn {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 28px;
+    }
+
+    .sotm {
+        max-width: 430px;
+    }
+
+    .shell {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* Out of the rail and into a row of panels — sticky positioning on a block
+       that now sits above the grid would pin it over the photographs. */
+    .facetRail {
+        position: static;
+        margin-bottom: 22px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 1px;
+        background: var(--line-1);
+        border: 1px solid var(--line-1);
+    }
+
+    .facet {
+        border: 0;
+        margin: 0;
+    }
+
+    .grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .lb {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .lbSide {
+        border-left: 0;
+        border-top: 1px solid var(--line-1);
+        max-height: 38vh;
+    }
+
+    .lbStage {
+        padding: 44px 56px;
+    }
+}
+
+@media (max-width: 900px) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .bstats>div {
+        padding-right: 20px;
+        margin-right: 20px;
+    }
+
+    .toolbar {
+        top: 0;
+    }
+
+    .facetRail {
+        position: static;
+    }
+}
+
+@media (max-width: 620px) {
+    .grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* One column wide, spans computed for four columns are meaningless — the
+       tiles fall back to a fixed ratio rather than towering over the viewport. */
+    .gridMasonry {
+        grid-auto-rows: auto;
+        row-gap: var(--gap);
+    }
+
+    .gridMasonry .tile {
+        aspect-ratio: 16 / 10;
+        grid-row: auto !important;
+        margin-bottom: 0;
+    }
+
+    .tbRight {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .search {
+        max-width: none;
+    }
+
+    .lbStage {
+        padding: 52px 12px;
+    }
+
+    .lbNav {
+        width: 34px;
+        height: 52px;
+    }
+}

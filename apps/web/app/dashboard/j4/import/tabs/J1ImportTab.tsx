@@ -424,7 +424,7 @@ export default function J1ImportTab() {
             {hasData && (
                 <>
                     {/* Stats banner */}
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, px: 1.5, py: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(219,0,29,0.15)' }}>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, px: 1.5, py: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--line-2)' }}>
                         {[
                             ['Total',         merged.length,      'rgba(237,237,237,0.6)'],
                             ['Matched',        matchedCount,       'rgba(0,200,80,0.7)'],
@@ -476,7 +476,7 @@ export default function J1ImportTab() {
                                     component='select'
                                     value={skipDupes ? 'skip' : 'overwrite'}
                                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSkipDupes(e.target.value === 'skip')}
-                                    sx={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(219,0,29,0.3)', color: '#ededed', fontSize: '0.75rem', padding: '5px 10px', cursor: 'pointer', outline: 'none' }}
+                                    sx={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line-2)', color: '#ededed', fontSize: '0.75rem', padding: '5px 10px', cursor: 'pointer', outline: 'none' }}
                                 >
                                     <option value='skip'>Skip duplicates (recommended)</option>
                                     <option value='overwrite'>Import all (including duplicates)</option>
@@ -511,8 +511,8 @@ export default function J1ImportTab() {
                     )}
 
                     {/* Preview table */}
-                    <Box sx={{ border: '1px solid rgba(219,0,29,0.22)', overflow: 'hidden' }}>
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 110px 80px 80px', gap: 1.5, px: 1.5, py: 1, background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(219,0,29,0.22)' }}>
+                    <Box sx={{ border: '1px solid var(--line-2)', overflow: 'hidden' }}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 110px 80px 80px', gap: 1.5, px: 1.5, py: 1, background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid var(--line-2)' }}>
                             {['Discord', 'Name', 'Status', 'Join Date', 'Source', 'Dupe?'].map(h => (
                                 <Typography key={h} fontSize='0.58rem' fontWeight={700} sx={{ letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)' }}>{h}</Typography>
                             ))}

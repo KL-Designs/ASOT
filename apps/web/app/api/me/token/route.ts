@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import client from '@/lib/discord'
+import { DEFAULT_ACCENT, resolveMemberAccent } from '@/lib/military/accent'
 
 export async function GET() {
     const cookieStore = await cookies()
@@ -9,10 +10,10 @@ export async function GET() {
     try {
         const me = await client.fetchMe(token)
         const name = me.guild?.displayName || me.globalName || me.username || 'Unknown'
-        const color = me.hexAccentColor || '#db001d'
+        const color = resolveMemberAccent(me)
         const avatar = me.guild?.avatarURL || me.avatarURL || null
         return NextResponse.json({ token, name, color, avatar })
     } catch {
-        return NextResponse.json({ token, name: 'Unknown', color: '#db001d' })
+        return NextResponse.json({ token, name: 'Unknown', color: DEFAULT_ACCENT })
     }
 }

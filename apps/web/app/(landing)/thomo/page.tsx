@@ -1,12 +1,10 @@
-'use client'
-
 import Container from '@/components/container'
 import ThomoFire from '@/public/thomo/fire.png'
 
 
 export default function Page() {
 	return (
-		<Container title='Enter Lieutenant General Thomas' background={ThomoFire} sx={{ maxWidth: 'max-w-xl', bannerHeight: 'lg' }}>
+		<Container title='Enter Lieutenant General Thomas' kicker='Easter egg' background={ThomoFire} sx={{ maxWidth: 'max-w-xl', bannerHeight: 'lg' }}>
 
 			<div className='grid grid-cols-2 md:grid-cols-4 gap-5'>
 				{[

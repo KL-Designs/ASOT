@@ -109,7 +109,7 @@ function SupportCard({ name, phone, link, available, location, image, children }
 
 export default function Page() {
 	return (
-		<Container title="ASOT SUPPORT" background={Banner} sx={{ bannerHeight: 'md', maxWidth: 'max-w-md', gap: 'gap-12' }}>
+		<Container title="ASOT SUPPORT" kicker="Wellbeing" background={Banner} sx={{ bannerHeight: 'md', maxWidth: 'max-w-md', gap: 'gap-12' }}>
 
 			<div className='flex flex-col gap-4'>
 				<SectionHeader label="Mental Health" title="You're Not Alone" />

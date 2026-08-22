@@ -1,67 +1,71 @@
-﻿import "./landing.css"
+import React from 'react'
+import { StaticImageData } from 'next/image'
 
-import Image, { StaticImageData } from 'next/image'
+import Masthead from '@/components/ui/Masthead'
+import SectionRail from '@/components/ui/SectionRail'
+import { type BannerHeight } from '@/lib/shell/masthead'
+import { type RailItem } from '@/lib/shell/rail'
+import s from '@/styles/shell.module.css'
 
-
-
-
-export default function Container({ children, title, subtitle, background, backgroundUrl, sx }: {
-    children?: React.ReactNode,
-    title?: string,
-    subtitle?: string,
-    background?: StaticImageData,
-    backgroundUrl?: string,
+/**
+ * The shell behind every public page that is not the landing page.
+ *
+ * Ten files render this. The four original props and the whole `sx` object
+ * keep their meaning so none of them had to change when the banner was
+ * rebuilt; everything added since is optional.
+ *
+ * `bannerHeight` still takes xsm/sm/md/lg, but those now resolve to clamped
+ * pixel heights rather than the `vh` values they used to — see
+ * lib/shell/masthead.ts for why.
+ *
+ * Synchronous, and deliberately so: a server component cannot read the current
+ * path (nothing sets a pathname header, and a middleware that did would have to
+ * run app-wide, which this app's middleware deliberately does not). Anything
+ * page-specific — the kicker included — is passed in by the caller.
+ */
+export default function Container({
+    children, title, subtitle, background, backgroundUrl, kicker, lede, aside, rail, sx,
+}: {
+    children?: React.ReactNode
+    title?: string
+    subtitle?: string
+    background?: StaticImageData
+    backgroundUrl?: string
+    /** The mono label above the title. Omit to render no kicker. */
+    kicker?: string
+    /** Overrides `subtitle` for the paragraph under the title. */
+    lede?: string
+    /** The masthead's second column. Omit for a solo band. */
+    aside?: React.ReactNode
+    /** The sticky section rail. Only the About family passes one. */
+    rail?: RailItem[]
     sx?: {
-        maxWidth?: 'max-w-sm' | 'max-w-md' | 'max-w-lg' | 'max-w-xl' | (string & {}),
-        bannerHeight?: 'xsm' | 'sm' | 'md' | 'lg',
-        padding?: string,
+        maxWidth?: 'max-w-sm' | 'max-w-md' | 'max-w-lg' | 'max-w-xl' | (string & {})
+        bannerHeight?: BannerHeight
+        padding?: string
         gap?: string | undefined
     }
 }) {
-
-    let bannerHeight: string
-    switch (sx?.bannerHeight) {
-        case 'xsm': bannerHeight = 'h-banner-xsm md:h-banner-xsm-md'; break
-        case 'sm': bannerHeight = 'h-banner-sm md:h-banner-sm-md'; break
-        case 'md': bannerHeight = 'h-banner-md md:h-banner-md-md'; break
-        case 'lg': bannerHeight = 'h-banner-lg md:h-banner-lg-md'; break
-        default: bannerHeight = 'h-banner-md md:h-banner-md-md'; break
-    }
-
     return (
-        <div className='h-full w-full'>
+        <div className={s.shell}>
+            <Masthead
+                title={title || 'PAGE TITLE'}
+                kicker={kicker}
+                lede={lede ?? subtitle}
+                background={background}
+                backgroundUrl={backgroundUrl}
+                bannerHeight={sx?.bannerHeight}
+                aside={aside}
+            />
 
-            <div className={`relative w-full ${bannerHeight} flex flex-col justify-end items-center overflow-hidden`}>
-                {backgroundUrl
-                    ? <img src={backgroundUrl} alt='Banner' className='absolute inset-0 w-full h-full object-cover object-center' />
-                    : <Image src={background || '/images/fallback.webp'} alt='Banner' fill className='object-cover object-center' priority placeholder={background ? 'blur' : 'empty'} />
-                }
+            {rail && <SectionRail items={rail} />}
 
-                {/* Gradient overlay — dark top edge, heavy fade to page bg at bottom */}
-                <div className='absolute inset-0' style={{
-                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.2) 40%, rgba(10,10,10,0.7) 75%, #0a0a0a 100%)'
-                }} />
-
-                <div className='relative z-10 flex flex-col items-center gap-3 pb-10 px-6 text-center w-full'>
-                    <h1 className='container-h1'>{title || 'PAGE TITLE'}</h1>
-                    <div className='flex items-center gap-3 w-full' style={{ maxWidth: 360 }}>
-                        <div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
-                        <div style={{ height: 2, width: 48, background: 'var(--red)' }} />
-                        <div style={{ flex: 1, height: 1, background: 'rgba(219,0,29,0.2)' }} />
-                    </div>
-                    {subtitle && <h2 className="container-h2 max-w-[400px] md:max-w-[680px]" style={{ opacity: 0.8 }}>{subtitle}</h2>}
-                </div>
+            <div
+                className={`${s.body} ${sx?.maxWidth || 'max-w-md'} ${sx?.gap ?? ''}`}
+                style={sx?.padding ? { padding: sx.padding } : undefined}
+            >
+                {children}
             </div>
-
-
-            <div>
-                <div className={`w-full m-auto flex flex-col ${sx?.gap ? sx.gap : 'gap-10'} ${sx?.maxWidth || 'max-w-md'}`} style={{ padding: sx?.padding || '2rem 2rem' }}>
-
-                    {children}
-
-                </div>
-            </div>
-
         </div>
     )
 }

@@ -1,17 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-
-interface LiveStatus {
-    operationStatus: string | null
-    operationDate: string | null
-    stage?: string
-    rsvpOpen: boolean
-    rsvpOpenAt?: string
-    rsvpCloseOffsetMins?: number
-    confirmationOpen: boolean
-    confirmationOpenedAt?: string
-}
+import { LiveStatus, fmtCountdown, rsvpCloseAt } from '@/lib/operations/schedule'
 
 interface Props {
     operationId: string
@@ -21,18 +11,6 @@ interface Props {
     r: number
     g: number
     b: number
-}
-
-function fmtCountdown(target: Date, now: Date): string | null {
-    const diff = target.getTime() - now.getTime()
-    if (diff <= 0) return null
-    const s = Math.floor(diff / 1000)
-    const m = Math.floor(s / 60)
-    const h = Math.floor(m / 60)
-    const d = Math.floor(h / 24)
-    if (d > 0) return `${d}d ${h % 24}h`
-    if (h > 0) return `${h}h ${m % 60}m`
-    return `${m}m ${s % 60}s`
 }
 
 export default function OperationStatusBar({ operationId, operationDate: initialDate, operationStatus: initialStatus, r, g, b }: Props) {
@@ -67,7 +45,7 @@ export default function OperationStatusBar({ operationId, operationDate: initial
     const opDate = operationDate ? new Date(operationDate) : null
     const rsvpOpenAt = data.rsvpOpenAt ? new Date(data.rsvpOpenAt) : null
     const rsvpCloseOffsetMins = data.rsvpCloseOffsetMins ?? 60
-    const rsvpCloseDate = opDate ? new Date(opDate.getTime() - rsvpCloseOffsetMins * 60000) : null
+    const rsvpCloseDate = rsvpCloseAt(opDate, rsvpCloseOffsetMins)
     const confirmCloseDate = data.confirmationOpenedAt ? new Date(new Date(data.confirmationOpenedAt).getTime() + 24 * 3600000) : null
 
     const isCompleted   = operationStatus === 'Completed'

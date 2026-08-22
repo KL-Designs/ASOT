@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import ApplicantPageView from '@/app/recruit-session/ApplicantPageView'
 import { type IntroProgress, type LivePreview } from '@/app/recruit-session/StepContent'
-import TSLinkButton from '@/app/me/TSLinkButton'
+import TeamSpeakCard from '@/app/dashboard/profile/_components/TeamSpeakCard'
 
 const WS_URL = (process.env.NEXT_PUBLIC_BASEURL ?? '')
     .replace(/^http/, 'ws')
@@ -188,9 +188,9 @@ export default function ApplicantSessionPage({ sessionId, initialStep, initialRa
         setLivePreview(p => ({ ...p, tsLinkStatus: 'linked' }))
     }
 
-    // Show TSLinkButton if user is logged in, otherwise a fallback message
+    // Show the TeamSpeak card if the user is logged in, otherwise a fallback
     const tsLinkWidget = meData ? (
-        <TSLinkButton
+        <TeamSpeakCard
             linked={meData.tsLink ?? null}
             expectedNickname={livePreview.namePreview ?? recruiterName}
             onLinked={handleTsLinked}

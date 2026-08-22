@@ -1,0 +1,1955 @@
+'use client'
+
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import {
+    ACTIONS, TOOLS, TOOL_SEPS, actionSfx, actionTime, actionWork, alarmFor, blockedBy, simulate, visibleRows,
+    type Action, type ActionRow, type LogKind, type ToolId,
+} from './actions'
+import { Monitor } from './audio'
+import {
+    ADJUNCT_LABEL, BANDAGES, CPR_RATE, DEATH_DOWNTIME, DIFFICULTIES, DRUGS, FALLBACK_CASUALTY, FATAL_SPO2,
+    FLUIDS, OBSTRUCTION_LABEL, PARTS, RHYTHM_LABEL, WOUND_TYPES,
+    ONE_HAND_SLOWDOWN, REBOA_FATAL, REBOA_WARN,
+    airwayOpen, arrestHr, bestBandage, bleedFactor, bloodWord, breathing, chatter, clamp, handover, handsFull,
+    intensity, jitter,
+    newPatient, nextWound, painWord, partBleeding, partSeverity, pName, shownBp, shownRr, shownSpo2,
+    stabilityIssues, stampFrom, totalBleed,
+    type BodyPart, type Casualty, type Difficulty, type PartId, type Patient, type Rhythm, type Triage,
+} from './model'
+import { TOOL_ICONS } from './icons'
+import s from './medical-menu.module.css'
+
+/* ============================================================================
+   HZN-MED — the medical menu.
+
+   A parody of the ARMA 3 ACE + KAT interface for practising treatment: pick a
+   limb off the body diagram, work the toolbar, watch the vitals answer. The
+   casualty bleeds in real time and will arrest if you leave them to it.
+
+   The patient is held as ordinary React state and every treatment runs against
+   a `structuredClone` of it. That is what lets the action table in ./actions.ts
+   stay written as plain mutation — the way the game's own model reads — without
+   any of it escaping into shared state.
+   ========================================================================== */
+
+interface LogLine { id: number, stamp: string, text: string, kind: LogKind }
+
+const SEV_FILL: Record<string, string> = {
+    '-1': '#8fd0f5',  // treated
+    '0': '#e6e9ec',
+    '1': '#f0d47e',
+    '2': '#e08a3c',
+    '3': '#d2352c',
+}
+
+/*
+   Right-side geometry only; the left is the same path mirrored. Edit one side.
+
+   The head is deliberately larger than life. This is a diagram you click, and
+   at the size the panel renders it a realistically-proportioned head is a
+   target too small to hit and too small to carry the casualty's face.
+
+   The legs were one slab with a seam down it: both inner edges met on the
+   centre line, so the pair read as a single shape and picking the near one was
+   a coin toss. They are tapered and parted now, and the feet sit under the
+   ankle rather than beside it.
+*/
+const BODY_GEOM = {
+    head: (
+        <>
+            <circle cx='150' cy='54' r='38' />
+            <rect x='138' y='86' width='24' height='24' rx='7' />
+        </>
+    ),
+    torso: (
+        <path d='M106,112 C98,124 96,146 98,166 C100,192 102,214 104,236
+                 C106,264 110,288 112,308 L188,308 C190,288 194,264 196,236
+                 C198,214 200,192 202,166 C204,146 202,124 194,112
+                 C180,102 166,100 150,100 C134,100 120,102 106,112 Z' />
+    ),
+    arm: (
+        <>
+            <path d='M105,114 C88,120 79,134 77,154 L68,224 C64,256 62,282 61,308
+                     L86,312 C90,282 94,256 98,226 L107,164 Z' />
+            <ellipse cx='73' cy='324' rx='14' ry='18' />
+        </>
+    ),
+    leg: (
+        <>
+            <path d='M112,306 C108,356 112,406 116,450
+                     C118,494 120,544 120,584 L140,584
+                     C141,544 142,496 144,450 C147,406 150,356 147,306 Z' />
+            <ellipse cx='128' cy='594' rx='18' ry='11' />
+        </>
+    ),
+}
+
+/*
+   Where the bleeding / fracture / tourniquet markers sit on each part.
+
+   The head's is off to the temple rather than dead centre: centre is where the
+   casualty's face now is, and a pulsing red disc over the middle of it hid the
+   one thing the avatar was added to show.
+*/
+const ANCHORS: Record<PartId, [number, number]> = {
+    head: [176, 32], torso: [150, 212], armR: [78, 252], armL: [222, 252],
+    legR: [127, 462], legL: [173, 462],
+}
+
+/*
+   Where the bone sits inside each part, and how long it is.
+
+   Drawn along the limb rather than at the marker anchor: a fracture is a
+   property of the whole bone, and a badge off to one side read as another
+   status pip next to the bleeding one.
+*/
+const BONES: Record<PartId, { x: number, y: number, len: number, angle: number }> = {
+    head:  { x: 150, y: 56,  len: 34,  angle: 0 },
+    torso: { x: 150, y: 205, len: 86,  angle: 0 },
+    // The arms hang outwards, so their bones lean with them: a positive
+    // rotation takes the lower end to the left, which is the near arm's line.
+    armR:  { x: 84,  y: 214, len: 96,  angle: 9 },
+    armL:  { x: 216, y: 214, len: 96,  angle: -9 },
+    legR:  { x: 128, y: 444, len: 140, angle: 0 },
+    legL:  { x: 172, y: 444, len: 140, angle: 0 },
+}
+
+/**
+ * A bone inside a limb: red while it is broken, blue once it is splinted.
+ *
+ * It leaves entirely when the part has nothing left wrong with it — a limb you
+ * have finished with should look finished, and the diagram is read at a glance
+ * rather than audited.
+ */
+function Bone({ at, splinted }: {
+    at: { x: number, y: number, len: number, angle: number }
+    splinted: boolean
+}) {
+    const colour = splinted ? '#8fd0f5' : '#d2352c'
+    const half = at.len / 2
+    const knob = Math.max(3, at.len * 0.055)
+    const shaft = Math.max(2.4, at.len * 0.045)
+    const end = half - knob * 0.7
+
+    return (
+        <g transform={`translate(${at.x},${at.y}) rotate(${at.angle})`} opacity={0.92}>
+            <g fill={colour} stroke='rgba(0,0,0,.5)' strokeWidth={0.8}>
+                <rect x={-shaft} y={-end} width={shaft * 2} height={end * 2} rx={shaft} />
+                {[-1, 1].map(sy => [-1, 1].map(sx => (
+                    <circle key={`${sx}${sy}`} cx={sx * knob * 0.75} cy={sy * end} r={knob} />
+                )))}
+            </g>
+
+            {splinted ? (
+                // Two bars alongside — the splint holding it.
+                [-1, 1].map(sx => (
+                    <rect
+                        key={sx}
+                        x={sx * (shaft + 3.4) - 1.4} y={-half * 0.62}
+                        width={2.8} height={half * 1.24} rx={1.2}
+                        fill='#8fd0f5' opacity={0.75}
+                    />
+                ))
+            ) : (
+                // The break itself. A clean gap reads as a join; the zigzag is
+                // what makes it read as snapped.
+                <>
+                    <rect x={-shaft * 1.5} y={-1.6} width={shaft * 3} height={3.2} fill='#0b0d0c' />
+                    <path
+                        d={`M${-shaft * 1.5},-2 L${-shaft * 0.4},1.4 L${shaft * 0.4},-1.8 L${shaft * 1.5},2`}
+                        fill='none' stroke='#0b0d0c' strokeWidth={1.6} strokeLinejoin='round'
+                    />
+                </>
+            )}
+        </g>
+    )
+}
+
+/*
+   How hard the severity colour is washed over the casualty's face.
+
+   Zero for a healthy head, so you simply see who it is. Everything else keeps
+   enough of the wash to read as injured at a glance — the diagram's whole job
+   is to be legible without reading it, and a photograph would swallow that if
+   the tint went transparent.
+*/
+/* Where the monitor's cuff sits on each upper arm. Mirrored, like the arm. */
+const MONITOR_BAND: Partial<Record<PartId, number>> = { armR: 71, armL: 191 }
+
+const HEAD_WASH: Record<string, number> = { '-1': .55, '0': 0, '1': .58, '2': .68, '3': .76 }
+
+const DOT_CLASS = { g: s.dotG, y: s.dotY, r: s.dotR, b: s.dotB }
+const LOG_CLASS: Record<LogKind, string> = { '': '', good: s.loglineGood, warn: s.loglineWarn, bad: s.loglineBad }
+
+/* ========================================================================== */
+
+export default function MedicalMenu({ roster, onClose }: {
+    /** Candidate casualties, pulled from the ORBAT by the server. */
+    roster: Casualty[]
+    /** Leaving. A navigation now rather than a state change — see ./page.tsx. */
+    onClose: () => void
+}) {
+    const [difficulty, setDifficulty] = useState<Difficulty>('moderate')
+    const [muted, setMuted] = useState(false)
+
+    // One monitor for the life of the menu. Created here rather than at module
+    // scope so two menus could never share an audio context, and torn down on
+    // close so an alarm cannot outlive the casualty sounding it.
+    const monitor = useRef<Monitor | null>(null)
+    if (!monitor.current) monitor.current = new Monitor()
+    useEffect(() => {
+        const m = monitor.current!
+        // The click that opened the menu is the gesture browsers want.
+        m.unlock()
+        return () => m.close()
+    }, [])
+    useEffect(() => { monitor.current!.setMuted(muted) }, [muted])
+
+    /*
+       The treatment underway, if any.
+
+       One at a time, on purpose: the casualty carries on bleeding while you
+       work, so *what you reach for first* is the decision this menu is asking
+       you to make. Everything else is disabled until it finishes or you abort.
+    */
+    /*
+       Two slots, because two different things are working.
+
+       `busy` is your hands and there is only one pair of them. `bg` is the
+       kit — the pads reading a rhythm — which does not need them and so gets
+       a slot of its own: start the analysis and carry on dressing a leg, and
+       both progress bars run at once. Everything downstream picks a slot with
+       `a.machine` and is otherwise identical, which is the point.
+    */
+    type Running = { id: string, label: string, seconds: number }
+    const [busy, setBusy] = useState<Running | null>(null)
+    const [bg, setBg] = useState<Running | null>(null)
+    const busyTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    const bgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+    useEffect(() => () => {
+        if (busyTimer.current) clearTimeout(busyTimer.current)
+        if (bgTimer.current) clearTimeout(bgTimer.current)
+    }, [])
+
+    // Chosen once per open, in the initialiser rather than an effect: picking
+    // in an effect would render the fallback first and swap the name out from
+    // under you a frame later.
+    const [patient, setPatient] = useState<Patient>(() => newPatient(drawCasualty(roster), 'moderate'))
+    const [sel, setSel] = useState<PartId | null>(null)
+    const [hover, setHover] = useState<PartId | null>(null)
+    const [tool, setTool] = useState<ToolId>('examine')
+    const [log, setLog] = useState<LogLine[]>([])
+    const [toasts, setToasts] = useState<{ id: number, text: string }[]>([])
+    const [clock, setClock] = useState('00:00:00')
+    /** Seconds since this casualty arrived. Frozen the moment they are decided. */
+    const [elapsed, setElapsed] = useState(0)
+    const startedAt = useRef(Date.now())
+    const [note, setNote] = useState('')
+
+    // The mission clock starts 37 minutes in — you are not the first responder.
+    const t0 = useRef(Date.now() - 1000 * 60 * 37)
+    const nextId = useRef(0)
+
+    /*
+       The authoritative patient, so the sim loop and a treatment cannot each
+       fork from the same render.
+
+       Both paths clone this rather than the state variable: the loop ticks
+       every 250ms, and reading a closed-over `patient` would mean a treatment
+       clicked mid-tick silently discarded whatever the casualty had bled since
+       the last render.
+    */
+    const live = useRef<Patient>(patient)
+    const commit = useCallback((next: Patient) => {
+        live.current = next
+        setPatient(next)
+    }, [])
+
+    const pushLog = useCallback((text: string, kind: LogKind = '') => {
+        const line: LogLine = { id: nextId.current++, stamp: stampFrom(t0.current), text, kind }
+        setLog(prev => [line, ...prev].slice(0, 200))
+    }, [])
+
+    const pushToast = useCallback((text: string) => {
+        const id = nextId.current++
+        setToasts(prev => [...prev, { id, text }])
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 2600)
+    }, [])
+
+    /*
+       The retch.
+
+       Watched here rather than announced by the sim: whether a sound plays is
+       the menu's business, and the model has no idea a speaker exists. It is
+       the only warning that the airway has just shut, so it plays whether or
+       not you were looking at the head.
+    */
+    const vomiting = patient.airway === 'vomit'
+    const wasVomiting = useRef(vomiting)
+    useEffect(() => {
+        if (vomiting && !wasVomiting.current) monitor.current?.vomit()
+        wasVomiting.current = vomiting
+    }, [vomiting])
+
+    /*
+       Decided, and therefore finished.
+
+       Everything the menu does on a timer checks this: the mission clock, the
+       trace, the alarm, the treatment in your hands. A casualty who has been
+       called should not still be bleeding on the board, and a monitor should
+       not still be making noise over them — the run stops dead, and the board
+       is where you choose to take another one.
+    */
+    const over = patient.outcome !== 'active'
+
+    /*
+       Whether the board has been waved away.
+
+       Kept in the component rather than on the casualty because it is about
+       what you have read, not about them. It clears itself the moment the run
+       is live again, so the next casualty — or this one, taken apart again
+       after you carried on working — still gets a board of their own.
+    */
+    const [dismissed, setDismissed] = useState(false)
+    useEffect(() => { if (!over) setDismissed(false) }, [over])
+
+    /*
+       Carrying on with the casualty in front of you.
+
+       A saved one goes back to being live: `declared` is already set, so the
+       sim will not hand you the same board again on the next tick, and you can
+       finish the sutures or take the balloon down at your own pace. A dead one
+       does not — there is nothing to resume — so the board simply gets out of
+       the way and the header keeps the route to the next casualty.
+    */
+    const carryOn = useCallback(() => {
+        setDismissed(true)
+        if (live.current.outcome !== 'stable') return
+        const next = structuredClone(live.current)
+        next.outcome = 'active'
+        commit(next)
+        pushLog('Carrying on with the casualty', 'warn')
+    }, [commit, pushLog])
+
+    /*
+       Compressions and a bag, heard rather than watched.
+
+       Both are on their own timers at the rate the label promises, so the room
+       sounds like the thing you have running — and you can be looking at the
+       drug list and still know your hands are busy.
+    */
+    const compressing = patient.cprActive
+    useEffect(() => {
+        const m = monitor.current!
+        if (compressing) m.loop('compress', 60000 / CPR_RATE)
+        else m.stopLoop('compress')
+    }, [compressing])
+
+    const bagging = patient.bagging
+    useEffect(() => {
+        const m = monitor.current!
+        if (bagging) m.loop('bag', 5000)
+        else m.stopLoop('bag')
+    }, [bagging])
+
+    const oxygenOn = patient.oxygen
+    useEffect(() => { monitor.current!.setHiss(oxygenOn) }, [oxygenOn])
+
+    /* ---------- the monitor's alarm --------------------------------------- */
+    // Silence once they are called. An alarm nobody can act on is just noise.
+    const alarm = over ? 'none' : alarmFor(patient)
+    useEffect(() => { monitor.current!.setAlarm(alarm) }, [alarm])
+
+    // A treatment half-finished on a casualty who has been called does not
+    // finish. Without this the timer fires and the log reports a dressing
+    // applied to somebody who is already on the board.
+    useEffect(() => {
+        if (!over) return
+        if (busyTimer.current) clearTimeout(busyTimer.current)
+        if (bgTimer.current) clearTimeout(bgTimer.current)
+        busyTimer.current = null
+        bgTimer.current = null
+        monitor.current?.stopAnalyse()
+        monitor.current?.stopWork()
+        monitor.current?.stopLoops()
+        monitor.current?.setHiss(false)
+        setBusy(null)
+        setBg(null)
+    }, [over])
+
+    // Announce a rhythm change in the log — it is the one thing that can happen
+    // to a casualty without anybody having done it.
+    const rhythm = patient.rhythm
+    const lastRhythm = useRef<Rhythm>(rhythm)
+    useEffect(() => {
+        if (lastRhythm.current === rhythm) return
+        lastRhythm.current = rhythm
+        pushLog(`Monitor — ${RHYTHM_LABEL[rhythm]}`, rhythm === 'sinus' ? 'good' : 'bad')
+    }, [rhythm, pushLog])
+
+    /* ---------- boot ------------------------------------------------------ */
+    // Guarded: StrictMode runs effects twice in development, and without this
+    // the handover you are given is printed to the log twice over.
+    const booted = useRef(false)
+    useEffect(() => {
+        if (booted.current) return
+        booted.current = true
+        handover(live.current).forEach(l => pushLog(l.text, l.kind))
+    }, [pushLog])
+
+    /* ---------- a fresh casualty ------------------------------------------ */
+    function resetPatient(d: Difficulty) {
+        // Whatever was underway was being done to the last casualty.
+        if (busyTimer.current) clearTimeout(busyTimer.current)
+        if (bgTimer.current) clearTimeout(bgTimer.current)
+        busyTimer.current = null
+        bgTimer.current = null
+        monitor.current?.stopAnalyse()
+        setBusy(null)
+        setBg(null)
+
+        setDismissed(false)
+        const next = newPatient(drawCasualty(roster), d)
+        startedAt.current = Date.now()
+        setElapsed(0)
+        commit(next)
+        setDifficulty(d)
+        setSel(null)
+        setToasts([])
+        // The log belongs to the casualty who has just left the table.
+        setLog([])
+        setTimeout(() => handover(next).forEach(l => pushLog(l.text, l.kind)), 0)
+    }
+
+    // Held in a ref so the keydown listener below can abort the treatment
+    // without being torn down and rebound every time one starts. Synced in an
+    // effect rather than assigned during render — events fire after commit, so
+    // the handler always sees the current one.
+    const cancelRef = useRef<() => boolean>(() => false)
+    useEffect(() => {
+        cancelRef.current = () => {
+            // Your hands first — that is what you meant by Esc. The machine only
+            // if there is nothing else to put down.
+            if (busy) { cancelAction(); return true }
+            if (bg) { cancelAction(true); return true }
+            return false
+        }
+    })
+
+    /*
+       The whole window.
+
+       The menu is a cockpit rather than an article: four columns, a dock and a
+       body diagram that wants every pixel it can get, and none of it benefits
+       from a navbar above it or a footer waiting underneath. Both are hidden
+       for exactly as long as this is mounted and put back on the way out, so a
+       navigation away leaves the site precisely as it found it — which is why
+       this restores the previous inline values rather than assuming they were
+       empty.
+    */
+    useEffect(() => {
+        const nav = document.getElementById('site-navbar')
+        const foot = document.getElementById('site-footer')
+        const wasNav = nav?.style.display ?? ''
+        const wasFoot = foot?.style.display ?? ''
+        const wasOverflow = document.body.style.overflow
+
+        if (nav) nav.style.display = 'none'
+        if (foot) foot.style.display = 'none'
+        document.body.style.overflow = 'hidden'
+
+        return () => {
+            if (nav) nav.style.display = wasNav
+            if (foot) foot.style.display = wasFoot
+            document.body.style.overflow = wasOverflow
+        }
+    }, [])
+
+    /* ---------- keyboard ---------------------------------------------------- */
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            const el = e.target as HTMLElement | null
+            if (el?.tagName === 'INPUT') return
+
+            if (e.key === 'Escape') {
+                // Escape unwinds one step at a time — abort the treatment, then
+                // drop the selected limb. It stops there: this is a page now,
+                // and a stray key should not navigate away from a casualty you
+                // were half-way through.
+                if (cancelRef.current()) return
+                setSel(null)
+                return
+            }
+            const n = parseInt(e.key, 10)
+            if (n >= 1 && n <= TOOLS.length) setTool(TOOLS[n - 1].id)
+        }
+        document.addEventListener('keydown', onKey)
+        return () => document.removeEventListener('keydown', onKey)
+    }, [])
+
+    /* ---------- sim loop --------------------------------------------------- */
+    useEffect(() => {
+        let last = Date.now()
+        const id = setInterval(() => {
+            const now = Date.now()
+            const dt = (now - last) / 1000
+            last = now
+
+            // Both clocks stop when the casualty is called. Nothing below this
+            // line should be running while a board is up.
+            if (live.current.outcome !== 'active') return
+            setClock(stampFrom(t0.current, now))
+            setElapsed((now - startedAt.current) / 1000)
+
+            const next = structuredClone(live.current)
+            const event = simulate(next, dt)
+            commit(next)
+            // The sim only speaks up when something happened on its own, and
+            // it is no longer only ever an arrest — it is also bleeding out,
+            // running the downtime clock out, and getting there.
+            if (event) {
+                pushLog(event[0], event[1])
+                pushToast(event[0])
+            }
+        }, 250)
+        return () => clearInterval(id)
+    }, [commit, pushLog, pushToast])
+
+    /**
+     * Take your hands off the casualty.
+     *
+     * Offered wherever you are rather than only on the row that started it —
+     * otherwise realising you need the adrenaline means finding your way back
+     * to Advanced Treatment before you can even begin.
+     */
+    function freeHands() {
+        const next = structuredClone(live.current)
+        if (next.cprActive) {
+            next.cprActive = false
+            next.hr = arrestHr(next.rhythm)
+            pushLog('Compressions stopped', 'warn')
+        } else if (next.bagging) {
+            next.bagging = false
+            pushLog('Bagging stopped', 'warn')
+        } else return
+        commit(next)
+    }
+
+    /* ---------- running a treatment --------------------------------------- */
+
+    /** Applies the treatment. Called when the timer runs out, not on click. */
+    function applyAction(a: Action, ml = 0): Patient {
+        const next = structuredClone(live.current)
+        const [msg, kind] = a.run(next, sel, ml)
+        if (sel && a.needsPart) next.parts[sel].checked = true
+        commit(next)
+        // Played on landing rather than on click, so what you hear is the thing
+        // happening rather than you asking for it.
+        const fx = actionSfx(a)
+        if (fx) monitor.current?.play(fx)
+        if (msg) { pushLog(msg, kind); pushToast(msg) }
+        return next
+    }
+
+    function startAction(a: Action, ml = 0) {
+        // Only against its own slot: the machine does not care that your hands
+        // are full, and your hands do not care that it is thinking.
+        if ((a.machine ? bg : busy) || patient.outcome !== 'active') return
+        if (blockedBy(patient, a)) return
+        const seconds = actionTime(tool, a, patient, sel ? patient.parts[sel] : null)
+        // The size is part of what you are doing, so it belongs in what the
+        // progress bar and the log say you are doing.
+        const label = ml ? `${a.label} ${ml} ml` : a.label
+        if (seconds <= 0) { applyAction(a, ml); return }
+
+        const set = a.machine ? setBg : setBusy
+        const timer = a.machine ? bgTimer : busyTimer
+        set({ id: a.id, label, seconds })
+        pushLog(`${label} — started`, '')
+        // The charge runs for the length of the action, so the tone finishing
+        // *is* the cue that the thing is about to happen.
+        if (a.sound === 'charge') monitor.current!.charge(seconds)
+        if (a.sound === 'analyse') monitor.current!.analysing(seconds)
+        // Everything else sounds like itself being done, for as long as the
+        // bar takes — which is twice as long if you are holding a bag.
+        const w = actionWork(a)
+        if (w) monitor.current!.work(w[0], w[1], seconds)
+        timer.current = setTimeout(() => {
+            timer.current = null
+            set(null)
+            if (!a.machine) monitor.current?.stopWork()
+            if (a.sound === 'charge') monitor.current!.shock()
+            const next = applyAction(a, ml)
+            // The verdict is the result, so it can only be played once there
+            // is one — shockable and not-shockable must never sound alike.
+            if (a.sound === 'analyse') monitor.current!.verdict(!!next.analysed?.advised)
+        }, seconds * 1000)
+    }
+
+    /** Aborts one slot. Which one is decided by what is in it. */
+    function cancelAction(machine = false) {
+        const run = machine ? bg : busy
+        const timer = machine ? bgTimer : busyTimer
+        if (!run) return
+        if (timer.current) clearTimeout(timer.current)
+        timer.current = null
+        pushLog(`${run.label} — interrupted`, 'warn')
+        if (machine) monitor.current?.stopAnalyse()
+        else monitor.current?.stopWork()
+        ;(machine ? setBg : setBusy)(null)
+    }
+
+    function setTriage(t: Triage) {
+        const next = structuredClone(live.current)
+        next.triage = t
+        next.triageEntries.unshift({ stamp: stampFrom(t0.current), text: 'Triage set — ' + t.toUpperCase() })
+        commit(next)
+        pushLog('Triage tag applied — ' + t.toUpperCase(), t === 'immediate' ? 'bad' : 'warn')
+    }
+
+    function addCardNote(text: string) {
+        const next = structuredClone(live.current)
+        next.triageEntries.unshift({ stamp: stampFrom(t0.current), text })
+        commit(next)
+    }
+
+    function patch(fields: Partial<Patient>) {
+        commit({ ...structuredClone(live.current), ...fields })
+    }
+
+    /* ---------- derived ---------------------------------------------------- */
+    /*
+       Only what is indicated, for what is selected.
+
+       A dressing offered for a limb with nothing open on it is noise, and
+       noise is what you read past while somebody bleeds. Sections whose rows
+       all dropped out go with them.
+    */
+    const selPart = sel ? patient.parts[sel] : null
+    const rows = tool === 'triage' ? [] : visibleRows(ACTIONS[tool], patient, selPart)
+
+    /*
+       The wound a dressing would go on, and what to reach for.
+
+       `nextWound` picks the worst one open, and `dress` treats that same one —
+       so the recommendation is about the wound you are actually about to
+       close rather than a general opinion about the limb.
+    */
+    const woundUp = selPart ? nextWound(selPart) : null
+    const bestPick = woundUp ? bestBandage(woundUp.t) : null
+    const airOpen = airwayOpen(patient)
+    const hands = handsFull(patient)
+    const breathes = breathing(patient)
+
+
+    const issues = stabilityIssues(patient)
+    const bleeding = totalBleed(patient) > 0
+    const [bw, bcls] = bloodWord(patient.blood)
+    const pw = painWord(patient.pain)
+    const selLabel = sel ? pName(sel) : hover ? pName(hover) : 'None'
+
+    return (
+        <div className={s.page}>
+            <div className={s.root} aria-label='HZN-MED medical menu'>
+
+                <div className={s.scene} aria-hidden>
+                    <div className={s.sky} /><div className={s.ground} /><div className={s.medic} />
+                    <div className={s.blood} /><div className={s.haze} /><div className={s.grain} />
+                    <div className={s.blur} /><div className={s.vig} />
+                </div>
+
+                <div className={s.menu}>
+
+                    <div className={s.titlebar}>
+                        <h1>Medical Menu</h1>
+                        <span className={s.tag}>HZN-MED</span>
+                        <span className={`${s.tag} ${s.tagAlt}`}>TRAINING</span>
+                        {/* Once the board is out of the way, this is the only
+                            thing left saying the run has been decided. */}
+                        {over && (
+                            <span className={`${s.tag} ${patient.outcome === 'stable' ? s.tagWin : s.tagDead}`}>
+                                {patient.outcome === 'stable' ? 'STABLE' : 'DECEASED'}
+                            </span>
+                        )}
+                        <span className={s.spacer} />
+
+                        <label className={s.diff}>
+                            <span>CASUALTY</span>
+                            <select
+                                value={difficulty}
+                                aria-label='Difficulty'
+                                onChange={e => resetPatient(e.target.value as Difficulty)}
+                            >
+                                {DIFFICULTIES.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                            </select>
+                        </label>
+                        <button type='button' className={s.newbtn} onClick={() => resetPatient(difficulty)}>
+                            New casualty
+                        </button>
+                        <button
+                            type='button'
+                            className={s.newbtn}
+                            aria-pressed={muted}
+                            title={muted ? 'Unmute the monitor' : 'Mute the monitor'}
+                            onClick={() => setMuted(m => !m)}
+                        >
+                            {muted ? 'Sound off' : 'Sound on'}
+                        </button>
+
+                        <span className={s.meta}>MISSION {clock}</span>
+                        <span className={s.meta}>MEDIC · <b>DOC-1 KODA</b></span>
+                        <button type='button' className={s.xbtn} title='Back to the milpac' aria-label='Back to the milpac' onClick={onClose}>✕</button>
+                    </div>
+
+                    <div className={s.grid}>
+
+                        {/* ---- examine & treatment ---- */}
+                        <div className={s.col}>
+                            <div className={s.colhead}>EXAMINE &amp; TREATMENT</div>
+                            <div className={s.toolbar}>
+                                {TOOLS.map((t, i) => {
+                                    const Icon = TOOL_ICONS[t.id]
+                                    return (
+                                        <React.Fragment key={t.id}>
+                                            <button
+                                                type='button'
+                                                className={`${s.tool} ${tool === t.id ? s.toolOn : ''}`}
+                                                title={`${t.label}  [${i + 1}]`}
+                                                aria-pressed={tool === t.id}
+                                                onClick={() => setTool(t.id)}
+                                            >
+                                                <Icon />
+                                                <span className={s.kbd}>{i + 1}</span>
+                                            </button>
+                                            {TOOL_SEPS.has(t.id) && <span className={s.toolsep} />}
+                                        </React.Fragment>
+                                    )
+                                })}
+                            </div>
+
+                            {/* Normally the running row is its own progress bar. This
+                                is the fallback for when it is not on screen — switch
+                                tools or drop the limb mid-treatment and you would
+                                otherwise have nothing to abort with. */}
+                            {busy && !rows.some(r => r.id === busy.id) && (
+                                <div className={s.progress}>
+                                    <span className={s.progressLabel}>{busy.label}</span>
+                                    <button type='button' className={s.progressX} onClick={() => cancelAction()}>Abort</button>
+                                    <i style={{ animationDuration: `${busy.seconds}s` }} />
+                                </div>
+                            )}
+                            {/* The machine keeps working while you look at a leg, so
+                                its bar has to follow you off the chest. */}
+                            {bg && !rows.some(r => r.id === bg.id) && (
+                                <div className={`${s.progress} ${s.progressBg}`}>
+                                    <span className={s.progressLabel}>{bg.label}</span>
+                                    <button type='button' className={s.progressX} onClick={() => cancelAction(true)}>Abort</button>
+                                    <i style={{ animationDuration: `${bg.seconds}s` }} />
+                                </div>
+                            )}
+
+                            {hands && !busy && (
+                                <div className={s.hands}>
+                                    <span>{hands} running — a syringe still fits, at {ONE_HAND_SLOWDOWN}×. Nothing else does.</span>
+                                    <button type='button' className={s.handsStop} onClick={freeHands}>Stop</button>
+                                </div>
+                            )}
+                            {/* A bag is one hand. You keep working, slowly. */}
+                            {patient.bagging && !hands && (
+                                <div className={s.oneHand}>
+                                    <span>Bagging — one hand free, everything takes {ONE_HAND_SLOWDOWN}× as long</span>
+                                    <button type='button' className={s.oneHandStop} onClick={freeHands}>Stop</button>
+                                </div>
+                            )}
+
+                            <div className={s.panel}>
+                                {tool === 'bandage' && woundUp && (
+                                    <div className={s.advice}>
+                                        Next: <b>{WOUND_TYPES[woundUp.t].name}</b> — reach for{' '}
+                                        <b>{BANDAGES[bestPick!].short}</b>
+                                    </div>
+                                )}
+                                {tool === 'triage' ? (
+                                    <TriageCard
+                                        patient={patient}
+                                        note={note}
+                                        setNote={setNote}
+                                        onTriage={setTriage}
+                                        onNote={addCardNote}
+                                        onPatch={patch}
+                                    />
+                                ) : (
+                                    rows.length === 0 ? (
+                                        <div className={s.nothing}>
+                                            {sel
+                                                ? `Nothing indicated for the ${pName(sel)}.`
+                                                : 'Select a body part to see what it needs.'}
+                                        </div>
+                                    ) : rows.map((row, i) =>
+                                        row.sec !== undefined
+                                            ? <div key={`s${i}`} className={s.sectlabel}>{row.sec}</div>
+                                            : row.sizes ? (
+                                                /* A bag is a choice of size, so the row
+                                                   is the shelf and each button is what
+                                                   you take off it. */
+                                                <div
+                                                    key={row.id}
+                                                    className={`${s.trow} ${s.trowSizes} ${busy?.id === row.id ? s.trowBusy : ''}`}
+                                                >
+                                                    {busy?.id === row.id && (
+                                                        <i className={s.trowFill} style={{ animationDuration: `${busy.seconds}s` }} />
+                                                    )}
+                                                    <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
+                                                    <span>{busy?.id === row.id ? busy.label : row.label}</span>
+                                                    {busy?.id === row.id ? (
+                                                        <button type='button' className={`${s.qty} ${s.rowAbort}`} onClick={() => cancelAction()}>
+                                                            ABORT
+                                                        </button>
+                                                    ) : (
+                                                        <span className={s.qty}>
+                                                            {row.needsPart && !sel
+                                                                ? 'SELECT A LIMB'
+                                                                : [row.note, `${actionTime(tool, row, patient, selPart)}s to hook up`].filter(Boolean).join(' · ')}
+                                                        </span>
+                                                    )}
+                                                    <div className={s.sizes}>
+                                                        {row.sizes.map(ml => (
+                                                            <button
+                                                                key={ml}
+                                                                type='button'
+                                                                className={s.sizebtn}
+                                                                disabled={!!busy || !!hands || patient.outcome !== 'active' || (row.needsPart && !sel)}
+                                                                onClick={() => startAction(row, ml)}
+                                                            >
+                                                                {ml} ml
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                (() => {
+                                                    /* Which slot this row runs in, and whether it is
+                                                       running now. A machine row and a hands row can
+                                                       both be filling at the same time, so neither
+                                                       may ask about the other's. */
+                                                    const slot = row.machine ? bg : busy
+                                                    const run = slot?.id === row.id ? slot : null
+                                                    const secs = actionTime(tool, row, patient, selPart)
+                                                    return (
+                                                <button
+                                                    key={row.id}
+                                                    type='button'
+                                                    className={[
+                                                        s.trow,
+                                                        row.onFor?.(patient) ? s.trowOn : '',
+                                                        row.bandage && row.bandage === bestPick ? s.trowBest : '',
+                                                        run ? s.trowBusy : '',
+                                                        run && row.machine ? s.trowMachine : '',
+                                                    ].filter(Boolean).join(' ')}
+                                                    // The row you are waiting on is the row you abort with.
+                                                    disabled={slot
+                                                        ? slot.id !== row.id
+                                                        : patient.outcome !== 'active' || !!blockedBy(patient, row) || (row.needsPart && !sel)}
+                                                    onClick={() => run ? cancelAction(!!row.machine) : startAction(row)}
+                                                >
+                                                    {run && (
+                                                        <i className={s.trowFill} style={{ animationDuration: `${run.seconds}s` }} />
+                                                    )}
+                                                    <span className={`${s.dot} ${row.dot ? DOT_CLASS[row.dot] : ''}`} />
+                                                    <span>{run ? run.label : row.labelFor ? row.labelFor(patient) : row.label}</span>
+                                                    {!busy && row.bandage && row.bandage === bestPick && <span className={s.bestTag}>BEST</span>}
+                                                    <span className={`${s.qty} ${run ? s.rowAbort : ''}`}>
+                                                        {run
+                                                            ? 'ABORT'
+                                                            : blockedBy(patient, row)
+                                                                ? 'HANDS FULL'
+                                                                : row.needsPart && !sel
+                                                                ? 'SELECT A LIMB'
+                                                                : [row.note, secs > 0 && `${secs}s`]
+                                                                    .filter(Boolean).join(' · ')}
+                                                    </span>
+                                                </button>
+                                                    )
+                                                })()
+                                            ))
+                                )}
+                            </div>
+                        </div>
+
+                        {/* ---- patient ---- */}
+                        <div className={s.col}>
+                            <div className={s.colhead}>
+                                {patient.rank && <span className={s.rank}>{patient.rank}</span>}
+                                {patient.name}
+                                <span className={s.sub}>
+                                    {[patient.callsign && `"${patient.callsign}"`, patient.unit]
+                                        .filter(Boolean).join(' · ')}
+                                </span>
+                            </div>
+
+                            <div className={s.bodywrap}>
+                                <svg className={s.bodySvg} viewBox='0 0 300 640' preserveAspectRatio='xMidYMid meet'>
+                                    <defs>
+                                        <clipPath id='hznHead'>
+                                            <circle cx='150' cy='54' r='38' />
+                                        </clipPath>
+                                        <clipPath id='hznSeal'>
+                                            <rect x='152' y='148' width='36' height='36' rx='2' />
+                                        </clipPath>
+                                        <filter id='hznGlow'>
+                                            <feGaussianBlur stdDeviation='3' result='b' />
+                                            <feMerge><feMergeNode in='b' /><feMergeNode in='SourceGraphic' /></feMerge>
+                                        </filter>
+                                    </defs>
+
+                                    <g strokeWidth='1.2'>
+                                        {([
+                                            ['torso', BODY_GEOM.torso, undefined],
+                                            ['head', BODY_GEOM.head, undefined],
+                                            ['armR', BODY_GEOM.arm, undefined],
+                                            ['armL', BODY_GEOM.arm, 'translate(300,0) scale(-1,1)'],
+                                            ['legR', BODY_GEOM.leg, undefined],
+                                            ['legL', BODY_GEOM.leg, 'translate(300,0) scale(-1,1)'],
+                                        ] as [PartId, React.ReactNode, string | undefined][]).map(([id, shape, transform]) => {
+                                            const on = sel === id
+                                            const sev = String(partSeverity(patient.parts[id]))
+                                            return (
+                                                <g
+                                                    key={id}
+                                                    className={s.part}
+                                                    transform={transform}
+                                                    filter={on ? 'url(#hznGlow)' : undefined}
+                                                    fill={SEV_FILL[sev]}
+                                                    stroke={on ? '#ffffff' : 'rgba(0,0,0,.55)'}
+                                                    strokeWidth={on ? 3.4 : 1.2}
+                                                    onClick={() => setSel(prev => (prev === id ? null : id))}
+                                                    onMouseEnter={() => setHover(id)}
+                                                    onMouseLeave={() => setHover(null)}
+                                                >
+                                                    {shape}
+                                                    {/* The casualty's own face, clipped into the
+                                                        head, with the severity colour washed back
+                                                        over it so an injured head still reads as
+                                                        one at a glance. */}
+                                                    {id === 'head' && patient.avatar && (
+                                                        <>
+                                                            <image
+                                                                href={patient.avatar}
+                                                                x={112} y={16} width={76} height={76}
+                                                                preserveAspectRatio='xMidYMid slice'
+                                                                clipPath='url(#hznHead)'
+                                                            />
+                                                            {HEAD_WASH[sev] > 0 && (
+                                                                <circle
+                                                                    cx='150' cy='54' r='38'
+                                                                    fill={SEV_FILL[sev]}
+                                                                    opacity={HEAD_WASH[sev]}
+                                                                    stroke='none'
+                                                                />
+                                                            )}
+                                                        </>
+                                                    )}
+                                                </g>
+                                            )
+                                        })}
+                                    </g>
+
+                                    {/* Bleeding, tourniquets, fractures and IV sites. */}
+                                    <g pointerEvents='none'>
+                                        {PARTS.map(({ id }) => {
+                                            const pt = patient.parts[id]
+                                            const [x, y] = ANCHORS[id]
+                                            const tqY = id.startsWith('arm') ? y - 40 : y - 70
+                                            return (
+                                                <React.Fragment key={id}>
+                                                    {partBleeding(pt) > 0 && (
+                                                        <circle cx={x} cy={y} r={6} fill='#c8241c' opacity='.85'>
+                                                            <animate attributeName='r' values='4;9;4' dur='1.4s' repeatCount='indefinite' />
+                                                            <animate attributeName='opacity' values='.9;.15;.9' dur='1.4s' repeatCount='indefinite' />
+                                                        </circle>
+                                                    )}
+                                                    {/* Gone once the part is done with: splinted,
+                                                        and nothing still bleeding out of it. */}
+                                                    {pt.fractured && !(pt.splinted && partSeverity(pt) <= 0) && (
+                                                        <Bone at={BONES[id]} splinted={pt.splinted} />
+                                                    )}
+                                                    {pt.tourniquet && (
+                                                        <g>
+                                                            <rect x={x - 22} y={tqY} width='44' height='9' rx='2' fill='#141518' stroke='#d8ac45' strokeWidth='1.4' />
+                                                            <text x={x} y={tqY - 4} textAnchor='middle' fill='#d8ac45' fontSize='10'>TQ</text>
+                                                        </g>
+                                                    )}
+                                                    {pt.iv > 0 && <circle cx={x - 16} cy={y + 10} r='4' fill='#56a8e0' />}
+                                                </React.Fragment>
+                                            )
+                                        })}
+                                        {/* The balloon, and the catheter that got it
+                                            there. Drawn from the groin it went in
+                                            through, because which side you used is a
+                                            thing you should be able to see. */}
+                                        {patient.reboa && (
+                                            <g>
+                                                <path
+                                                    d={`M${patient.reboa.site === 'legR' ? 134 : 166},322 L150,258`}
+                                                    stroke='#d8ac45' strokeWidth='2' fill='none' opacity='.85' />
+                                                <ellipse className={s.balloon} cx='150' cy='240' rx='10' ry='17'
+                                                    fill='rgba(216, 172, 69,.3)' stroke='#d8ac45' strokeWidth='2' />
+                                                <text
+                                                    x='150' y='288' textAnchor='middle'
+                                                    fill={patient.reboa.up > REBOA_WARN ? '#ff6a5e' : '#d8ac45'}
+                                                    fontSize='10' fontWeight='700' letterSpacing='1.4'>
+                                                    REBOA {Math.round(patient.reboa.up)}s
+                                                </text>
+                                            </g>
+                                        )}
+
+                                        {/* The hole. A puncture reads as a puncture:
+                                            a dark centre with torn edges around it,
+                                            not a dot the same red as everything else. */}
+                                        {patient.chestWound && !patient.sealed && (
+                                            <g className={s.chestHole}>
+                                                {/* Near-black under everything, so the
+                                                    hole still reads as a hole on a limb
+                                                    that has gone the same red as it. */}
+                                                <circle cx='170' cy='166' r='11' fill='#150e0d' opacity='.9' />
+                                                <circle cx='170' cy='166' r='8.5' fill='#6b1712' stroke='#ff5a4e' strokeWidth='2.4' />
+                                                <circle cx='170' cy='166' r='3.2' fill='#0c0504' />
+                                            </g>
+                                        )}
+
+                                        {/* And the seal over it. Yellow and black,
+                                            because that is what one looks like and
+                                            because the previous pale blue square
+                                            disappeared into a torso the same colour. */}
+                                        {patient.sealed && (
+                                            <g>
+                                                <rect x='152' y='148' width='36' height='36' rx='2' fill='#151107' stroke='#d8ac45' strokeWidth='2' />
+                                                <g clipPath='url(#hznSeal)' opacity='.85'>
+                                                    <path d='M146,172 L170,148 M152,190 L190,152 M166,190 L194,162'
+                                                        stroke='#d8ac45' strokeWidth='5' fill='none' />
+                                                </g>
+                                                <text x='170' y='142' textAnchor='middle' fill='#d8ac45'
+                                                    fontSize='8.5' fontWeight='700' letterSpacing='1.2'>SEALED</text>
+                                            </g>
+                                        )}
+                                        {patient.pneumo && (
+                                            <g>
+                                                {/* A dark halo under a bright ring. The
+                                                    torso is red by the time a chest is
+                                                    tensioning, so anything drawn in one
+                                                    red on another is drawn in vain. */}
+                                                <g className={s.pneumoRing}>
+                                                    <circle cx='170' cy='170' r='27' fill='none' stroke='#0d0b0a' strokeWidth='6' opacity='.75' />
+                                                    <circle cx='170' cy='170' r='27' fill='none' stroke='#ff6a5e' strokeWidth='2.2' strokeDasharray='5 5' />
+                                                </g>
+                                                <rect x='140' y='124' width='60' height='15' rx='2' fill='#14100f' stroke='#ff6a5e' strokeWidth='1.3' />
+                                                <text x='170' y='135' textAnchor='middle' fill='#ff6a5e'
+                                                    fontSize='9.5' fontWeight='700' letterSpacing='1.6'>TENSION</text>
+                                            </g>
+                                        )}
+
+                                        {/* Rolled onto their side. Drawn on the body
+                                            rather than only listed under Airway,
+                                            because it is a fact about the casualty in
+                                            front of you and not a treatment you can
+                                            forget you applied. */}
+                                        {patient.recovery && (
+                                            <g>
+                                                <rect x='4' y='4' width='152' height='21' rx='3'
+                                                    fill='rgba(61, 220, 132,.16)' stroke='#3ddc84' strokeWidth='1.3' />
+                                                <text x='12' y='19' fill='#3ddc84'
+                                                    fontSize='10.5' fontWeight='700' letterSpacing='1.4'>RECOVERY POSITION</text>
+                                            </g>
+                                        )}
+
+                                        {/* Somebody squeezing a bag over the face. */}
+                                        {patient.bagging && (
+                                            <g>
+                                                <ellipse className={s.bagSqueeze} cx='150' cy='58' rx='26' ry='20'
+                                                    fill='rgba(86,168,224,.16)' stroke='#56a8e0' strokeWidth='1.8' />
+                                                <text x='150' y='24' textAnchor='middle' fill='#56a8e0'
+                                                    fontSize='9.5' fontWeight='700' letterSpacing='1.6'>BVM</text>
+                                            </g>
+                                        )}
+
+                                        {/* An airway that somebody is holding open. */}
+                                        {(patient.adjunct !== 'none' || !airOpen) && (
+                                            <g>
+                                                <rect x='138' y='86' width='24' height='10' rx='2'
+                                                    fill={airOpen ? '#12181d' : '#2a1210'}
+                                                    stroke={airOpen ? '#56a8e0' : '#ff6a5e'} strokeWidth='1.4' />
+                                                {!airOpen && (
+                                                    <text x='150' y='118' textAnchor='middle' fill='#ff6a5e'
+                                                        fontSize='9.5' fontWeight='700' letterSpacing='1.4'>NO AIR</text>
+                                                )}
+                                            </g>
+                                        )}
+
+                                        {/* The cuff, where you put it. */}
+                                        {patient.monitorOn && MONITOR_BAND[patient.monitorOn] && (
+                                            <g>
+                                                <rect
+                                                    x={MONITOR_BAND[patient.monitorOn]!} y='146' width='38' height='15' rx='3'
+                                                    fill='#12181d' stroke='#56a8e0' strokeWidth='1.5' />
+                                                <circle
+                                                    className={s.cuffLed}
+                                                    cx={MONITOR_BAND[patient.monitorOn]! + 31} cy='153.5' r='2.6' fill='#56a8e0' />
+                                            </g>
+                                        )}
+
+                                        {/* Pads: right anterior, left lateral. */}
+                                        {patient.padsOn && (
+                                            <g>
+                                                <path d='M129,160 L171,208' stroke='#d8ac45' strokeWidth='1' opacity='.45' fill='none' />
+                                                <rect x='114' y='138' width='30' height='22' rx='3'
+                                                    fill='#1e1a10' stroke='#d8ac45' strokeWidth='1.5' />
+                                                <rect x='156' y='206' width='30' height='22' rx='3'
+                                                    fill='#1e1a10' stroke='#d8ac45' strokeWidth='1.5' />
+                                            </g>
+                                        )}
+
+                                        {/* Hands on the chest. It beats at the rate
+                                            you are being asked to compress at, so the
+                                            animation is the metronome. */}
+                                        {patient.cprActive && (
+                                            <g>
+                                                <circle className={s.cprRing} cx='150' cy='186' r='31'
+                                                    fill='rgba(255, 106, 94,.16)' stroke='#ff6a5e' strokeWidth='2' />
+                                                <path className={s.cprHands}
+                                                    d='M139,176 h22 v10 h-22 z M142,186 h16 v9 h-16 z'
+                                                    fill='#ff6a5e' opacity='.92' />
+                                                <text x='150' y='216' textAnchor='middle' fill='#ff6a5e'
+                                                    fontSize='12' fontWeight='700' letterSpacing='2.5'>CPR</text>
+                                            </g>
+                                        )}
+
+                                        <Chatter patient={patient} />
+                                    </g>
+                                </svg>
+                            </div>
+
+                            <div className={`${s.selbar} ${sel ? '' : s.selbarNone}`}>{selLabel}</div>
+
+                            <div className={s.legend}>
+                                {/* Colour is bleeding and nothing else — fractures
+                                    are the bone drawn inside the limb. */}
+                                <span><i style={{ background: '#e6e9ec' }} />No bleed</span>
+                                <span><i style={{ background: '#f0d47e' }} />Light</span>
+                                <span><i style={{ background: '#e08a3c' }} />Moderate</span>
+                                <span><i style={{ background: '#d2352c' }} />Severe</span>
+                                <span><i style={{ background: '#8fd0f5' }} />Dressed</span>
+                                <span><i style={{ background: '#d2352c', borderRadius: '50%' }} />Fracture</span>
+                            </div>
+                        </div>
+
+                        {/* ---- the monitor ---- */}
+                        <div className={`${s.col} ${s.colMonitor}`}>
+                            <div className={s.colhead}>MONITOR</div>
+                            <VitalsMonitor
+                                patient={patient}
+                                monitor={monitor}
+                                airOpen={airOpen}
+                                breathes={breathes}
+                            />
+                        </div>
+
+                        {/* ---- everything else ---- */}
+                        <div className={`${s.col} ${s.colOverview}`}>
+                            <div className={s.colhead}>DETAILS</div>
+                            <div className={s.panel}>
+                                {patient.chestWound && !patient.sealed && !patient.pneumo && (
+                                    <div className={`${s.ovline} ${s.ovlineYel}`}>Open chest wound — unsealed</div>
+                                )}
+                                {/* Whether they are with you. First, because it changes
+                                    what every other line on this panel means. */}
+                                <div className={`${s.ovline} ${patient.conscious ? s.ovlineGreen : s.ovlineYel}`}>
+                                    {patient.conscious
+                                        ? 'Conscious · responding'
+                                        : patient.cardiacArrest
+                                            ? 'Unresponsive · no output'
+                                            : patient.wake > 0
+                                                ? 'Unconscious · post-arrest'
+                                                : 'Unconscious · not responding'}
+                                </div>
+
+                                {bleeding && <div className={`${s.ovline} ${s.ovlineRed}`}>Bleeding</div>}
+
+                                {bw && <div className={`${s.ovline} ${bcls === 'red' ? s.ovlineRed : s.ovlineYel}`}>{bw}</div>}
+                                {pw && <div className={s.ovline}>{pw}</div>}
+                                {patient.tqCount > 0 && (
+                                    <div className={`${s.ovline} ${s.ovlineYel}`}>{patient.tqCount}× Tourniquet applied</div>
+                                )}
+                                {!bleeding && !bw && !pw && !patient.cardiacArrest && (
+                                    <div className={`${s.ovline} ${s.ovlineDim}`}>No apparent injuries.</div>
+                                )}
+
+                                {/* The limb you clicked, above everything about the
+                                    rest of them. The panel used to make you hunt for
+                                    it among five others in the same grey. */}
+                                {selPart && (
+                                    <PartCard
+                                        name={PARTS.find(x => x.id === selPart.id)!.name}
+                                        pt={selPart}
+                                        selected
+                                    />
+                                )}
+
+                                {/* Lines running. Sited under the volume bar because
+                                    that is the bar they are filling, and left up while
+                                    you are on any other tool — the whole point of an
+                                    infusion is that you walked away from it. */}
+                                {patient.infusions.map(inf => {
+                                    const f = FLUIDS[inf.fluid]
+                                    return (
+                                        <div key={inf.id} className={s.infusion}>
+                                            <span className={s.infusionDrip} style={{ background: f.colour }} />
+                                            <span>{f.label} {inf.volume} ml · {pName(inf.part)}</span>
+                                            <b>{Math.ceil(inf.left)} ml</b>
+                                            <i style={{ width: `${inf.left / inf.volume * 100}%`, background: f.colour }} />
+                                        </div>
+                                    )
+                                })}
+
+                                {PARTS.some(({ id }) => id !== sel && hasSomething(patient.parts[id])) && (
+                                    <div className={s.ovrule}>Rest of the casualty</div>
+                                )}
+                                {PARTS.map(({ id, name }) => {
+                                    // The selected one is already up top.
+                                    if (id === sel) return null
+                                    const pt = patient.parts[id]
+                                    if (!hasSomething(pt)) return null
+                                    return <PartCard key={id} name={name} pt={pt} />
+                                })}
+
+                                <div className={s.ovpart}>
+                                    <h4>Airway</h4>
+                                    {/* What is in it is something you find out by
+                                        looking. What you put in it, you know. */}
+                                    {patient.airwayChecked ? (
+                                        <div
+                                            className={s.ovsub}
+                                            style={{ color: airOpen ? 'var(--green)' : 'var(--red)', fontWeight: airOpen ? 400 : 700 }}
+                                        >
+                                            {OBSTRUCTION_LABEL[patient.airway]}
+                                            {airOpen ? '' : ' — NOT MOVING AIR'}
+                                        </div>
+                                    ) : (
+                                        <div className={`${s.ovsub} ${s.ovsubB}`}>Unknown — check it</div>
+                                    )}
+                                    {/* Not gated on having checked: a chest either
+                                        rises or it does not, and you can see that
+                                        from where you are standing. */}
+                                    <div
+                                        className={s.ovsub}
+                                        style={{ color: breathes ? 'var(--green)' : 'var(--red)', fontWeight: breathes ? 400 : 700 }}
+                                    >
+                                        {breathes
+                                            ? 'Breathing on their own'
+                                            : patient.bagging
+                                                ? 'NOT BREATHING — bagged at 12/min'
+                                                : 'NOT BREATHING'}
+                                    </div>
+                                    {patient.oxygen && (
+                                        <div className={s.ovsub} style={{ color: 'var(--blue)' }}>Oxygen running · 15 L NRB</div>
+                                    )}
+                                    {patient.adjunct !== 'none' && (
+                                        <div className={s.ovsub} style={{ color: 'var(--blue)' }}>
+                                            {ADJUNCT_LABEL[patient.adjunct]} sited
+                                        </div>
+                                    )}
+                                    {patient.recovery && (
+                                        <div className={s.ovsub} style={{ color: 'var(--green)', fontWeight: 700 }}>
+                                            In the recovery position — airway will stay clear
+                                        </div>
+                                    )}
+                                    {patient.suction === 0 && (
+                                        <div className={`${s.ovsub} ${s.ovsubB}`}>Suction pump spent</div>
+                                    )}
+                                </div>
+
+                                {/* What still stands between this casualty and a
+                                    handover. Listed rather than reduced to a
+                                    light, so you are not guessing which box is
+                                    unticked. */}
+                                <div className={s.ovpart}>
+                                    <h4>To stabilise</h4>
+                                    {issues.length === 0
+                                        ? <div className={s.ovsub} style={{ color: 'var(--green)' }}>Nothing outstanding.</div>
+                                        : issues.map(i => <div key={i} className={s.ovsub}>· {i}</div>)}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ---- docks ---- */}
+                    <div className={s.docks}>
+                        <div className={s.dock}>
+                            <h3>ACTIVITY LOG</h3>
+                            <div className={s.dockScroll}>
+                            <div className={s.dockbody}>
+                                {log.length === 0
+                                    ? <div className={s.hint}>No activity recorded.</div>
+                                    : log.map(l => (
+                                        <div key={l.id} className={`${s.logline} ${LOG_CLASS[l.kind]}`}>
+                                            <span className={s.t}>{l.stamp}</span><b>{l.text}</b>
+                                        </div>
+                                    ))}
+                            </div>
+                            </div>
+                        </div>
+                        <div className={`${s.dock} ${s.dockQuick}`}>
+                            <h3>QUICK VIEW</h3>
+                            <div className={s.dockbody}><QuickView patient={patient} /></div>
+                        </div>
+                    </div>
+                </div>
+
+                {over && !dismissed && (
+                    <div className={`${s.board} ${patient.outcome === 'stable' ? s.boardWin : s.boardLose}`}>
+                        <div className={s.boardCard}>
+                            <div className={s.boardTag}>
+                                {patient.outcome === 'stable' ? 'Casualty stable' : 'Casualty deceased'}
+                            </div>
+                            <div className={s.boardName}>{patient.name}</div>
+                            <div className={s.boardTime}>{mmss(elapsed)}</div>
+                            <div className={s.boardSub}>
+                                {patient.outcome === 'stable'
+                                    ? 'Handed over for transport'
+                                    : patient.cause}
+                            </div>
+                            <div className={s.boardBtns}>
+                                <button type='button' className={s.boardGo} onClick={() => resetPatient(difficulty)}>
+                                    Next casualty
+                                </button>
+                                <button type='button' className={s.boardOut} onClick={carryOn}>
+                                    {patient.outcome === 'stable' ? 'Keep working on them' : 'Stay with them'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className={s.toastwrap}>
+                    {toasts.map(t => <div key={t.id} className={s.toast}>{t.text}</div>)}
+                </div>
+            </div>
+        </div>
+    )
+
+
+}
+
+/** m:ss, for the clocks that count a casualty rather than a mission. */
+function mmss(seconds: number): string {
+    const s = Math.max(0, Math.floor(seconds))
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
+
+/** Somebody off the roster, or the stand-in when the ORBAT gave us nobody. */
+function drawCasualty(roster: Casualty[]): Casualty {
+    if (!roster.length) return FALLBACK_CASUALTY
+    return roster[Math.floor(Math.random() * roster.length)]
+}
+
+/* ---------- vitals -------------------------------------------------------- */
+
+function Vitals({ patient: p }: { patient: Patient }) {
+    const cell = (k: React.ReactNode, v: React.ReactNode, u: string, cls: string) => (
+        <div className={`${s.vit} ${cls}`}>
+            <div className={s.k}>{k}</div>
+            <div className={s.v}>{v} <small>{u}</small></div>
+        </div>
+    )
+    /*
+       Four of these six are the monitor's, and without one on the casualty
+       they are not numbers you have — they are numbers a machine would have
+       told you. Temperature and volume stay: neither comes off a vitals
+       monitor, and the second is the estimate you are working from.
+    */
+    const off = !p.monitorOn
+    const bp = shownBp(p)
+    const sat = shownSpo2(p)
+    return (
+        <div className={s.vitals}>
+            {cell('HR', off ? '—' : p.cardiacArrest ? '0' : jitter(p.hr, 2), off ? '' : 'bpm',
+                off ? s.vitOff : p.hr > 120 || p.hr < 50 || p.cardiacArrest ? s.vitCrit : p.hr > 100 ? s.vitWarn : '')}
+            {cell('BP', off ? '—' : bp.join('/'), off ? '' : 'mmHg',
+                off ? s.vitOff : bp[0] < 90 ? s.vitCrit : bp[0] < 105 ? s.vitWarn : '')}
+            {/* Dashes only when there is nothing for the probe to find. Start
+                compressing and it comes back — and keeps falling, which is the
+                thing you are meant to notice. */}
+            {cell('SpO₂', off ? '—' : sat ?? '--', off || sat === null ? '' : '%',
+                off || sat === null ? s.vitOff
+                    : sat <= 64 ? `${s.vitCrit} ${s.flash}`
+                        : sat < 90 ? s.vitCrit : sat < 95 ? s.vitWarn : '')}
+            {cell('RR', off ? '—' : shownRr(p), off ? '' : '/min',
+                off ? s.vitOff : shownRr(p) === 0 ? `${s.vitCrit} ${s.flash}` : shownRr(p) > 24 || shownRr(p) < 8 ? s.vitWarn : '')}
+            {cell('TEMP', p.temp.toFixed(1), '°C', p.temp < 35.5 ? s.vitWarn : '')}
+            {/* Litres, because a bag is measured in millilitres and a percentage
+                of an unstated total is not something you can do arithmetic with. */}
+            {cell('VOLUME', (p.blood / 100 * p.volume / 1000).toFixed(1), 'L',
+                p.blood < 55 ? s.vitCrit : p.blood < 75 ? s.vitWarn : '')}
+        </div>
+    )
+}
+
+/* ---------- ECG ----------------------------------------------------------- */
+
+/**
+ * The monitor, as a piece of kit.
+ *
+ * Everything a machine is telling you, in one box with a bezel round it —
+ * separated from the panel beside it, which is everything *you* know. The
+ * distinction is the point: the trace, the numbers and the alarms all go dark
+ * together the moment nothing is strapped to an arm, and what you found out by
+ * looking at the casualty carries on being true.
+ */
+function VitalsMonitor({ patient: p, monitor, airOpen, breathes }: {
+    patient: Patient
+    monitor: React.RefObject<Monitor | null>
+    airOpen: boolean
+    breathes: boolean
+}) {
+    const live = !!p.monitorOn
+    const arrested = p.cardiacArrest
+    const critical = live && p.outcome === 'active' && (p.spo2 <= 80 || arrested || p.pneumo)
+
+    return (
+        <div className={`${s.device} ${critical ? s.deviceAlarm : ''}`}>
+            <div className={s.deviceTop}>
+                <span className={`${s.led} ${live ? s.ledOn : ''}`} />
+                <span className={s.deviceName}>HZN-MED · FIELD MONITOR</span>
+                <span className={s.deviceState}>{live ? 'MONITORING' : 'STANDBY'}</span>
+            </div>
+
+            <div className={s.deviceScreen}>
+                <Ecg patient={p} monitor={monitor} />
+
+                {/* What the trace is, said in words, because a rhythm you have to
+                    recognise from the squiggle is a rhythm you will get wrong. */}
+                <div className={`${s.rhythmBand} ${!live ? s.rhythmOff : arrested ? s.rhythmBad : p.rhythm === 'stemi' ? s.rhythmWarn : ''}`}>
+                    {live ? RHYTHM_LABEL[p.rhythm] : 'No leads — attach a monitor to an arm'}
+                    {live && p.analysed && p.analysed.rhythm === p.rhythm && (
+                        <b>{p.analysed.advised ? ' · SHOCK ADVISED' : ' · NO SHOCK ADVISED'}</b>
+                    )}
+                </div>
+
+                <Vitals patient={p} />
+
+                <div className={s.volRow}>
+                    <span>VOLUME</span>
+                    <div className={s.bloodbar}><i style={{ width: `${p.blood}%` }} /></div>
+                </div>
+
+                {/* The alarms. Ordered by how soon each one kills them. */}
+                {p.outcome === 'active' && !breathes && !p.bagging && (
+                    <div className={`${s.alarm} ${s.flash}`}>
+                        NOT BREATHING — {airOpen ? 'get a bag on them' : 'open the airway, then bag'}
+                    </div>
+                )}
+                {p.outcome === 'active' && p.spo2 <= 80 && (
+                    <div className={`${s.alarm} ${p.spo2 <= 64 ? s.flash : ''}`}>
+                        SpO₂ {Math.round(p.spo2)}% — FATAL BELOW {FATAL_SPO2}%{!airOpen && ' · AIRWAY BLOCKED'}
+                    </div>
+                )}
+                {p.pneumo && <div className={`${s.alarm} ${s.flash}`}>TENSION PNEUMOTHORAX — needs a needle</div>}
+
+                {arrested && p.outcome === 'active' && (
+                    <div className={s.downtime}>
+                        <span>
+                            DOWNTIME {mmss(p.downtime)} / {mmss(DEATH_DOWNTIME)}
+                            {p.cprActive && <b> · CPR SLOWING</b>}
+                        </span>
+                        <i style={{ width: `${Math.min(100, p.downtime / DEATH_DOWNTIME * 100)}%` }} />
+                    </div>
+                )}
+                {p.reboa && (
+                    <div className={s.reboa}>
+                        <span>
+                            REBOA UP {Math.round(p.reboa.up)}s / {REBOA_FATAL}s
+                            {p.reboa.up > REBOA_WARN && <b> · LEGS DYING</b>}
+                        </span>
+                        <i style={{ width: `${Math.min(100, p.reboa.up / REBOA_FATAL * 100)}%` }} />
+                    </div>
+                )}
+
+                {!live && <div className={s.deviceHint}>Examine → Attach Vitals Monitor, on either arm.</div>}
+                {!p.padsOn && arrested && (
+                    <div className={s.deviceHint}>Advanced → Attach Defibrillator Pads, on the chest.</div>
+                )}
+            </div>
+        </div>
+    )
+}
+
+/** Anything about a limb worth a block of its own. */
+function hasSomething(pt: BodyPart): boolean {
+    return !!(pt.wounds.length || pt.fractured || pt.tourniquet || pt.iv)
+}
+
+/**
+ * One body part, as the overview reports it.
+ *
+ * Pulled out of the panel so the selected limb can be drawn at the top without
+ * the listing below it having to know: same card, different place, one accent.
+ */
+function PartCard({ name, pt, selected }: { name: string, pt: BodyPart, selected?: boolean }) {
+    return (
+        <div className={`${s.ovpart} ${selected ? s.ovpartSel : ''}`}>
+            <h4>
+                {name}
+                {selected && <span className={s.selTag}>SELECTED</span>}
+            </h4>
+            {pt.fractured && (
+                <div className={`${s.ovline} ${pt.splinted ? s.ovlineDim : s.ovlineRed}`}>
+                    {pt.splinted ? 'Fractured (splinted)' : 'Fractured'}
+                </div>
+            )}
+            {pt.wounds.map(w => (
+                <div key={w.id} className={`${s.ovsub} ${w.bandaged ? s.ovsubB : ''}`}>
+                    {WOUND_TYPES[w.t].name}
+                    {w.bandaged && w.dressing && (
+                        <span className={w.failIn !== null ? s.slipping : undefined}>
+                            {' · '}{BANDAGES[w.dressing].short}
+                            {w.failIn !== null ? ` ${Math.ceil(w.failIn)}s` : ' · holding'}
+                        </span>
+                    )}
+                    {!w.bandaged && <span className={s.slipping}>{' · open'}</span>}
+                </div>
+            ))}
+            {pt.tourniquet && <div className={s.ovsub} style={{ color: 'var(--yellow)' }}>Tourniquet applied</div>}
+            {pt.iv > 0 && <div className={s.ovsub} style={{ color: 'var(--blue)' }}>{pt.iv}× IV access</div>}
+            {!pt.checked && <div className={`${s.ovsub} ${s.ovsubB}`} style={{ fontSize: 12.5 }}>not yet examined</div>}
+            {selected && !hasSomething(pt) && (
+                <div className={`${s.ovsub} ${s.ovsubB}`}>Nothing wrong with this one.</div>
+            )}
+        </div>
+    )
+}
+
+/**
+ * Everything still working, and how far through it is.
+ *
+ * Down in the quick view rather than up in the details, because it is a
+ * standing fact about the casualty in the same way the tourniquet count is —
+ * something you want in the corner of your eye while you work on something
+ * else, not something you scroll a panel to find.
+ *
+ * Each chip's fill is the drug's own curve: climbing while it takes hold, full
+ * while it holds, falling as it lets go — so "given" and "working" stop being
+ * the same word. Two drugs pulling the same vital opposite ways are both here,
+ * which is the only warning you get that you have cancelled yourself out.
+ */
+function OnBoard({ patient: p }: { patient: Patient }) {
+    return (
+        <div className={`${s.qv} ${s.qvfull}`}>
+            <div className={s.k}>IN THE SYSTEM</div>
+            {p.doses.length === 0
+                ? <div className={s.qvNone}>Nothing on board.</div>
+                : (
+                    <div className={s.chips}>
+                        {p.doses.map(d => {
+                            const drug = DRUGS[d.drug]
+                            const at = intensity(drug, d.age)
+                            const left = Math.max(0, Math.ceil(drug.duration - d.age))
+                            return (
+                                <span key={d.id} className={`${s.doseChip} ${d.over ? s.doseChipOver : ''}`}>
+                                    {drug.label}
+                                    <b>{d.age < drug.onset ? 'taking hold' : `${left}s`}</b>
+                                    {d.over && <em>OVER</em>}
+                                    <i style={{ width: `${at * 100}%` }} />
+                                </span>
+                            )
+                        })}
+                    </div>
+                )}
+        </div>
+    )
+}
+
+/**
+ * What the casualty is telling you, if they are in any state to tell you.
+ *
+ * On its own timer rather than the sim's: they speak every few seconds, not
+ * four times a second, and what they say is drawn fresh from how they are when
+ * they say it. Going under stops them mid-sentence, which is the point — a
+ * casualty who has gone quiet has told you something.
+ */
+function Chatter({ patient }: { patient: Patient }) {
+    const live = useRef(patient)
+    live.current = patient
+    const [line, setLine] = useState<string | null>(null)
+
+    useEffect(() => {
+        const speak = () => {
+            const p = live.current
+            if (!p.conscious || p.outcome !== 'active') { setLine(null); return }
+            const lines = chatter(p)
+            setLine(lines[Math.floor(Math.random() * lines.length)])
+        }
+        speak()
+        const id = setInterval(speak, 7000)
+        return () => clearInterval(id)
+    }, [])
+
+    // Not on the interval: going under should shut them up immediately.
+    const quiet = !patient.conscious || patient.outcome !== 'active'
+    useEffect(() => { if (quiet) setLine(null) }, [quiet])
+
+    if (!line || quiet) return null
+    return <SpeechBubble text={line} />
+}
+
+/** Drawn in the body's own coordinates so it stays with the head at any size. */
+function SpeechBubble({ text }: { text: string }) {
+    const lines = wrapText(text, 18)
+    const h = 12 + lines.length * 13
+    return (
+        <g className={s.bubble}>
+            <path d={`M188,${h - 8} L172,${h + 14} L204,${h - 2} Z`} fill='rgba(10,12,11,.95)' />
+            <rect x='186' y='4' width='112' height={h} rx='5'
+                fill='rgba(10,12,11,.96)' stroke='#e0223c' strokeWidth='1.1' />
+            {lines.map((l, i) => (
+                <text key={i} x='192' y={4 + 16 + i * 13} fontSize='10.5' fill='#e6e9ec'>{l}</text>
+            ))}
+        </g>
+    )
+}
+
+/** Naive word wrap. SVG text has no box to flow inside, so we make one. */
+function wrapText(text: string, cols: number): string[] {
+    const out: string[] = []
+    let line = ''
+    for (const w of text.split(' ')) {
+        if (line && (line + ' ' + w).length > cols) { out.push(line); line = w }
+        else line = line ? line + ' ' + w : w
+    }
+    if (line) out.push(line)
+    return out.slice(0, 3)
+}
+
+/**
+ * Lead II.
+ *
+ * One waveform function per rhythm, sampled across the canvas at a phase that
+ * advances every frame. Drawn on its own animation frame rather than from React
+ * state — it repaints at 60fps and nothing else on screen needs to know.
+ *
+ * The beep is fired from here too, at the moment the R wave crosses. Scheduling
+ * it separately on a heart-rate interval would have been simpler and would have
+ * drifted out of step with the trace within a few beats, which on a monitor is
+ * the one thing you would notice.
+ *
+ * `beatPhase` is how far into the current beat we are, accumulated. It used to
+ * be derived — `floor(phase / beatWidth)` — which is not a count of beats but a
+ * ratio, and rescaling it re-dates every beat already played: a change in heart
+ * rate would jump the index and fire a beep on top of the one just sounded.
+ * Slow drift made the beeps stumble; the step changes (an arrest slamming the
+ * rate to 0, a ROSC putting it back) made them audibly double.
+ */
+function Ecg({ patient, monitor }: { patient: Patient, monitor: React.RefObject<Monitor | null> }) {
+    const ref = useRef<HTMLCanvasElement>(null)
+    const live = useRef(patient)
+    live.current = patient
+
+    useEffect(() => {
+        let frame = 0
+        let phase = 0
+        let beatPhase = 0
+        let last = performance.now()
+
+        const draw = (now: number) => {
+            frame = requestAnimationFrame(draw)
+            // A decided casualty's trace stands still. It stays on screen — the
+            // last thing the monitor saw is worth looking at — but nothing
+            // moves and nothing beeps.
+            const advance = live.current.outcome === 'active' ? (now - last) * 0.09 : 0
+            phase += advance
+            last = now
+
+            const c = ref.current
+            if (!c) return
+            const ctx = c.getContext('2d')
+            if (!ctx) return
+            const W = c.width, H = c.height
+            const p = live.current
+
+            ctx.clearRect(0, 0, W, H)
+            ctx.strokeStyle = 'rgba(255,255,255,.07)'
+            ctx.lineWidth = 1
+            for (let x = 0; x < W; x += 24) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke() }
+            for (let y = 0; y < H; y += 18) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke() }
+
+            // Nothing on the casualty, nothing on the screen. The grid is the
+            // machine being switched on; the trace is it being connected.
+            if (!p.monitorOn) {
+                ctx.fillStyle = 'rgba(255,255,255,.35)'
+                ctx.font = '11px sans-serif'
+                ctx.fillText('NO SIGNAL — ATTACH VITALS MONITOR', 8, H / 2)
+                return
+            }
+
+            const trace = traceOf(p)
+            ctx.strokeStyle = TRACE_COLOUR[trace]
+            ctx.lineWidth = 2
+            ctx.beginPath()
+            const mid = H * 0.58
+            const beatW = beatWidth(p)
+
+            // Where the beep lands and where the R wave is drawn are the same
+            // number, so the two can never disagree.
+            beatPhase += advance
+            let beat = false
+            if (beatPhase >= beatW) {
+                beatPhase %= beatW
+                beat = true
+            }
+
+            for (let x = 0; x < W; x++) {
+                const t = ((x + beatPhase) % beatW) / beatW
+                const y = sample(trace, t, x + phase) + (Math.random() - 0.5) * 0.02
+                const py = mid - y * (H * 0.42)
+                if (x === 0) ctx.moveTo(0, py); else ctx.lineTo(x, py)
+            }
+            ctx.stroke()
+
+            // One beep per R wave, and only for rhythms that produce one.
+            if (beat && AUDIBLE.has(trace)) monitor.current?.beat(p.spo2)
+
+            ctx.fillStyle = 'rgba(255,255,255,.5)'
+            ctx.font = '11px sans-serif'
+            ctx.fillText(traceLabel(p), 8, 14)
+        }
+
+        frame = requestAnimationFrame(draw)
+        return () => cancelAnimationFrame(frame)
+    }, [monitor])
+
+    return <canvas ref={ref} className={s.ecg} width={600} height={112} />
+}
+
+/**
+ * What the trace is showing, which is not always the rhythm.
+ *
+ * Compressions put a waveform on the screen that belongs to your hands rather
+ * than their heart, and it is the thing you are looking at while you do them.
+ */
+type Trace = Rhythm | 'cpr'
+
+function traceOf(p: Patient): Trace {
+    return p.cprActive && p.cardiacArrest ? 'cpr' : p.rhythm
+}
+
+const TRACE_COLOUR: Record<Trace, string> = {
+    cpr: '#e08a3c',
+    sinus: '#3ddc84',
+    stemi: '#d8ac45',
+    vt: '#ff6a5e',
+    vf: '#ff6a5e',
+    pea: '#d8ac45',
+    asystole: '#ff6a5e',
+}
+
+/** Rhythms that make a noise. VF has no organised beat to beep on. */
+const AUDIBLE: ReadonlySet<Trace> = new Set<Trace>(['sinus', 'stemi', 'pea', 'cpr'])
+
+function beatWidth(p: Patient): number {
+    if (p.cprActive && p.cardiacArrest) return clamp(9000 / CPR_RATE, 40, 260)
+    if (p.rhythm === 'vf') return 44
+    if (p.rhythm === 'vt') return 52
+    if (p.rhythm === 'asystole') return 200
+    return clamp(9000 / Math.max(p.hr, 30), 62, 260)
+}
+
+function traceLabel(p: Patient): string {
+    if (p.cprActive && p.cardiacArrest) return 'CPR — COMPRESSION ARTEFACT'
+    if (p.rhythm === 'asystole') return 'ASYSTOLE'
+    if (p.rhythm === 'vf') return 'VF — SHOCKABLE'
+    if (p.rhythm === 'vt') return 'VT — SHOCKABLE'
+    if (p.rhythm === 'pea') return 'PEA — NO PULSE'
+    if (p.rhythm === 'stemi') return 'ST ELEVATION'
+    return 'LEAD II'
+}
+
+/**
+ * The waveform, as a height in roughly -0.4 to 1.0 at a point through the beat.
+ *
+ * `x` is the absolute position along the trace, which only the disorganised
+ * rhythms need: fibrillation has no beat to be a fraction of, so it is sampled
+ * from position instead.
+ */
+function sample(r: Trace, t: number, x: number): number {
+    switch (r) {
+        case 'cpr':
+            // Not a rhythm — the chest moving. Broad, blunt and far too
+            // regular to be a heart, which is exactly how it reads on a real
+            // monitor and exactly why you stop to check underneath it.
+            return t < 0.55
+                ? Math.sin(t / 0.55 * Math.PI) * 0.62
+                : Math.sin(x * 0.3) * 0.03
+
+        case 'asystole':
+            // Not perfectly flat. A real flatline still has the patient in it.
+            return Math.sin(x * 0.08) * 0.012
+
+        case 'vf':
+            // Chaotic and coarse: several detuned waves beating against each
+            // other so no two screens-full look alike.
+            return (Math.sin(x * 0.22) * 0.34 + Math.sin(x * 0.51 + 1.1) * 0.22
+                + Math.sin(x * 0.13 + 2.3) * 0.18) * (0.85 + Math.sin(x * 0.03) * 0.3)
+
+        case 'vt': {
+            // Wide, regular, monomorphic — the sine-wave look.
+            const a = Math.sin(t * Math.PI * 2)
+            return a * 0.72
+        }
+
+        case 'pea':
+            // Organised and unremarkable. That is the whole trap: it looks like
+            // a rhythm you could leave alone.
+            return qrs(t) * 0.8
+
+        case 'stemi': {
+            // Tombstones: the ST segment lifts into a broad dome that runs
+            // straight out of the R wave instead of coming back to baseline.
+            const base = qrs(t)
+            if (t >= 0.23 && t < 0.62) {
+                const u = (t - 0.23) / 0.39
+                return 0.30 + Math.sin(u * Math.PI) * 0.42
+            }
+            return base
+        }
+
+        default:
+            return qrs(t)
+    }
+}
+
+/** A textbook PQRST complex over one beat. */
+function qrs(t: number): number {
+    if (t < 0.10) return Math.sin(t / 0.10 * Math.PI) * 0.14              // P
+    if (t < 0.16) return 0
+    if (t < 0.19) return -0.12 * ((t - 0.16) / 0.03)                      // Q
+    if (t < 0.23) return 1.0 * ((t - 0.19) / 0.04) - 0.12                 // R
+    if (t < 0.27) return 0.88 - 1.25 * ((t - 0.23) / 0.04)                // S
+    if (t < 0.32) return -0.37 + 0.37 * ((t - 0.27) / 0.05)
+    if (t < 0.55) return Math.sin((t - 0.32) / 0.23 * Math.PI) * 0.26     // T
+    return 0
+}
+
+/* ---------- triage card --------------------------------------------------- */
+
+const TRI_CLASS: Record<Exclude<Triage, 'none'>, string> = {
+    minor: s.triMinor, delayed: s.triDelayed, immediate: s.triImmediate, deceased: s.triDeceased,
+}
+
+function TriageCard({ patient: p, note, setNote, onTriage, onNote, onPatch }: {
+    patient: Patient
+    note: string
+    setNote: (v: string) => void
+    onTriage: (t: Triage) => void
+    onNote: (text: string) => void
+    onPatch: (fields: Partial<Patient>) => void
+}) {
+    return (
+        <>
+            <div className={s.sectlabel}>Triage Category</div>
+            <div className={s.triagerow}>
+                {(['minor', 'delayed', 'immediate', 'deceased'] as const).map(k => (
+                    <button
+                        key={k}
+                        type='button'
+                        className={`${s.tri} ${TRI_CLASS[k]} ${p.triage === k ? s.triOn : ''}`}
+                        aria-pressed={p.triage === k}
+                        onClick={() => onTriage(k)}
+                    >
+                        {k.toUpperCase()}
+                    </button>
+                ))}
+            </div>
+
+            <div className={s.sectlabel}>Card Details</div>
+            <div className={s.cardfield}>
+                <label htmlFor='hzn-rank'>RANK</label>
+                <input id='hzn-rank' value={p.rank} onChange={e => onPatch({ rank: e.target.value })} placeholder='—' />
+            </div>
+            <div className={s.cardfield}>
+                <label htmlFor='hzn-name'>NAME</label>
+                <input id='hzn-name' value={p.name} onChange={e => onPatch({ name: e.target.value })} />
+            </div>
+            <div className={s.cardfield}>
+                <label htmlFor='hzn-cs'>CALLSIGN</label>
+                <input id='hzn-cs' value={p.callsign} onChange={e => onPatch({ callsign: e.target.value })} placeholder='none' />
+            </div>
+            <div className={s.cardfield}>
+                <label htmlFor='hzn-unit'>ELEMENT</label>
+                <input id='hzn-unit' readOnly value={p.unit} />
+            </div>
+            <div className={s.cardfield}>
+                <label htmlFor='hzn-bt'>BLOOD TYPE</label>
+                <input id='hzn-bt' readOnly value={p.bloodTypeKnown ? p.bloodType : 'UNKNOWN — run test'} />
+            </div>
+            <div className={s.cardfield}>
+                <label htmlFor='hzn-note'>NOTE</label>
+                <input
+                    id='hzn-note'
+                    value={note}
+                    placeholder='add a note, press Enter'
+                    onChange={e => setNote(e.target.value)}
+                    onKeyDown={e => {
+                        if (e.key === 'Enter' && note.trim()) { onNote(note.trim()); setNote('') }
+                    }}
+                />
+            </div>
+
+            <div className={s.sectlabel}>Card Entries</div>
+            {p.triageEntries.length === 0
+                ? <div className={s.hint}>No entries on this triage card.</div>
+                : p.triageEntries.map((e, i) => (
+                    <div key={i} className={s.logline}><span className={s.t}>{e.stamp}</span><b>{e.text}</b></div>
+                ))}
+        </>
+    )
+}
+
+/* ---------- quick view ---------------------------------------------------- */
+
+function QuickView({ patient: p }: { patient: Patient }) {
+    const bleeding = totalBleed(p) > 0
+    const wounds = Object.values(p.parts).reduce((a, pt) => a + pt.wounds.length, 0)
+    const open = Object.values(p.parts).reduce((a, pt) => a + pt.wounds.filter(w => !w.bandaged).length, 0)
+    const fx = Object.values(p.parts).filter(pt => pt.fractured).length
+    const triCls = { minor: s.chipG, delayed: s.chipY, immediate: s.chipR, deceased: '', none: s.chipB }[p.triage]
+
+    return (
+        <div className={s.qvgrid}>
+            <div className={s.qv}>
+                <div className={s.k}>STATUS</div>
+                <div className={s.v} style={{ color: p.cardiacArrest ? 'var(--red)' : bleeding ? 'var(--yellow)' : 'var(--green)' }}>
+                    {p.cardiacArrest ? 'ARREST' : bleeding ? 'BLEEDING' : 'STABLE'}
+                </div>
+            </div>
+            <div className={s.qv}><div className={s.k}>BLOOD VOL</div><div className={s.v}>{Math.round(p.blood)}%</div></div>
+            <div className={s.qv}><div className={s.k}>PAIN</div><div className={s.v}>{Math.round(p.pain)}%</div></div>
+            <div className={s.qv}><div className={s.k}>WOUNDS</div><div className={s.v}>{open} open / {wounds}</div></div>
+            <div className={s.qv}><div className={s.k}>FRACTURES</div><div className={s.v}>{fx}</div></div>
+            <div className={s.qv}><div className={s.k}>TOURNIQUETS</div><div className={s.v}>{p.tqCount}</div></div>
+            <OnBoard patient={p} />
+            <div className={`${s.qv} ${s.qvfull}`}>
+                <div className={s.k}>TRIAGE / BLOOD TYPE / AIRWAY</div>
+                <div className={s.chips}>
+                    <span className={`${s.chip} ${triCls}`}>{p.triage === 'none' ? 'UNTAGGED' : p.triage.toUpperCase()}</span>
+                    <span className={`${s.chip} ${s.chipB}`}>{p.bloodTypeKnown ? p.bloodType : 'BLOOD TYPE UNKNOWN'}</span>
+                    <span className={`${s.chip} ${p.cardiacArrest ? s.chipR : p.rhythm === 'stemi' ? s.chipY : s.chipG}`}>
+                        {RHYTHM_LABEL[p.rhythm].toUpperCase()}
+                    </span>
+                    <span className={`${s.chip} ${!p.airwayChecked ? s.chipB : airwayOpen(p) ? s.chipG : s.chipR}`}>
+                        {!p.airwayChecked ? 'AIRWAY UNKNOWN' : airwayOpen(p) ? 'AIRWAY CLEAR' : 'AIRWAY BLOCKED'}
+                    </span>
+                    {p.recovery && <span className={`${s.chip} ${s.chipG}`}>RECOVERY POSITION</span>}
+                    {p.meds.length > 0 && <span className={`${s.chip} ${s.chipY}`}>{p.meds.length}× MEDS GIVEN</span>}
+                </div>
+            </div>
+        </div>
+    )
+}

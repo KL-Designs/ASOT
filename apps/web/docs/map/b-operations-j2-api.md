@@ -7,6 +7,7 @@ Scope: 42 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 ## `app/api/operations/` (top-level and flat routes)
 
 #### /api/operations
+- **Security:** the list branch is reachable unauthenticated and now projects out `internalNotes`, `zeusNotes`, `missionDevelopment` and `acknowledgements`. Excluded by name rather than allow-listed, so a new *private* field must be added to that list. The `?id=` branch is separate — it returns a full document and is gated on `operations.viewInDevelopment` for in-development missions.
 - **GET** — list/search operations; supports `?id=` (single mission), `?month`/`year`, `?status` (comma list), `?search`, `?limit`, `?authorId`. Non-HQ (no `PERMISSIONS.operations.viewInDevelopment`) never sees `In Development` ops. Gate: none required for read (HQ check only gates visibility filtering). Collections: `Db.operations`.
 
 #### /api/operations/activity

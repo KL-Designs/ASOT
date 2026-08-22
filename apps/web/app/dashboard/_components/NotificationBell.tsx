@@ -49,23 +49,31 @@ const TYPE_LABELS: Record<string, string> = {
     system:                        'System',
 }
 
+/*
+   Six colours in three families, none of them the site's own.
+
+   #3b82f6 and #60a5fa were two blues for the same idea; #10b981 was a green
+   the rest of the dashboard does not use. The bell now speaks the one status
+   palette — info for something addressed to you, amber for something waiting,
+   live for something that resolved, red for something late or refused.
+*/
 const TYPE_COLORS: Record<string, string> = {
-    task_assigned:                 '#3b82f6',
-    task_extended:                 '#f59e0b',
-    task_completed:                '#10b981',
-    task_reminder:                 '#f59e0b',
-    task_overdue:                  'rgba(219,0,29,0.9)',
-    task_extension_requested:      '#f59e0b',
-    task_extension_approved:       '#10b981',
-    task_extension_denied:         'rgba(219,0,29,0.85)',
-    task_extension_alternative:    '#f59e0b',
-    task_reassignment_requested:   '#60a5fa',
-    task_reassignment_approved:    '#10b981',
-    task_reassignment_denied:      'rgba(219,0,29,0.85)',
-    calendar_reminder:             'rgba(219,0,29,0.85)',
-    quiz_result:                   '#60a5fa',
-    quiz_review_requested:         '#a78bfa',
-    system:                        'rgba(237,237,237,0.4)',
+    task_assigned:                 'var(--info)',
+    task_extended:                 'var(--amber)',
+    task_completed:                'var(--live)',
+    task_reminder:                 'var(--amber)',
+    task_overdue:                  'var(--red)',
+    task_extension_requested:      'var(--amber)',
+    task_extension_approved:       'var(--live)',
+    task_extension_denied:         'var(--red)',
+    task_extension_alternative:    'var(--amber)',
+    task_reassignment_requested:   'var(--info)',
+    task_reassignment_approved:    'var(--live)',
+    task_reassignment_denied:      'var(--red)',
+    calendar_reminder:             'var(--amber)',
+    quiz_result:                   'var(--info)',
+    quiz_review_requested:         'var(--info)',
+    system:                        'var(--txt-3)',
 }
 
 function timeAgo(iso: string) {
@@ -186,8 +194,7 @@ export default function NotificationBell() {
                         width: 340,
                         maxHeight: 480,
                         background: 'rgba(12,12,12,0.98)',
-                        border: '1px solid rgba(219,0,29,0.42)',
-                        borderTop: '2px solid var(--red)',
+                        border: '1px solid var(--line-2)',
                         boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
                         zIndex: 200,
                         display: 'flex',
@@ -201,10 +208,10 @@ export default function NotificationBell() {
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '10px 14px',
-                        borderBottom: '1px solid rgba(219,0,29,0.27)',
+                        borderBottom: '1px solid var(--line-2)',
                         flexShrink: 0,
                     }}>
-                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.75)', fontFamily: 'monospace' }}>
+                        <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', fontFamily: 'monospace' }}>
                             {'// NOTIFICATIONS '}{unreadCount > 0 ? `[${unreadCount}]` : ''}
                         </span>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -329,7 +336,7 @@ export default function NotificationBell() {
                     </div>
 
                     {/* Footer — link to tasks */}
-                    <div style={{ padding: '8px 14px', borderTop: '1px solid rgba(219,0,29,0.12)', flexShrink: 0 }}>
+                    <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line-2)', flexShrink: 0 }}>
                         <button
                             onClick={() => { setOpen(false); router.push('/dashboard/tasks') }}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.55rem', color: 'rgba(237,237,237,0.3)', letterSpacing: '0.12em', textTransform: 'uppercase', fontFamily: 'monospace', transition: 'color 0.12s' }}
@@ -371,7 +378,7 @@ export default function NotificationBell() {
                                 pointerEvents: 'auto',
                                 width: 300,
                                 background: 'rgba(12,12,12,0.97)',
-                                border: '1px solid rgba(219,0,29,0.27)',
+                                border: '1px solid var(--line-2)',
                                 borderLeft: '3px solid var(--red)',
                                 boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
                                 padding: '12px 14px',

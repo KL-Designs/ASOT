@@ -1,0 +1,109 @@
+/*
+ * Grid regions for the editor shell. Colour comes entirely from the
+ * `.command` tokens (styles/command.css) plus the per-operation --acc/--acc-rgb
+ * injected inline by EditorShell — nothing here hardcodes a colour.
+ */
+.shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    overflow: hidden;
+}
+/*
+ * position: relative so MissionDeck (deck/MissionDeck.tsx) can go
+ * `position: absolute` against this box, not the viewport, when it turns
+ * itself into an overlay below 1280px — see that file's own doc comment.
+ * .body has no other layout role here; MissionDeck fully owns its own
+ * width/border/background for both the pushed (>=1280px) and overlay
+ * (<1280px) cases, same as it always has (see EditorShell's doc comment
+ * on why `deck` is rendered with no wrapping div).
+ */
+.body { display: flex; flex: 1; min-height: 0; position: relative; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
+
+/* The scrollable pane inside .main — .main itself is a plain flex column with
+   no overflow rule (see the block above), so without this the tab content
+   would be clipped by .shell's overflow:hidden instead of scrolling. */
+.mainScroll { flex: 1; min-height: 0; overflow-y: auto; }
+
+/* Preview — pinned to .main's own bottom-right corner (.main is
+   position:relative, above), immediately left of the mission deck rather
+   than the far edge of the viewport. See EditorShell's doc comment on the
+   button itself. */
+.previewBtn {
+    position: absolute;
+    right: 24px;
+    bottom: 24px;
+    padding: 7px 14px;
+    background: var(--s2);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    color: var(--ink-2);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+.previewBtn:hover { color: var(--ink); border-color: var(--acc); }
+
+/* The tab links, inline in Header's single merged row (spec §3) rather than
+   a separate bar underneath it. `min-width: 0` lets it shrink below its
+   content's natural width instead of forcing the row wider than its
+   container; `overflow-x: auto` then lets the strip itself scroll instead of
+   wrapping to a second line once it's been squeezed that far. */
+.tabsRow {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow-x: auto;
+    /* Thin fading overlay scrollbar rules live on the shared `.thin-scroll`
+       class (styles/globals.css) applied alongside this one in Header.tsx —
+       including the Firefox scrollbar-width/-color fallback. */
+}
+
+.tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 0 10px;
+    height: 100%;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.tab:hover { color: var(--ink-2); }
+.tabOn { color: var(--ink); border-bottom-color: var(--acc); }
+
+/*
+ * StatusBar cells (§8). Cells drop left-to-right by priority as width falls;
+ * "Live/Offline" (connected) and "Saved HH:MM" (savedAt) carry no class
+ * here and so never drop — they're the two pieces of state spec §8 calls
+ * out to keep longest. Thresholds line up with the shell's own breakpoints
+ * (1600/1280/1024) plus one narrower step for the doc-editor headcount,
+ * since that cell matters least once the deck (which already shows
+ * presence) has collapsed to a rail anyway.
+ */
+.sbDoc      { }
+.sbWords    { }
+.sbSections { }
+.sbEditors  { }
+.sbDept     { }
+
+@media (max-width: 1599px) { .sbDoc      { display: none; } }
+@media (max-width: 1279px) { .sbWords    { display: none; } }
+@media (max-width: 1023px) { .sbSections { display: none; } .sbDept { display: none; } }
+@media (max-width: 767px)  { .sbEditors  { display: none; } }
