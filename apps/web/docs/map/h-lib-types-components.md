@@ -38,6 +38,10 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - Default export `convertColorToHex(color: number): string` — decimal → `#rrggbb`.
 - `ensureVisible(hex, minLuminance=0.25)` — WCAG-luminance-based brightener; near-black → grey fallback, otherwise scales channels up to meet threshold. Used by `resolveMilpacProfile` for accent colors.
 
+### lib/discord/avatar.ts
+- `defaultAvatarURL(userId)` / `avatarURL(userId, avatarHash?, size?)` — Discord CDN URLs; the extension is `.gif` when the hash starts with `a_` (Discord's marker for an animated avatar), else `.png`.
+- `isAnimatedAvatarURL(url)` / `stillAvatarURL(url, size=128)` / `animatedAvatarURL(url, size=128)` — the still and animated spellings of one avatar. Discord serves the same hash under either extension, so no second stored field is needed. **Why they exist:** `next/image` does not optimise animated images, it passes them through byte-for-byte — the /milpacs roster was therefore serving full-size GIFs (one measured at 1.76MB) behind 54px circles and repainting all of them forever. The `.png` of that same avatar is 14KB. The URL pattern is deliberately strict rather than an `.endsWith('.gif')`: the result is interpolated into a CSS `url()` by the roster card. Unit-tested in `avatar.test.ts`, including the injection cases.
+
 ### lib/discord/index.ts
 - Exports `Client` class + default singleton instance (`client`), auto-calls `updateRoles()` on module load.
   - `updateRoles()` — refreshes `this.roles` from `Db.roles`.
@@ -258,6 +262,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/military/milpac-cover.ts
 - `coverPath(memberId)` / `hasCover(memberId)` — the member's uploaded cover photo at `storage/uploads/cover/{id}.png`. Used by the milpac page (banner) and its `opengraph-image.tsx` (share-card ground). `app/api/uploads/cover/route.ts` still writes via its own cwd-relative string.
 - `coverIds(): Set<string>` — every id with a cover, from one `readdirSync`. What the /milpacs roster uses: `hasCover` is right for one member and wrong for 163, where it becomes 163 filesystem questions to answer one. Missing directory yields an empty set rather than throwing.
+- `animatedCoverIds(ids): Set<string>` — which of those covers are GIFs, by reading six magic bytes per file. Needed because the upload route writes every cover as `{id}.png` and served it as `image/png` whatever was uploaded, so the extension says nothing and browsers sniff and animate the real format regardless. GIF only (the format members actually upload); animated WebP/APNG would need real container parsing. `coverIds()` additionally filters to snowflake-shaped ids, since they reach a CSS `url()`.
 - `fitCover(srcW, srcH, boxW, boxH): CropRect` — `object-fit: cover` as a centred source rectangle. Pure; unit-tested in `milpac-cover.test.ts`.
 - `readCoverImage(memberId, box?): Promise<string|null>` — decodes the cover with `@napi-rs/canvas` (which sniffs the real format, since the upload route names every file `.png` whatever it was), crops via `fitCover`, re-encodes to a JPEG data URI at the card's 1300×630. Data URI because satori resolves neither relative paths nor `background-image: url()`; re-encoded because covers are stored unresized and base64 inflates by a third. Returns `null` on any failure — the OG route must degrade to its drawn card, never 500. `MAX_COVER_BYTES` (25MB) bounds what reaches the decoder.
 
@@ -670,7 +675,7 @@ component so the active-cell rule is unit-testable on its own.
 - Default export `InfoCard({title, children, icon?, accentColor='var(--red)', accentRgb='219,0,29'})` — bordered card with icon+uppercase title header.
 
 #### components/member/avatar.tsx
-- Default export `Avatar({user?, borderRadius='100%'})` — Discord CDN avatar `next/image` with fallback-to-`public/images/fallback_pfp.png` on load error.
+- Default export `Avatar({user?, borderRadius='100%', sizes='160px'})` — Discord CDN avatar `next/image` with fallback-to-`public/images/fallback_pfp.png` on load error. `sizes` is not optional in practice: this uses `fill`, and `fill` with no `sizes` makes next/image assume `100vw` and emit a srcset up to **3840w**, so browsers were fetching a ~2048px raster to paint a 54px circle. The default covers the largest avatar on the site (the milpac hero, 148px); callers with something smaller should say so.
 
 #### components/member/banner.tsx
 - Default export `Banner({user?})` — **currently a no-op stub** (body fully commented out, returns `undefined`). Do not assume it renders anything.

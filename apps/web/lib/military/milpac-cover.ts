@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, statSync, readFileSync } from 'fs'
+import { existsSync, readdirSync, statSync, readFileSync, openSync, readSync, closeSync } from 'fs'
 import { join } from 'path'
 
 /**
@@ -37,7 +37,14 @@ export function coverIds(): Set<string> {
         return new Set(
             readdirSync(coverDir())
                 .filter(name => name.endsWith('.png'))
-                .map(name => name.slice(0, -'.png'.length)),
+                .map(name => name.slice(0, -'.png'.length))
+                // Snowflakes only. Covers are written as `{me.id}.png` by an
+                // authenticated upload, so anything else in this directory is
+                // not a member's cover — and these ids are interpolated into a
+                // URL that the roster card hands to CSS `url()`, which is not a
+                // place to forward an arbitrary filename. The serving route
+                // rejects the same shape, so such a file is unreachable anyway.
+                .filter(id => /^\d{5,25}$/.test(id)),
         )
     } catch {
         return new Set()
@@ -129,4 +136,47 @@ export async function readCoverImage(memberId: string, box = CARD): Promise<stri
     } catch {
         return null
     }
+}
+
+/**
+ * Which of those covers are animated.
+ *
+ * The upload route writes every cover to `{id}.png` and serves it as
+ * `image/png` whatever was actually uploaded, so the extension says nothing —
+ * a member who uploads a GIF gets a GIF stored under a .png name, and browsers
+ * sniff the real format and animate it regardless of the header we send.
+ *
+ * The roster needs to know because an animated cover is the same problem as an
+ * animated avatar: next/image passes animated images straight through, so the
+ * card ends up repainting a full-size GIF behind every visible tile forever.
+ * Knowing which covers animate lets the card ask for a still and hold the
+ * animation back until hover.
+ *
+ * GIF only, deliberately. It is the format members actually upload and the only
+ * one Discord itself produces; animated WebP and APNG would need real container
+ * parsing to detect and would still be served correctly here, just without the
+ * hover treatment.
+ */
+export function animatedCoverIds(ids: Iterable<string>): Set<string> {
+    const animated = new Set<string>()
+
+    for (const id of ids) {
+        // Six bytes per cover, not the whole file: this runs for every member
+        // with a cover on every render of the roster, and the magic number is
+        // the first six bytes of a GIF ("GIF87a" / "GIF89a").
+        let fd: number | undefined
+        try {
+            fd = openSync(coverPath(id), 'r')
+            const head = Buffer.alloc(6)
+            readSync(fd, head, 0, 6, 0)
+            if (head.toString('latin1').startsWith('GIF8')) animated.add(id)
+        } catch {
+            // Unreadable or vanished between the readdir and here — not
+            // animated as far as the page is concerned.
+        } finally {
+            if (fd !== undefined) try { closeSync(fd) } catch { }
+        }
+    }
+
+    return animated
 }

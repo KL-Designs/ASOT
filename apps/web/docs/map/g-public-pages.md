@@ -371,6 +371,18 @@ gradient built from their own accent rather than a blank plate; the same applies
 written by that same login path and reading `#888888` via `ensureVisible` for anyone who has never
 signed in. Styles in `roster.module.css`.
 
+**Animated avatars and covers are stills until hover.** Members with a Nitro avatar cluster at the
+top of this page (Command first), and `next/image` passes animated images through unoptimised, so the
+roster was painting full-size GIFs behind every 54px circle and repainting them for as long as the
+page stayed open — a performance trace showed a steady drumbeat of long compositor commits that
+stopped the moment the top of the roster scrolled away. The card renders stills (`stillAvatarURL`,
+and `?still=1` for GIF covers) and hands the animated URL to CSS as `--anim-avatar` / `--anim-cover`,
+which `roster.module.css` resolves *only* inside its `:hover`/`:focus-visible` rules. That placement
+is the mechanism, not a detail: a `url()` parked in an unused custom property is never fetched, so an
+idle roster downloads no GIFs at all and a hovered card fetches exactly one. Rendering both images
+and toggling `display` would have downloaded every GIF up front. Gated behind `hover: hover` (on
+touch, `:hover` sticks after a tap) and disabled under `prefers-reduced-motion`.
+
 #### app/(landing)/milpacs/nav.tsx
 Client sticky nav bar with dropdown sub-sections; smooth-scrolls to `#section-id` anchors on the
 milpacs index page.

@@ -230,6 +230,65 @@
     }
 }
 
+/* ---------- animated media, on hover only -------------------------------- */
+
+/*
+   Animated avatars and covers, held back until the pointer is on the card.
+
+   The roster paints stills. Members with a Nitro avatar cluster at the top of
+   this page (Command first), and every one of those avatars is an animated GIF
+   that next/image refuses to optimise — it passes animated images through
+   byte-for-byte, so a 54px circle was being fed a 1.76 MB GIF and repainting it
+   forever. Ten of those in the first screen is a compositor commit every frame
+   for as long as the page is open, which is exactly what it looked like in a
+   performance trace: a steady drumbeat of long tasks that stopped the moment
+   the top of the roster was scrolled away.
+
+   The mechanism matters. The animated URL is handed in as a custom property and
+   only ever resolved inside these rules, because a `url()` parked in an unused
+   custom property is never fetched — the request happens when the declaration
+   first applies to a rendered element. Rendering both images and toggling
+   `display` would have downloaded every GIF on the page up front; this
+   downloads one, when someone asks for it.
+
+   `hover: hover` keeps it off touch devices, where `:hover` sticks after a tap
+   and there is no way to un-hover a card.
+*/
+.avatarAnim,
+.bannerAnim {
+    position: absolute;
+    inset: 0;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    /* The card is one big link — these must never eat its clicks. */
+    pointer-events: none;
+}
+
+.avatarAnim {
+    border-radius: 50%;
+}
+
+@media (hover: hover) {
+    .card:hover .avatarAnim { background-image: var(--anim-avatar); }
+    .card:hover .bannerAnim { background-image: var(--anim-cover); }
+}
+
+/* Keyboard users get the same thing, on any input type. */
+.card:focus-visible .avatarAnim { background-image: var(--anim-avatar); }
+.card:focus-visible .bannerAnim { background-image: var(--anim-cover); }
+
+/* Asked not to animate: never resolve the URL at all, so it is not even
+   fetched. The still underneath is what stays on show. */
+@media (prefers-reduced-motion: reduce) {
+    .card:hover .avatarAnim,
+    .card:hover .bannerAnim,
+    .card:focus-visible .avatarAnim,
+    .card:focus-visible .bannerAnim {
+        background-image: none;
+    }
+}
+
 /* ============================================================================
    Roster layout
    ----------------------------------------------------------------------------
