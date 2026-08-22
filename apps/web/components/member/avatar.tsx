@@ -21,7 +21,19 @@ function resolveAvatar(user?: AvatarUser): string | StaticImageData {
  */
 type AvatarUser = Pick<User, 'id' | 'avatarURL'>
 
-export default function Avatar({ user, borderRadius = '100%' }: { user?: AvatarUser, borderRadius?: string }) {
+export default function Avatar({ user, borderRadius = '100%', sizes = '160px' }: {
+    user?: AvatarUser,
+    borderRadius?: string,
+    /**
+     * How wide this avatar actually renders. `fill` with no `sizes` makes
+     * next/image assume `100vw` and emit a srcset all the way up to 3840w, so
+     * the browser was picking a ~2048px raster to paint a 54px circle. Every
+     * avatar on the site is a small chip or circle; the default covers the
+     * largest of them (the milpac hero, 148px at its widest) and callers with
+     * something smaller should say so.
+     */
+    sizes?: string,
+}) {
 
     const [image, setImage] = useState<string | StaticImageData>(() => resolveAvatar(user))
 
@@ -32,6 +44,7 @@ export default function Avatar({ user, borderRadius = '100%' }: { user?: AvatarU
             src={image}
             alt='Profile Picture'
             fill
+            sizes={sizes}
             className='object-cover'
             style={{ borderRadius }}
             onError={() => setImage(user?.id ? defaultAvatarURL(user.id) : Fallback)}

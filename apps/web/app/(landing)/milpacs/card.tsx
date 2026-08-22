@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 
 import Avatar from '@/components/member/avatar'
+import { animatedAvatarURL, stillAvatarURL } from '@/lib/discord/avatar'
 import { resolveMemberAccent } from '@/lib/military/accent'
 import type { MilpacKitLine } from '@/lib/milpac-kits'
 import s from './roster.module.css'
@@ -20,8 +21,12 @@ import s from './roster.module.css'
  * A server component now. The old one was `'use client'` solely to run a
  * mouse-tilt effect; the hover treatment is CSS, so 163 of these no longer ship
  * a component's worth of JavaScript each.
+ *
+ * Animated avatars and covers are stills until the pointer is on the card. That
+ * is not a stylistic choice — see `--anim-avatar` below and `roster.module.css`
+ * for what it costs when they all animate at once.
  */
-export default function Card({ member, role, href, kit, coverUrl }: {
+export default function Card({ member, role, href, kit, coverUrl, coverAnimated }: {
     member: User
     role?: string
     /** The member's canonical milpac path; without it the username URL still
@@ -33,6 +38,10 @@ export default function Card({ member, role, href, kit, coverUrl }: {
      *  Deliberately not the Discord banner: this is the image the member chose
      *  for their own file, and the one they can actually change. */
     coverUrl?: string
+    /** Whether that cover is a GIF. Sniffed from the file's bytes by
+     *  `animatedCoverIds`, because every cover is stored under a `.png` name
+     *  regardless of what was uploaded. */
+    coverAnimated?: boolean
 }) {
     const accent = resolveMemberAccent(member)
 
@@ -47,16 +56,42 @@ export default function Card({ member, role, href, kit, coverUrl }: {
 
     const bio = member.bio?.content?.trim()
 
+    /*
+       Animated media, split into "what is painted" and "what is painted on
+       hover".
+
+       Both animated forms are handed to CSS as custom properties rather than
+       rendered as elements, and the stylesheet only resolves them inside a
+       `:hover`/`:focus-within` rule. A `url()` sitting unused in a custom
+       property is never fetched — the browser requests the image the moment the
+       rule first applies to a rendered element, and not before. So an idle
+       roster downloads no GIFs and paints no animation, and a hovered card
+       fetches exactly one.
+
+       The alternative — rendering both and toggling `display` — would have
+       downloaded every GIF on the page up front, which for this roster was
+       measured at 1.76 MB for a single avatar.
+    */
+    const stillAvatar = stillAvatarURL(member.avatarURL) || member.avatarURL
+    const animAvatar = animatedAvatarURL(member.avatarURL)
+
+    const animCover = coverAnimated ? coverUrl : null
+    const stillCover = animCover ? `${coverUrl}&still=1` : coverUrl
+
     return (
         <Link
             href={href ?? `/milpacs/${member.username}`}
             className={s.card}
-            style={{ ['--acc' as string]: accent }}
+            style={{
+                ['--acc' as string]: accent,
+                ...(animAvatar ? { ['--anim-avatar' as string]: `url("${animAvatar}")` } : {}),
+                ...(animCover ? { ['--anim-cover' as string]: `url("${animCover}")` } : {}),
+            }}
         >
             <div className={s.banner}>
-                {coverUrl && (
+                {stillCover && (
                     <Image
-                        src={coverUrl}
+                        src={stillCover}
                         alt=''
                         width={480}
                         height={136}
@@ -72,11 +107,15 @@ export default function Card({ member, role, href, kit, coverUrl }: {
                         loading='lazy'
                     />
                 )}
+                {animCover && <span className={s.bannerAnim} aria-hidden='true' />}
             </div>
 
             <div className={s.avatarWrap}>
                 <div className={s.avatar}>
-                    <Avatar user={{ id: member.id, avatarURL: member.avatarURL }} />
+                    {/* 64px, not the component's default: this circle is 54px, and
+                        the default is sized for the much larger milpac hero. */}
+                    <Avatar user={{ id: member.id, avatarURL: stillAvatar }} sizes='64px' />
+                    {animAvatar && <span className={s.avatarAnim} aria-hidden='true' />}
                 </div>
             </div>
 

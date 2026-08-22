@@ -205,7 +205,7 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 - **POST** — uploads/overwrites the caller's own bio photo (`./uploads/bio/<me.id>.jpg`). Auth: `hasPermission(user, 'uploads.bio')`.
 
 #### /api/uploads/cover
-- **GET** — `?id=` serves `./uploads/cover/<id>.png` cover photo. Auth: public/no auth (read).
+- **GET** — `?id=` serves `./uploads/cover/<id>.png` cover photo. Auth: public/no auth (read). `id` must be a Discord snowflake — it is interpolated into a filesystem path, and before that check `?id=../../../../etc/passwd` resolved. `Content-Type` is sniffed from the bytes rather than assumed `image/png`, because covers are stored under a `.png` name whatever was uploaded and some are GIFs. `?still=1` returns the first frame of an animated cover as a real PNG (decoded via `@napi-rs/canvas`, imported lazily; falls through to the raw bytes if it will not decode) — the /milpacs roster asks for that so it can hold animation back until hover.
 - **POST** — uploads/overwrites the caller's own cover photo. Auth: any authenticated user.
 - **DELETE** — deletes the caller's own cover photo file. Auth: any authenticated user.
 

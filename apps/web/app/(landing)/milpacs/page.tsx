@@ -19,7 +19,7 @@ import Masthead from '@/components/ui/Masthead'
 import shell from '@/styles/shell.module.css'
 import ui from '@/styles/ui.module.css'
 import { fetchDefaultKitLines } from '@/lib/milpac-kits'
-import { coverIds } from '@/lib/military/milpac-cover'
+import { animatedCoverIds, coverIds } from '@/lib/military/milpac-cover'
 import r from './roster.module.css'
 import { buildSlugIndex, canonicalSegment, toSlugCandidate } from '@/lib/military/milpac-slug'
 import MilpacsNav from './nav'
@@ -65,6 +65,9 @@ export default async function Page() {
 
 	// One readdir for the whole roster rather than an existsSync per card.
 	const covers = coverIds()
+	// Which of those are GIFs, so the card can serve a still and hold the
+	// animation back until hover. One 6-byte read per cover, not per card.
+	const animatedCovers = animatedCoverIds(covers)
 	const coverUrl = (id: string) => covers.has(id) ? `/api/uploads/cover?id=${id}` : undefined
 
 	// fetchAllMembers() returns raw Mongo documents — departmentRoleIds (ObjectId[])
@@ -148,7 +151,7 @@ export default async function Page() {
 						<div className={r.grid}>
 							{[orbat.companyHQ.senior, ...orbat.companyHQ.members].map(m => {
 								const member = lookup(m.name)
-								return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
+								return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 							})}
 						</div>
 					</SubSection>
@@ -164,7 +167,7 @@ export default async function Page() {
 								<div className={r.grid}>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
+										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -182,7 +185,7 @@ export default async function Page() {
 								<div className={r.grid}>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
+										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -200,7 +203,7 @@ export default async function Page() {
 								<div className={r.grid}>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
+										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -222,7 +225,7 @@ export default async function Page() {
 							<div className={r.grid}>
 								{orbat.gamemasters.map(m => {
 									const member = lookup(m.name)
-									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
+									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 								})}
 							</div>
 						</SubSection>
@@ -236,7 +239,7 @@ export default async function Page() {
 							<div className={r.grid}>
 								{orbat.activeReservists.map(name => {
 									const member = lookup(name)
-									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Active Reservist' kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
+									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Active Reservist' kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 								})}
 							</div>
 						</SubSection>
@@ -246,7 +249,7 @@ export default async function Page() {
 							<div className={r.grid} style={{ opacity: 0.5 }}>
 								{orbat.inactiveReservists.map(name => {
 									const member = lookup(name)
-									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Inactive Reservist' kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} /> : null
+									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Inactive Reservist' kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 								})}
 							</div>
 						</SubSection>
