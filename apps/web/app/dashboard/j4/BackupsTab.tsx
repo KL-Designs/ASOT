@@ -77,6 +77,54 @@ function fmtBytes(bytes: number): string {
     return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`
 }
 
+// ── Upload with progress ──────────────────────────────────────────────────────
+
+type UploadProgress = {
+    loaded: number
+    total: number
+    /** Bytes/sec, smoothed — a raw per-event rate jitters far too much to read. */
+    rate: number
+    /** Seconds remaining, or null before there is enough signal to estimate. */
+    eta: number | null
+    /** Every byte is sent and the server is now doing the restore. */
+    sent: boolean
+}
+
+/**
+ * POST a FormData and report upload progress.
+ *
+ * XMLHttpRequest rather than fetch, for one reason: **fetch cannot report
+ * upload progress at all** — its request body is not observable, so a fetch
+ * upload of a multi-gigabyte backup archive is a spinner and a prayer. XHR
+ * still exposes `upload.onprogress`, which remains the only way to get this in
+ * a browser.
+ *
+ * No timeout is set, deliberately. The server runs the entire restore before it
+ * responds, so the wait after the last byte leaves the browser is the restore
+ * itself and can legitimately last minutes.
+ */
+function uploadWithProgress(
+    url: string,
+    form: FormData,
+    onProgress: (loaded: number, total: number) => void,
+): Promise<{ ok: boolean; data: { error?: string } }> {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('POST', url)
+        xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(e.loaded, e.total) }
+        xhr.onload = () => {
+            let data: { error?: string } = {}
+            // A non-JSON body (a proxy's HTML 502, say) must not throw here —
+            // `ok` still carries the real outcome.
+            try { data = JSON.parse(xhr.responseText || '{}') } catch { }
+            resolve({ ok: xhr.status >= 200 && xhr.status < 300, data })
+        }
+        xhr.onerror = () => reject(new Error('network'))
+        xhr.onabort = () => reject(new Error('aborted'))
+        xhr.send(form)
+    })
+}
+
 // ── Confirm dialog ────────────────────────────────────────────────────────────
 
 function ConfirmDialog({ open, title, body, danger, onConfirm, onCancel }: {
@@ -212,6 +260,11 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
     const [uploadFile, setUploadFile] = useState<File | null>(null)
     const [uploadParts, setUploadParts] = useState<Record<BackupPart, boolean>>({ database: true, gallery: true, uploads: true })
     const [uploading, setUploading]   = useState(false)
+    const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null)
+    // Previous sample, for the smoothed rate. A ref rather than state: it is
+    // read and rewritten on every progress event and must not trigger a render
+    // of its own.
+    const uploadRateRef = useRef<{ time: number; loaded: number; rate: number } | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -514,14 +567,45 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                 setUploading(true)
                 setError(null)
                 opSizeRef.current = uploadFile.size
+                uploadRateRef.current = null
+                setUploadProgress({ loaded: 0, total: uploadFile.size, rate: 0, eta: null, sent: false })
                 try {
+                    // Fields first, file last. Multipart parts arrive in the
+                    // order they are appended, and the route validates `parts`
+                    // the moment it sees it — so a malformed request is refused
+                    // in one round trip rather than after the whole archive has
+                    // been sent.
                     const form = new FormData()
-                    form.append('backup', uploadFile)
                     form.append('parts', chosen.join(','))
                     form.append('wipeMedia', String(wipesMedia))
-                    const res = await fetch('/api/backups/upload', { method: 'POST', body: form })
-                    const data = await res.json()
-                    if (!res.ok) setError(data.error ?? 'Upload failed')
+                    form.append('backup', uploadFile)
+
+                    const { ok, data } = await uploadWithProgress('/api/backups/upload', form, (loaded, total) => {
+                        const now = Date.now()
+                        const prev = uploadRateRef.current
+                        let rate = prev?.rate ?? 0
+
+                        if (prev && now > prev.time) {
+                            const instant = (loaded - prev.loaded) / ((now - prev.time) / 1000)
+                            // Exponential moving average. The instantaneous rate
+                            // between two progress events swings wildly enough
+                            // that an ETA built on it is unreadable.
+                            rate = prev.rate > 0 ? prev.rate * 0.7 + instant * 0.3 : instant
+                        }
+                        uploadRateRef.current = { time: now, loaded, rate }
+
+                        const remaining = total - loaded
+                        setUploadProgress({
+                            loaded, total, rate,
+                            eta: rate > 0 && remaining > 0 ? remaining / rate : null,
+                            // Past this point the bar is no longer about the
+                            // network: the server has every byte and is doing
+                            // the restore, which the status banner above tracks.
+                            sent: loaded >= total,
+                        })
+                    })
+
+                    if (!ok) setError(data.error ?? 'Upload failed')
                     else {
                         setUploadFile(null)
                         if (fileInputRef.current) fileInputRef.current.value = ''
@@ -531,6 +615,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                     setError('Network error during upload.')
                 } finally {
                     setUploading(false)
+                    setUploadProgress(null)
                 }
             },
             true
@@ -1153,6 +1238,43 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                             {uploading ? 'Uploading…' : 'Upload & Revert'}
                         </button>
                     </div>
+                    {/* Progress. Two distinct phases, shown as such: while bytes
+                        are moving this is a real percentage with a rate and an
+                        ETA; once they have all arrived the browser knows nothing
+                        more, because the server is restoring and will not answer
+                        until it finishes. Holding a determinate bar at 100% for
+                        minutes reads as a hang, so it switches to indeterminate
+                        and says what is actually happening. */}
+                    {uploadProgress && (
+                        <div style={{ marginTop: 14 }}>
+                            <div style={{
+                                display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 6,
+                                fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em',
+                                textTransform: 'uppercase', color: 'rgba(237,237,237,0.45)',
+                            }}>
+                                <span>
+                                    {uploadProgress.sent
+                                        ? 'Uploaded — restoring on the server'
+                                        : `Uploading — ${Math.floor((uploadProgress.loaded / Math.max(1, uploadProgress.total)) * 100)}%`}
+                                </span>
+                                <span style={{ color: 'rgba(237,237,237,0.3)', fontVariantNumeric: 'tabular-nums' }}>
+                                    {fmtBytes(uploadProgress.loaded)} / {fmtBytes(uploadProgress.total)}
+                                    {!uploadProgress.sent && uploadProgress.rate > 0 && ` · ${fmtBytes(uploadProgress.rate)}/s`}
+                                    {!uploadProgress.sent && uploadProgress.eta !== null && ` · ${fmtTime(uploadProgress.eta)} left`}
+                                </span>
+                            </div>
+                            <LinearProgress
+                                variant={uploadProgress.sent ? 'indeterminate' : 'determinate'}
+                                value={(uploadProgress.loaded / Math.max(1, uploadProgress.total)) * 100}
+                                sx={{
+                                    height: 4,
+                                    backgroundColor: 'rgba(237,237,237,0.08)',
+                                    '& .MuiLinearProgress-bar': { backgroundColor: 'rgba(219,0,29,0.9)' },
+                                }}
+                            />
+                        </div>
+                    )}
+
                     <Typography fontSize='0.68rem' style={{ color: 'rgba(237,237,237,0.25)', marginTop: 8 }}>
                         Upload a previously downloaded backup ZIP to restore the website to that state.
                     </Typography>
