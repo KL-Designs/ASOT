@@ -203,7 +203,6 @@ function StepBody({ step, onViewRoles }: {
                 </p>
             ))}
             {step.intro && (
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 <p dangerouslySetInnerHTML={{ __html: step.intro as any }} style={{ color: MUTED, fontSize: '0.86rem', lineHeight: 1.75, fontFamily: 'Arial, sans-serif', marginBottom: 14 }} />
             )}
             {step.gridItems.length > 0 && (

@@ -73,7 +73,6 @@ export async function checkBudget(ctx: BudgetCheckContext): Promise<BudgetCheckR
     ]
 
     const budgets = await Db.aiBudgets.find({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         $or: scopeKeys as any,
         enabled: true,
     }).toArray()

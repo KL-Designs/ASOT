@@ -73,7 +73,6 @@ export async function POST(req: NextRequest) {
         bb.on('error', (err: Error) => done(NextResponse.json({ error: `Parse error: ${err.message}` }, { status: 400 })))
         bb.on('finish', () => { if (!fileStarted && !settled) done(NextResponse.json({ error: 'No file received' }, { status: 400 })) })
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         Readable.fromWeb(req.body as any).pipe(bb)
     })
 }

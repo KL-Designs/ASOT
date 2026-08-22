@@ -16,7 +16,6 @@ export default async function JoinInfoPage() {
     // If the info page is disabled, skip straight to the application
     if (config && config.showInfoPage === false) redirect('/join')
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const info: RecruitmentInfoContent = (config as any)?.recruitmentInfo ?? DEFAULT_RECRUITMENT_INFO
 
     return <InfoPageClient info={sanitizeRecruitmentInfo(info)} />
