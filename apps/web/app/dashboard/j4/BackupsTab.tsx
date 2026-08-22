@@ -200,6 +200,17 @@ function ConfirmDialog({ open, title, body, danger, onConfirm, onCancel }: {
 
 // ── Storage donut ─────────────────────────────────────────────────────────────
 
+/**
+ * How many timeline rows show before "show all".
+ *
+ * Retention keeps hourly snapshots, so this list runs to the hundreds — and
+ * every row carries its own hover state and up to four buttons, so rendering
+ * all of them costs something on every re-render of this tab. Ten covers the
+ * last half-day, which is what anyone opening this page is almost always
+ * after.
+ */
+const COLLAPSED_ROWS = 10
+
 const STORAGE_PALETTE = { database: '#00c3ff', gallery: '#db001d', uploads: 'var(--amber)' }
 const storageTooltipStyle = {
     contentStyle: { background: '#111', border: '1px solid rgba(219,0,29,0.32)', borderRadius: 0, fontSize: '0.78rem', color: '#ededed' },
@@ -253,6 +264,8 @@ function StorageDonut({ title, data }: { title: string; data: { name: string; va
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
 export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
+    // Collapsed by default — see COLLAPSED_ROWS.
+    const [showAllBackups, setShowAllBackups] = useState(false)
     const [points, setPoints]       = useState<BackupPoint[]>([])
     const [status, setStatus]       = useState<BackupStatus>({ state: 'idle' })
     const [loading, setLoading]     = useState(true)
@@ -339,6 +352,15 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
         danger?: boolean
         action: (() => void) | null
     }>({ open: false, title: '', body: '', action: null })
+
+    // Newest first, so the collapsed view is the most recent ten.
+    const visiblePoints = showAllBackups ? points : points.slice(0, COLLAPSED_ROWS)
+    const hiddenPoints  = points.length - visiblePoints.length
+    // Called out by name because these are the restore points a person
+    // deliberately made — burying "the backup I took before I broke it" behind
+    // an unlabelled button is the one way this could actively mislead.
+    const hiddenManual  = points.slice(visiblePoints.length).filter(p => p.isManual).length
+    const hiddenSafety  = points.slice(visiblePoints.length).filter(p => p.isSafety).length
 
     const busy = status.state !== 'idle'
 
@@ -989,7 +1011,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                             <span></span>
                         </div>
 
-                        {points.map(p => (
+                        {visiblePoints.map(p => (
                             <div
                                 key={p.id}
                                 onMouseEnter={() => setHoveredRow(p.id)}
@@ -1109,6 +1131,40 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                                 )}
                             </div>
                         ))}
+
+                        {points.length > COLLAPSED_ROWS && (
+                            <button
+                                onClick={() => setShowAllBackups(v => !v)}
+                                style={{
+                                    marginTop: 6,
+                                    padding: '8px 12px',
+                                    background: 'none',
+                                    border: '1px solid var(--line-2)',
+                                    color: 'rgba(237,237,237,0.55)',
+                                    fontFamily: 'inherit',
+                                    fontSize: '0.62rem',
+                                    fontWeight: 700,
+                                    letterSpacing: '0.12em',
+                                    textTransform: 'uppercase',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 8,
+                                }}
+                            >
+                                {showAllBackups
+                                    ? `Show only the latest ${COLLAPSED_ROWS}`
+                                    : `Show all ${points.length} backups`}
+                                {!showAllBackups && (
+                                    <span style={{ color: 'rgba(237,237,237,0.28)', letterSpacing: '0.06em' }}>
+                                        {hiddenPoints} hidden
+                                        {hiddenManual > 0 && ` · ${hiddenManual} manual`}
+                                        {hiddenSafety > 0 && ` · ${hiddenSafety} pre-restore`}
+                                    </span>
+                                )}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
