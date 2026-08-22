@@ -51,6 +51,18 @@ jobs:
 
       # apps/web keeps its own lockfile and is NOT a workspace of the root
       # package.json — root `install:all` installs it separately for that reason.
+      # node:22-alpine ships npm 10, and so does setup-node's Node 22 — but this
+      # repo's lockfiles are written by npm 11, which records some entries
+      # (optional peer deps) differently than npm 10 expects. npm 10 then
+      # rejects a perfectly valid lockfile with a false "not in sync" error.
+      # Both apps/web/dockerfile and apps/bot/dockerfile pin npm 11 for exactly
+      # this reason, so CI has to as well or it fails where production does not.
+      # The first run of this workflow proved the point by dying on
+      # "Missing: yaml@2.9.0 from lock file" — a lockfile that `npm ci` accepts
+      # without complaint under npm 11.
+      - name: Pin npm to match the dockerfiles
+        run: npm install -g npm@11
+
       - name: Install
         run: npm ci
         working-directory: apps/web
@@ -96,6 +108,18 @@ jobs:
           cache-dependency-path: package-lock.json
 
       # apps/bot and apps/milpac ARE workspaces of the root package.
+      # node:22-alpine ships npm 10, and so does setup-node's Node 22 — but this
+      # repo's lockfiles are written by npm 11, which records some entries
+      # (optional peer deps) differently than npm 10 expects. npm 10 then
+      # rejects a perfectly valid lockfile with a false "not in sync" error.
+      # Both apps/web/dockerfile and apps/bot/dockerfile pin npm 11 for exactly
+      # this reason, so CI has to as well or it fails where production does not.
+      # The first run of this workflow proved the point by dying on
+      # "Missing: yaml@2.9.0 from lock file" — a lockfile that `npm ci` accepts
+      # without complaint under npm 11.
+      - name: Pin npm to match the dockerfiles
+        run: npm install -g npm@11
+
       - name: Install
         run: npm ci
 
