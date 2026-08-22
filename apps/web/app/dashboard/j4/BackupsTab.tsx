@@ -570,10 +570,15 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                 uploadRateRef.current = null
                 setUploadProgress({ loaded: 0, total: uploadFile.size, rate: 0, eta: null, sent: false })
                 try {
+                    // Fields first, file last. Multipart parts arrive in the
+                    // order they are appended, and the route validates `parts`
+                    // the moment it sees it — so a malformed request is refused
+                    // in one round trip rather than after the whole archive has
+                    // been sent.
                     const form = new FormData()
-                    form.append('backup', uploadFile)
                     form.append('parts', chosen.join(','))
                     form.append('wipeMedia', String(wipesMedia))
+                    form.append('backup', uploadFile)
 
                     const { ok, data } = await uploadWithProgress('/api/backups/upload', form, (loaded, total) => {
                         const now = Date.now()
