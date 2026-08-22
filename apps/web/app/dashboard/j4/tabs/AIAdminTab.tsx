@@ -312,7 +312,6 @@ function BudgetDialog({ open, initial, onClose, onSaved }: {
                 .map(s => parseFloat(s.trim()) / 100)
                 .filter(n => !isNaN(n))
 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const body: any = {
                 _id: form._id,
                 scopeType: form.scopeType,

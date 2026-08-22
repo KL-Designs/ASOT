@@ -673,7 +673,6 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             const restored = deletedGuidesCache.find(g => String(g._id) === guideId)
             if (restored) {
                 setDeletedGuidesCache(prev => prev.filter(g => String(g._id) !== guideId))
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { deletedAt, deletedById, deletedByName, ...rest } = restored
                 setAllGuides(prev => [...prev, rest as TrainingGuide])
             }

@@ -86,7 +86,6 @@ export async function POST(req: NextRequest) {
         // Only error when no file was found at all — if fileStarted is true, ws.on('close') will resolve
         bb.on('finish', () => { if (!fileStarted && !settled) done(NextResponse.json({ error: 'No file received' }, { status: 400 })) })
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         Readable.fromWeb(req.body as any).pipe(bb)
     })
 }

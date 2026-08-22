@@ -287,7 +287,6 @@ const ImageViewport = forwardRef<ImageViewportHandle, {
                     <CompositeCanvas imageUrl={imageUrl} onReady={onCanvasReady} cssFilter={cssFilter || undefined} />
                 </div>
                 {/* Overlay is outside the zoom transform — stays full-viewport during zoom/pan */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                     src={OVERLAY_PATHS[overlayStyle]}
                     alt=''
@@ -501,7 +500,6 @@ function ScreenshotUpload({
             />
             {value ? (
                 <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                         src={`data:image/png;base64,${value}`}
                         alt='source screenshot'
@@ -629,7 +627,6 @@ function CreatorPanel({
 
     function playGenerationChime() {
         try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const AC: typeof AudioContext = window.AudioContext ?? (window as any).webkitAudioContext
             const ac = new AC()
             function note(freq: number, t: number, dur: number) {
@@ -1096,14 +1093,12 @@ function ImageCard({
                 aspectRatio: image.aspectRatio === 'portrait' ? '2/3' : image.aspectRatio === 'landscape' ? '3/2' : '1/1',
             }}
         >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
                 src={`/api/ai/images/${image._id?.toString()}/file`}
                 alt='Generated intel image'
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 loading='lazy'
             />
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
                 src={OVERLAY_PATHS[image.cameraStyle]}
                 alt=''
@@ -1230,13 +1225,11 @@ function ImageLibraryPanel({ onSelect }: { onSelect?: (image: AiGeneratedImage) 
                 >
                     <DialogContent style={{ padding: 0, position: 'relative' }}>
                         <div style={{ position: 'relative', lineHeight: 0 }}>
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src={`/api/ai/images/${selectedImage._id?.toString()}/file`}
                                 alt='Generated intel image'
                                 style={{ display: 'block', maxWidth: '80vw', maxHeight: '80vh', objectFit: 'contain' }}
                             />
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                                 src={OVERLAY_PATHS[selectedImage.cameraStyle]}
                                 alt=''

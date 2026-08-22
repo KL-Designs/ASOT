@@ -89,7 +89,6 @@ function FieldPresenceAvatars({ users }: { users: PresenceUser[] }) {
                     }}
                 >
                     {u.avatar ? (
-                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={u.avatar} alt={u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                         <span style={{ fontSize: '0.38rem', fontWeight: 800, color: '#fff', lineHeight: 1 }}>{getInitials(u.name)}</span>

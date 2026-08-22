@@ -13,7 +13,6 @@ export async function GET() {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const config = await Db.recruitVideoConfig.findOne({ _id: 'main' }).catch(() => null)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const info = (config as any)?.recruitmentInfo ?? DEFAULT_RECRUITMENT_INFO
     return NextResponse.json(sanitizeRecruitmentInfo(info))
 }
