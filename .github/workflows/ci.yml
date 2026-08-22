@@ -1,0 +1,152 @@
+name: CI
+
+# Runs on every PR into main, and on main itself so a merge that breaks
+# something still shows a red X rather than only a deploy that quietly ships it.
+#
+# This does not, on its own, stop anything: a workflow is a check, and a check
+# only becomes a gate when branch protection marks it required. See
+# `.github/workflows/deploy.yml` and the note in the root CLAUDE.md — a push to
+# main deploys straight to the server with no build step in front of it, so the
+# merge button is the deploy button until that setting is on.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# A newer push makes an in-flight run irrelevant; don't pay for both.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # No secrets, but emphatically not "no database". `lib/mongo.ts` throws at
+  # import when these are unset, and `next build` PRERENDERS pages that query
+  # Mongo for real (/ace among them) — so the build needs a server it can
+  # actually reach, which the `mongo` service on the web job provides. An empty
+  # database is enough; no prerendered page asserts on content.
+  #
+  # An earlier revision of this file claimed a dead address would do. It will
+  # not. That was "verified" on a dev machine with mongod already listening on
+  # 27017, which the build quietly connected to — the check proved nothing.
+  MONGO_URI: mongodb://127.0.0.1:27017
+  MONGO_DB: asot_ci
+  NEXT_PUBLIC_BASEURL: https://ci.invalid
+
+jobs:
+  web:
+    name: web — lint, types, unit tests, build
+    runs-on: ubuntu-latest
+
+    # Required by the build, not by the tests: `next build` prerenders pages
+    # that hit the database. Empty is fine — this only has to accept a
+    # connection and answer queries.
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          # Matches apps/web/dockerfile (node:22-alpine). Dev machines are on
+          # 24; the gate has to fail where production would, not where dev does.
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      # apps/web keeps its own lockfile and is NOT a workspace of the root
+      # package.json — root `install:all` installs it separately for that reason.
+      # node:22-alpine ships npm 10, and so does setup-node's Node 22 — but this
+      # repo's lockfiles are written by npm 11, which records some entries
+      # (optional peer deps) differently than npm 10 expects. npm 10 then
+      # rejects a perfectly valid lockfile with a false "not in sync" error.
+      # Both apps/web/dockerfile and apps/bot/dockerfile pin npm 11 for exactly
+      # this reason, so CI has to as well or it fails where production does not.
+      # The first run of this workflow proved the point by dying on
+      # "Missing: yaml@2.9.0 from lock file" — a lockfile that `npm ci` accepts
+      # without complaint under npm 11.
+      - name: Pin npm to match the dockerfiles
+        run: npm install -g npm@11
+
+      - name: Install
+        run: npm ci
+        working-directory: apps/web
+
+      - name: Restore Next.js build cache
+        uses: actions/cache@v5
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ hashFiles('apps/web/package-lock.json') }}-${{ github.sha }}
+          restore-keys: |
+            next-${{ hashFiles('apps/web/package-lock.json') }}-
+
+      - name: Lint
+        run: npm run lint
+        working-directory: apps/web
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+        working-directory: apps/web
+
+      - name: Unit tests
+        run: npx vitest run
+        working-directory: apps/web
+
+      # `npm run build`, not a bare `next build`: the script wraps next in
+      # dotenv-cli, and running the real script is the point of a gate.
+      # dotenv-cli neither fails on the missing root .env nor overrides the
+      # environment set above.
+      - name: Build
+        run: npm run build
+        working-directory: apps/web
+
+  workspaces:
+    name: bot + milpac — types and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # apps/bot and apps/milpac ARE workspaces of the root package.
+      # node:22-alpine ships npm 10, and so does setup-node's Node 22 — but this
+      # repo's lockfiles are written by npm 11, which records some entries
+      # (optional peer deps) differently than npm 10 expects. npm 10 then
+      # rejects a perfectly valid lockfile with a false "not in sync" error.
+      # Both apps/web/dockerfile and apps/bot/dockerfile pin npm 11 for exactly
+      # this reason, so CI has to as well or it fails where production does not.
+      # The first run of this workflow proved the point by dying on
+      # "Missing: yaml@2.9.0 from lock file" — a lockfile that `npm ci` accepts
+      # without complaint under npm 11.
+      - name: Pin npm to match the dockerfiles
+        run: npm install -g npm@11
+
+      - name: Install
+        run: npm ci
+
+      # docker-compose builds a bot container from this same context, so a
+      # broken bot is a broken deploy even though nothing above would catch it.
+      - name: Typecheck bot
+        run: npm run typecheck --workspace apps/bot
+
+      - name: Typecheck milpac
+        run: npm run typecheck --workspace apps/milpac
+
+      - name: Test milpac
+        run: npm test --workspace apps/milpac

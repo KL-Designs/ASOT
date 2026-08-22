@@ -73,6 +73,10 @@ Standalone `.mjs` scripts for schema/data migrations, run manually (not part of 
 
 ## Deployment
 
-`docker-compose.yml` builds `web` and `bot` as separate containers from the same build context (repo root), both reading the shared `.env` and the bind-mounted `storage/` tree. `.github/workflows/deploy.yml` deploys on every push to `main`: SSHes into the server, `git pull`s, and runs `docker compose up -d --build --remove-orphans`. There is no CI test/build gate before deploy — pushing to `main` deploys directly.
+`docker-compose.yml` builds `web` and `bot` as separate containers from the same build context (repo root), both reading the shared `.env` and the bind-mounted `storage/` tree. `.github/workflows/deploy.yml` deploys on every push to `main`: SSHes into the server, `git pull`s, and runs `docker compose up -d --build --remove-orphans`.
 
-**Build any large or multi-step feature/implementation on its own branch, not directly on `main`.** Because a push to `main` deploys immediately with no CI gate, committing straight to `main` mid-implementation would ship an unfinished change live. Branch, do the work, and merge to `main` only once it's ready to deploy.
+`.github/workflows/ci.yml` runs lint, `tsc --noEmit`, the vitest suites and a production build for `apps/web`, plus typechecks and tests for `apps/bot` and `apps/milpac` — on every PR into `main`, and on `main` itself. It pins Node 22 to match the dockerfiles (dev machines run 24) and needs no secrets: the build was verified to pass with only dummy `MONGO_URI` / `MONGO_DB` / `NEXT_PUBLIC_BASEURL` and no root `.env`.
+
+**CI does not block the deploy by itself.** `deploy.yml` triggers on `push` to `main` independently, so the two race rather than queue. What turns the check into a gate is branch protection marking the CI jobs *required*, which stops a red PR being merged — it does not stop a direct push to `main` from deploying. Treat a merge to `main` as a deploy either way.
+
+**Build any large or multi-step feature/implementation on its own branch, not directly on `main`.** Because a push to `main` deploys immediately — and bypasses the PR checks entirely — committing straight to `main` mid-implementation would ship an unfinished change live. Branch, do the work, and merge to `main` only once it's ready to deploy.
