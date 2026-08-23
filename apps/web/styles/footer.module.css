@@ -224,10 +224,6 @@
     gap: 7px;
 }
 
-.status .r b.g {
-    color: var(--live);
-}
-
 .status .r b.a {
     color: var(--amber);
 }
