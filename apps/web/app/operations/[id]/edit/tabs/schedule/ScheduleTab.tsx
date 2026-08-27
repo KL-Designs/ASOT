@@ -28,11 +28,9 @@ interface Props {
     setOrdersCheckTask: React.Dispatch<React.SetStateAction<OrdersCheckTask | null>>
 
     onChangeDate: (v: Dayjs | null) => void
-    rsvpOpenAt: string | null
-    onSetRsvpOpenManual: () => void
-    onSetRsvpOpenScheduled: () => void
+    openOffsetMins: number | null
+    onChangeOpenOffset: (mins: number | null) => void
     onChangeRsvpOpenAt: (v: Dayjs | null) => void
-    onQuickSetRsvpOpen: (mins: number) => void
     closeOffsetMins: number
     onChangeCloseOffset: (mins: number) => void
     onChangeRsvpCloseAt: (v: Dayjs | null) => void
@@ -76,8 +74,8 @@ interface Props {
 export default function ScheduleTab({
     opID, isHQ, isJ2Lead, title, date, isCampaignOp, campaignStartDate,
     missionDev, setMissionDev, ordersCheckTask, setOrdersCheckTask,
-    onChangeDate, rsvpOpenAt, onSetRsvpOpenManual, onSetRsvpOpenScheduled,
-    onChangeRsvpOpenAt, onQuickSetRsvpOpen, closeOffsetMins, onChangeCloseOffset,
+    onChangeDate, openOffsetMins, onChangeOpenOffset,
+    onChangeRsvpOpenAt, closeOffsetMins, onChangeCloseOffset,
     onChangeRsvpCloseAt, automationPaused,
     stage, onAdvance, onSelect, advancing,
     status, canOverrideLifecycle, onChangeStatus, onCompleteMission, completingMission,
@@ -90,14 +88,14 @@ export default function ScheduleTab({
 
     const ribbon = useMemo(() => buildRibbon({
         operationDate: date?.toDate() ?? null,
-        rsvpOpenAt: rsvpOpenAt ? new Date(rsvpOpenAt) : null,
+        rsvpOpenOffsetMins: openOffsetMins,
         rsvpCloseOffsetMins: closeOffsetMins,
         isCampaignOp,
         campaignStartDate: campaignStartDate ? new Date(campaignStartDate) : null,
         completions: missionDev?.completions ?? {},
         ordersCheckAt: ordersCheckTask?.ordersCheckAt ? new Date(ordersCheckTask.ordersCheckAt) : null,
         now,
-    }), [date, rsvpOpenAt, closeOffsetMins, isCampaignOp, campaignStartDate, missionDev, ordersCheckTask, now])
+    }), [date, openOffsetMins, closeOffsetMins, isCampaignOp, campaignStartDate, missionDev, ordersCheckTask, now])
 
     // Open on whatever most needs attention: a broken phase first, otherwise
     // the phase the operation is actually in. Explicit selection wins after that.
@@ -156,7 +154,7 @@ export default function ScheduleTab({
                                 {critical.fix && date && (
                                     <button
                                         type="button"
-                                        onClick={() => onQuickSetRsvpOpen(critical.fix!.minutesBeforeOp)}
+                                        onClick={() => onChangeOpenOffset(critical.fix!.minutesBeforeOp)}
                                         style={{ ...btnTone('acc'), marginLeft: 'auto', flex: '0 0 auto' }}
                                     >
                                         {critical.fix.label}
@@ -184,10 +182,9 @@ export default function ScheduleTab({
                             <RsvpWindowInspector
                                 ribbon={ribbon}
                                 date={date}
-                                onSetRsvpOpenManual={onSetRsvpOpenManual}
-                                onSetRsvpOpenScheduled={onSetRsvpOpenScheduled}
+                                openOffsetMins={openOffsetMins}
+                                onChangeOpenOffset={onChangeOpenOffset}
                                 onChangeRsvpOpenAt={onChangeRsvpOpenAt}
-                                onQuickSetRsvpOpen={onQuickSetRsvpOpen}
                                 closeOffsetMins={closeOffsetMins}
                                 onChangeCloseOffset={onChangeCloseOffset}
                                 onChangeRsvpCloseAt={onChangeRsvpCloseAt}

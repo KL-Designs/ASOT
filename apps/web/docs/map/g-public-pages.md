@@ -793,7 +793,7 @@ operation — pre-production → lead-up → RSVP window → final hour → op &
 - `PhaseStrip.tsx` — the five-phase selector under the ribbon.
 - `PreProductionInspector.tsx` — development gates with their checklists visible inline, the
   completion modal, and the Orders Check request/cancel/reminder block.
-- `RsvpWindowInspector.tsx` — both ends of the RSVP window edited together as one object.
+- `RsvpWindowInspector.tsx` — both ends of the RSVP window edited together as one object, and both expressed the same way: minutes before the op date, preset select + `Custom…` picker. There is no Manual/Scheduled toggle — an unset open offset simply means no automatic open, and the lifecycle panel's Advance is the by-hand path.
 - `LifecycleOverride.tsx` — the two manual overrides on the automation, in one panel: operation
   status + Complete Mission (moved out of the deck's Details card), and the six-step attendance
   stage machine (the retired `StagePanel`). Gated in two halves — **Advance** is ordinary forward

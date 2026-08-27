@@ -28,7 +28,23 @@ declare global {
             sectionTitle: string
         }[]
         rsvpOpen: boolean           // whether members can still RSVP
-        rsvpOpenAt?: Date           // when to auto-open RSVP (undefined = manual only)
+        /**
+         * When to auto-open RSVP. Derived, not authored: the server recomputes
+         * it from `rsvpOpenOffsetMins` whenever that offset or the operation
+         * date changes. Kept as a stored instant so the cron can keep using an
+         * indexed date query, and so the public NextOpCard and live-status can
+         * read it without knowing the op date.
+         * Undefined = no automatic open.
+         */
+        rsvpOpenAt?: Date
+        /**
+         * Source of truth for the open end: minutes before op start, mirroring
+         * `rsvpCloseOffsetMins`. Stored as an offset so the window follows the
+         * operation if its date moves — an absolute instant did not, which is
+         * how an operation ended up opening RSVP weeks after it had run.
+         * Undefined = no automatic open (RSVP opens only via the stage).
+         */
+        rsvpOpenOffsetMins?: number
         rsvpCloseOffsetMins?: number // mins before op start to auto-close RSVP (default: 60)
         confirmationOpen: boolean   // whether section leaders can still confirm
         confirmationOpenedAt?: Date // when confirmation was last opened (for 24h auto-close)

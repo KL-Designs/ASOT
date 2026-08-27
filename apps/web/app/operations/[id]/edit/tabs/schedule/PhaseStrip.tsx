@@ -42,7 +42,7 @@ export default function PhaseStrip({ ribbon, selected, onSelect, now }: Props) {
             }
             case 'rsvp_window':
                 if (problems.some(p => p.id === 'rsvp_inverted')) return 'inverted'
-                if (window.mode === 'manual') return 'opens manually'
+                if (window.mode === 'unset') return 'no open scheduled'
                 if (!window.opensAt) return '—'
                 return fmtCountdown(window.opensAt, now)
                     ? `opens in ${fmtCountdown(window.opensAt, now)}`

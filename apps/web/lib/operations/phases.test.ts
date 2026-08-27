@@ -1,14 +1,17 @@
 /**
- * The Schedule tab's phase ribbon renders entirely from `buildSchedule`, so
+ * The Schedule tab's phase ribbon renders entirely from `buildRibbon`, so
  * anything the ribbon can draw wrong is decided here. Pure and clock-injected
  * for the same reason schedule.ts is.
  */
 import { describe, test, expect } from 'vitest'
-import { buildPhases, buildRibbon, devCheckGates, rsvpWindow, scheduleProblems, fmtDuration, type ScheduleInput } from './phases'
+import {
+    buildPhases, buildRibbon, devCheckGates, rsvpWindow, scheduleProblems,
+    fmtDuration, type ScheduleInput,
+} from './phases'
 
 const input = (over: Partial<ScheduleInput> = {}): ScheduleInput => ({
     operationDate: new Date('2026-09-12T08:00:00.000Z'),
-    rsvpOpenAt: null,
+    rsvpOpenOffsetMins: null,
     rsvpCloseOffsetMins: 90,
     isCampaignOp: false,
     campaignStartDate: null,
@@ -17,10 +20,12 @@ const input = (over: Partial<ScheduleInput> = {}): ScheduleInput => ({
     ...over,
 })
 
+/** Three days before the op — the default the open control offers. */
+const THREE_DAYS = 3 * 24 * 60
+
 describe('devCheckGates', () => {
     test('a single mission gets five gates, 12 to 4 weeks before the op date', () => {
-        const gates = devCheckGates(input())
-        expect(gates.map(g => g.weeks)).toEqual([12, 10, 8, 6, 4])
+        expect(devCheckGates(input()).map(g => g.weeks)).toEqual([12, 10, 8, 6, 4])
     })
 
     test('a campaign gets six gates, counted from the campaign start not the op date', () => {
@@ -68,46 +73,53 @@ describe('devCheckGates', () => {
 })
 
 describe('rsvpWindow', () => {
-    test('a scheduled window spans its open instant to the close offset before the op', () => {
-        const w = rsvpWindow(input({ rsvpOpenAt: new Date('2026-09-09T08:00:00.000Z') }))
-        expect(w.mode).toBe('scheduled')
+    test('both ends are offsets back from the op date, so both follow if it moves', () => {
+        const w = rsvpWindow(input({ rsvpOpenOffsetMins: THREE_DAYS }))
         expect(w.opensAt?.toISOString()).toBe('2026-09-09T08:00:00.000Z')
         expect(w.closesAt?.toISOString()).toBe('2026-09-12T06:30:00.000Z')
+
+        // Move the operation a week later; both ends move with it by a week.
+        const moved = rsvpWindow(input({
+            rsvpOpenOffsetMins: THREE_DAYS,
+            operationDate: new Date('2026-09-19T08:00:00.000Z'),
+        }))
+        expect(moved.opensAt?.toISOString()).toBe('2026-09-16T08:00:00.000Z')
+        expect(moved.closesAt?.toISOString()).toBe('2026-09-19T06:30:00.000Z')
+    })
+
+    test('duration is the gap between the two offsets', () => {
+        const w = rsvpWindow(input({ rsvpOpenOffsetMins: THREE_DAYS }))
+        expect(w.durationMs).toBe(2 * 86_400_000 + 22 * 3_600_000 + 30 * 60_000)
         expect(w.inverted).toBe(false)
     })
 
-    test('duration is the distance between the two ends', () => {
-        const w = rsvpWindow(input({ rsvpOpenAt: new Date('2026-09-09T08:00:00.000Z') }))
-        expect(w.durationMs).toBe(2 * 86_400_000 + 22 * 3_600_000 + 30 * 60_000)
-    })
-
-    test('a manual window has no open instant and cannot be inverted', () => {
-        const w = rsvpWindow(input({ rsvpOpenAt: null }))
-        expect(w.mode).toBe('manual')
+    test('an unset open offset means nothing opens RSVP on its own', () => {
+        const w = rsvpWindow(input({ rsvpOpenOffsetMins: null }))
+        expect(w.mode).toBe('unset')
         expect(w.opensAt).toBeNull()
         expect(w.durationMs).toBeNull()
         expect(w.inverted).toBe(false)
     })
 
-    test('an open instant later than the close instant inverts the window', () => {
-        const w = rsvpWindow(input({ rsvpOpenAt: new Date('2026-10-28T08:00:00.000Z') }))
+    test('opening later than it closes inverts the window', () => {
+        // 30 minutes before the op is *after* the 90-minutes-before close.
+        const w = rsvpWindow(input({ rsvpOpenOffsetMins: 30 }))
         expect(w.inverted).toBe(true)
-        expect(w.durationMs).toBeLessThan(0)
+        expect(w.durationMs).toBe(-60 * 60_000)
     })
 
-    test('a window opening after the operation starts is flagged separately', () => {
-        // Opens 30 minutes after the op, which is still before RSVP would close
-        // in a nonsense config — so this must not rely on the inverted check.
-        const w = rsvpWindow(input({
-            rsvpOpenAt: new Date('2026-09-12T08:30:00.000Z'),
-            rsvpCloseOffsetMins: -120,
-        }))
-        expect(w.inverted).toBe(false)
+    test('opening exactly when it closes is inverted too — the window is empty', () => {
+        expect(rsvpWindow(input({ rsvpOpenOffsetMins: 90 })).inverted).toBe(true)
+    })
+
+    test('a negative open offset puts the opening after the operation starts', () => {
+        const w = rsvpWindow(input({ rsvpOpenOffsetMins: -60 }))
         expect(w.opensAfterOp).toBe(true)
     })
 
-    test('without an op date there is nothing to measure the close against', () => {
-        const w = rsvpWindow(input({ operationDate: null, rsvpOpenAt: new Date('2026-09-09T08:00:00.000Z') }))
+    test('without an op date neither offset resolves to an instant', () => {
+        const w = rsvpWindow(input({ operationDate: null, rsvpOpenOffsetMins: THREE_DAYS }))
+        expect(w.opensAt).toBeNull()
         expect(w.closesAt).toBeNull()
         expect(w.durationMs).toBeNull()
         expect(w.inverted).toBe(false)
@@ -115,7 +127,7 @@ describe('rsvpWindow', () => {
 })
 
 describe('buildPhases', () => {
-    const scheduled = () => input({ rsvpOpenAt: new Date('2026-09-09T08:00:00.000Z') })
+    const scheduled = () => input({ rsvpOpenOffsetMins: THREE_DAYS })
 
     test('always five phases, in lifecycle order', () => {
         expect(buildPhases(scheduled()).map(p => p.id)).toEqual([
@@ -143,24 +155,22 @@ describe('buildPhases', () => {
     })
 
     test('phases before now are spent, the one containing now is current, the rest future', () => {
-        const states = buildPhases(scheduled()).map(p => p.state)
-        expect(states).toEqual(['spent', 'current', 'future', 'future', 'future'])
+        expect(buildPhases(scheduled()).map(p => p.state))
+            .toEqual(['spent', 'current', 'future', 'future', 'future'])
     })
 
     test('exactly one phase is ever current', () => {
-        const phases = buildPhases(scheduled())
-        expect(phases.filter(p => p.state === 'current')).toHaveLength(1)
+        expect(buildPhases(scheduled()).filter(p => p.state === 'current')).toHaveLength(1)
     })
 
     test('an inverted RSVP window marks that phase invalid and nothing else', () => {
-        const phases = buildPhases(input({ rsvpOpenAt: new Date('2026-10-28T08:00:00.000Z') }))
-        const rsvp = phases.find(p => p.id === 'rsvp_window')!
-        expect(rsvp.invalid).toBe(true)
+        const phases = buildPhases(input({ rsvpOpenOffsetMins: 30 }))
+        expect(phases.find(p => p.id === 'rsvp_window')!.invalid).toBe(true)
         expect(phases.filter(p => p.invalid).map(p => p.id)).toEqual(['rsvp_window'])
     })
 
-    test('a manual RSVP window has no start, so lead-up runs to the close instead', () => {
-        const phases = buildPhases(input({ rsvpOpenAt: null }))
+    test('an unset open leaves the window without a start, so lead-up runs to the close', () => {
+        const phases = buildPhases(input({ rsvpOpenOffsetMins: null }))
         expect(phases[1].endsAt?.toISOString()).toBe('2026-09-12T06:30:00.000Z')
         expect(phases[2].startsAt).toBeNull()
         expect(phases[2].durationMs).toBeNull()
@@ -168,22 +178,21 @@ describe('buildPhases', () => {
     })
 
     test('widths are allocated by design and always total 100', () => {
-        const total = buildPhases(scheduled()).reduce((n, p) => n + p.widthPct, 0)
-        expect(total).toBe(100)
+        expect(buildPhases(scheduled()).reduce((n, p) => n + p.widthPct, 0)).toBe(100)
     })
 })
 
 describe('scheduleProblems', () => {
     test('a healthy schedule has nothing to report', () => {
-        expect(scheduleProblems(input({ rsvpOpenAt: new Date('2026-09-09T08:00:00.000Z') }))).toEqual([])
+        expect(scheduleProblems(input({ rsvpOpenOffsetMins: THREE_DAYS }))).toEqual([])
     })
 
-    test('a manual RSVP window is a choice, not a problem', () => {
-        expect(scheduleProblems(input({ rsvpOpenAt: null }))).toEqual([])
+    test('an unset open is not a problem — it just means nobody scheduled one', () => {
+        expect(scheduleProblems(input({ rsvpOpenOffsetMins: null }))).toEqual([])
     })
 
     test('an inverted window is critical and blocks publishing', () => {
-        const [p, ...rest] = scheduleProblems(input({ rsvpOpenAt: new Date('2026-10-28T08:00:00.000Z') }))
+        const [p, ...rest] = scheduleProblems(input({ rsvpOpenOffsetMins: 30 }))
         expect(p.id).toBe('rsvp_inverted')
         expect(p.severity).toBe('critical')
         expect(p.blocksPublish).toBe(true)
@@ -191,16 +200,13 @@ describe('scheduleProblems', () => {
     })
 
     test('an inverted window offers opening three days before the op as the fix', () => {
-        const [p] = scheduleProblems(input({ rsvpOpenAt: new Date('2026-10-28T08:00:00.000Z') }))
-        expect(p.fix).toEqual({ label: 'Open 3 days before', minutesBeforeOp: 4320 })
+        const [p] = scheduleProblems(input({ rsvpOpenOffsetMins: 30 }))
+        expect(p.fix).toEqual({ label: 'Open 3 days before', minutesBeforeOp: THREE_DAYS })
     })
 
-    test('opening after the op is reported on its own when the window is not inverted', () => {
-        const problems = scheduleProblems(input({
-            rsvpOpenAt: new Date('2026-09-12T08:30:00.000Z'),
-            rsvpCloseOffsetMins: -120,
-        }))
-        expect(problems.map(p => p.id)).toEqual(['rsvp_after_op'])
+    test('a negative open offset is reported as opening after the operation', () => {
+        expect(scheduleProblems(input({ rsvpOpenOffsetMins: -60 })).map(p => p.id))
+            .toEqual(['rsvp_after_op'])
     })
 
     test('no operation date is a warning, because nothing can be scheduled without one', () => {
@@ -243,7 +249,7 @@ describe('fmtDuration', () => {
 
 describe('buildRibbon', () => {
     const scheduled = (over: Partial<ScheduleInput> = {}) =>
-        input({ rsvpOpenAt: new Date('2026-09-09T08:00:00.000Z'), ...over })
+        input({ rsvpOpenOffsetMins: THREE_DAYS, ...over })
 
     test('boundaries run first gate, last gate, opens, closes, op, completed', () => {
         expect(buildRibbon(scheduled()).boundaries.map(b => b.id)).toEqual([
@@ -252,28 +258,24 @@ describe('buildRibbon', () => {
     })
 
     test('boundary positions accumulate the phase widths across the whole ribbon', () => {
-        const pcts = buildRibbon(scheduled()).boundaries.map(b => b.atPct)
-        expect(pcts).toEqual([0, 25, 46, 67, 80, 100])
+        expect(buildRibbon(scheduled()).boundaries.map(b => b.atPct))
+            .toEqual([0, 25, 46, 67, 80, 100])
     })
 
     test('gate boundaries are labelled by week, so a campaign opens at W16 not W12', () => {
-        const single = buildRibbon(scheduled())
-        expect(single.boundaries[0].label).toBe('W12 · first gate')
-
-        const campaign = buildRibbon(scheduled({
+        expect(buildRibbon(scheduled()).boundaries[0].label).toBe('W12 · first gate')
+        expect(buildRibbon(scheduled({
             isCampaignOp: true,
             campaignStartDate: new Date('2026-10-03T08:00:00.000Z'),
-        }))
-        expect(campaign.boundaries[0].label).toBe('W16 · first gate')
+        })).boundaries[0].label).toBe('W16 · first gate')
     })
 
     test('the operation is the anchor boundary', () => {
-        const op = buildRibbon(scheduled()).boundaries.find(b => b.id === 'op_starts')!
-        expect(op.kind).toBe('anchor')
+        expect(buildRibbon(scheduled()).boundaries.find(b => b.id === 'op_starts')!.kind).toBe('anchor')
     })
 
     test('an inverted window marks its open boundary invalid', () => {
-        const r = buildRibbon(input({ rsvpOpenAt: new Date('2026-10-28T08:00:00.000Z') }))
+        const r = buildRibbon(input({ rsvpOpenOffsetMins: 30 }))
         expect(r.boundaries.find(b => b.id === 'rsvp_opens')!.state).toBe('invalid')
     })
 
@@ -288,8 +290,8 @@ describe('buildRibbon', () => {
     })
 
     test('a requested orders check hangs in the phase its date falls in', () => {
-        const r = buildRibbon(scheduled({ ordersCheckAt: new Date('2026-09-01T08:00:00.000Z') }))
-        const oc = r.milestones.find(m => m.id === 'orders_check')!
+        const oc = buildRibbon(scheduled({ ordersCheckAt: new Date('2026-09-01T08:00:00.000Z') }))
+            .milestones.find(m => m.id === 'orders_check')!
         expect(oc.phaseId).toBe('lead_up')
         expect(oc.state).toBe('pending')
     })

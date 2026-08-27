@@ -23,6 +23,11 @@ export async function GET(request: NextRequest) {
     const results = { rsvpOpened: 0, rsvpClosed: 0, activatedOps: 0, confirmationOpened: 0, confirmationClosed: 0 }
 
     // ── 0. RSVP auto-open (fires at rsvpOpenAt) ────────────────────────────────
+    //
+    // `rsvpOpenAt` is derived, not authored: the editor stores a lead time
+    // (`rsvpOpenOffsetMins`) and the server recomputes this instant whenever
+    // that offset or the operation date changes. Reading the stored instant
+    // keeps this an indexed date query rather than a per-document subtraction.
 
     const autoOpenCandidates = await Db.operationAttendance.find({
         rsvpOpen: { $ne: true },

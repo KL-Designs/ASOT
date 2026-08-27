@@ -36,7 +36,26 @@ export async function GET(request: NextRequest) {
             || client.hasRoles(me, PERMISSIONS.members.editRestricted)
 
         if (title) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { title } })
-        if (date) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { date: new Date(date) } })
+        if (date) {
+            await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { date: new Date(date) } })
+
+            // The RSVP window is authored as two offsets back from this date,
+            // so moving the operation has to move the derived open instant with
+            // it. Without this the open end would stay where it was while the
+            // close end (computed live from the offset) moved — which is
+            // exactly how an operation ends up opening RSVP after it has run.
+            const att = await Db.operationAttendance.findOne(
+                { operationId: new ObjectId(id) },
+                { projection: { rsvpOpenOffsetMins: 1 } }
+            )
+            const offset = att?.rsvpOpenOffsetMins
+            if (typeof offset === 'number') {
+                await Db.operationAttendance.updateOne(
+                    { operationId: new ObjectId(id) },
+                    { $set: { rsvpOpenAt: new Date(new Date(date).getTime() - offset * 60_000) } }
+                )
+            }
+        }
         if (loreDate !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { loreDate } })
         if (department) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { department } })
         if (themeColor) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { themeColor } })

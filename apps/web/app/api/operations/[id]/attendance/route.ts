@@ -186,7 +186,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         })
     }
 
-    return NextResponse.json({ ...attendance, recordsWithUsers, sectionRolesMap, sectionMeta })
+    // The RSVP open end is authored as a lead time, but documents written before
+    // that change only carry the absolute `rsvpOpenAt`. Derive the equivalent
+    // offset here rather than in the editor, which would have to wait for the
+    // operation to load separately before it could do the subtraction.
+    //
+    // Nothing is migrated in place: an operation that never had an automatic
+    // open still reports none. Arming automation on operations someone had
+    // deliberately set to open by hand is not a side effect a read should have.
+    let rsvpOpenOffsetMins = (attendance as { rsvpOpenOffsetMins?: number }).rsvpOpenOffsetMins ?? null
+    if (rsvpOpenOffsetMins === null && attendance.rsvpOpenAt) {
+        const op = await Db.operations.findOne({ _id: operationId }, { projection: { date: 1 } })
+        if (op?.date) {
+            rsvpOpenOffsetMins = Math.round(
+                (new Date(op.date).getTime() - new Date(attendance.rsvpOpenAt).getTime()) / 60_000
+            )
+        }
+    }
+
+    return NextResponse.json({
+        ...attendance,
+        rsvpOpenOffsetMins,
+        recordsWithUsers,
+        sectionRolesMap,
+        sectionMeta,
+    })
 }
 
 // POST /api/operations/[id]/attendance — initialise an attendance doc for an operation

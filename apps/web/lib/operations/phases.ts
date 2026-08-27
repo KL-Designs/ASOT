@@ -22,8 +22,12 @@ const SINGLE_GATE_WEEKS = [12, 10, 8, 6, 4] as const
 export interface ScheduleInput {
     /** Committed operation date — the anchor every other instant derives from. */
     operationDate: Date | null
-    /** Committed RSVP-open instant; null means the window opens manually. */
-    rsvpOpenAt: Date | null
+    /**
+     * Committed RSVP-open lead time, in minutes before the operation date —
+     * the mirror of `rsvpCloseOffsetMins`. null means no automatic open has
+     * been scheduled; RSVP then only opens when someone advances the stage.
+     */
+    rsvpOpenOffsetMins: number | null
     /** Committed RSVP-close lead time, in minutes before the operation date. */
     rsvpCloseOffsetMins: number
     isCampaignOp: boolean
@@ -91,8 +95,8 @@ export function devCheckGates(input: ScheduleInput): DevCheckGate[] {
 }
 
 export interface RsvpWindow {
-    /** 'manual' means no scheduled open — a person opens it by hand. */
-    mode: 'manual' | 'scheduled'
+    /** 'unset' means no automatic open is scheduled — only Advance opens it. */
+    mode: 'unset' | 'scheduled'
     opensAt: Date | null
     closesAt: Date | null
     /** Negative when the window is inverted; null when either end is unknown. */
@@ -106,31 +110,35 @@ export interface RsvpWindow {
 /**
  * RSVP treated as one object rather than two unrelated instants.
  *
- * The two ends are stored asymmetrically — open is an absolute instant on the
- * attendance doc, close is an offset back from the operation date — which is
- * why they were previously edited as two unrelated rows and why one could
- * drift past the other unnoticed. Deriving both here means the ribbon can draw
- * the window as a span, and a span with negative width is an error you cannot
- * render without noticing.
+ * Both ends are now lead times measured back from the operation date. They
+ * used to be stored asymmetrically — open an absolute instant, close an offset
+ * — which is why they were edited as two unrelated rows, why one could drift
+ * past the other unnoticed, and why moving the operation moved only one of
+ * them. As two offsets the window is a single object that follows its anchor,
+ * and ordering is just a comparison of two numbers.
+ *
+ * Note the direction: a *larger* offset is *earlier*, so a valid window has
+ * `open > close`. An empty window (equal offsets) counts as inverted — it
+ * would open and close in the same instant, which is not a window.
  */
 export function rsvpWindow(input: ScheduleInput): RsvpWindow {
-    const { operationDate, rsvpOpenAt, rsvpCloseOffsetMins } = input
+    const { operationDate, rsvpOpenOffsetMins, rsvpCloseOffsetMins } = input
 
-    const closesAt = operationDate
-        ? new Date(operationDate.getTime() - rsvpCloseOffsetMins * 60_000)
-        : null
+    const at = (offsetMins: number) =>
+        new Date(operationDate!.getTime() - offsetMins * 60_000)
 
-    const durationMs = rsvpOpenAt && closesAt
-        ? closesAt.getTime() - rsvpOpenAt.getTime()
-        : null
+    const closesAt = operationDate ? at(rsvpCloseOffsetMins) : null
+    const opensAt = operationDate && rsvpOpenOffsetMins !== null ? at(rsvpOpenOffsetMins) : null
+
+    const durationMs = opensAt && closesAt ? closesAt.getTime() - opensAt.getTime() : null
 
     return {
-        mode: rsvpOpenAt ? 'scheduled' : 'manual',
-        opensAt: rsvpOpenAt,
+        mode: rsvpOpenOffsetMins === null ? 'unset' : 'scheduled',
+        opensAt,
         closesAt,
         durationMs,
-        inverted: durationMs !== null && durationMs < 0,
-        opensAfterOp: !!rsvpOpenAt && !!operationDate && rsvpOpenAt > operationDate,
+        inverted: rsvpOpenOffsetMins !== null && rsvpOpenOffsetMins <= rsvpCloseOffsetMins,
+        opensAfterOp: rsvpOpenOffsetMins !== null && rsvpOpenOffsetMins < 0,
     }
 }
 
@@ -278,22 +286,22 @@ export function scheduleProblems(input: ScheduleInput): ScheduleProblem[] {
 
     const window = rsvpWindow(input)
 
-    if (window.inverted) {
-        // An inverted window is nearly always also an after-the-op window, and
-        // reporting both would state one mistake twice. Inversion is the more
-        // precise description, so it wins and suppresses the other.
-        problems.push({
-            id: 'rsvp_inverted',
-            severity: 'critical',
-            message: 'RSVP is set to open after it closes, so it would never open.',
-            fix: OPEN_THREE_DAYS_BEFORE,
-            blocksPublish: true,
-        })
-    } else if (window.opensAfterOp) {
+    if (window.opensAfterOp) {
+        // Checked first: a negative offset is also technically inverted, but
+        // "opens after the operation starts" names the mistake precisely,
+        // where "inverted" only says the two ends are the wrong way round.
         problems.push({
             id: 'rsvp_after_op',
             severity: 'critical',
             message: 'RSVP is set to open after the operation starts.',
+            fix: OPEN_THREE_DAYS_BEFORE,
+            blocksPublish: true,
+        })
+    } else if (window.inverted) {
+        problems.push({
+            id: 'rsvp_inverted',
+            severity: 'critical',
+            message: 'RSVP is set to open after it closes, so it would never open.',
             fix: OPEN_THREE_DAYS_BEFORE,
             blocksPublish: true,
         })
@@ -432,7 +440,7 @@ export function buildRibbon(input: ScheduleInput): Ribbon {
         },
         {
             id: 'rsvp_opens',
-            label: window.mode === 'manual' ? 'RSVP opens · manual' : 'RSVP opens',
+            label: window.mode === 'unset' ? 'RSVP opens · not set' : 'RSVP opens',
             at: window.opensAt,
             kind: 'transition',
             state: openInvalid ? 'invalid' : instantState(window.opensAt, now),

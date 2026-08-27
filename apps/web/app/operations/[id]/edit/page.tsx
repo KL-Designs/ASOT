@@ -130,7 +130,10 @@ export default function Page() {
     const [rsvpOpen, setRsvpOpen] = useState(false)
     const [confirmationOpen, setConfirmationOpen] = useState(false)
     const [confirmationOpenedAt, setConfirmationOpenedAt] = useState<Date | null>(null)
-    const [rsvpOpenAt, setRsvpOpenAt] = useState<string | null>(null)
+    // Both ends of the RSVP window are lead times in minutes before the op
+    // date. null on the open end means no automatic open is scheduled — RSVP
+    // then only opens when someone advances the stage.
+    const [rsvpOpenOffsetMins, setRsvpOpenOffsetMins] = useState<number | null>(null)
     const [rsvpCloseOffsetMins, setRsvpCloseOffsetMins] = useState(90)
     const [attendanceSaving, setAttendanceSaving] = useState(false)
     const [tickNow, setTickNow] = useState(() => new Date())
@@ -178,10 +181,15 @@ export default function Page() {
     useEffect(() => {
         if (!isHQ || !opID) return
 
-        // Auto-open (skip if still In Development)
-        if (rsvpOpenAt && !rsvpOpen && status !== 'In Development') {
-            if (autoOpenFiredRef.current !== rsvpOpenAt && new Date(rsvpOpenAt) <= tickNow) {
-                autoOpenFiredRef.current = rsvpOpenAt
+        // Auto-open (skip if still In Development). The instant is derived from
+        // the stored lead time rather than read directly, so moving the op date
+        // moves this with it without any second write.
+        const openAt = rsvpOpenOffsetMins !== null && date
+            ? new Date(date.toDate().getTime() - rsvpOpenOffsetMins * 60_000).toISOString()
+            : null
+        if (openAt && !rsvpOpen && status !== 'In Development') {
+            if (autoOpenFiredRef.current !== openAt && new Date(openAt) <= tickNow) {
+                autoOpenFiredRef.current = openAt
                 setRsvpOpen(true)
                 setAttStage('rsvp_open')
                 saveAttendanceSettings({ rsvpOpen: true, stage: 'rsvp_open' })
@@ -196,7 +204,7 @@ export default function Page() {
             if (autoCloseFiredRef.current !== closeKey && tickNow >= closeAt) {
                 autoCloseFiredRef.current = closeKey
                 // Also stamp the open-ref so the auto-open can't immediately re-fire
-                if (rsvpOpenAt) autoOpenFiredRef.current = rsvpOpenAt
+                if (openAt) autoOpenFiredRef.current = openAt
                 setRsvpOpen(false)
                 setAttStage('rsvp_closed')
                 saveAttendanceSettings({ rsvpOpen: false, stage: 'rsvp_closed' })
@@ -340,13 +348,16 @@ export default function Page() {
                 setRsvpOpen(json.rsvpOpen ?? false)
                 setConfirmationOpen(json.confirmationOpen ?? false)
                 setConfirmationOpenedAt(json.confirmationOpenedAt ? new Date(json.confirmationOpenedAt) : null)
-                const openAt = json.rsvpOpenAt ? new Date(json.rsvpOpenAt).toISOString() : null
-                setRsvpOpenAt(openAt)
+                // The route derives this from a legacy absolute rsvpOpenAt when
+                // the offset field is absent, so the editor never has to wait
+                // for the operation document to land before it can subtract.
+                const openAt = json.rsvpOpenAt ? new Date(json.rsvpOpenAt) : null
+                setRsvpOpenOffsetMins(json.rsvpOpenOffsetMins ?? null)
                 setRsvpCloseOffsetMins(json.rsvpCloseOffsetMins ?? 90)
                 setAttStage(json.stage ?? 'preparing')
                 // If RSVP is already open when we load, mark the auto-open as already fired
                 // so the close→re-open bounce can't happen.
-                if (json.rsvpOpen && openAt) autoOpenFiredRef.current = openAt
+                if (json.rsvpOpen && openAt) autoOpenFiredRef.current = openAt.toISOString()
             })
     }, [routeId])
 
@@ -418,7 +429,7 @@ export default function Page() {
         discordPingRoles?: string[]
         rsvpOpen?: boolean
         confirmationOpen?: boolean
-        rsvpOpenAt?: string | null
+        rsvpOpenOffsetMins?: number | null
         rsvpCloseOffsetMins?: number
         stage?: AttendanceStage
     }) {
@@ -434,14 +445,15 @@ export default function Page() {
                     reservistAssignments: [],
                     ...(updates.rsvpOpen !== undefined && { rsvpOpen: updates.rsvpOpen }),
                     ...(updates.confirmationOpen !== undefined && { confirmationOpen: updates.confirmationOpen }),
-                    ...(updates.rsvpOpenAt !== undefined && { rsvpOpenAt: updates.rsvpOpenAt }),
+                    ...(updates.rsvpOpenOffsetMins !== undefined && { rsvpOpenOffsetMins: updates.rsvpOpenOffsetMins }),
                     ...(updates.rsvpCloseOffsetMins !== undefined && { rsvpCloseOffsetMins: updates.rsvpCloseOffsetMins }),
                     ...(updates.stage !== undefined && { stage: updates.stage }),
                 }),
             })
             if (!res.ok) return
             const json = await res.json()
-            // If the API resolved rsvpOpen server-side (e.g. past rsvpOpenAt), reflect that immediately
+            // If the API resolved rsvpOpen server-side (the derived open instant
+            // is already past), reflect that immediately
             if (json.rsvpOpen !== undefined) setRsvpOpen(json.rsvpOpen)
         } finally {
             setAttendanceSaving(false)
@@ -607,7 +619,7 @@ export default function Page() {
     // once its save lands, so the timeline's server-derived bits — detail
     // text, current/pending dot state — catch up immediately instead of
     // waiting for the next 30s poll. The picker/pill *values* don't need
-    // that round trip: they're driven off local rsvpOpenAt/rsvpCloseOffsetMins
+    // that round trip: they're driven off the local open/close offsets
     // state (passed into RsvpWindowInspector as props), the same way date and
     // closeOffsetMins already were, not off the polled timeline.
     function handleChangeDate(v: Dayjs | null) {
@@ -618,45 +630,28 @@ export default function Page() {
         scheduleSave({ date: iso })
     }
 
-    // "Manual" pill — matches the old panel's Manual button (always clears it).
-    async function handleSetRsvpOpenManual() {
-        if (!rsvpOpenAt) return
-        setRsvpOpenAt(null)
-        await saveAttendanceSettings({ rsvpOpenAt: null })
+    // The open end, as a lead time in minutes before the op date. null clears
+    // the automatic open entirely — the same shape as the close end, which is
+    // the point of the change: both follow the operation if its date moves.
+    async function handleChangeOpenOffset(mins: number | null) {
+        setRsvpOpenOffsetMins(mins)
+        await saveAttendanceSettings({ rsvpOpenOffsetMins: mins })
         refresh()
     }
 
-    // "Scheduled" pill — matches the old panel's Scheduled button: only
-    // defaults (3 days before the op date) if nothing's set yet and there's
-    // an op date to default from; otherwise a no-op, same as before.
-    async function handleSetRsvpOpenScheduled() {
-        if (rsvpOpenAt || !date) return
-        const openAt = new Date(date.toDate().getTime() - 3 * 24 * 3600000).toISOString()
-        setRsvpOpenAt(openAt)
-        await saveAttendanceSettings({ rsvpOpenAt: openAt })
-        refresh()
-    }
-
-    // Exact RSVP-open instant picked directly off the DateTimePicker. Debounced —
-    // dragging through the picker's date/time sections fires onChange per section.
+    // "Custom…" open — an exact instant off the picker, converted straight back
+    // to minutes-before so only ever the offset is stored. Debounced for the
+    // same reason the close picker is: dragging through the picker's sections
+    // fires onChange once per section.
     function handleChangeRsvpOpenAt(v: Dayjs | null) {
-        if (!v) return
-        const iso = v.toISOString()
-        setRsvpOpenAt(iso)
+        if (!v || !date) return
+        const mins = Math.round((date.toDate().getTime() - v.toDate().getTime()) / 60_000)
+        setRsvpOpenOffsetMins(mins)
         clearTimeout(rsvpOpenAtSaveTimer.current)
         rsvpOpenAtSaveTimer.current = setTimeout(async () => {
-            await saveAttendanceSettings({ rsvpOpenAt: iso })
+            await saveAttendanceSettings({ rsvpOpenOffsetMins: mins })
             refresh()
         }, 1000)
-    }
-
-    // RSVP-open quick-set relative to the op date (1 day/3 days/1 week/2 weeks before).
-    async function handleQuickSetRsvpOpen(mins: number) {
-        if (!date) return
-        const iso = new Date(date.toDate().getTime() - mins * 60000).toISOString()
-        setRsvpOpenAt(iso)
-        await saveAttendanceSettings({ rsvpOpenAt: iso })
-        refresh()
     }
 
     async function handleChangeCloseOffset(mins: number) {
@@ -969,11 +964,9 @@ export default function Page() {
                             ordersCheckTask={ordersCheckTask}
                             setOrdersCheckTask={setOrdersCheckTask}
                             onChangeDate={handleChangeDate}
-                            rsvpOpenAt={rsvpOpenAt}
-                            onSetRsvpOpenManual={handleSetRsvpOpenManual}
-                            onSetRsvpOpenScheduled={handleSetRsvpOpenScheduled}
+                            openOffsetMins={rsvpOpenOffsetMins}
+                            onChangeOpenOffset={handleChangeOpenOffset}
                             onChangeRsvpOpenAt={handleChangeRsvpOpenAt}
-                            onQuickSetRsvpOpen={handleQuickSetRsvpOpen}
                             closeOffsetMins={rsvpCloseOffsetMins}
                             onChangeCloseOffset={handleChangeCloseOffset}
                             onChangeRsvpCloseAt={handleChangeRsvpCloseAt}

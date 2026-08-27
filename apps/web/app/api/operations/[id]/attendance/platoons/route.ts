@@ -33,20 +33,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         reservistAssignments: { userId: string; sectionTitle: string }[]
         rsvpOpen?: boolean
         confirmationOpen?: boolean
-        rsvpOpenAt?: string | null   // ISO datetime or null to clear
+        // Minutes before op start, or null to clear. The absolute rsvpOpenAt
+        // is derived from this below — callers never send the instant.
+        rsvpOpenOffsetMins?: number | null
         rsvpCloseOffsetMins?: number
         stage?: string
     } = await req.json()
 
-    // If rsvpOpenAt is being set to a time already in the past, open RSVP immediately
-    // rather than waiting up to a minute for the next cron tick.
-    // Never auto-open for In Development operations.
-    const operation = await Db.operations.findOne({ _id: operationId }, { projection: { status: 1 } })
+    // The open end is authored as an offset; the stored instant is derived from
+    // it against the operation date, so the cron keeps its indexed date query
+    // and the window still follows the operation if the date later moves (the
+    // update route recomputes it there — see `date` handling in
+    // api/operations/update).
+    const operation = await Db.operations.findOne({ _id: operationId }, { projection: { status: 1, date: 1 } })
+    const openOffset = body.rsvpOpenOffsetMins
+    const derivedOpenAt = openOffset !== undefined && openOffset !== null && operation?.date
+        ? new Date(new Date(operation.date).getTime() - openOffset * 60_000)
+        : null
+
+    // If that instant is already in the past, open RSVP immediately rather than
+    // waiting up to five minutes for the next cron tick. Never for an operation
+    // still In Development — nothing fires until it is published.
     let resolvedRsvpOpen = body.rsvpOpen
-    if (body.rsvpOpenAt && resolvedRsvpOpen === false && operation?.status !== 'In Development') {
-        if (new Date(body.rsvpOpenAt) <= new Date()) {
-            resolvedRsvpOpen = true
-        }
+    if (derivedOpenAt && resolvedRsvpOpen === false && operation?.status !== 'In Development') {
+        if (derivedOpenAt <= new Date()) resolvedRsvpOpen = true
     }
 
     const setFields: Record<string, unknown> = {
@@ -54,7 +64,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         reservistAssignments: body.reservistAssignments ?? [],
         ...(resolvedRsvpOpen !== undefined && { rsvpOpen: resolvedRsvpOpen }),
         ...(body.confirmationOpen !== undefined && { confirmationOpen: body.confirmationOpen }),
-        ...(body.rsvpOpenAt ? { rsvpOpenAt: new Date(body.rsvpOpenAt) } : {}),
+        ...(openOffset !== undefined && openOffset !== null && { rsvpOpenOffsetMins: openOffset }),
+        ...(derivedOpenAt ? { rsvpOpenAt: derivedOpenAt } : {}),
         ...(body.rsvpCloseOffsetMins !== undefined && { rsvpCloseOffsetMins: body.rsvpCloseOffsetMins }),
         ...(body.stage !== undefined && { stage: body.stage }),
     }
@@ -79,8 +90,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         },
         $set: setFields,
     }
-    if (body.rsvpOpenAt === null) {
-        update.$unset = { rsvpOpenAt: '' }
+    // Clearing the offset clears the derived instant with it — leaving a stale
+    // rsvpOpenAt behind would keep the cron opening RSVP for a window the
+    // editor no longer shows.
+    if (openOffset === null) {
+        update.$unset = { rsvpOpenAt: '', rsvpOpenOffsetMins: '' }
     }
 
     await Db.operationAttendance.updateOne({ operationId }, update as Parameters<typeof Db.operationAttendance.updateOne>[1], { upsert: true })
