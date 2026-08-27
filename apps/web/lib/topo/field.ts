@@ -74,6 +74,36 @@ export function fbm3(x: number, y: number, z: number): number {
 }
 
 /**
+ * Which contour levels can possibly cross a cell, given its corner range.
+ *
+ * This is the whole performance story. Testing every level against every cell
+ * meant 726,000 calls a frame on a large band to produce 7,900 segments — 99%
+ * of the work established that a contour was nowhere near. A cell only carries
+ * level `v` when `min <= v < max` across its corners, and levels are evenly
+ * spaced, so the handful that qualify can be computed directly.
+ *
+ * Two scalars rather than one `[lo, hi]` tuple, deliberately: this runs once
+ * per cell, and returning a pair allocated 24,000 short-lived arrays a frame on
+ * a large band — which measured as two thirds of the tracing cost, more than
+ * the contour maths it was there to avoid.
+ *
+ * The range is inclusive and clamped into 1..levels. `highestLevel < lowestLevel`
+ * means the cell lies entirely between two contours and can be skipped.
+ *
+ * The top bound is exclusive for the same reason `cellSegments` uses `> level`:
+ * a corner sitting exactly on a level counts as below it. Getting this off by
+ * one drops or duplicates whole contours, and at 6% opacity nobody would notice
+ * until the field looked subtly wrong.
+ */
+export function lowestLevel(min: number, levels: number): number {
+    return Math.max(1, Math.ceil(min * (levels + 1)))
+}
+
+export function highestLevel(max: number, levels: number): number {
+    return Math.min(levels, Math.ceil(max * (levels + 1)) - 1)
+}
+
+/**
  * Marching squares for one cell, in unit coordinates.
  *
  * Corners are `a` top-left, `b` top-right, `c` bottom-right, `d` bottom-left.

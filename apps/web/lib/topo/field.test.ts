@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cellSegments, fbm3 } from './field'
+import { cellSegments, fbm3, highestLevel, lowestLevel } from './field'
 
 /**
  * Corners are named for their position in the cell: a top-left, b top-right,
@@ -124,5 +124,58 @@ describe('fbm3', () => {
         const atLoad = changeRate(0)
         const settled = changeRate(0.5)
         expect(atLoad / settled).toBeGreaterThan(0.25)
+    })
+})
+
+describe('lowestLevel / highestLevel', () => {
+    /*
+       Levels sit at L / (levels + 1), so with 30 levels they run 1/31 … 30/31.
+       A cell carries level v when min <= v < max — the same convention
+       cellSegments uses when it treats a corner exactly on the level as below
+       it. The two have to agree or contours are dropped or drawn twice.
+    */
+    it('returns only the levels that fall inside the corner range', () => {
+        expect(lowestLevel(0.2, 30)).toBe(7)
+        expect(highestLevel(0.5, 30)).toBe(15)
+        // 7/31 = 0.2258 is the first at or above 0.2; 16/31 = 0.516 is past 0.5.
+        expect(7 / 31).toBeGreaterThanOrEqual(0.2)
+        expect(15 / 31).toBeLessThan(0.5)
+        expect(16 / 31).toBeGreaterThan(0.5)
+    })
+
+    it('reports an empty range for a cell lying between two contours', () => {
+        expect(highestLevel(0.221, 30)).toBeLessThan(lowestLevel(0.201, 30))
+    })
+
+    it('clamps to the levels that actually exist', () => {
+        expect(lowestLevel(0, 30)).toBe(1)
+        expect(highestLevel(1, 30)).toBe(30)
+        expect(lowestLevel(-0.4, 30)).toBe(1)
+        expect(highestLevel(1.6, 30)).toBe(30)
+    })
+
+    /*
+       The contract that matters: whatever the range excludes must genuinely
+       produce nothing. Checked against cellSegments itself rather than against
+       my arithmetic.
+    */
+    it('never excludes a level that cellSegments would have drawn', () => {
+        const levels = 30
+        let checked = 0
+        for (let s = 0; s < 500; s++) {
+            const a = ((s * 37) % 100) / 100, b = ((s * 61) % 100) / 100
+            const c = ((s * 83) % 100) / 100, d = ((s * 29) % 100) / 100
+            const lo = lowestLevel(Math.min(a, b, c, d), levels)
+            const hi = highestLevel(Math.max(a, b, c, d), levels)
+            for (let L = 1; L <= levels; L++) {
+                const drew = cellSegments(a, b, c, d, L / (levels + 1)).length > 0
+                if (drew) {
+                    expect(L).toBeGreaterThanOrEqual(lo)
+                    expect(L).toBeLessThanOrEqual(hi)
+                    checked++
+                }
+            }
+        }
+        expect(checked).toBeGreaterThan(200)
     })
 })

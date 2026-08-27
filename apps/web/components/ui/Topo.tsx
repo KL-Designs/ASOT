@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { cellSegments, fbm3, noise3 } from '@/lib/topo/field'
+import { cellSegments, fbm3, highestLevel, lowestLevel, noise3 } from '@/lib/topo/field'
 import s from '@/styles/ui.module.css'
 
 /**
@@ -31,32 +31,70 @@ import s from '@/styles/ui.module.css'
  * `mask` and `className` are untouched — the masks were always CSS and still
  * are.
  *
- * Two things it does that the old one could not afford to care about: it stops
- * entirely when scrolled out of view, and under `prefers-reduced-motion` it
- * draws one frame and never starts the loop, so the field is still there and
- * still generated — just still.
+ * Three things it does that the old one could not afford to care about: it
+ * stops entirely when scrolled out of view, it holds a single frame under
+ * `prefers-reduced-motion`, and it coarsens its own grid on a machine that
+ * cannot keep up — see "Cost" below.
  */
 
 /*
-   Tuned on a live prototype rather than guessed. Everything here is the field's
-   character and is deliberately global — only `opacity` varies per surface.
+   ── Character ─────────────────────────────────────────────────────────────
+   Tuned on a live prototype rather than guessed. This is the field's look and
+   is deliberately global; only `opacity` varies per surface.
 
    `INDEX_EVERY` is the cartographic convention the old asset already followed:
-   every fifth contour drawn heavier, so elevation bands read at a glance
-   instead of the field being an undifferentiated mat. `DEPTH` fades the low
-   contours relative to the high ones, which is what gives it relief.
+   every Nth contour drawn heavier, so elevation bands read at a glance instead
+   of the field being an undifferentiated mat. `DEPTH` fades the low contours
+   relative to the high ones, which is what gives it relief.
 */
-const CELL = 7            // px between field samples
 const LEVELS = 30         // contour lines across the field
 const WEIGHT = 0.9        // px, before the index multiplier
 const WARP = 0.55         // domain-warp strength — the twisting
 const INDEX_EVERY = 4     // heavier line every Nth contour
 const INDEX_BOOST = 2.15  // its opacity multiplier
 const INDEX_WEIGHT = 1.85 // its line-weight multiplier
-const DEPTH = 0.6        // how much brighter high ground reads
+const DEPTH = 0.6         // how much brighter high ground reads
 const RATE = 0.0055       // clock units per second at driftSeconds = 720
 const FREQ = 0.0022       // per-pixel, so the field keeps its scale on any width
 const STROKE = '#dfe6ee'
+
+/*
+   ── Cost ──────────────────────────────────────────────────────────────────
+   Work scales with the number of grid cells, which is area / cell². Band height
+   was therefore the thing that hurt: the 66px navbar strip comes to ~3,000
+   cells and drew in 2.3ms, while a 620px band came to ~24,000 and took 18.8ms —
+   past a whole frame, so it visibly stuttered. (Figures are the fastest of 25
+   runs; means are worthless here, background load swamps them.)
+
+   Three things hold it down now.
+
+   1. `lowestLevel`/`highestLevel` skip cells no contour can cross. Testing every
+      level against every cell was 726,000 calls a frame on that band to produce
+      7,900 segments — 99% of the work establishing that a contour was nowhere
+      near. A cell's corner range says directly which levels can appear in it.
+      That alone took the band from 18.8ms to 10.5ms and the navbar to 1.3ms.
+
+   2. Thirty frames a second, not sixty. The field crosses one noise cell every
+      three minutes — nothing in it is resolved by 60fps that is not resolved by
+      30 — and it halves the work outright.
+
+   3. The grid coarsens when frames run long and refines again when they do not,
+      which is what carries a machine slower than the one those figures came
+      from. Each step is 18% on the cell size, so a step is ~30% of the work;
+      `QUALITY_MAX` is about a 6x reduction in cells overall. Contours get
+      slightly less smooth and nothing else changes, which at 6% opacity is not
+      a visible trade. On the machine above the band settles around 5.5ms.
+
+   `MAX_CELLS` is a floor under all of that for the pathological case — a
+   full-bleed band on a very large display — so the first frame is never the
+   slow one.
+*/
+const BASE_CELL = 7
+const MAX_CELLS = 30_000
+const FRAME_MS = 1000 / 30
+const BUDGET_MS = 5.5
+const QUALITY_MAX = 2.4
+const QUALITY_STEP = 1.18
 
 export default function Topo({
     opacity = 0.102,
@@ -88,26 +126,41 @@ export default function Topo({
 
         const still = matchMedia('(prefers-reduced-motion: reduce)').matches
 
-        let cols = 0, rows = 0, w = 0, h = 0
+        let cols = 0, rows = 0, w = 0, h = 0, cell = BASE_CELL
         let field = new Float32Array(0)
+        // Segments per contour level, so the cell pass can run once and each
+        // level can still be stroked with its own weight and alpha.
+        let lines: number[][] = []
         let clock = 0
         let raf = 0
         let visible = true
         let last = 0
 
+        // Grid coarseness. 1 is full detail; higher is cheaper.
+        let quality = 1
+        let costAvg = 0
+        let costSamples = 0
+        let sinceChange = 0
+
         function measure() {
             const r = host!.getBoundingClientRect()
             w = Math.max(1, Math.round(r.width))
             h = Math.max(1, Math.round(r.height))
+
+            const floor = Math.sqrt((w * h) / MAX_CELLS)
+            cell = Math.max(BASE_CELL, floor) * quality
+
             // Capped at 2: past that the extra pixels cost real time and buy
             // nothing on a 0.1-opacity hairline.
             const dpr = Math.min(window.devicePixelRatio || 1, 2)
             canvas!.width = Math.round(w * dpr)
             canvas!.height = Math.round(h * dpr)
             ctx!.setTransform(dpr, 0, 0, dpr, 0, 0)
-            cols = Math.ceil(w / CELL) + 1
-            rows = Math.ceil(h / CELL) + 1
+
+            cols = Math.ceil(w / cell) + 1
+            rows = Math.ceil(h / cell) + 1
             field = new Float32Array((cols + 1) * (rows + 1))
+            lines = Array.from({ length: LEVELS + 1 }, () => [] as number[])
         }
 
         function draw(t: number) {
@@ -118,9 +171,9 @@ export default function Topo({
             const warp = WARP * 90
 
             for (let j = 0; j <= rows; j++) {
-                const py = j * CELL
+                const py = j * cell
                 for (let i = 0; i <= cols; i++) {
-                    const px = i * CELL
+                    const px = i * cell
                     // Domain warp: displace the sample point by a second,
                     // slower field. One octave is enough — it only has to be
                     // smooth — and its third-speed drift is what makes the
@@ -135,13 +188,49 @@ export default function Topo({
                 }
             }
 
+            for (let L = 1; L <= LEVELS; L++) lines[L].length = 0
+
+            // Cell-major, so each cell's corner range is computed once and used
+            // to skip every level that cannot cross it.
+            for (let j = 0; j < rows; j++) {
+                for (let i = 0; i < cols; i++) {
+                    const o = j * stride + i
+                    const a = field[o], b = field[o + 1]
+                    const c = field[o + stride + 1], d = field[o + stride]
+
+                    let mn = a, mx = a
+                    if (b < mn) mn = b
+                    if (b > mx) mx = b
+                    if (c < mn) mn = c
+                    if (c > mx) mx = c
+                    if (d < mn) mn = d
+                    if (d > mx) mx = d
+
+                    const lo = lowestLevel(mn, LEVELS)
+                    const hi = highestLevel(mx, LEVELS)
+                    if (hi < lo) continue
+
+                    const x0 = i * cell, y0 = j * cell
+                    for (let L = lo; L <= hi; L++) {
+                        const segs = cellSegments(a, b, c, d, L / (LEVELS + 1))
+                        const out = lines[L]
+                        for (let k = 0; k < segs.length; k += 4) {
+                            out.push(
+                                x0 + segs[k] * cell, y0 + segs[k + 1] * cell,
+                                x0 + segs[k + 2] * cell, y0 + segs[k + 3] * cell,
+                            )
+                        }
+                    }
+                }
+            }
+
             ctx!.strokeStyle = STROKE
             ctx!.lineCap = 'round'
 
-            // One path per contour level: weight and alpha differ between them,
-            // and a canvas path carries a single set of stroke settings. That is
-            // LEVELS strokes a frame, which is nothing beside the tracing above.
             for (let L = 1; L <= LEVELS; L++) {
+                const out = lines[L]
+                if (out.length === 0) continue
+
                 const level = L / (LEVELS + 1)
                 const isIndex = L % INDEX_EVERY === 0
                 const ramp = 1 - DEPTH + DEPTH * (0.35 + level)
@@ -149,43 +238,68 @@ export default function Topo({
                 ctx!.globalAlpha = Math.min(1, alpha * ramp * (isIndex ? INDEX_BOOST : 1))
                 ctx!.lineWidth = WEIGHT * (isIndex ? INDEX_WEIGHT : 1)
                 ctx!.beginPath()
-
-                for (let j = 0; j < rows; j++) {
-                    for (let i = 0; i < cols; i++) {
-                        const o = j * stride + i
-                        const segs = cellSegments(
-                            field[o], field[o + 1],
-                            field[o + stride + 1], field[o + stride],
-                            level,
-                        )
-                        if (segs.length === 0) continue
-
-                        const x0 = i * CELL, y0 = j * CELL
-                        for (let k = 0; k < segs.length; k += 4) {
-                            ctx!.moveTo(x0 + segs[k] * CELL, y0 + segs[k + 1] * CELL)
-                            ctx!.lineTo(x0 + segs[k + 2] * CELL, y0 + segs[k + 3] * CELL)
-                        }
-                    }
+                for (let k = 0; k < out.length; k += 4) {
+                    ctx!.moveTo(out[k], out[k + 1])
+                    ctx!.lineTo(out[k + 2], out[k + 3])
                 }
-
                 ctx!.stroke()
             }
 
             ctx!.globalAlpha = 1
         }
 
+        /**
+         * Coarsen when frames run long, refine when they do not.
+         *
+         * The gap between the two thresholds is what stops it oscillating: a
+         * grid that has just been coarsened lands well under the refine
+         * threshold, so nothing changes again until the machine's load actually
+         * does. Every adjustment resets the average, because the old figure
+         * describes a grid that no longer exists.
+         */
+        function adapt() {
+            // The first look comes early, so a slow machine settles in well
+            // under a second rather than stuttering while a long average fills.
+            const gate = costSamples < 40 ? 12 : 45
+            if (sinceChange < gate) return
+            sinceChange = 0
+
+            if (costAvg > BUDGET_MS * 1.35 && quality < QUALITY_MAX) {
+                quality = Math.min(QUALITY_MAX, quality * QUALITY_STEP)
+            } else if (costAvg < BUDGET_MS * 0.55 && quality > 1) {
+                quality = Math.max(1, quality / QUALITY_STEP)
+            } else {
+                return
+            }
+
+            measure()
+            costAvg = 0
+            costSamples = 0
+        }
+
         function frame(now: number) {
+            raf = requestAnimationFrame(frame)
+            if (now - last < FRAME_MS) return
+
             const dt = Math.min(0.05, (now - last) / 1000)
             last = now
             const secs = opts.current.driftSeconds
             if (secs > 0) clock += dt * RATE * (720 / secs)
+
+            const t0 = performance.now()
             draw(clock)
-            raf = requestAnimationFrame(frame)
+            const cost = performance.now() - t0
+
+            costAvg = costSamples ? costAvg * 0.85 + cost * 0.15 : cost
+            costSamples++
+            sinceChange++
+            adapt()
         }
 
         function start() {
             if (raf || still) return
-            last = performance.now()
+            // Back-dated so the first callback draws rather than being paced out.
+            last = performance.now() - FRAME_MS
             raf = requestAnimationFrame(frame)
         }
 

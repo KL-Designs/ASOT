@@ -650,7 +650,14 @@ Pure field maths behind `components/ui/Topo`.
 - `cellSegments(a, b, c, d, level)` → marching squares for one cell, flat `x0,y0,x1,y1` per segment
   in unit coordinates (flat because it runs tens of thousands of times a frame). Corners are a
   top-left, b top-right, c bottom-right, d bottom-left. The two saddle cases resolve on the cell
-  centre — picking arbitrarily produces crossed contours. Tested: `lib/topo/field.test.ts`.
+  centre — picking arbitrarily produces crossed contours.
+- `lowestLevel(min, levels)` / `highestLevel(max, levels)` → the inclusive range of contour levels a
+  cell's corner range can carry; `highestLevel < lowestLevel` means skip the cell. This is the
+  page-performance lever: testing every level against every cell was 726k calls a frame on a large
+  band to yield 7.9k segments. Two scalars rather than a tuple because returning a pair allocated
+  24k short-lived arrays a frame, which measured as two thirds of the tracing cost.
+- Tested throughout: `lib/topo/field.test.ts`, including that the range never excludes a level
+  `cellSegments` would have drawn, and that the field's rate of change stays steady over time.
 
 ---
 
@@ -824,7 +831,10 @@ choreography stays in that surface's own module.
   `mask` unchanged: `fade` · `edges` · `left` · `none`, still pure CSS. `driftSeconds` is now a rate
   (720 = tuned speed, 1440 = half) and `0` still pins it. Stops via `IntersectionObserver` when
   off-screen and on `visibilitychange`; under `prefers-reduced-motion` it draws one frame and never
-  starts the loop.
+  starts the loop. Paces to 30fps and **adapts its own grid**: a rolling frame-cost average coarsens
+  the cell size when draws exceed ~5.5ms and refines it again when they do not, up to a ~6x cell
+  reduction. Cost scales with area/cell², so tall bands were what stuttered — see the `Cost` block
+  in the file for measured figures.
 
 #### components/ui/Pulse.tsx
 - Default export `Pulse({tone})` — the live dot. `live` / `amber` / `idle` (dim, animation off, for
