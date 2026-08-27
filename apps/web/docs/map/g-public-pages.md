@@ -106,8 +106,16 @@ Callsign registry (India 0A, 1-0, Gamemasters, 1-1/1-2/1-3 platoons, Reservists)
 `List`. Public, purely static content.
 
 #### app/(landing)/about/contact/page.tsx
-Contact cards (TeamSpeak, Facebook, Email, own `Channel` helper) + embedded Discord widget iframe.
-Public.
+Opens on the live presence panel (`.presence*` in shell.module.css) — TeamSpeak online, active
+roster, next-op countdown — then four `.channel` cards (Discord, TeamSpeak, Email, Facebook).
+`force-dynamic`; reads `getFeaturedOp`/`getRosterCount` (lib/landing) and `getOnlineCache`
+(lib/teamspeak/cache) directly rather than through /api/nav/status, which serves the navbar rail the
+same three figures. Replaced the embedded Discord widget iframe, which published members' display
+names to anyone loading the page. Public.
+
+#### app/(landing)/about/contact/next-op-figure.tsx
+Client component: the countdown tile's figure. Takes the server-rendered string as `initial` so the
+first client render matches the server HTML, then re-derives via `formatUntil` every 30s.
 
 #### app/(landing)/about/faq/page.tsx
 FAQ grouped into three `Card`s (`Joining ASOT` / `Game & setup` / `Playing with us`) of `QaRow`/

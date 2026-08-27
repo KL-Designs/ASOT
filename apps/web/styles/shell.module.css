@@ -882,34 +882,200 @@
 
 .channels {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
 }
 
-.widget {
-    border: 1px solid var(--line-1);
-    border-top: 2px solid var(--discord);
+/* A badge on the right of a channel head — "Start here" on the primary one,
+   the live TeamSpeak count on another. Pushed over rather than given a margin
+   so the head stays a plain gap-spaced row. */
+.channelH em {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    font-style: normal;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--amber);
+    white-space: nowrap;
+}
+
+.channelH em.channelLive {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--live);
+}
+
+/* ---------- presence panel ----------------------------------------------- */
+
+/*
+   What replaced the embedded Discord widget.
+
+   The widget's one real virtue was showing the place is alive; its cost was
+   saying so in Discord's design language, and publishing our members' display
+   names to anyone who opened the page. This makes the same claim in our own
+   numbers and our own type, and says nothing about who is here beyond how
+   many.
+
+   The three figures are the navbar rail's, at six times the size. The rail is
+   a clock you glance at; this is the page's opening statement.
+*/
+.presence {
+    position: relative;
+    border: 1px solid var(--line-2);
     background: var(--ink-1);
-    padding: 20px;
+    overflow: hidden;
+}
+
+.presenceH {
+    position: relative;
+    z-index: 2;
     display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-/* The widget's description sits under .widget, which has no `p` rule of its
-   own — without this it inherits browser-default 16px full-strength body text
-   beside three .channel p siblings. */
-.widget p {
+    align-items: center;
+    gap: 12px;
+    padding: 16px 26px;
+    border-bottom: 1px solid var(--line-1);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
     color: var(--txt-2);
-    font-size: 13.2px;
-    line-height: 1.58;
-    margin: 0;
 }
 
-.widget iframe {
-    width: 100%;
-    height: 500px;
-    border: none;
+.presenceH b {
+    margin-left: auto;
+    font-weight: 400;
+    font-size: 9.5px;
+    letter-spacing: .18em;
+    color: var(--txt-3);
+}
+
+.presenceGrid {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.presenceCell {
+    padding: 34px 26px;
+    border-left: 1px solid var(--line-1);
+}
+
+.presenceCell:first-child {
+    border-left: 0;
+}
+
+.presenceK {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+/*
+   Tabular figures: the countdown repaints every thirty seconds, and without
+   them the panel twitches sideways each time a 1 becomes a 4.
+*/
+.presenceN {
+    font-family: var(--font-disp);
+    font-size: clamp(42px, 4.4vw, 62px);
+    font-weight: 700;
+    line-height: 1;
+    color: var(--txt-1);
+    margin-top: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.presenceNLive {
+    color: var(--live);
+}
+
+.presenceNAmber {
+    color: var(--amber);
+}
+
+/* Grey, not green. A zero painted in the live colour claims the opposite of
+   what the number is saying — and an em dash means "we don't know", which is a
+   third state again. */
+.presenceNIdle {
+    color: var(--txt-3);
+}
+
+.presenceCell p {
+    color: var(--txt-2);
+    font-size: 13.4px;
+    line-height: 1.6;
+    margin: 12px 0 0;
+}
+
+.presenceCell a,
+.presenceLede a {
+    color: var(--amber);
+    border-bottom: 1px solid rgba(216, 172, 69, .4);
+}
+
+.presenceLede {
+    color: var(--txt-2);
+    font-size: 15px;
+    line-height: 1.65;
+    max-width: 68ch;
+    margin: 26px 0 0;
+}
+
+@media (max-width: 1180px) {
+    .channels {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 860px) {
+    .channels {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /*
+       Three cells across a phone give each about 115px, and a 62px numeral ends
+       up alone on a line above its own label. Stacked, the figure keeps its
+       weight beside the label and the rules between cells turn horizontal.
+    */
+    .presenceGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .presenceCell {
+        border-left: 0;
+        border-top: 1px solid var(--line-1);
+        display: grid;
+        grid-template-columns: 84px minmax(0, 1fr);
+        column-gap: 16px;
+        align-items: start;
+        padding: 22px 18px;
+    }
+
+    .presenceCell:first-child {
+        border-top: 0;
+    }
+
+    .presenceK {
+        grid-column: 2;
+        grid-row: 1;
+    }
+
+    .presenceN {
+        grid-column: 1;
+        grid-row: 1 / 3;
+        font-size: 40px;
+        margin-top: 0;
+    }
+
+    .presenceCell p {
+        grid-column: 2;
+        grid-row: 2;
+        margin-top: 7px;
+    }
 }
 
 /* ---------- callsign card ------------------------------------------------ */
