@@ -12,7 +12,7 @@ export const btn: CSSProperties = {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
     border: '1px solid var(--line-2)', background: 'var(--s2)',
     borderRadius: 'var(--r)', padding: '6px 11px',
-    fontFamily: 'var(--mono)', fontSize: 9.5,
+    fontFamily: 'var(--mono)', fontSize: 10.5,
     letterSpacing: '0.14em', textTransform: 'uppercase',
     color: 'var(--ink-2)', cursor: 'pointer',
 }
@@ -34,7 +34,7 @@ export function pill(active: boolean): CSSProperties {
 }
 
 export const label: CSSProperties = {
-    fontFamily: 'var(--mono)', fontSize: 9, fontWeight: 700,
+    fontFamily: 'var(--mono)', fontSize: 10.5, fontWeight: 700,
     letterSpacing: '0.17em', textTransform: 'uppercase', color: 'var(--ink-3)',
 }
 
@@ -54,7 +54,7 @@ export const pickerSx = {
         background: 'var(--s2)',
         borderRadius: 'var(--r)',
         fontFamily: 'var(--mono)',
-        fontSize: 12,
+        fontSize: 13,
     },
     '& .MuiOutlinedInput-notchedOutline': { border: '1px solid var(--line-2)' },
     '& .MuiInputBase-input': { color: 'var(--ink-2)', padding: '6px 10px' },
@@ -76,7 +76,7 @@ export function chip(tone?: 'warn' | 'crit' | 'good' | 'acc'): CSSProperties {
         : 'var(--ink-3)'
     return {
         display: 'inline-flex', alignItems: 'center', gap: 5,
-        fontFamily: 'var(--mono)', fontSize: 8.5, fontWeight: 700,
+        fontFamily: 'var(--mono)', fontSize: 10, fontWeight: 700,
         letterSpacing: '0.13em', textTransform: 'uppercase',
         padding: '2px 7px', borderRadius: 2,
         border: `1px solid ${tone ? c : 'var(--line-2)'}`, color: c,

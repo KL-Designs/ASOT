@@ -783,7 +783,7 @@ acknowledgement summary. **The operation's lifecycle lives in the Schedule tab**
 (`edit/tabs/schedule/`), rebuilt as one horizontal *phase ribbon* covering the whole life of the
 operation — pre-production → lead-up → RSVP window → final hour → op & confirmation:
 
-- `ScheduleTab.tsx` — composes the ribbon panel, `StagePanel` and `LifecycleOverride`; owns the
+- `ScheduleTab.tsx` — composes the ribbon panel and `LifecycleOverride`; owns the
   selected-phase state and its own coarse 30s clock.
 - `AnchorBar.tsx` — the operation date, permanently visible above the ribbon and now its **only**
   control (it was previously duplicated in the deck's Details card). Carries the
@@ -794,10 +794,12 @@ operation — pre-production → lead-up → RSVP window → final hour → op &
 - `PreProductionInspector.tsx` — development gates with their checklists visible inline, the
   completion modal, and the Orders Check request/cancel/reminder block.
 - `RsvpWindowInspector.tsx` — both ends of the RSVP window edited together as one object.
-- `StagePanel.tsx` — the six-step attendance stage machine (kept separate: it is where the
-  operation *is*, not when things are meant to happen).
-- `LifecycleOverride.tsx` — manual operation status + Complete Mission, gated on
-  `operations.overrideLifecycle`; read-only without it. Moved out of the deck's Details card.
+- `LifecycleOverride.tsx` — the two manual overrides on the automation, in one panel: operation
+  status + Complete Mission (moved out of the deck's Details card), and the six-step attendance
+  stage machine (the retired `StagePanel`). Gated in two halves — **Advance** is ordinary forward
+  progression and stays open to anyone who reaches the tab, while **status changes and clicking a
+  stage segment** (which can jump backwards) need `operations.overrideLifecycle`. Stage-change
+  confirms live in `page.tsx`'s `requestStageChange`, not here.
 - `controls.ts` — the shared button/pill/field/chip styles the inspectors use.
 
 All of it renders from `lib/operations/phases.ts` (pure, clock-injected). A legacy

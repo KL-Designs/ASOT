@@ -11,7 +11,7 @@
 
 .ribbon {
     position: relative;
-    height: 214px;
+    height: 226px;
     margin: 16px 24px 0;
 }
 
@@ -20,8 +20,8 @@
 .boundary {
     position: absolute;
     top: 0;
-    height: 94px;
-    width: 124px;
+    height: 100px;
+    width: 156px;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -35,7 +35,7 @@
 
 .bKey {
     font-family: var(--mono);
-    font-size: 8.5px;
+    font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -44,12 +44,12 @@
 }
 .bDate {
     font-family: var(--mono);
-    font-size: 8.5px;
+    font-size: 10px;
     color: var(--ink-3);
     letter-spacing: 0.03em;
     line-height: 1.5;
 }
-.boundary.anchor .bKey { color: var(--acc); font-size: 10px; }
+.boundary.anchor .bKey { color: var(--acc); font-size: 12px; }
 .boundary.anchor .bDate { color: var(--ink-2); }
 .boundary.overdue .bKey { color: var(--warn); }
 .boundary.invalid .bKey,
@@ -57,7 +57,7 @@
 
 .tick {
     position: absolute;
-    top: 94px;
+    top: 100px;
     height: 14px;
     width: 1px;
     background: var(--line-2);
@@ -70,8 +70,8 @@
 
 .segment {
     position: absolute;
-    top: 108px;
-    height: 26px;
+    top: 114px;
+    height: 28px;
     border: 1px solid var(--line-2);
     background: var(--s2);
     display: flex;
@@ -90,7 +90,7 @@
 
 .segName {
     font-family: var(--mono);
-    font-size: 8.5px;
+    font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -99,7 +99,7 @@
 }
 .segDur {
     font-family: var(--mono);
-    font-size: 8.5px;
+    font-size: 10px;
     color: var(--ink-3);
     white-space: nowrap;
 }
@@ -137,7 +137,7 @@
 
 .backwards {
     position: absolute;
-    top: 112px;
+    top: 119px;
     height: 18px;
     display: flex;
     align-items: center;
@@ -154,8 +154,8 @@
 
 .milestone {
     position: absolute;
-    top: 134px;
-    width: 80px;
+    top: 142px;
+    width: 112px;
     transform: translateX(-50%);
     text-align: center;
 }
@@ -174,7 +174,7 @@
 
 .mKey {
     font-family: var(--mono);
-    font-size: 8.5px;
+    font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -183,7 +183,7 @@
 }
 .mDetail {
     font-family: var(--mono);
-    font-size: 8px;
+    font-size: 10px;
     color: var(--ink-3);
     line-height: 1.5;
     margin-top: 1px;
@@ -194,7 +194,7 @@
 
 .now {
     position: absolute;
-    top: 86px;
+    top: 92px;
     bottom: 4px;
     width: 1px;
     background: var(--acc);
@@ -205,11 +205,11 @@
    boundary tick, and at 8.5px mono the two captions ran into each other. */
 .nowFlag {
     position: absolute;
-    top: -82px;
-    left: 5px;
+    top: -88px;
+    left: 6px;
     white-space: nowrap;
     font-family: var(--mono);
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.18em;
     color: var(--acc);
@@ -230,7 +230,7 @@
     border-right: 1px solid var(--line);
     background: none;
     font-family: var(--mono);
-    font-size: 8.5px;
+    font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -247,7 +247,7 @@
 .stripTab.err { color: var(--crit); }
 .stripTab small {
     display: block;
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 400;
     letter-spacing: 0.08em;
     color: var(--ink-3);
@@ -269,7 +269,7 @@
 .anchorLabel {
     flex: 0 0 auto;
     font-family: var(--mono);
-    font-size: 9px;
+    font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.17em;
     text-transform: uppercase;
@@ -277,7 +277,7 @@
 }
 .anchorMeta {
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--ink-3);
     letter-spacing: 0.03em;
 }
@@ -285,16 +285,19 @@
 .anchorNote {
     margin-left: auto;
     font-family: var(--mono);
-    font-size: 9.5px;
+    font-size: 10.5px;
     color: var(--ink-3);
     letter-spacing: 0.1em;
 }
 
 /* ── narrow viewports ─────────────────────────────────────────────────────── */
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
     .ribbon { margin-left: 12px; margin-right: 12px; }
-    .boundary { width: 92px; }
-    .milestone { width: 64px; }
+    .boundary { width: 112px; }
+    .milestone { width: 84px; }
+    .bKey, .segName, .mKey, .stripTab { font-size: 9px; }
+    .bDate, .segDur, .mDetail, .stripTab small { font-size: 8.5px; }
+    .boundary.anchor .bKey { font-size: 10px; }
     .anchorNote { display: none; }
 }

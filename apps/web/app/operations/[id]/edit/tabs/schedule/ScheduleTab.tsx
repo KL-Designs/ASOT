@@ -8,7 +8,6 @@ import PhaseRibbon from './PhaseRibbon'
 import PhaseStrip from './PhaseStrip'
 import PreProductionInspector, { type OrdersCheckTask } from './PreProductionInspector'
 import RsvpWindowInspector from './RsvpWindowInspector'
-import StagePanel from './StagePanel'
 import LifecycleOverride from './LifecycleOverride'
 import { btnTone, chip, label } from './controls'
 import { buildRibbon, type PhaseId } from '@/lib/operations/phases'
@@ -60,7 +59,9 @@ interface Props {
  * This replaces three stacked panels that each drew the same line in a
  * different idiom at a different scale — a gate rail, five RSVP columns, six
  * stage segments — and never said they were the same line. The ribbon draws it
- * once; selecting a phase opens its controls beneath.
+ * once; selecting a phase opens its controls beneath. The stage machine kept
+ * its segments but not its panel: it is a correction tool, so it sits with the
+ * status override rather than as a fourth picture of the same timeline.
  *
  * Ordering errors are structural here rather than validated. Because phases
  * are adjacent by construction, an RSVP window set to open after it closes has
@@ -220,7 +221,7 @@ export default function ScheduleTab({
                                 heading="Operation & confirmation"
                                 lines={[
                                     'The operation activates at its start time. Confirmations open when it is marked completed, and close automatically twenty-four hours later.',
-                                    'Stage can be advanced or corrected below.',
+                                    'Stage can be advanced, or corrected by hand, in the lifecycle override below.',
                                 ]}
                             />
                         )}
@@ -236,24 +237,15 @@ export default function ScheduleTab({
                 </div>
             </TabPanel>
 
-            {/* The stage machine stays its own panel. It is not part of the
-                schedule — it is where the operation actually *is*, which the
-                cron and this tab both move, and which a person can correct by
-                hand when either gets it wrong. Folding it into the ribbon would
-                conflate "when things are meant to happen" with "what has
-                happened", which is the confusion the ribbon exists to end. */}
-            {isHQ && (
-                <StagePanel stage={stage} onAdvance={onAdvance} onSelect={onSelect} advancing={advancing} />
-            )}
-
-            {/* The lifecycle override. Distinct from the stage above it: stage
-                is where the operation is in its run, status is what the rest of
-                the system believes about it — and unlike stage, setting it by
-                hand needs `operations.overrideLifecycle`. */}
+            {/* Status and stage together: both are the same kind of thing —
+                what the system believes, set by hand, against what the schedule
+                would otherwise do. Stage previously had its own panel titled
+                "Stage", which read as a second drawing of the timeline rather
+                than as the correction tool it is. */}
             {isHQ && (
                 <TabPanel
                     title="Lifecycle override"
-                    horizon={canOverrideLifecycle ? 'manual' : 'read-only'}
+                    horizon={canOverrideLifecycle ? 'manual' : 'advance only'}
                     badge={automationPaused ? <span style={chip('warn')}>Automation suspended</span> : undefined}
                 >
                     <LifecycleOverride
@@ -262,6 +254,10 @@ export default function ScheduleTab({
                         onChangeStatus={onChangeStatus}
                         onCompleteMission={onCompleteMission}
                         completingMission={completingMission}
+                        stage={stage}
+                        onAdvance={onAdvance}
+                        onSelectStage={onSelect}
+                        advancing={advancing}
                     />
                 </TabPanel>
             )}
@@ -274,7 +270,7 @@ function PhaseNote({ heading, lines }: { heading: string; lines: string[] }) {
         <div>
             <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 10 }}>{heading}</div>
             {lines.map((l, i) => (
-                <p key={i} style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.55, margin: '0 0 8px' }}>{l}</p>
+                <p key={i} style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.55, margin: '0 0 8px' }}>{l}</p>
             ))}
         </div>
     )
@@ -293,7 +289,7 @@ function AutomationPanel({ paused, blocked, nextAt, nextLabel, now }: {
     nextLabel: string | null
     now: Date
 }) {
-    const row = { display: 'flex', alignItems: 'baseline', gap: 10, padding: '5px 0', fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--ink-3)' } as const
+    const row = { display: 'flex', alignItems: 'baseline', gap: 10, padding: '5px 0', fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--ink-3)' } as const
     const key = { color: 'var(--ink-2)', minWidth: 112, display: 'inline-block' } as const
 
     return (
@@ -314,7 +310,7 @@ function AutomationPanel({ paused, blocked, nextAt, nextLabel, now }: {
                 </div>
             )}
 
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.5 }}>
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.5 }}>
                 {blocked
                     ? <span style={{ color: 'var(--crit)' }}>Fix the error before publishing — a live schedule that cannot execute is worse than a paused one.</span>
                     : paused

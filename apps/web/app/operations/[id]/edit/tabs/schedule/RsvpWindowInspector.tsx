@@ -132,7 +132,7 @@ export default function RsvpWindowInspector({
                     )}
 
                     {w.mode === 'manual' && (
-                        <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-3)', lineHeight: 1.5 }}>
+                        <div style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.5 }}>
                             Nothing opens RSVP on its own. Someone advances the stage by hand.
                         </div>
                     )}
@@ -170,7 +170,7 @@ export default function RsvpWindowInspector({
                         </LocalizationProvider>
                     )}
 
-                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--ink-3)', lineHeight: 1.5 }}>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--ink-3)', lineHeight: 1.5 }}>
                         Stored as an offset from the op date, so it follows if the date moves.
                     </div>
                 </div>
@@ -178,7 +178,7 @@ export default function RsvpWindowInspector({
 
             <div style={{
                 marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)',
-                fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--ink-3)', letterSpacing: '0.04em',
+                fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--ink-3)', letterSpacing: '0.04em',
             }}>
                 {w.inverted
                     ? <>Window <span style={{ color: 'var(--crit)' }}>{fmtDuration(w.durationMs)}</span> — a window cannot close before it opens</>

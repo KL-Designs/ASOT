@@ -130,7 +130,7 @@ export default function PreProductionInspector({
                     {gates.some(g => g.state === 'overdue') && (
                         <span style={chip('warn')}>{gates.filter(g => g.state === 'overdue').length} overdue</span>
                     )}
-                    {saving && <span style={{ fontSize: '0.6rem', color: 'var(--acc)', fontWeight: 700 }}>Saving…</span>}
+                    {saving && <span style={{ fontSize: '0.72rem', color: 'var(--acc)', fontWeight: 700 }}>Saving…</span>}
                     {!isJ2Lead && (
                         <span style={{ marginLeft: 'auto', ...label, fontStyle: 'italic' }}>J2 leads sign off gates</span>
                     )}
@@ -156,13 +156,13 @@ export default function PreProductionInspector({
                             </div>
 
                             <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
+                                <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
                                     {g.label}
                                     {g.state === 'overdue' && <span style={chip('warn')}>{late} {late === 1 ? 'day' : 'days'} overdue</span>}
                                     {g.state === 'done' && <span style={chip('good')}>Signed off</span>}
                                 </div>
 
-                                <div style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 3 }}>
+                                <div style={{ fontSize: 12.5, color: 'var(--ink-3)', marginTop: 3 }}>
                                     Due <span style={{ color: 'var(--ink-2)' }}>
                                         {g.dueAt.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                                     </span>
@@ -170,17 +170,17 @@ export default function PreProductionInspector({
                                 </div>
 
                                 {g.completion?.comments && (
-                                    <div style={{ fontSize: 11.5, color: 'var(--ink-2)', marginTop: 4 }}>{g.completion.comments}</div>
+                                    <div style={{ fontSize: 12.5, color: 'var(--ink-2)', marginTop: 4 }}>{g.completion.comments}</div>
                                 )}
                                 {g.completion?.outcome && (
-                                    <div style={{ fontSize: 11.5, color: 'var(--warn)', marginTop: 2 }}>Outcome: {g.completion.outcome}</div>
+                                    <div style={{ fontSize: 12.5, color: 'var(--warn)', marginTop: 2 }}>Outcome: {g.completion.outcome}</div>
                                 )}
 
                                 {!g.completion && items.length > 0 && (
                                     <div style={{ marginTop: 7, display: 'flex', flexWrap: 'wrap', gap: '5px 14px' }}>
                                         {items.map((item, i) => (
-                                            <span key={i} style={{ fontSize: 11, color: 'var(--ink-2)', display: 'inline-flex', gap: 7 }}>
-                                                <span style={{ color: 'var(--ink-3)', fontFamily: 'var(--mono)', fontSize: 9.5 }}>◻</span>
+                                            <span key={i} style={{ fontSize: 12, color: 'var(--ink-2)', display: 'inline-flex', gap: 7 }}>
+                                                <span style={{ color: 'var(--ink-3)', fontFamily: 'var(--mono)', fontSize: 11 }}>◻</span>
                                                 {item}
                                             </span>
                                         ))}
@@ -229,12 +229,12 @@ export default function PreProductionInspector({
                                             : '— Requested'}
                                     </div>
                                     {ordersCheckTask.ordersCheckAt && (
-                                        <div style={{ fontSize: '0.68rem', color: 'var(--ink-2)' }}>
+                                        <div style={{ fontSize: '0.76rem', color: 'var(--ink-2)' }}>
                                             Requested: {new Date(ordersCheckTask.ordersCheckAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
                                         </div>
                                     )}
                                     {ordersCheckTask.ordersCheckStatus === 'proposed' && ordersCheckTask.ordersCheckProposedAt && (
-                                        <div style={{ fontSize: '0.65rem', color: 'var(--warn)', marginTop: 2 }}>
+                                        <div style={{ fontSize: '0.74rem', color: 'var(--warn)', marginTop: 2 }}>
                                             Alternative by {ordersCheckTask.ordersCheckProposedBy}: {new Date(ordersCheckTask.ordersCheckProposedAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
                                         </div>
                                     )}
@@ -304,7 +304,7 @@ export default function PreProductionInspector({
                     ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                             <span style={label}>Orders check</span>
-                            <span style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--ink-3)' }}>
+                            <span style={{ fontFamily: 'var(--mono)', fontSize: 12.5, color: 'var(--ink-3)' }}>
                                 Not requested. Proposes a time to J2 leads; they confirm it or offer another.
                             </span>
                             <button type="button" onClick={() => setOrdersCheckModal(true)} style={{ ...btnTone('acc'), marginLeft: 'auto' }}>
@@ -329,7 +329,7 @@ export default function PreProductionInspector({
                             <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--ink)' }}>
                                 {g.label} development check
                             </div>
-                            <div style={{ fontSize: '0.65rem', color: 'var(--ink-2)' }}>
+                            <div style={{ fontSize: '0.74rem', color: 'var(--ink-2)' }}>
                                 Due: {g.dueAt.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'long', year: 'numeric' })}
                                 {g.state === 'overdue' && <span style={{ color: 'var(--warn)', marginLeft: 8 }}>● {daysLate(g.dueAt)} days overdue</span>}
                             </div>
@@ -339,7 +339,7 @@ export default function PreProductionInspector({
                                     <div style={{ ...label, color: 'var(--good)', letterSpacing: '0.18em', marginBottom: 4 }}>Stage checklist</div>
                                     {items.map((item, i) => (
                                         <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                            <span style={{ fontSize: '0.6rem', color: 'var(--good)', marginTop: 1, flexShrink: 0 }}>◻</span>
+                                            <span style={{ fontSize: '0.72rem', color: 'var(--good)', marginTop: 1, flexShrink: 0 }}>◻</span>
                                             <span style={{ fontSize: '0.7rem', color: 'var(--ink-2)', lineHeight: 1.45 }}>{item}</span>
                                         </div>
                                     ))}
