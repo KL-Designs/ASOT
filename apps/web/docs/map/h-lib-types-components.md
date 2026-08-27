@@ -643,6 +643,15 @@ not the whole page.
 
 ---
 
+### lib/contact/countdown.ts
+- `formatUntil(iso, now)` → the contact page's next-op display figure: `2d 14h` · `14h 30m` · `30m`
+  · `Running`, null on an unreadable date. Units drop as the target nears and everything floors.
+  `now` is a parameter so the server renders one value and the client ticks from it. Deliberately
+  not `formatCountdown` (components/nav/useNavStatus) — that is 9.5px page chrome reading
+  `T−2D 04H 11M`; this is a 62px display figure. Tested: `lib/contact/countdown.test.ts`.
+
+---
+
 ### lib/shell/masthead.ts
 Pure helpers for the public page masthead (`components/container.tsx` / `components/ui/Masthead.tsx`).
 - `bannerHeightValue(size?: BannerHeight)` → the band's height as a clamped CSS value (`xsm|sm|md|lg`,
