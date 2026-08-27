@@ -132,7 +132,7 @@ const collab = new Hocuspocus({
 
     async onLoadDocument({ documentName, document }) {
         console.log(`[collab] >> load        doc=${documentName}`)
-        if (documentName.startsWith('sop-') || documentName.startsWith('ws-')) return  // SOPs + workspace docs don't use activity tracking
+        if (documentName.startsWith('sop-') || documentName.startsWith('ws-') || documentName.startsWith('att-')) return  // SOPs, workspace docs + attendance boards don't use activity tracking
         const existing = activityState.get(documentName)
         if (existing?.timer) {
             clearTimeout(existing.timer)
@@ -146,7 +146,7 @@ const collab = new Hocuspocus({
     },
 
     async onChange({ documentName, document, context }) {
-        if (documentName.startsWith('sop-') || documentName.startsWith('ws-')) return  // SOPs + workspace docs don't use activity tracking
+        if (documentName.startsWith('sop-') || documentName.startsWith('ws-') || documentName.startsWith('att-')) return  // SOPs, workspace docs + attendance boards don't use activity tracking
         let state = activityState.get(documentName)
         if (!state) {
             state = { lastFlushedText: extractSectionTexts(document), timer: null, lastUser: null }
@@ -169,6 +169,11 @@ const collab = new Hocuspocus({
     extensions: [
         new Database({
             fetch: async ({ documentName }) => {
+                // Attendance boards — "att-{operationId}". Ephemeral by design:
+                // the doc carries a revision counter and presence, nothing that
+                // is not already in Mongo. Clients refetch the board from the
+                // API on connect, so there is no state worth reloading.
+                if (documentName.startsWith('att-')) return null
                 try {
                     // SOP documents — prefixed "sop-{sopId}"
                     if (documentName.startsWith('sop-')) {
@@ -222,6 +227,7 @@ const collab = new Hocuspocus({
             },
 
             store: async ({ documentName, state, document }) => {
+                if (documentName.startsWith('att-')) return
                 console.log(`[collab] DB store     doc=${documentName}  (${state.length} bytes) — attempting…`)
                 try {
                     // SOP documents — just persist the raw Yjs state and update timestamp

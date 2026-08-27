@@ -2,6 +2,7 @@
 
 import { useState, type CSSProperties } from 'react'
 import TabPanel from './TabPanel'
+import AttendanceBoard from '@/components/operations/board/AttendanceBoard'
 
 interface AckEntry { userId: string; userName: string; acknowledgedAt: string }
 
@@ -25,6 +26,11 @@ interface Props {
 
     ackCount: number
     ackList: AckEntry[]
+
+    operationName: string
+    operationWhen: string
+    myUserId: string | null
+    canManageAttendance: boolean
 }
 
 const PING_ROLE_OPTS = [
@@ -73,6 +79,7 @@ export default function AttendanceTab({
     customUnits, onAddCustomUnit, onRemoveCustomUnit, customUnitsSaving,
     discordPingEnabled, onTogglePing, discordPingRoles, onChangeDiscordPingRoles,
     ackCount, ackList,
+    operationName, operationWhen, myUserId, canManageAttendance,
 }: Props) {
     const [ackExpanded, setAckExpanded] = useState(false)
     const [remindSaving, setRemindSaving] = useState(false)
@@ -97,7 +104,24 @@ export default function AttendanceTab({
     }
 
     return (
-        <div style={{ width: '100%', maxWidth: 1220, margin: '0 auto', padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ width: '100%', padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/*
+                The board is the tab's centre of gravity once RSVP opens, so it
+                comes first and takes the full page width — a 70-position roster
+                plus a docked pool has nothing to spare. The setup panels below
+                keep their reading measure, since they are forms.
+            */}
+            <TabPanel title='Attendance Board'>
+                <AttendanceBoard
+                    operationId={opID}
+                    operationName={operationName}
+                    operationWhen={operationWhen}
+                    myUserId={myUserId}
+                    canManage={canManageAttendance}
+                />
+            </TabPanel>
+
+            <div style={{ width: '100%', maxWidth: 1220, display: 'flex', flexDirection: 'column', gap: 20 }}>
             <TabPanel title='Assigned Units'>
                 <div style={{ padding: 16 }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -245,6 +269,7 @@ export default function AttendanceTab({
                     </div>
                 </TabPanel>
             )}
+            </div>
         </div>
     )
 }

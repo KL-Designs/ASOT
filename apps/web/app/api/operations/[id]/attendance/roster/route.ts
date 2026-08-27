@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { assignSlot, autoFill, derivePool, viewRoster, type RosterSlot } from '@/lib/attendance/roster'
 import { logAction } from '@/lib/logAction'
+import { isMemberAction, type BoardAction } from '@/lib/attendance/actions'
 
 /**
  * Every write to the live attendance board.
@@ -31,17 +32,6 @@ import { logAction } from '@/lib/logAction'
  * a disabled button is a courtesy to honest users, not a permission check.
  */
 
-type Action =
-    | { action: 'claim'; slotId: string }
-    | { action: 'leave' }
-    | { action: 'prefer'; preferredSection: string | null; preferredRole: string | null }
-    | { action: 'assign'; slotId: string; userId: string | null }
-    | { action: 'autofill' }
-    | { action: 'addSlot'; sectionTitle: string; category: string; role: string }
-    | { action: 'removeSlot'; slotId: string }
-
-const MEMBER_ACTIONS = new Set(['claim', 'leave', 'prefer'])
-
 /** How many times to recompute against a moved board before giving up. */
 const MAX_ATTEMPTS = 3
 
@@ -63,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Invalid operation ID' }, { status: 400 })
     }
 
-    const body = await req.json() as Action
+    const body = await req.json() as BoardAction
     if (!body?.action) return NextResponse.json({ error: 'No action' }, { status: 400 })
 
     // See PERMISSIONS.attendance.manage: three-armed because `hasPermission`
@@ -73,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         || client.hasRoles(me, PERMISSIONS.attendance.manage)
         || client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
 
-    if (!MEMBER_ACTIONS.has(body.action) && !canManage) {
+    if (!isMemberAction(body) && !canManage) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -90,7 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         // A member moving themselves is only allowed inside the window. Staff
         // are not bound by it — filling the gaps after close is their whole job.
-        if (MEMBER_ACTIONS.has(body.action) && !canManage && !rsvpOpen) {
+        if (isMemberAction(body) && !canManage && !rsvpOpen) {
             return NextResponse.json(
                 { error: 'RSVP has closed. Ask a staff member to change your position.' },
                 { status: 403 },

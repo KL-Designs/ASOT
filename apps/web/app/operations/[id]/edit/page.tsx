@@ -61,6 +61,12 @@ export default function Page() {
     // override. Deliberately not implied by operations.write: setting an
     // operation back to In Development suspends every automation.
     const [canOverrideLifecycle, setCanOverrideLifecycle] = useState(false)
+    // `attendance.manage` — gates the live board's manage mode. Separate from
+    // operations.write because running an operation and deciding who plays in
+    // it are different jobs held by different people.
+    const [canManageAttendance, setCanManageAttendance] = useState(false)
+    /** Own Discord id, so the board can tell the viewer's own row apart. */
+    const [myUserId, setMyUserId] = useState<string | null>(null)
     const [isJ4Admin, setIsJ4Admin] = useState(false)
     const [initialContent, setInitialContent] = useState<any>(undefined)
     const [loaded, setLoaded] = useState(false)
@@ -265,6 +271,18 @@ export default function Page() {
         ]).then(([byGrant, byRole]) => {
             setCanOverrideLifecycle(Boolean(byGrant?.access) || Boolean(byRole?.access))
         }).catch(() => {})
+
+        Promise.all([
+            fetch('/api/me/permission?key=attendance.manage').then(r => r.json()),
+            fetch(`/api/me/roles?has=${PERMISSIONS.attendance.manage.join(',')}`).then(r => r.json()),
+        ]).then(([byGrant, byRole]) => {
+            setCanManageAttendance(Boolean(byGrant?.access) || Boolean(byRole?.access))
+        }).catch(() => {})
+
+        fetch('/api/me')
+            .then(r => r.json())
+            .then(me => { if (me?.id) setMyUserId(me.id) })
+            .catch(() => {})
 
         fetch(`/api/me/roles?has=${PERMISSIONS.members.editRestricted.join(',')}`)
             .then(r => r.json())
@@ -1001,6 +1019,10 @@ export default function Page() {
                             onChangeDiscordPingRoles={handleChangeDiscordPingRoles}
                             ackCount={ackCount}
                             ackList={ackList}
+                            operationName={title || 'Untitled operation'}
+                            operationWhen={date ? date.format('ddd D MMM · HH:mm') : 'No date set'}
+                            myUserId={myUserId}
+                            canManageAttendance={canManageAttendance}
                         />
                     ) : null
                 }

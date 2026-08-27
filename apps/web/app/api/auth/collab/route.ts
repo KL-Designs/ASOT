@@ -11,9 +11,18 @@ export async function GET(request: NextRequest) {
         const me = await client.fetchMe(token)
         if (!me) return NextResponse.json({ authorized: false })
 
-        // sop-* → any ASOT member; ws-* → J2 members/leads; cfb-* → J3 trainers; all others → staff collab role
+        // att-* and sop-* → any ASOT member; ws-* → J2 members/leads;
+        // cfb-* → J3 trainers; all others → staff collab role
+        //
+        // att-{operationId} is the live attendance board's signal channel. It
+        // is deliberately the widest gate here: every member watches the board
+        // fill up on operation night, and the doc carries only a revision
+        // counter and presence — no operation content, and no authority. All
+        // actual writes go through the roster route, which checks permissions
+        // per action. Connecting grants nothing but the ability to be told the
+        // board changed.
         const doc = request.nextUrl.searchParams.get('doc') ?? ''
-        const authorized = doc.startsWith('sop-')
+        const authorized = doc.startsWith('sop-') || doc.startsWith('att-')
             ? await hasDashboardAccess(me)
             : doc.startsWith('ws-')
                 ? client.hasRoles(me, PERMISSIONS.departments.j2) || (await hasPermission(me, 'departmentLeads.j2')) || client.hasRoles(me, PERMISSIONS.pages.admin)
