@@ -643,6 +643,17 @@ not the whole page.
 
 ---
 
+### lib/topo/field.ts
+Pure field maths behind `components/ui/Topo`.
+- `noise3(x, y, z)` / `fbm3(x, y, z)` → integer-hash value noise and a four-octave sum in 0..1. The
+  third axis is time, and the finer octaves advance faster so detail churns while landforms drift.
+- `cellSegments(a, b, c, d, level)` → marching squares for one cell, flat `x0,y0,x1,y1` per segment
+  in unit coordinates (flat because it runs tens of thousands of times a frame). Corners are a
+  top-left, b top-right, c bottom-right, d bottom-left. The two saddle cases resolve on the cell
+  centre — picking arbitrarily produces crossed contours. Tested: `lib/topo/field.test.ts`.
+
+---
+
 ### lib/contact/countdown.ts
 - `formatUntil(iso, now)` → the contact page's next-op display figure: `2d 14h` · `14h 30m` · `30m`
   · `Running`, null on an unreadable date. Units drop as the target nears and everything floors.
@@ -805,10 +816,15 @@ choreography stays in that surface's own module.
 - **Rule:** only one button in a cluster is ever solid-filled — whichever is primary for that state.
 
 #### components/ui/Topo.tsx
-- Default export `Topo({opacity, driftSeconds, mask, className, style})` — the drifting contour
-  backdrop. Paints `public/designs/topo.svg` (a seamless 2400x800 tile) as a repeating background
-  rather than inlining ~160KB of paths. `mask`: `fade` (full-width band) · `left` (hero with a photo
-  on the right) · `none`. `driftSeconds = 0` pins it; motion stops under `prefers-reduced-motion`.
+- Default export `Topo({opacity, driftSeconds, mask, className, style})` — the contour backdrop, on a
+  canvas. **Client component.** Generates the lines every frame via `lib/topo/field.ts` rather than
+  translating `public/designs/topo.svg`, so individual contours stretch, split and close into rings;
+  the SVG is no longer referenced by anything. Field character (spacing, warp, index contours, depth)
+  is fixed in the module — only `opacity` is per-surface, and the seven call sites run 0.045→0.32.
+  `mask` unchanged: `fade` · `edges` · `left` · `none`, still pure CSS. `driftSeconds` is now a rate
+  (720 = tuned speed, 1440 = half) and `0` still pins it. Stops via `IntersectionObserver` when
+  off-screen and on `visibilitychange`; under `prefers-reduced-motion` it draws one frame and never
+  starts the loop.
 
 #### components/ui/Pulse.tsx
 - Default export `Pulse({tone})` — the live dot. `live` / `amber` / `idle` (dim, animation off, for
@@ -897,9 +913,6 @@ the mobile sheet share one source of truth. Layout and interaction live in
 - `NAV_ITEMS: NavItem[]` — the public navigation tree (six top-level items, MUI icons, each child carrying a `description` for the mega panel). Consumed by both `app/navbar.tsx` and `MobileSheet`. `Support` lives under `Community` (the menu formerly labelled `Our Orbat`; its `href` is still `/community`) rather than at the top level.
 - `isItemActive(item, pathname)` — active check that also matches any child href.
 - Types `NavItem` / `NavChild`.
-
-#### components/nav/Topo.tsx
-- Default export `Topo({opacity?, driftSeconds?, fade?})` — the drifting contour backdrop. Paints `public/designs/topo.svg` (a seamless 2400x800 tile) as a repeating background rather than inlining ~160KB of paths into every page. `driftSeconds = 0` pins it static; motion stops under `prefers-reduced-motion`.
 
 #### components/nav/useNavStatus.ts
 - `useNavStatus()` — fetches `/api/nav/status` on mount and every 5 minutes. Never throws or exposes an error state; a failed request just leaves rail segments unrendered. Shared by `StatusRail` and the mega panel's "Next Op" card so both quote the same operation.
