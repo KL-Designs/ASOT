@@ -47,13 +47,13 @@ import s from '@/styles/ui.module.css'
    contours relative to the high ones, which is what gives it relief.
 */
 const CELL = 7            // px between field samples
-const LEVELS = 22         // contour lines across the field
+const LEVELS = 30         // contour lines across the field
 const WEIGHT = 0.9        // px, before the index multiplier
 const WARP = 0.55         // domain-warp strength — the twisting
-const INDEX_EVERY = 5     // heavier line every Nth contour
+const INDEX_EVERY = 4     // heavier line every Nth contour
 const INDEX_BOOST = 2.15  // its opacity multiplier
 const INDEX_WEIGHT = 1.85 // its line-weight multiplier
-const DEPTH = 0.52        // how much brighter high ground reads
+const DEPTH = 0.6        // how much brighter high ground reads
 const RATE = 0.0055       // clock units per second at driftSeconds = 720
 const FREQ = 0.0022       // per-pixel, so the field keeps its scale on any width
 const STROKE = '#dfe6ee'
@@ -139,8 +139,8 @@ export default function Topo({
             ctx!.lineCap = 'round'
 
             // One path per contour level: weight and alpha differ between them,
-            // and a canvas path carries a single set of stroke settings. Twenty
-            // -two strokes a frame is nothing beside the tracing above.
+            // and a canvas path carries a single set of stroke settings. That is
+            // LEVELS strokes a frame, which is nothing beside the tracing above.
             for (let L = 1; L <= LEVELS; L++) {
                 const level = L / (LEVELS + 1)
                 const isIndex = L % INDEX_EVERY === 0

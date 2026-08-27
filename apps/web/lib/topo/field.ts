@@ -29,9 +29,24 @@ function hash(x: number, y: number, z: number): number {
 const fade = (t: number) => t * t * t * (t * (t * 6 - 15) + 10)
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 
+/*
+   The spatial axes are eased, the time axis is not — and that asymmetry is
+   deliberate.
+
+   The quintic exists to hide the sample lattice in the *image*: without it the
+   grid shows up as visible structure in the contours. The time axis has no
+   image to protect; what a viewer perceives along it is speed. And the quintic's
+   derivative is exactly zero at every lattice boundary, so easing time turned
+   each crossing into a stall followed by a surge — at z = 0, where all four
+   octaves sit on a boundary at once, a freshly loaded page opened frozen and
+   took about a minute to reach full speed.
+
+   Linear on z trades an imperceptible kink in acceleration at each crossing for
+   a constant speed everywhere, which is the property that actually matters here.
+*/
 export function noise3(x: number, y: number, z: number): number {
     const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z)
-    const xf = fade(x - xi), yf = fade(y - yi), zf = fade(z - zi)
+    const xf = fade(x - xi), yf = fade(y - yi), zf = z - zi
 
     const c000 = hash(xi, yi, zi), c100 = hash(xi + 1, yi, zi)
     const c010 = hash(xi, yi + 1, zi), c110 = hash(xi + 1, yi + 1, zi)

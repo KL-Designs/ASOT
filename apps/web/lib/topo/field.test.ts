@@ -84,4 +84,45 @@ describe('fbm3', () => {
     it('actually varies over time — the third axis is what makes the field live', () => {
         expect(fbm3(2, 2, 0)).not.toBe(fbm3(2, 2, 4))
     })
+
+    /*
+       Regression: the field used to stall and surge.
+
+       The quintic fade has a derivative of zero at every lattice boundary, and
+       applying it to the time axis made that a change in *speed*. At z = 0 all
+       four octaves sit on a boundary at once, so a freshly loaded page opened
+       frozen and took about a minute to reach full speed — measured at 0.1% of
+       the steady rate on the first frame.
+
+       Spatial axes still use the quintic: there it hides the lattice in the
+       image, which is a real job. On the time axis there is no lattice to hide,
+       only a speed to keep constant.
+    */
+    const STEP = 0.0055 // one second of clock at the shipped drift rate
+
+    function changeRate(z: number): number {
+        let sum = 0
+        for (let i = 0; i < 240; i++) {
+            const x = (i % 20) * 0.13, y = Math.floor(i / 20) * 0.17
+            sum += Math.abs(fbm3(x, y, z + STEP) - fbm3(x, y, z))
+        }
+        return sum / 240
+    }
+
+    it('morphs at a steady rate, including from a standing start at z = 0', () => {
+        const rates = [0, 0.03, 0.1, 0.25, 0.5, 0.75, 0.97, 1, 1.4, 2.2].map(changeRate)
+        const min = Math.min(...rates)
+        const max = Math.max(...rates)
+
+        expect(min).toBeGreaterThan(0)
+        // A lattice crossing still changes the gradient the field is moving
+        // along, so some spread is inherent. A stall is not.
+        expect(max / min).toBeLessThan(4)
+    })
+
+    it('does not open frozen — the first second moves like any other', () => {
+        const atLoad = changeRate(0)
+        const settled = changeRate(0.5)
+        expect(atLoad / settled).toBeGreaterThan(0.25)
+    })
 })
