@@ -775,13 +775,33 @@ documentId={opID}/>` (dynamic import of `@/components/editor/CollabEditor`) for 
 content. Also toggles a right-hand `<ActivityLog/>` panel and a live `<iframe>` preview pane.
 
 Composed via `edit/EditorShell.tsx` as four tabs (Brief / Map / Schedule / Attendance — the
-last `isHQ`-only) plus a right-hand mission deck (`edit/deck/`: CountdownStrip, DetailsCard).
+last `isHQ`-only) plus a right-hand mission deck (`edit/deck/`: CountdownStrip, DetailsCard —
+the latter no longer carries the lifecycle Status selector, see the Schedule tab below).
 **All attendance controls live in the Attendance tab** (`edit/tabs/AttendanceTab.tsx`):
 assigned units + custom units, the Discord ping toggle and its per-role targets, and the
 acknowledgement summary. **The operation's lifecycle lives in the Schedule tab**
-(`edit/tabs/schedule/`): `PreProductionPanel` (mission development gates + Orders Check),
-`RsvpWindowPanel` (RSVP open/close), `StagePanel` (the six-step attendance stage machine).
-A legacy `?tab=development` deep link resolves to Schedule.
+(`edit/tabs/schedule/`), rebuilt as one horizontal *phase ribbon* covering the whole life of the
+operation — pre-production → lead-up → RSVP window → final hour → op & confirmation:
+
+- `ScheduleTab.tsx` — composes the ribbon panel, `StagePanel` and `LifecycleOverride`; owns the
+  selected-phase state and its own coarse 30s clock.
+- `AnchorBar.tsx` — the operation date, permanently visible above the ribbon and now its **only**
+  control (it was previously duplicated in the deck's Details card). Carries the
+  `schedule-op-date-input` testid the E2E date-edit spec selects.
+- `PhaseRibbon.tsx` + `ribbon.module.css` — the ribbon: boundaries (transitions) above, milestones
+  below, a `now` line, and an inverted-phase hatch for an out-of-order schedule.
+- `PhaseStrip.tsx` — the five-phase selector under the ribbon.
+- `PreProductionInspector.tsx` — development gates with their checklists visible inline, the
+  completion modal, and the Orders Check request/cancel/reminder block.
+- `RsvpWindowInspector.tsx` — both ends of the RSVP window edited together as one object.
+- `StagePanel.tsx` — the six-step attendance stage machine (kept separate: it is where the
+  operation *is*, not when things are meant to happen).
+- `LifecycleOverride.tsx` — manual operation status + Complete Mission, gated on
+  `operations.overrideLifecycle`; read-only without it. Moved out of the deck's Details card.
+- `controls.ts` — the shared button/pill/field/chip styles the inspectors use.
+
+All of it renders from `lib/operations/phases.ts` (pure, clock-injected). A legacy
+`?tab=development` deep link resolves to Schedule.
 
 #### app/operations/[id]/edit/activity-log.tsx
 Client `ActivityLog` panel: polls `GET /api/operations/activity?id=` every 30s, shows a

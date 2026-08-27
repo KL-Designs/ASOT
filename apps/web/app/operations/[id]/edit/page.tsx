@@ -57,6 +57,10 @@ export default function Page() {
     const [availableWorlds, setAvailableWorlds] = useState<MapWorld[]>([])
     const [isHQ, setIsHQ] = useState(false)
     const [isJ2Lead, setIsJ2Lead] = useState(false)
+    // `operations.overrideLifecycle` — gates the Schedule tab's status
+    // override. Deliberately not implied by operations.write: setting an
+    // operation back to In Development suspends every automation.
+    const [canOverrideLifecycle, setCanOverrideLifecycle] = useState(false)
     const [isJ4Admin, setIsJ4Admin] = useState(false)
     const [initialContent, setInitialContent] = useState<any>(undefined)
     const [loaded, setLoaded] = useState(false)
@@ -205,11 +209,12 @@ export default function Page() {
             const activateKey = activateAt.toISOString()
             if (autoActivateFiredRef.current !== activateKey && tickNow >= activateAt) {
                 autoActivateFiredRef.current = activateKey
-                fetch(`/api/operations/update?id=${opID}&status=Active`).then(() => {
-                    setStatus('Active')
-                    setAttStage('op_running')
-                    saveAttendanceSettings({ stage: 'op_running' })
-                })
+                // The stage write carries the status with it now — the server
+                // derives Active from op_running (statusForStage), so this no
+                // longer needs its own gated `update?status=` call.
+                setStatus('Active')
+                setAttStage('op_running')
+                saveAttendanceSettings({ stage: 'op_running' })
             }
         }
 
@@ -241,6 +246,17 @@ export default function Page() {
         fetch('/api/me/permission?key=departmentLeads.j2')
             .then(r => r.json())
             .then(json => { if (!json.error) setIsJ2Lead(json.access) })
+
+        // Mirrors the server's two-armed check in /api/operations/update: the
+        // dynamic grant, OR the legacy role array. Without the second fetch the
+        // control would render read-only for people the API would actually let
+        // through, since `hasPermission` has no Discord-role fallback.
+        Promise.all([
+            fetch('/api/me/permission?key=operations.overrideLifecycle').then(r => r.json()),
+            fetch(`/api/me/roles?has=${PERMISSIONS.operations.overrideLifecycle.join(',')}`).then(r => r.json()),
+        ]).then(([byGrant, byRole]) => {
+            setCanOverrideLifecycle(Boolean(byGrant?.access) || Boolean(byRole?.access))
+        }).catch(() => {})
 
         fetch(`/api/me/roles?has=${PERMISSIONS.members.editRestricted.join(',')}`)
             .then(r => r.json())
@@ -671,13 +687,15 @@ export default function Page() {
         } else if (newStage === 'rsvp_closed') {
             setRsvpOpen(false);       updates.rsvpOpen = false
         } else if (newStage === 'op_running') {
+            // setStatus here is optimistic only. The authoritative write is the
+            // stage itself: POST attendance/platoons derives Active from
+            // op_running server-side, which is what lets `update?status=` be
+            // gated as a lifecycle override without blocking Advance.
             setRsvpOpen(false);       updates.rsvpOpen = false
-            await fetch(`/api/operations/update?id=${opID}&status=Active`)
             setStatus('Active')
         } else if (newStage === 'confirmations_open') {
             setRsvpOpen(false);       updates.rsvpOpen = false
             setConfirmationOpen(true);updates.confirmationOpen = true
-            await fetch(`/api/operations/update?id=${opID}&status=Completed`)
             setStatus('Completed')
         } else if (newStage === 'completed') {
             setConfirmationOpen(false);updates.confirmationOpen = false
@@ -892,9 +910,6 @@ export default function Page() {
                                 onBilletPointsBlur={handleBilletPointsBlur}
                                 department={department}
                                 onDepartmentChange={handleDepartmentChange}
-                                status={status}
-                                isHQ={isHQ}
-                                onStatusChange={handleStatusChange}
                                 themeColor={themeColor}
                                 onThemeColorChange={handleThemeColorChange}
                                 pageTheme={pageTheme}
@@ -905,8 +920,6 @@ export default function Page() {
                                 onMapWorldChange={handleMapWorldChange}
                                 loreDateDayjs={loreDateDayjs}
                                 onLoreDateChange={handleLoreDateChange}
-                                onCompleteMission={handleCompleteMission}
-                                completingMission={stageAdvancing}
                                 coverImage={coverImage}
                                 coverUploading={coverUploading}
                                 onUploadCover={uploadCover}
@@ -965,6 +978,11 @@ export default function Page() {
                             onChangeCloseOffset={handleChangeCloseOffset}
                             onChangeRsvpCloseAt={handleChangeRsvpCloseAt}
                             automationPaused={status === 'In Development'}
+                            status={status}
+                            canOverrideLifecycle={canOverrideLifecycle}
+                            onChangeStatus={handleStatusChange}
+                            onCompleteMission={handleCompleteMission}
+                            completingMission={stageAdvancing}
                             stage={displayStage}
                             onAdvance={requestStageChange}
                             onSelect={requestStageChange}

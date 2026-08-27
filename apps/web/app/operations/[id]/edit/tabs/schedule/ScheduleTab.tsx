@@ -9,6 +9,7 @@ import PhaseStrip from './PhaseStrip'
 import PreProductionInspector, { type OrdersCheckTask } from './PreProductionInspector'
 import RsvpWindowInspector from './RsvpWindowInspector'
 import StagePanel from './StagePanel'
+import LifecycleOverride from './LifecycleOverride'
 import { btnTone, chip, label } from './controls'
 import { buildRibbon, type PhaseId } from '@/lib/operations/phases'
 import { fmtCountdown } from '@/lib/operations/schedule'
@@ -42,6 +43,13 @@ interface Props {
     onAdvance: (to: AttendanceStage) => void
     onSelect: (to: AttendanceStage) => void
     advancing: boolean
+
+    /** Lifecycle override — moved here from the deck's Details card. */
+    status: string
+    canOverrideLifecycle: boolean
+    onChangeStatus: (v: string) => void
+    onCompleteMission: () => void
+    completingMission: boolean
 }
 
 /**
@@ -71,6 +79,7 @@ export default function ScheduleTab({
     onChangeRsvpOpenAt, onQuickSetRsvpOpen, closeOffsetMins, onChangeCloseOffset,
     onChangeRsvpCloseAt, automationPaused,
     stage, onAdvance, onSelect, advancing,
+    status, canOverrideLifecycle, onChangeStatus, onCompleteMission, completingMission,
 }: Props) {
     const [now, setNow] = useState(() => new Date())
     useEffect(() => {
@@ -229,6 +238,26 @@ export default function ScheduleTab({
                 happened", which is the confusion the ribbon exists to end. */}
             {isHQ && (
                 <StagePanel stage={stage} onAdvance={onAdvance} onSelect={onSelect} advancing={advancing} />
+            )}
+
+            {/* The lifecycle override. Distinct from the stage above it: stage
+                is where the operation is in its run, status is what the rest of
+                the system believes about it — and unlike stage, setting it by
+                hand needs `operations.overrideLifecycle`. */}
+            {isHQ && (
+                <TabPanel
+                    title="Lifecycle override"
+                    horizon={canOverrideLifecycle ? 'manual' : 'read-only'}
+                    badge={automationPaused ? <span style={chip('warn')}>Automation suspended</span> : undefined}
+                >
+                    <LifecycleOverride
+                        status={status}
+                        canOverride={canOverrideLifecycle}
+                        onChangeStatus={onChangeStatus}
+                        onCompleteMission={onCompleteMission}
+                        completingMission={completingMission}
+                    />
+                </TabPanel>
             )}
         </div>
     )

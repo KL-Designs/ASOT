@@ -232,6 +232,29 @@ const PERMISSIONS = {
          *  - `app/api/operations/route.ts` (sets `isHQ` flag to include in-dev ops)
          */
         viewInDevelopment: ['HQ Staff', 'J2 - Mission Making'],
+
+        /**
+         * Setting an operation's lifecycle status by hand — the override on the
+         * Schedule tab that can move an operation to any of In Development /
+         * Upcoming / Active / Completed regardless of where its schedule says
+         * it should be.
+         *
+         * Separate from `operations.write` because it is not an edit, it is an
+         * override: "In Development" suspends every automation (RSVP will not
+         * open or close, the operation will not activate), and "Completed"
+         * opens attendance confirmation and issues squad-leader tasks. Both are
+         * things a mission maker can legitimately need and neither should be a
+         * side effect of ordinary editing.
+         *
+         * Normal progression does not need this. The stage machine writes the
+         * stage, and the server derives the status from it — see
+         * `statusForStage` in `lib/operations/stage.ts`.
+         *
+         * Used by:
+         *  - `app/api/operations/update/route.ts` (the `status` parameter)
+         *  - `app/operations/[id]/edit/tabs/schedule/LifecycleOverride.tsx`
+         */
+        overrideLifecycle: ['HQ Staff', 'J2 - Department Leader'],
     },
 
     // ── Uploads ───────────────────────────────────────────────────────────────

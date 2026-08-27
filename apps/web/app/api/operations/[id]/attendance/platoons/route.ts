@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
+import { statusForStage, type AttendanceStage } from '@/lib/operations/stage'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await client.updateRoles()
@@ -89,6 +90,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { _id: operationId },
         { $set: { assignedPlatoons: body.assignedPlatoons ?? [] } }
     )
+
+    // Derive the operation status from the stage.
+    //
+    // The editor used to do this itself, firing `GET /api/operations/update?
+    // status=…` alongside every stage write from three different places. That
+    // left `status` directly writable by anyone who could advance a stage,
+    // which is why it could not be gated on its own — and it is the field that
+    // most needs gating, since "In Development" suspends every automation.
+    // Deriving it here leaves exactly one manual writer: the lifecycle
+    // override, behind `operations.overrideLifecycle`.
+    //
+    // Only op_running and confirmations_open imply a status; going backwards
+    // deliberately does not reset it, matching the previous behaviour.
+    const impliedStatus = body.stage ? statusForStage(body.stage as AttendanceStage) : null
+    if (impliedStatus) {
+        await Db.operations.updateOne(
+            { _id: operationId, status: { $ne: impliedStatus } },
+            { $set: { status: impliedStatus } }
+        )
+    }
 
     // Create section leader tasks if confirmation just opened
     if (confirmationOpeningNow && openedAt) {

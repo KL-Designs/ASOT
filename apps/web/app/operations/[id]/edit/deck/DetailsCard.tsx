@@ -8,15 +8,6 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import Panel from './Panel'
 import MapWorldPicker from './MapWorldPicker'
 
-// Same lifecycle-status palette Header.tsx uses (token-backed there too) —
-// kept in sync by hand since Header doesn't export it.
-const STATUS_COLOR: Record<string, string> = {
-    'Active': 'var(--good)',
-    'Upcoming': 'var(--warn)',
-    'Completed': 'var(--ink-3)',
-    'In Development': 'var(--crit)',
-}
-
 interface Props {
     title: string
     onTitleChange: (v: string) => void
@@ -38,10 +29,6 @@ interface Props {
     department: string
     onDepartmentChange: (v: string) => void
 
-    status: string
-    isHQ: boolean
-    onStatusChange: (v: string) => void
-
     themeColor: string
     onThemeColorChange: (v: string) => void
 
@@ -55,16 +42,6 @@ interface Props {
 
     loreDateDayjs: Dayjs | null
     onLoreDateChange: (v: Dayjs | null) => void
-
-    /** Restores the old panel's "Complete Mission" button (Task 11, ruling 1).
-     * Writes the operation's `status` (Active → Completed) via the same
-     * `applyStage('confirmations_open')` path as before — distinct from
-     * StageCard's attendance `stage`, even though that path also advances
-     * the stage as a side effect. Caller gates the write; this card gates
-     * the button's visibility on `isHQ && status === 'Active'`, matching the
-     * old inline condition. */
-    onCompleteMission: () => void
-    completingMission: boolean
 
     coverImage: string | null
     coverUploading: boolean
@@ -119,15 +96,12 @@ export default function DetailsCard({
     ownedBy, ownedByName, canPickOwner, ownerPickerOpen, j2Members, onOpenOwnerPicker, onCloseOwnerPicker, onSelectOwner,
     canSeeBilletPoints, billetPoints, onBilletPointsChange, onBilletPointsBlur,
     department, onDepartmentChange,
-    status, isHQ, onStatusChange,
     themeColor, onThemeColorChange,
     pageTheme, eraOptions, onPageThemeChange,
     mapWorld, availableWorlds, onMapWorldChange,
     loreDateDayjs, onLoreDateChange,
-    onCompleteMission, completingMission,
     coverImage, coverUploading, onUploadCover, onRemoveCover,
 }: Props) {
-    const statusColor = STATUS_COLOR[status] ?? 'var(--ink-3)'
 
     return (
         <Panel title="Details">
@@ -204,44 +178,13 @@ export default function DetailsCard({
                     />
                 </Row>
 
-                <Row label="Status">
-                    <select
-                        value={status}
-                        onChange={e => onStatusChange(e.target.value)}
-                        style={{ ...controlStyle, color: statusColor, fontWeight: 700, cursor: 'pointer' }}
-                    >
-                        <option value="Upcoming">Upcoming</option>
-                        <option value="Active">Active</option>
-                        <option value="Completed">Completed</option>
-                        {isHQ && <option value="In Development">In Development</option>}
-                    </select>
-                </Row>
-
-                {/* Complete Mission — same visibility gate the old inline button had
-                    (`isHQ && status === 'Active'`), sitting directly under the Status
-                    row it acts on. No confirmation dialog, matching the original. */}
-                {isHQ && status === 'Active' && (
-                    <div style={{ padding: '0 16px 12px', display: 'flex', justifyContent: 'flex-end' }}>
-                        <button
-                            type="button"
-                            onClick={onCompleteMission}
-                            disabled={completingMission}
-                            style={{
-                                border: '1px solid rgba(var(--acc-rgb), 0.6)',
-                                background: 'rgba(var(--acc-rgb), 0.15)',
-                                borderRadius: 'var(--r)',
-                                color: 'var(--acc)',
-                                fontFamily: 'var(--mono)', fontSize: 9.5, fontWeight: 700,
-                                letterSpacing: '0.12em', textTransform: 'uppercase',
-                                padding: '6px 12px',
-                                cursor: completingMission ? 'not-allowed' : 'pointer',
-                                opacity: completingMission ? 0.6 : 1,
-                            }}
-                        >
-                            {completingMission ? 'Completing…' : 'Complete Mission'}
-                        </button>
-                    </div>
-                )}
+                {/* Status and Complete Mission used to sit here. They are not
+                    metadata — "In Development" suspends every automation and
+                    "Completed" opens attendance confirmation and issues tasks —
+                    so they moved to the Schedule tab's lifecycle override,
+                    beside the ribbon whose behaviour they change, and behind
+                    `operations.overrideLifecycle`. The status itself is shown
+                    in the header. */}
 
                 <Row label="Cover">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
