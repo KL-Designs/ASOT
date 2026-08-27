@@ -1,0 +1,274 @@
+/* ============================================================================
+   ASOT — donate
+   ----------------------------------------------------------------------------
+   The one public page that is pitched at rather than read, which is why it is
+   the one public page that does not use the shared masthead.
+
+   Container/Masthead cap the band at 440px (lib/shell/masthead.ts) on the
+   principle that a page you came to read should not open with a photograph and
+   one word. That principle is right for /about and wrong here. This page asks
+   for money, and asking well means one photograph, one sentence and one button
+   with nothing else competing — so the band deliberately fills the viewport
+   under the navbar, and the column underneath is deliberately the quietest on
+   the site. The contrast between the monument and the document is the design;
+   neither half works without the other.
+
+   The vocabulary — notched button, topo, kickers, Q&A rows, lists — comes from
+   ui.module.css and shell.module.css. Only the monument and its column live
+   here.
+   ========================================================================== */
+
+.page {
+    background: var(--ink-0);
+    font-family: var(--font-ui);
+}
+
+/* ---------- the monument ------------------------------------------------- */
+
+/*
+   Fills what the navbar leaves (28px status strip + 66px bar), capped at 900px
+   so it stops being a monument and starts being a wall on a tall display. The
+   floor matters more than the ceiling: below ~560px the headline, the sentence
+   and the button stop fitting together and the composition collapses.
+*/
+.band {
+    position: relative;
+    height: clamp(560px, calc(100vh - 94px), 900px);
+    overflow: hidden;
+    background: #0b0e10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.bandImg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
+.bandImg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 40%;
+}
+
+/*
+   Not shell.module.css's veil. That one ramps hard from the left because the
+   copy sits in a left column and the photograph is only allowed through on the
+   right. Here the copy is in the middle, so the darkness has to be too — a
+   centred ellipse, with the vertical pass seating the band under the navbar and
+   landing its bottom edge on --ink-0 rather than on a seam.
+
+   The topo's `edges` mask clears at 34%, inside the ellipse's own ramp, for the
+   same reason it does in the shell: contours that outlive the darkening read as
+   a separate layer floating over the photograph.
+*/
+.veil {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background:
+        radial-gradient(ellipse 74% 62% at 50% 52%,
+            rgba(6, 7, 9, .86) 0%,
+            rgba(6, 7, 9, .72) 38%,
+            rgba(6, 7, 9, .34) 68%,
+            rgba(6, 7, 9, .2) 100%),
+        linear-gradient(180deg,
+            rgba(6, 7, 9, .62) 0%,
+            transparent 26%,
+            transparent 54%,
+            rgba(6, 7, 9, .96) 100%);
+}
+
+.bandIn {
+    position: relative;
+    z-index: 4;
+    width: 100%;
+    max-width: 980px;
+    padding: 0 clamp(22px, 3.4vw, 49px);
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/*
+   Larger than anything else on the site, deliberately: this is the whole first
+   screen, and at the shell's 72px ceiling it reads as a page heading rather
+   than a statement. The shadow is broader and softer than the shell title's for
+   the same reason — at 118px a tight halo fattens the letterforms.
+*/
+.title {
+    font-family: var(--font-disp);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: clamp(52px, 8.2vw, 118px);
+    line-height: .9;
+    letter-spacing: .005em;
+    margin: clamp(20px, 2vw, 26px) 0 0;
+    text-shadow: 0 6px 44px rgba(0, 0, 0, .85);
+}
+
+.lede {
+    color: #eceff2;
+    font-size: clamp(15.5px, 1.3vw, 18px);
+    line-height: 1.6;
+    max-width: 46ch;
+    margin: clamp(24px, 2.6vw, 34px) 0 0;
+    padding-top: clamp(20px, 2vw, 26px);
+    border-top: 1px solid rgba(255, 255, 255, .18);
+    text-shadow: 0 2px 12px rgba(0, 0, 0, .9), 0 0 3px rgba(0, 0, 0, .75);
+}
+
+/*
+   The shared Button has md and sm; this needs neither. Rather than adding a
+   third size to a component five other surfaces render — a size only this page
+   would ever ask for — the page scales its own copy here.
+
+   `a.cta` rather than `.cta`: .btn sets the height and .cta overrides it, and
+   two single-class selectors are decided by the order the two CSS modules land
+   in the bundle, which is not something this file gets to know. Adding the
+   element narrows the specificity contest to one this always wins.
+*/
+a.cta {
+    height: 58px;
+    padding: 0 40px;
+    gap: 11px;
+    font-size: 18px;
+    margin-top: clamp(30px, 3vw, 40px);
+    background: color-mix(in srgb, var(--amber) 40%, transparent);
+}
+
+a.cta svg {
+    width: 19px;
+    height: 19px;
+}
+
+/* The plate behind the notch is the button's own; on a photograph it needs to
+   stay dark enough to hold 18px type without swallowing the picture whole. */
+a.cta::before {
+    background: rgba(11, 12, 14, .86);
+}
+
+a.cta:focus-visible {
+    outline: 2px solid var(--amber);
+    outline-offset: 3px;
+}
+
+/* What a donor wants to know before pressing it: that it is safe, what it will
+   charge them in, and that the money is handled somewhere else. */
+.assure {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 20px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, .9);
+}
+
+.assure i {
+    width: 3px;
+    height: 3px;
+    background: var(--txt-3);
+    flex: none;
+}
+
+.cue {
+    position: absolute;
+    z-index: 4;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 9px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.cue i {
+    width: 1px;
+    height: 26px;
+    background: linear-gradient(180deg, var(--line-2), transparent);
+}
+
+/* ---------- the document ------------------------------------------------- */
+
+/*
+   760px, against the shell body's 1400. Everything above this point is scale;
+   everything below it is the opposite, and the column is narrow because a
+   reader who has just been shouted at should be able to tell they are being
+   spoken to plainly.
+*/
+.doc {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: clamp(56px, 6vw, 96px) 22px 0;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(48px, 5vw, 66px);
+}
+
+.close {
+    margin-top: clamp(20px, 2vw, 28px);
+    padding: 26px 0 clamp(60px, 7vw, 96px);
+    border-top: 1px solid var(--line-1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.closeLine {
+    font-family: var(--font-disp);
+    font-size: clamp(17px, 1.6vw, 19px);
+    font-weight: 500;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+    margin: 0;
+}
+
+/* ---------- narrow ------------------------------------------------------- */
+
+@media (max-width: 860px) {
+    /* A monument that fills a phone is just a wall — and the button has to land
+       above the fold or the whole composition is decorative. */
+    .band {
+        height: clamp(480px, calc(100vh - 94px), 640px);
+    }
+
+    a.cta {
+        height: 56px;
+        width: 100%;
+        font-size: 17px;
+    }
+
+    /* Two lines at this width, so the dot separators would orphan mid-wrap. */
+    .assure {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .assure i {
+        display: none;
+    }
+
+    /* Side by side these get ~170px each and the button label wraps. */
+    .close {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
