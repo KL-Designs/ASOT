@@ -107,7 +107,7 @@ export default function PreProductionPanel({
         : date?.toDate() ?? null
     if (!baseDate) {
         return (
-            <TabPanel title='Pre-Production' horizon='16w → 4w out'>
+            <TabPanel title='Pre-Production' horizon={isCampaignOp ? '16w → 4w out' : '12w → 4w out'}>
                 <div style={{ padding: 16, fontSize: '0.72rem', color: 'var(--ink-3)', fontStyle: 'italic' }}>
                     Set an operation date in Details to schedule development checks.
                 </div>
@@ -183,6 +183,11 @@ export default function PreProductionPanel({
                 title='Pre-Production'
                 horizon={isCampaignOp ? '16w → 4w out' : '12w → 4w out'}
                 badge={<>
+                    {!allDone && (
+                        <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                            {checks.filter(ch => ch.isCompleted).length} of {checks.length} complete
+                        </span>
+                    )}
                     {allDone && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--good)', letterSpacing: '0.1em' }}>✓ All Checks Complete</span>}
                     {!allDone && checks.some(ch => ch.isOverdue) && (
                         <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--warn)', border: '1px solid var(--warn)', borderRadius: 'var(--r)', padding: '2px 8px' }}>
