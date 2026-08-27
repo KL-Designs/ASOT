@@ -5,7 +5,7 @@ import dayjs, { type Dayjs } from 'dayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
-import Panel from './Panel'
+import TabPanel from '../TabPanel'
 import { rsvpCloseAt, type TimelineMoment } from '@/lib/operations/schedule'
 
 interface Props {
@@ -63,10 +63,16 @@ const CLOSE_OFFSET_OPTS = [
 ]
 
 /**
- * The five-moment timeline that replaces the old Schedule & Automation panel.
+ * The five-moment timeline that used to be the deck's Timeline card — now the
+ * Schedule tab's second panel (Task 4), between Pre-Production and Stage.
  * Each row states its moment once — label, computed time, and (where it has
  * one) the control(s) that change it. `confirmations_open` and `completed`
  * are derived from the attendance stage and carry no control.
+ *
+ * The full-width tab lets the two busiest rows — rsvp_opens and rsvp_closes —
+ * sit side by side instead of stacked, via the auto-fit grid below; the state
+ * dot that used to hang off a shared connecting rail is now inline with each
+ * row's label since there's no vertical line to hang off any more.
  *
  * Duplication rule: a row's `detail` text (the plain-English instant) is
  * shown only when no visible picker on that row already states the same
@@ -77,7 +83,7 @@ const CLOSE_OFFSET_OPTS = [
  * preset select never does (it names an offset, not a time), so detail stays
  * the one place that states the resulting instant.
  */
-export default function ScheduleCard({
+export default function RsvpWindowPanel({
     timeline, date, onChangeDate,
     rsvpOpenAt, onSetRsvpOpenManual, onSetRsvpOpenScheduled, onChangeRsvpOpenAt, onQuickSetRsvpOpen,
     closeOffsetMins, onChangeCloseOffset, onChangeRsvpCloseAt,
@@ -90,42 +96,58 @@ export default function ScheduleCard({
     const [closeCustomOpen, setCloseCustomOpen] = useState(
         () => !CLOSE_OFFSET_OPTS.some(o => o.mins === closeOffsetMins),
     )
+
+    // Both RSVP instants are computed relative to the operation date, so the
+    // controls are meaningless without one (the deck card never had to handle
+    // this — the whole Development tab returned null and the deck card simply
+    // rendered with unresolved times).
+    if (!date) {
+        return (
+            <TabPanel title='RSVP Window' horizon='days → hrs out'>
+                <div style={{ padding: 16, fontSize: '0.72rem', color: 'var(--ink-3)', fontStyle: 'italic' }}>
+                    Set an operation date in Details to schedule the RSVP window.
+                </div>
+            </TabPanel>
+        )
+    }
+
     const isPresetClose = CLOSE_OFFSET_OPTS.some(o => o.mins === closeOffsetMins)
     const closeCustomVisible = closeCustomOpen || !isPresetClose
 
     // Local, immediate — not the polled timeline. See the `rsvpOpenAt` prop doc.
-    const closeAtLocal = date ? rsvpCloseAt(date.toDate(), closeOffsetMins) : null
+    const closeAtLocal = rsvpCloseAt(date.toDate(), closeOffsetMins)
 
     return (
-        <Panel title="Timeline">
-            <div style={{ padding: '20px 16px 16px' }}>
-                <div style={{ position: 'relative', paddingLeft: 24 }}>
-                    <div style={{
-                        position: 'absolute', left: 4, top: 8, bottom: 8,
-                        width: 1, background: 'var(--line-2)',
-                    }} />
+        <TabPanel title='RSVP Window' horizon='days → hrs out'>
+            <div style={{
+                padding: 16,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: 20,
+            }}>
+                {timeline.map(m => {
+                    const suppressDetail =
+                        m.id === 'op_starts' ||
+                        (m.id === 'rsvp_opens' && !!rsvpOpenAt) ||
+                        (m.id === 'rsvp_closes' && closeCustomVisible)
 
-                    {timeline.map((m, i) => {
-                        const suppressDetail =
-                            m.id === 'op_starts' ||
-                            (m.id === 'rsvp_opens' && !!rsvpOpenAt) ||
-                            (m.id === 'rsvp_closes' && closeCustomVisible)
+                    return (
+                        <div key={m.id}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{
+                                    flexShrink: 0,
+                                    width: 9, height: 9, borderRadius: '50%',
+                                    background: 'var(--bg)',
+                                    border: `2px solid ${m.state === 'current' ? 'var(--acc)' : 'var(--line-2)'}`,
+                                    boxShadow: m.state === 'current' ? '0 0 0 4px rgba(var(--acc-rgb), 0.12)' : undefined,
+                                }} />
 
-                        return (
-                        <div key={m.id} style={{ position: 'relative', paddingBottom: i === timeline.length - 1 ? 0 : 20 }}>
-                            <div style={{
-                                position: 'absolute', left: -24, top: 4,
-                                width: 9, height: 9, borderRadius: '50%',
-                                background: 'var(--bg)',
-                                border: `2px solid ${m.state === 'current' ? 'var(--acc)' : 'var(--line-2)'}`,
-                                boxShadow: m.state === 'current' ? '0 0 0 4px rgba(var(--acc-rgb), 0.12)' : undefined,
-                            }} />
-
-                            <div style={{
-                                fontSize: 13.5, fontWeight: 600,
-                                color: m.state === 'pending' ? 'var(--ink-2)' : 'var(--ink)',
-                            }}>
-                                {m.label}
+                                <div style={{
+                                    fontSize: 13.5, fontWeight: 600,
+                                    color: m.state === 'pending' ? 'var(--ink-2)' : 'var(--ink)',
+                                }}>
+                                    {m.label}
+                                </div>
                             </div>
 
                             {!suppressDetail && (
@@ -243,11 +265,10 @@ export default function ScheduleCard({
                                 </div>
                             )}
                         </div>
-                        )
-                    })}
-                </div>
+                    )
+                })}
             </div>
-        </Panel>
+        </TabPanel>
     )
 }
 

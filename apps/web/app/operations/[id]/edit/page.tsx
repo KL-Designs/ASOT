@@ -17,7 +17,6 @@ import { usePresence } from './hooks/usePresence'
 import { useDocStats } from './hooks/useDocStats'
 import MissionDeck from './deck/MissionDeck'
 import CountdownStrip from './deck/CountdownStrip'
-import ScheduleCard from './deck/ScheduleCard'
 import StageCard from './deck/StageCard'
 import DetailsCard from './deck/DetailsCard'
 import BriefTab from './tabs/BriefTab'
@@ -592,7 +591,7 @@ export default function Page() {
     // text, current/pending dot state — catch up immediately instead of
     // waiting for the next 30s poll. The picker/pill *values* don't need
     // that round trip: they're driven off local rsvpOpenAt/rsvpCloseOffsetMins
-    // state (passed into ScheduleCard as props), the same way date and
+    // state (passed into RsvpWindowPanel as props), the same way date and
     // closeOffsetMins already were, not off the polled timeline.
     function handleChangeDate(v: Dayjs | null) {
         if (!v) return
@@ -914,22 +913,6 @@ export default function Page() {
                             />
                         )}
                         {isHQ && opID && (
-                            <ScheduleCard
-                                timeline={timeline}
-                                date={date}
-                                onChangeDate={handleChangeDate}
-                                rsvpOpenAt={rsvpOpenAt}
-                                onSetRsvpOpenManual={handleSetRsvpOpenManual}
-                                onSetRsvpOpenScheduled={handleSetRsvpOpenScheduled}
-                                onChangeRsvpOpenAt={handleChangeRsvpOpenAt}
-                                onQuickSetRsvpOpen={handleQuickSetRsvpOpen}
-                                closeOffsetMins={rsvpCloseOffsetMins}
-                                onChangeCloseOffset={handleChangeCloseOffset}
-                                onChangeRsvpCloseAt={handleChangeRsvpCloseAt}
-                                automationPaused={status === 'In Development'}
-                            />
-                        )}
-                        {isHQ && opID && (
                             <StageCard
                                 stage={displayStage}
                                 onAdvance={requestStageChange}
@@ -979,6 +962,17 @@ export default function Page() {
                             setMissionDev={setMissionDev}
                             ordersCheckTask={ordersCheckTask}
                             setOrdersCheckTask={setOrdersCheckTask}
+                            timeline={timeline}
+                            onChangeDate={handleChangeDate}
+                            rsvpOpenAt={rsvpOpenAt}
+                            onSetRsvpOpenManual={handleSetRsvpOpenManual}
+                            onSetRsvpOpenScheduled={handleSetRsvpOpenScheduled}
+                            onChangeRsvpOpenAt={handleChangeRsvpOpenAt}
+                            onQuickSetRsvpOpen={handleQuickSetRsvpOpen}
+                            closeOffsetMins={rsvpCloseOffsetMins}
+                            onChangeCloseOffset={handleChangeCloseOffset}
+                            onChangeRsvpCloseAt={handleChangeRsvpCloseAt}
+                            automationPaused={status === 'In Development'}
                         />
                     ) : null
                 }
