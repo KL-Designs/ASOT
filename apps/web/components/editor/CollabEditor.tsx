@@ -4,11 +4,9 @@ import React, { useContext, useEffect, useLayoutEffect, useRef, useState, useCal
 import { createPortal } from 'react-dom'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
-import TextAlign from '@tiptap/extension-text-align'
-import Highlight from '@tiptap/extension-highlight'
+import { contentExtensions, FontSize } from './content-extensions'
 import GlobalDragHandle from 'tiptap-extension-global-drag-handle'
 import Collaboration from '@tiptap/extension-collaboration'
 import { Extension } from '@tiptap/core'
@@ -16,9 +14,6 @@ import { yCursorPlugin, defaultSelectionBuilder } from '@tiptap/y-tiptap'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
-import Link from '@tiptap/extension-link'
-import Underline from '@tiptap/extension-underline'
-import { TextStyle } from '@tiptap/extension-text-style'
 import PageSidebar from './PageSidebar'
 import IntelPackageEditor from './intel-package/IntelPackageEditor'
 import ImageLibraryModal from './ImageLibraryModal'
@@ -58,31 +53,6 @@ function hexToRgb(hex: string) {
         b: parseInt(h.substring(4, 6), 16),
     }
 }
-
-const FontSize = Extension.create({
-    name: 'fontSize',
-    addGlobalAttributes() {
-        return [{
-            types: ['textStyle'],
-            attributes: {
-                fontSize: {
-                    default: null,
-                    parseHTML: (el: HTMLElement) => el.style.fontSize || null,
-                    renderHTML: (attrs: Record<string, any>) =>
-                        attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
-                },
-            },
-        }]
-    },
-    addCommands() {
-        return {
-            setFontSize: (size: string) => ({ chain }: any) =>
-                chain().setMark('textStyle', { fontSize: size }).run(),
-            unsetFontSize: () => ({ chain }: any) =>
-                chain().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run(),
-        } as any
-    },
-})
 
 interface PresenceUser {
     name: string
@@ -1507,15 +1477,12 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
         onFocus: ({ editor: e }) => onFocusEditor?.(e),
         onBlur: ({ editor: e, event }) => onBlurEditor?.(e, event),
         extensions: [
-            StarterKit.configure({ undoRedo: false }),
-            TextAlign.configure({ types: ['heading', 'paragraph'] }),
-            Highlight.configure({ multicolor: false }),
-            Underline,
-            TextStyle,
-            FontSize,
+            // Everything schema-defining except the image lives in
+            // content-extensions.ts, so content generated elsewhere builds
+            // against this exact schema instead of a lookalike.
+            ...contentExtensions(),
             Placeholder.configure({ placeholder: 'Begin writing this section…' }),
             ResizableImage,
-            Link.configure({ openOnClick: false, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
             GlobalDragHandle.configure({ dragHandleWidth: 20 }),
             Collaboration.configure({ document: ydoc, field: contentKey }),
             buildCursorExtension(provider, user),
