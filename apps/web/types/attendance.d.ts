@@ -1,4 +1,5 @@
 import type { ObjectId } from 'mongodb'
+import type { RosterSlot } from '@/lib/attendance/roster'
 
 export { }
 
@@ -16,6 +17,14 @@ declare global {
         importedStatus?: string     // 'ATTENDED' | 'NOT ATTENDING' | 'RESOLVED' | 'LOA' (from CSV)
         attendanceType?: string     // Visual flag: 'ATTENDED' | 'NOT ATTENDING' | 'RESOLVED' | 'NO NOTICE' | 'LOA' | 'CONFIRM' | 'N/A' | 'ADDED TO UNIT'
         reservistSection?: string   // if set, member is attending as a reservist in this section instead of their own
+        /**
+         * Reservist pool preference — a signal for staff and for auto-fill, not
+         * a claim on anything. Naming a specific slot binds immediately and
+         * writes `roster`; these two say "I'd like Bravo" or "I'd like to be a
+         * medic" and leave the member in the pool until somebody places them.
+         */
+        preferredSection?: string | null
+        preferredRole?: string | null
     }
 
     interface OperationAttendance {
@@ -55,6 +64,32 @@ declare global {
         // Lead Zeus nomination — CHQ picks one Zeus for the night
         leadZeus?: string       // Discord user ID of nominated Lead Zeus
         leadZeusName?: string   // Display name at time of nomination
+
+        /**
+         * The operation's positions, cut from the ORBAT when RSVP opened.
+         *
+         * A snapshot rather than a live read: the ORBAT is edited continuously
+         * and a board must not change shape under the people looking at it —
+         * least of all a completed operation's, which is a record of what
+         * happened. It is also the only way custom sections can have positions
+         * at all, since they have no ORBAT entries to read.
+         *
+         * `records` still carries attendance history and confirmation; this is
+         * what the board draws. Absent on operations that never reached
+         * `rsvp_open`.
+         */
+        roster?: RosterSlot[]
+        rosterTakenAt?: Date
+        /**
+         * Bumped on every roster write, and the guard that makes them safe:
+         * a write only lands if the revision it was computed from is still
+         * current, so two members claiming the same position cannot both win.
+         *
+         * It is also what the live board broadcasts. Viewers compare the
+         * revision they hold against the one on the wire and refetch when it
+         * moves, which means one counter serves both concurrency and sync.
+         */
+        rosterRev?: number
 
         // Custom attendance units — non-ORBAT groups defined manually by HQ
         customUnits?: Array<{

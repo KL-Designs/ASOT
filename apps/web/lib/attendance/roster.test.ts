@@ -5,7 +5,7 @@
  */
 import { describe, test, expect } from 'vitest'
 import {
-    assignSlot, autoFill, buildRoster, derivePool, viewRoster,
+    assignSlot, autoFill, buildRoster, derivePool, orderPositions, snapshotCategories, viewRoster,
     type OrbatSnapshotPosition, type PoolMember, type RosterContext, type RosterSlot, type SlotState,
 } from './roster'
 
@@ -301,5 +301,57 @@ describe('autoFill', () => {
     test('a preference that cannot be met still gets a slot rather than nothing', () => {
         const result = autoFill(threeSlots(), [member('u-q', { preferredSection: '1-3 Echo' })], ctx())
         expect(result.placed).toEqual([{ userId: 'u-q', slotId: 'a1' }])
+    })
+})
+
+// ── Snapshot selection ────────────────────────────────────────────────────────
+
+describe('snapshotCategories', () => {
+    test('takes the assigned platoons, in the unit’s own order', () => {
+        expect(snapshotCategories(['support', 'companyHQ', 'platoon11']))
+            .toEqual(['companyHQ', 'platoon11', 'support', 'gamemaster'])
+    })
+
+    test('always includes the game masters, assigned or not', () => {
+        // Zeus staff play every operation and are never one of the platoons
+        // someone ticks, so leaving them out would leave the board missing the
+        // one section that is always there.
+        expect(snapshotCategories([])).toEqual(['gamemaster'])
+    })
+
+    test('does not duplicate the game masters when they are assigned explicitly', () => {
+        expect(snapshotCategories(['gamemaster'])).toEqual(['gamemaster'])
+    })
+
+    test('ignores a category the unit does not have', () => {
+        expect(snapshotCategories(['platoon11', 'nonsense'])).toEqual(['platoon11', 'gamemaster'])
+    })
+})
+
+describe('orderPositions', () => {
+    test('orders by category first, then section, then position', () => {
+        const ordered = orderPositions([
+            pos({ category: 'platoon11', sectionOrder: 2, positionOrder: 1, role: 'c' }),
+            pos({ category: 'companyHQ', sectionOrder: 9, positionOrder: 0, role: 'a' }),
+            pos({ category: 'platoon11', sectionOrder: 2, positionOrder: 0, role: 'b' }),
+        ], ['companyHQ', 'platoon11'])
+
+        expect(ordered.map(p => p.role)).toEqual(['a', 'b', 'c'])
+    })
+
+    test('drops positions from categories not in the snapshot', () => {
+        const ordered = orderPositions([
+            pos({ category: 'platoon11', role: 'keep' }),
+            pos({ category: 'platoon12', role: 'drop' }),
+        ], ['platoon11'])
+
+        expect(ordered.map(p => p.role)).toEqual(['keep'])
+    })
+
+    test('keeps vacant positions — an empty slot is the point', () => {
+        // The old attendance list only held people, which is exactly why it
+        // could not show a section that was three riflemen short.
+        const ordered = orderPositions([pos({ userId: null })], ['platoon11'])
+        expect(ordered).toHaveLength(1)
     })
 })

@@ -295,3 +295,40 @@ export function autoFill(
 
     return { roster: next, placed, unplaced }
 }
+
+/** Display order for the categories a roster can contain. */
+const CATEGORY_ORDER = ['companyHQ', 'platoon11', 'platoon12', 'support', 'gamemaster'] as const
+
+/**
+ * The categories an operation's roster covers.
+ *
+ * Game masters are always included whether or not they were ticked: Zeus staff
+ * play every operation and are never one of the platoons someone selects, so
+ * leaving them to the checkbox would leave the board missing the one section
+ * that is always present.
+ */
+export function snapshotCategories(assignedPlatoons: string[]): string[] {
+    const assigned = new Set([...assignedPlatoons, 'gamemaster'])
+    return CATEGORY_ORDER.filter(c => assigned.has(c))
+}
+
+/**
+ * Flatten the ORBAT into the order the board reads in: category, then section,
+ * then position within the section.
+ *
+ * Vacant positions are kept. The old attendance list held only people, which
+ * is precisely why it could not show that a section was three riflemen short.
+ */
+export function orderPositions(
+    positions: OrbatSnapshotPosition[],
+    categories: string[],
+): OrbatSnapshotPosition[] {
+    const rank = new Map(categories.map((c, i) => [c, i]))
+
+    return positions
+        .filter(p => rank.has(p.category))
+        .sort((a, b) =>
+            rank.get(a.category)! - rank.get(b.category)!
+            || a.sectionOrder - b.sectionOrder
+            || a.positionOrder - b.positionOrder)
+}

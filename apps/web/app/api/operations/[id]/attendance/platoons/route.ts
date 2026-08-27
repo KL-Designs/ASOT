@@ -5,6 +5,8 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
 import { statusForStage, type AttendanceStage } from '@/lib/operations/stage'
+import { hasPermission } from '@/lib/orbat/hasPermission'
+import { ensureRosterSnapshot } from '@/lib/attendance/snapshot'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await client.updateRoles()
@@ -16,7 +18,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) {
+    // Roster management used to be gated on `admin.manageOrbat` — the ORBAT
+    // *editing* permission, which is J4-Administration only. That is why nobody
+    // outside J4 could manage an operation's attendance, including the J2 staff
+    // who actually run operations. `attendance.manage` is the key for this job.
+    //
+    // Two-armed because `hasPermission` has no Discord-role fallback and does
+    // not honour the J4 bypass, so a brand-new key checked only the dynamic way
+    // would be false for everybody. The old key stays as a third arm so this
+    // strictly widens access and cannot lock out anyone who works today.
+    const canManage = (await hasPermission(me, 'attendance.manage'))
+        || client.hasRoles(me, PERMISSIONS.attendance.manage)
+        || client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+    if (!canManage) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -123,6 +137,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             { _id: operationId, status: { $ne: impliedStatus } },
             { $set: { status: impliedStatus } }
         )
+    }
+
+    // Cut the roster the first time this operation reaches rsvp_open, whether
+    // that came from an explicit stage write or from RSVP being opened here.
+    // `ensureRosterSnapshot` is idempotent, so the cron doing the same thing a
+    // moment later is harmless — the second caller changes nothing.
+    if (body.stage === 'rsvp_open' || resolvedRsvpOpen === true) {
+        await ensureRosterSnapshot(operationId)
     }
 
     // Create section leader tasks if confirmation just opened

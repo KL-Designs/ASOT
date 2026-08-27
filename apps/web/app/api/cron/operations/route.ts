@@ -4,6 +4,7 @@ import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { getSectionLeaders } from '@/lib/orbat'
 import { createNotification } from '@/lib/notifications'
+import { ensureRosterSnapshot } from '@/lib/attendance/snapshot'
 
 /**
  * GET /api/cron/operations
@@ -47,6 +48,10 @@ export async function GET(request: NextRequest) {
             { _id: att._id },
             { $set: { rsvpOpen: true, stage: 'rsvp_open' } }
         )
+        // The board's positions are cut from the ORBAT at exactly this moment.
+        // Idempotent, so the editor's own ticker reaching rsvp_open first is
+        // fine — whichever gets there cuts it, the other is a no-op.
+        await ensureRosterSnapshot(att.operationId)
         results.rsvpOpened++
         console.log(`[cron/operations] RSVP auto-opened for att=${att._id}`)
     }

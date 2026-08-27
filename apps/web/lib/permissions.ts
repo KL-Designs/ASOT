@@ -510,6 +510,36 @@ const PERMISSIONS = {
          *  - `app/api/operations/[id]/attendance/type/route.ts` (`isAllStaff` flag)
          */
         confirm: ['All Staff', 'HQ Staff'],
+
+        /**
+         * Manage an operation's roster on the live attendance board: place
+         * members into positions, move and swap them between sections, add or
+         * remove positions, and auto-fill from the reservist pool.
+         *
+         * This is the permission the board's manage mode is gated on, and the
+         * one the write routes re-check server-side. Members can always move
+         * *themselves* while RSVP is open without holding it; once RSVP closes
+         * every member-originated move is rejected and only a holder of this
+         * key can change the board.
+         *
+         * Previously this power sat behind `admin.manageOrbat`, which is
+         * J4-Administration only — the ORBAT-*editing* permission borrowed for
+         * an attendance job. That is why nobody outside J4 could manage an
+         * operation's roster, and separating them is the point of this key.
+         *
+         * Checked two-armed — `await hasPermission(user, 'attendance.manage')`
+         * OR `client.hasRoles(user, PERMISSIONS.attendance.manage)` — because
+         * `hasPermission` has no Discord-role fallback and does not honour the
+         * J4-Administration bypass, so a brand-new key checked only the dynamic
+         * way is false for everybody, admins included.
+         *
+         * Used by:
+         *  - `app/api/operations/[id]/attendance/roster/route.ts`
+         *  - `app/api/operations/[id]/attendance/platoons/route.ts`
+         *  - `app/api/operations/[id]/attendance/manage/route.ts`
+         *  - `components/operations/board/AttendanceBoard.tsx` (`canManage` flag)
+         */
+        manage: ['HQ Staff', 'All Staff'],
     },
 
     // ── Auth / integrations ───────────────────────────────────────────────────
