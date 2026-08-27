@@ -3,7 +3,8 @@
 import type { Dayjs } from 'dayjs'
 import PreProductionPanel, { type OrdersCheckTask } from './PreProductionPanel'
 import RsvpWindowPanel from './RsvpWindowPanel'
-import type { TimelineMoment } from '@/lib/operations/schedule'
+import StagePanel from './StagePanel'
+import type { AttendanceStage, TimelineMoment } from '@/lib/operations/schedule'
 
 interface Props {
     opID: string
@@ -29,6 +30,11 @@ interface Props {
     onChangeCloseOffset: (mins: number) => void
     onChangeRsvpCloseAt: (v: Dayjs | null) => void
     automationPaused: boolean
+
+    stage: AttendanceStage | null
+    onAdvance: (to: AttendanceStage) => void
+    onSelect: (to: AttendanceStage) => void
+    advancing: boolean
 }
 
 /**
@@ -49,6 +55,7 @@ export default function ScheduleTab({
     timeline, onChangeDate, rsvpOpenAt, onSetRsvpOpenManual, onSetRsvpOpenScheduled,
     onChangeRsvpOpenAt, onQuickSetRsvpOpen, closeOffsetMins, onChangeCloseOffset,
     onChangeRsvpCloseAt, automationPaused,
+    stage, onAdvance, onSelect, advancing,
 }: Props) {
     return (
         <div style={{ width: '100%', maxWidth: 1220, margin: '0 auto', padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -80,7 +87,9 @@ export default function ScheduleTab({
                     automationPaused={automationPaused}
                 />
             )}
-            {/* Task 5 adds StagePanel here. */}
+            {isHQ && (
+                <StagePanel stage={stage} onAdvance={onAdvance} onSelect={onSelect} advancing={advancing} />
+            )}
         </div>
     )
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Panel from './Panel'
+import TabPanel from '../TabPanel'
 import { STAGE_ORDER, stageIndex, stageLabel, stageProgress, nextStage } from '@/lib/operations/stage'
 import type { AttendanceStage } from '@/lib/operations/schedule'
 
@@ -22,18 +22,22 @@ interface Props {
  * stage. But the old stepper also let HQ jump to *any* stage, including
  * backwards to correct a mistake (the cron's or a person's) — losing that
  * would mean a wrong stage could only be fixed by editing the database. So
- * the six progress segments stay individually clickable as the override,
- * while the bar itself stays the compact "thin progress bar" the spec asked
- * for rather than the old stepper's labelled nodes.
+ * the six progress segments stay individually clickable as the override.
+ *
+ * Moved here from the deck's Stage card (Task 5) — the third and final
+ * Schedule tab panel, after Pre-Production and RSVP Window. The deck's
+ * forced 340px width could only fit a bare 3px bar per segment, with each
+ * stage's name reachable solely via `aria-label`; the tab's full width
+ * brings the visible label back under each segment.
  */
-export default function StageCard({ stage, onAdvance, onSelect, advancing }: Props) {
+export default function StagePanel({ stage, onAdvance, onSelect, advancing }: Props) {
     const filled = stageProgress(stage)
     const next = nextStage(stage)
     const currentIdx = stageIndex(stage)
     const [hoverIdx, setHoverIdx] = useState<number | null>(null)
 
     return (
-        <Panel title="Stage" tag={`${filled} of ${STAGE_ORDER.length}`}>
+        <TabPanel title='Stage' horizon='run day'>
             <div style={{ padding: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }}>
                     {STAGE_ORDER.map((s, i) => {
@@ -61,20 +65,19 @@ export default function StageCard({ stage, onAdvance, onSelect, advancing }: Pro
                                         ? (isHovered ? 'rgba(var(--acc-rgb), 0.7)' : 'var(--acc)')
                                         : (isHovered ? 'var(--line-2)' : 'var(--line)'),
                                 }} />
+                                <span style={{
+                                    display: 'block', marginTop: 7,
+                                    fontFamily: 'var(--mono)', fontSize: 8.5,
+                                    letterSpacing: '0.1em', textTransform: 'uppercase',
+                                    color: isCurrent ? 'var(--acc)' : 'var(--ink-3)',
+                                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                }}>{stageLabel(s)}</span>
                             </button>
                         )
                     })}
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <span style={{
-                        fontFamily: 'var(--mono)', fontSize: 12,
-                        letterSpacing: '0.14em', textTransform: 'uppercase',
-                        color: 'var(--acc)',
-                    }}>
-                        {stageLabel(stage)}
-                    </span>
-
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, marginTop: 4 }}>
                     <button
                         type="button"
                         disabled={!next || advancing}
@@ -93,6 +96,6 @@ export default function StageCard({ stage, onAdvance, onSelect, advancing }: Pro
                     </button>
                 </div>
             </div>
-        </Panel>
+        </TabPanel>
     )
 }

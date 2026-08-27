@@ -17,7 +17,6 @@ import { usePresence } from './hooks/usePresence'
 import { useDocStats } from './hooks/useDocStats'
 import MissionDeck from './deck/MissionDeck'
 import CountdownStrip from './deck/CountdownStrip'
-import StageCard from './deck/StageCard'
 import DetailsCard from './deck/DetailsCard'
 import BriefTab from './tabs/BriefTab'
 import MapTab from './tabs/MapTab'
@@ -912,14 +911,6 @@ export default function Page() {
                                 onRemoveCover={removeCover}
                             />
                         )}
-                        {isHQ && opID && (
-                            <StageCard
-                                stage={displayStage}
-                                onAdvance={requestStageChange}
-                                onSelect={requestStageChange}
-                                advancing={stageAdvancing}
-                            />
-                        )}
                         {/* No attendance card here — unit assignment and the Discord
                             ping toggle now live in the Attendance tab alongside the
                             ping roles and acknowledgements they belong with. */}
@@ -973,6 +964,10 @@ export default function Page() {
                             onChangeCloseOffset={handleChangeCloseOffset}
                             onChangeRsvpCloseAt={handleChangeRsvpCloseAt}
                             automationPaused={status === 'In Development'}
+                            stage={displayStage}
+                            onAdvance={requestStageChange}
+                            onSelect={requestStageChange}
+                            advancing={stageAdvancing}
                         />
                     ) : null
                 }
