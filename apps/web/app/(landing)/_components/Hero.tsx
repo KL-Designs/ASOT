@@ -173,7 +173,7 @@ export default function Hero({ sotm, roster, opCard }: {
                     <div className={s.heroFacts}>
                         {roster != null && <span><Pulse /> <b>{roster}</b> active members</span>}
                         <span><b>2</b> ops per week</span>
-                        <span><b>Applications open</b></span>
+                        <span><b>17+</b> to enlist</span>
                     </div>
                 </div>
 

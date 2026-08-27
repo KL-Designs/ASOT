@@ -3,7 +3,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 
 import Button from '@/components/ui/Button'
-import Pulse from '@/components/ui/Pulse'
 import { CrateIcon, DiscordIcon, SteamIcon, YouTubeIcon, MailIcon } from '@/components/ui/icons'
 import Signature from '@/components/signature'
 import CreditsModal from '@/components/credits-modal'
@@ -134,10 +133,6 @@ export default async function Footer() {
                         <div className={s.r}>
                             <span>Active</span>
                             <b>{roster ?? '—'}</b>
-                        </div>
-                        <div className={s.r}>
-                            <span>Applications</span>
-                            <b className={s.g}><Pulse />Open</b>
                         </div>
                         <Button variant='amber' size='sm' href='/donate' block>
                             <CrateIcon /> Support the unit

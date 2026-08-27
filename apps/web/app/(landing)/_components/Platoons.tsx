@@ -15,26 +15,24 @@ import s from '@/styles/landing.module.css'
  * The three platoons.
  *
  * The member and section counts are live off the ORBAT rather than written
- * into the copy, so a card can't quietly go stale — and together with the
- * recruiting chip they answer the question the old cards didn't: "can I
- * actually join this one".
+ * into the copy, so a card can't quietly go stale. There is no recruiting
+ * status chip: every platoon is permanently open, so the slot only ever said
+ * one thing, and the ORBAT holds no establishment ceiling to make it a real
+ * figure instead.
  */
 
 const PLATOONS = [
     {
         id: 'platoon11', number: '1-1', role: 'Infantry', image: Droneteam7,
         body: 'Our primary infantry platoon and the main fighting force of the taskforce — three eight-man sections and a four-man headquarters, across a wide range of weapons, vehicles and equipment.',
-        recruiting: 'Open',
     },
     {
         id: 'platoon12', number: '1-2', role: 'Infantry', image: SPEAR_OVERCAST_Final,
         body: 'Mirrors the structure and role of 1-1 as a second core infantry platoon. Three eight-man sections and a four-man headquarters handling tactical operations across every environment.',
-        recruiting: 'Open',
     },
     {
         id: 'support', number: '1-3', role: 'Support', image: Mike1440,
         body: 'The support platoon — combat engineering, indirect fire, rotary air support, medical and armoured cavalry. Specialised teams that give every mission its operational flexibility.',
-        recruiting: 'Open',
     },
 ]
 
@@ -69,7 +67,6 @@ export default function Platoons({ stats }: { stats: PlatoonStat[] }) {
                                     <div className={s.stats}>
                                         <span><b>{stat?.members ?? '—'}</b>Members</span>
                                         <span><b>{stat?.sections ?? '—'}</b>Sections</span>
-                                        <span><b>{p.recruiting}</b>Recruiting</span>
                                     </div>
                                     <Button variant='red' size='sm' href={`/about/callsigns#${p.number}`}>
                                         Learn more <ArrowIcon />

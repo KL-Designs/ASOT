@@ -56,7 +56,7 @@ export default function EnlistBand() {
                 </div>
 
                 <div className={s.enlistCta}>
-                    <div className={s.t}>Applications are open.</div>
+                    <div className={s.t}>Ready when you are.</div>
                     <div className={s.btns}>
                         <EnlistButton>Enlist now <ArrowIcon /></EnlistButton>
                         <Button variant='discord' href='https://discord.gg/asot' external>
