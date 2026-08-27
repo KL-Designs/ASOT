@@ -48,12 +48,27 @@ import s from '@/styles/ui.module.css'
    relative to the high ones, which is what gives it relief.
 */
 const LEVELS = 30         // contour lines across the field
-const WEIGHT = 1.25          // px, before the index multiplier
+const WEIGHT = 1.3        // px, before the index multiplier
 const WARP = 0.55         // domain-warp strength — the twisting
 const INDEX_EVERY = 4     // heavier line every Nth contour
 const INDEX_BOOST = 2.15  // its opacity multiplier
 const INDEX_WEIGHT = 1.85 // its line-weight multiplier
 const DEPTH = 0.6         // how much brighter high ground reads
+
+/*
+   A floor under the depth ramp, as a fraction of an unfaded line.
+
+   DEPTH alone ran the lowest contours down to 0.61 of full strength, and with
+   no index boost on them either, the plain low lines came out at roughly a
+   quarter of an index line and simply vanished. Relief is worth having;
+   contours you cannot see are not relief, they are absence.
+
+   Clamping rather than reducing DEPTH keeps the ramp intact everywhere it is
+   doing visible work — only the bottom third, where it had gone too far, is
+   held up. Raise this if the faint lines still disappear; lower it toward 0.61
+   for the original, more dramatic falloff.
+*/
+const FAINTEST = 0.8
 
 /*
    The one global lever on how present the field is anywhere.
@@ -68,7 +83,7 @@ const DEPTH = 0.6         // how much brighter high ground reads
    and index contours take another INDEX_BOOST on top. So `opacity={0.05}`
    draws ordinary lines at 0.031-0.06 and its index lines at up to 0.128.
 */
-const GAIN = 1
+const GAIN = 0.9
 const RATE = 0.0055       // clock units per second at driftSeconds = 720
 const FREQ = 0.0022       // per-pixel, so the field keeps its scale on any width
 const STROKE = '#dfe6ee'
@@ -251,7 +266,7 @@ export default function Topo({
 
                 const level = L / (LEVELS + 1)
                 const isIndex = L % INDEX_EVERY === 0
-                const ramp = 1 - DEPTH + DEPTH * (0.35 + level)
+                const ramp = Math.max(FAINTEST, 1 - DEPTH + DEPTH * (0.35 + level))
 
                 ctx!.globalAlpha = Math.min(1, alpha * GAIN * ramp * (isIndex ? INDEX_BOOST : 1))
                 ctx!.lineWidth = WEIGHT * (isIndex ? INDEX_WEIGHT : 1)
