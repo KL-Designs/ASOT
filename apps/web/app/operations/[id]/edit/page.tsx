@@ -965,7 +965,7 @@ export default function Page() {
                 map={
                     <MapTab operationId={opID} canEdit={isHQ} world={resolvedMapWorld} />
                 }
-                development={
+                schedule={
                     opID ? (
                         <DevelopmentTab
                             opID={opID}

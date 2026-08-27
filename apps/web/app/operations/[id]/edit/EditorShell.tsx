@@ -5,23 +5,29 @@ import { rgbTriplet } from '@/lib/colour'
 import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
 import styles from './shell.module.css'
 
-export type EditorTab = 'brief' | 'map' | 'development' | 'attendance'
+export type EditorTab = 'brief' | 'map' | 'schedule' | 'attendance'
 
 /** Also used by Header.tsx, which renders the tab links inline in the merged
  * header row — see that file for why the row owns them instead of this one. */
-export const TABS: readonly EditorTab[] = ['brief', 'map', 'development', 'attendance']
+export const TABS: readonly EditorTab[] = ['brief', 'map', 'schedule', 'attendance']
 
 export const TAB_LABELS: Record<EditorTab, string> = {
     brief: 'Brief',
     map: 'Map',
-    development: 'Development',
+    schedule: 'Schedule',
     attendance: 'Attendance',
 }
 
+/** Tab values that used to be valid and still appear in saved links.
+ * Without this an old `?tab=development` bookmark silently resolves to
+ * `brief`, since an unrecognised value already falls back there. */
+const LEGACY_TAB_ALIASES: Record<string, EditorTab> = { development: 'schedule' }
+
 function tabFromLocation(): EditorTab {
     if (typeof window === 'undefined') return 'brief'
-    const t = new URLSearchParams(window.location.search).get('tab')
-    return (TABS as readonly string[]).includes(t ?? '') ? (t as EditorTab) : 'brief'
+    const t = new URLSearchParams(window.location.search).get('tab') ?? ''
+    if (t in LEGACY_TAB_ALIASES) return LEGACY_TAB_ALIASES[t]
+    return (TABS as readonly string[]).includes(t) ? (t as EditorTab) : 'brief'
 }
 
 /**
@@ -69,9 +75,9 @@ interface EditorShellProps {
      * unmount hazard as Brief — mounted on first visit, then kept mounted and
      * hidden with CSS like Brief, never unmounted again afterwards. */
     map: ReactNode
-    /** Mission development gates. Holds no socket — free to mount/unmount
+    /** Operation lifecycle: development gates, RSVP window, stage. Holds no socket — free to mount/unmount
      * with the tab switch. */
-    development: ReactNode
+    schedule: ReactNode
     /** Who attends, notifications, acknowledgements — `isHQ` only. Holds no
      * socket — free to mount/unmount with the tab switch. Gated by the caller
      * (page.tsx passes `null` for a non-HQ user) and, redundantly, here too:
@@ -86,7 +92,7 @@ interface EditorShellProps {
 
 export default function EditorShell({
     operationId, themeColor, isHQ, tab, onTabChange, header, deck, statusBar,
-    brief, map, development, attendance, contentPaddingRight,
+    brief, map, schedule, attendance, contentPaddingRight,
 }: EditorShellProps) {
     const visibleTabs = TABS.filter(t => t !== 'attendance' || isHQ)
     // A tab that isn't in the visible set — a non-HQ user deep-linking
@@ -160,7 +166,7 @@ export default function EditorShell({
                                 {map}
                             </div>
                         )}
-                        {active === 'development' && development}
+                        {active === 'schedule' && schedule}
                         {active === 'attendance' && isHQ && attendance}
                     </div>
                     {/*
