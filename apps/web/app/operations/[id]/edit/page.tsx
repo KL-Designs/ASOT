@@ -22,7 +22,7 @@ import StageCard from './deck/StageCard'
 import DetailsCard from './deck/DetailsCard'
 import BriefTab from './tabs/BriefTab'
 import MapTab from './tabs/MapTab'
-import DevelopmentTab from './tabs/DevelopmentTab'
+import ScheduleTab from './tabs/schedule/ScheduleTab'
 import AttendanceTab from './tabs/AttendanceTab'
 import type { MapWorld } from '@/components/operations/map/types'
 
@@ -91,8 +91,8 @@ export default function Page() {
     // Task 9 also consumes the timeline it builds, for the Timeline card.
     const { timeline, daysUntil, refresh } = useOperationStatus(opID)
 
-    // Mission Development — the gate timeline's own UI-local state (collapse
-    // toggle, completion-modal form fields) now lives in DevelopmentTab;
+    // Mission Development — the gate timeline's own UI-local state
+    // (completion-modal form fields) now lives in PreProductionPanel;
     // `missionDev` stays lifted because the deck's CountdownStrip reads it too.
     const [missionDev, setMissionDev] = useState<MissionDevelopment | null>(null)
     const [isCampaignOp, setIsCampaignOp] = useState(false)
@@ -116,8 +116,8 @@ export default function Page() {
     const [ackList, setAckList] = useState<{ userId: string; userName: string; acknowledgedAt: string }[]>([])
 
     // Orders Check Request — the request/reminder form's own UI-local state
-    // now lives in DevelopmentTab; `ordersCheckTask` stays lifted because it's
-    // populated by the load effect below.
+    // now lives in PreProductionPanel; `ordersCheckTask` stays lifted because
+    // it's populated by the load effect below.
     const [ordersCheckTask, setOrdersCheckTask]             = useState<null | { _id?: string; status: string; ordersCheckAt?: string; ordersCheckStatus?: string; ordersCheckProposedAt?: string; ordersCheckProposedBy?: string }>(null)
 
     const [assignedPlatoons, setAssignedPlatoons] = useState<string[]>([])
@@ -967,8 +967,9 @@ export default function Page() {
                 }
                 schedule={
                     opID ? (
-                        <DevelopmentTab
+                        <ScheduleTab
                             opID={opID}
+                            isHQ={isHQ}
                             isJ2Lead={isJ2Lead}
                             title={title}
                             date={date}

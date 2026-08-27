@@ -5,8 +5,10 @@ import type { Dayjs } from 'dayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import ConfirmDialog from '@/components/confirm-dialog'
+import TabPanel from '../TabPanel'
 
-type OrdersCheckTask = {
+export type OrdersCheckTask = {
     _id?: string
     status: string
     ordersCheckAt?: string
@@ -65,25 +67,26 @@ const pickerSx = {
 
 /**
  * Mission development gate timeline + its completion modal, and the Orders
- * Check Request block that lived inside the same collapsible panel — moved
- * out of page.tsx verbatim (Task 12): same endpoints, same fields, same
- * `isJ2Lead` gate, same collapsible-panel toggle. Only the colours changed,
- * from raw `rgba()` literals to the `--acc`/`--good`/`--warn`/token palette
- * every other file in this redesign uses.
+ * Check Request block that lived inside the same collapsible panel — split
+ * out of the old Development tab (Task 3) as the Schedule tab's first panel:
+ * same endpoints, same fields, same `isJ2Lead` gate. The collapsible-panel
+ * toggle is gone (TabPanel is always open), the header's status content moved
+ * into TabPanel's `badge`/`horizon` slots, and the native `confirm()`
+ * guarding completion removal is now a themed `ConfirmDialog`.
  *
  * The six-step Mission Stage stepper that used to sit in the *other*
  * collapsible panel (Attendance Settings) is not here — it was already
  * superseded by the deck's StageCard (Task 10) and is retired outright, not
  * rehomed, per the design doc §9.
  */
-export default function DevelopmentTab({
+export default function PreProductionPanel({
     opID, isJ2Lead, title, date, isCampaignOp, campaignStartDate,
     missionDev, setMissionDev, ordersCheckTask, setOrdersCheckTask,
 }: Props) {
-    const [open, setOpen] = useState(true)
     const [saving, setSaving] = useState(false)
 
     const [completingCheckId, setCompletingCheckId] = useState<string | null>(null)
+    const [uncompleteCheckId, setUncompleteCheckId] = useState<string | null>(null)
     const [reviewerName, setReviewerName] = useState('')
     const [comments, setComments] = useState('')
     const [outcome, setOutcome] = useState('')
@@ -97,10 +100,20 @@ export default function DevelopmentTab({
     const [ordersCheckReminderSaving, setOrdersCheckReminderSaving] = useState(false)
     const [ordersCheckReminderSet, setOrdersCheckReminderSet] = useState(false)
 
+    if (!opID) return null
+
     const baseDate = isCampaignOp && campaignStartDate
         ? new Date(campaignStartDate)
         : date?.toDate() ?? null
-    if (!opID || !baseDate) return null
+    if (!baseDate) {
+        return (
+            <TabPanel title='Pre-Production' horizon='16w → 4w out'>
+                <div style={{ padding: 16, fontSize: '0.72rem', color: 'var(--ink-3)', fontStyle: 'italic' }}>
+                    Set an operation date in Details to schedule development checks.
+                </div>
+            </TabPanel>
+        )
+    }
 
     const weeksList = isCampaignOp ? [16, 12, 10, 8, 6, 4] : [12, 10, 8, 6, 4]
     const now = new Date()
@@ -165,223 +178,208 @@ export default function DevelopmentTab({
     }
 
     return (
-        <div style={{ width: '100%', maxWidth: 1220, margin: '0 auto', padding: 'clamp(1.5rem, 2.5vw, 2.5rem)' }}>
-            <div style={{
-                border: '1px solid var(--line)', borderTop: `2px solid ${allDone ? 'var(--good)' : 'rgba(var(--acc-rgb), 0.5)'}`,
-                borderRadius: 'var(--r)', background: 'var(--s1)',
-            }}>
-                <button type='button' onClick={() => setOpen(v => !v)}
-                    className='flex items-center justify-between px-4 py-3'
-                    style={{
-                        borderBottom: open ? '1px solid var(--line)' : 'none',
-                        width: '100%', background: 'none', cursor: 'pointer', textAlign: 'left',
-                    }}
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: allDone ? 'var(--good)' : 'var(--ink-3)' }}>
-                            Mission Development
+        <>
+            <TabPanel
+                title='Pre-Production'
+                horizon={isCampaignOp ? '16w → 4w out' : '12w → 4w out'}
+                badge={<>
+                    {allDone && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--good)', letterSpacing: '0.1em' }}>✓ All Checks Complete</span>}
+                    {!allDone && checks.some(ch => ch.isOverdue) && (
+                        <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--warn)', border: '1px solid var(--warn)', borderRadius: 'var(--r)', padding: '2px 8px' }}>
+                            {checks.filter(ch => ch.isOverdue).length} Overdue
                         </span>
-                        {allDone && <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--good)', letterSpacing: '0.1em' }}>✓ All Checks Complete</span>}
-                        {!allDone && checks.some(ch => ch.isOverdue) && (
-                            <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--warn)', border: '1px solid var(--warn)', borderRadius: 'var(--r)', padding: '2px 8px' }}>
-                                {checks.filter(ch => ch.isOverdue).length} Overdue
-                            </span>
-                        )}
-                        {saving && <span style={{ fontSize: '0.6rem', color: 'var(--acc)', fontWeight: 700 }}>Saving…</span>}
-                    </div>
-                    <span style={{ fontSize: '0.65rem', color: 'var(--ink-3)', fontFamily: 'var(--mono)' }}>{open ? '[−]' : '[+]'}</span>
-                </button>
-
-                {open && (
-                    <div style={{ padding: '20px 16px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 16 }}>
-                            {checks.map((ch, i) => {
-                                const nodeColor = ch.isCompleted ? 'var(--good)' : ch.isOverdue ? 'var(--warn)' : 'var(--s3)'
-                                const borderClr = ch.isCompleted ? 'var(--good)' : ch.isOverdue ? 'var(--warn)' : 'var(--line-2)'
-                                const labelClr = ch.isCompleted ? 'var(--good)' : ch.isOverdue ? 'var(--warn)' : 'var(--ink-3)'
-                                const connectorColor = ch.isCompleted && checks[i + 1]?.isCompleted ? 'var(--good)' : 'var(--line)'
-                                return (
-                                    <div key={ch.id} style={{ display: 'flex', alignItems: 'flex-start', flex: i < checks.length - 1 ? 1 : undefined }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 52 }}>
-                                            <button
-                                                type='button'
-                                                disabled={!isJ2Lead || saving}
-                                                onClick={() => {
-                                                    if (!isJ2Lead) return
-                                                    if (ch.isCompleted) {
-                                                        if (confirm(`Remove completion for ${ch.label} check?`)) removeCompletion(ch.id)
-                                                    } else {
-                                                        setCompletingCheckId(ch.id)
-                                                        setReviewerName('')
-                                                        setComments('')
-                                                        setOutcome('')
-                                                    }
-                                                }}
-                                                title={isJ2Lead ? (ch.isCompleted ? 'Click to remove completion' : 'Click to complete this check') : 'J2 leads only'}
-                                                style={{
-                                                    width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                                                    background: nodeColor, border: `2px solid ${borderClr}`,
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    cursor: isJ2Lead ? 'pointer' : 'default',
-                                                    padding: 0, transition: 'all 0.2s',
-                                                }}
-                                            >
-                                                {ch.isCompleted && <span style={{ fontSize: 9, color: 'var(--bg)', lineHeight: 1 }}>✓</span>}
-                                                {ch.isOverdue && !ch.isCompleted && <span style={{ fontSize: 9, color: 'var(--bg)', lineHeight: 1 }}>!</span>}
-                                            </button>
-                                            <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
-                                                <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: labelClr }}>{ch.label}</div>
-                                                <div style={{ fontSize: '0.48rem', color: 'var(--ink-3)', letterSpacing: '0.04em' }}>{fmtDate(ch.dueDate)}</div>
-                                            </div>
-                                            {ch.completion && (
-                                                <div style={{ fontSize: '0.44rem', color: 'var(--good)', textAlign: 'center', lineHeight: 1.3, maxWidth: 50 }}>
-                                                    {ch.completion.reviewerName}
-                                                </div>
-                                            )}
+                    )}
+                    {saving && <span style={{ fontSize: '0.6rem', color: 'var(--acc)', fontWeight: 700 }}>Saving…</span>}
+                </>}
+            >
+                <div style={{ padding: '20px 16px 16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', marginBottom: 16 }}>
+                        {checks.map((ch, i) => {
+                            const nodeColor = ch.isCompleted ? 'var(--good)' : ch.isOverdue ? 'var(--warn)' : 'var(--s3)'
+                            const borderClr = ch.isCompleted ? 'var(--good)' : ch.isOverdue ? 'var(--warn)' : 'var(--line-2)'
+                            const labelClr = ch.isCompleted ? 'var(--good)' : ch.isOverdue ? 'var(--warn)' : 'var(--ink-3)'
+                            const connectorColor = ch.isCompleted && checks[i + 1]?.isCompleted ? 'var(--good)' : 'var(--line)'
+                            return (
+                                <div key={ch.id} style={{ display: 'flex', alignItems: 'flex-start', flex: i < checks.length - 1 ? 1 : undefined }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 52 }}>
+                                        <button
+                                            type='button'
+                                            disabled={!isJ2Lead || saving}
+                                            onClick={() => {
+                                                if (!isJ2Lead) return
+                                                if (ch.isCompleted) {
+                                                    setUncompleteCheckId(ch.id)
+                                                } else {
+                                                    setCompletingCheckId(ch.id)
+                                                    setReviewerName('')
+                                                    setComments('')
+                                                    setOutcome('')
+                                                }
+                                            }}
+                                            title={isJ2Lead ? (ch.isCompleted ? 'Click to remove completion' : 'Click to complete this check') : 'J2 leads only'}
+                                            style={{
+                                                width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
+                                                background: nodeColor, border: `2px solid ${borderClr}`,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                cursor: isJ2Lead ? 'pointer' : 'default',
+                                                padding: 0, transition: 'all 0.2s',
+                                            }}
+                                        >
+                                            {ch.isCompleted && <span style={{ fontSize: 9, color: 'var(--bg)', lineHeight: 1 }}>✓</span>}
+                                            {ch.isOverdue && !ch.isCompleted && <span style={{ fontSize: 9, color: 'var(--bg)', lineHeight: 1 }}>!</span>}
+                                        </button>
+                                        <div style={{ textAlign: 'center', lineHeight: 1.3 }}>
+                                            <div style={{ fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: labelClr }}>{ch.label}</div>
+                                            <div style={{ fontSize: '0.48rem', color: 'var(--ink-3)', letterSpacing: '0.04em' }}>{fmtDate(ch.dueDate)}</div>
                                         </div>
-                                        {i < checks.length - 1 && (
-                                            <div style={{ flex: 1, height: 2, marginTop: 10, background: connectorColor }} />
+                                        {ch.completion && (
+                                            <div style={{ fontSize: '0.44rem', color: 'var(--good)', textAlign: 'center', lineHeight: 1.3, maxWidth: 50 }}>
+                                                {ch.completion.reviewerName}
+                                            </div>
                                         )}
                                     </div>
-                                )
-                            })}
-                        </div>
-
-                        {/* Legend */}
-                        <div style={{ display: 'flex', gap: 16, fontSize: '0.55rem', color: 'var(--ink-3)' }}>
-                            <span><span style={{ color: 'var(--good)' }}>●</span> Completed</span>
-                            <span><span style={{ color: 'var(--warn)' }}>●</span> Overdue</span>
-                            <span><span style={{ color: 'var(--line-2)' }}>●</span> Pending</span>
-                            {!isJ2Lead && <span style={{ color: 'var(--ink-3)', fontStyle: 'italic' }}>J2 leads can complete checks</span>}
-                            <span style={{ marginLeft: 'auto', color: 'var(--ink-3)' }}>
-                                {isCampaignOp ? 'Campaign — 6 checks from campaign start' : 'Single mission — 5 checks from op date'}
-                            </span>
-                        </div>
-
-                        {/* Per-check detail rows for completed checks */}
-                        {checks.filter(ch => ch.completion).length > 0 && (
-                            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {checks.filter(ch => ch.completion).map(ch => (
-                                    <div key={ch.id} style={{ padding: '8px 12px', background: 'var(--s2)', border: '1px solid var(--line)', borderRadius: 'var(--r)', display: 'flex', flexDirection: 'column', gap: 3 }}>
-                                        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                                            <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--good)', letterSpacing: '0.08em' }}>{ch.label}</span>
-                                            <span style={{ fontSize: '0.58rem', color: 'var(--ink-2)' }}>Reviewed by {ch.completion!.reviewerName}</span>
-                                            <span style={{ fontSize: '0.55rem', color: 'var(--ink-3)', marginLeft: 'auto' }}>
-                                                {new Date(ch.completion!.completedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        </div>
-                                        {ch.completion!.comments && (
-                                            <div style={{ fontSize: '0.58rem', color: 'var(--ink-2)', paddingLeft: 2 }}>{ch.completion!.comments}</div>
-                                        )}
-                                        {ch.completion!.outcome && (
-                                            <div style={{ fontSize: '0.58rem', color: 'var(--warn)', paddingLeft: 2 }}>Outcome: {ch.completion!.outcome}</div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Orders Check Request */}
-                        <div style={{ marginTop: 16, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-                            {ordersCheckTask ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)' }}>
-                                        <div style={{ flex: 1 }}>
-                                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--acc)', marginBottom: 3 }}>
-                                                Orders Check {ordersCheckTask.ordersCheckStatus === 'confirmed' ? '✓ Confirmed' : ordersCheckTask.ordersCheckStatus === 'proposed' ? '— Alternative Proposed' : '— Requested'}
-                                            </div>
-                                            {ordersCheckTask.ordersCheckAt && (
-                                                <div style={{ fontSize: '0.68rem', color: 'var(--ink-2)' }}>
-                                                    Requested: {new Date(ordersCheckTask.ordersCheckAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
-                                                </div>
-                                            )}
-                                            {ordersCheckTask.ordersCheckStatus === 'proposed' && ordersCheckTask.ordersCheckProposedAt && (
-                                                <div style={{ fontSize: '0.65rem', color: 'var(--warn)', marginTop: 2 }}>
-                                                    Alternative by {ordersCheckTask.ordersCheckProposedBy}: {new Date(ordersCheckTask.ordersCheckProposedAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
-                                                </div>
-                                            )}
-                                        </div>
-                                        {ordersCheckTask.ordersCheckStatus !== 'confirmed' && ordersCheckTask._id && (
-                                            <button
-                                                type='button'
-                                                disabled={ordersCheckCancelling}
-                                                onClick={async () => {
-                                                    if (!confirm('Cancel this orders check request?')) return
-                                                    setOrdersCheckCancelling(true)
-                                                    try {
-                                                        const res = await fetch(`/api/operations/${opID}/orders-check?taskId=${ordersCheckTask._id}`, { method: 'DELETE' })
-                                                        if (res.ok) {
-                                                            setOrdersCheckTask(null)
-                                                            setOrdersCheckReminderSet(false)
-                                                        } else {
-                                                            const d = await res.json()
-                                                            alert(d.error ?? 'Failed to cancel.')
-                                                        }
-                                                    } finally {
-                                                        setOrdersCheckCancelling(false)
-                                                    }
-                                                }}
-                                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: 'var(--r)', background: 'none', border: '1px solid var(--crit)', color: 'var(--crit)', cursor: 'pointer', flexShrink: 0 }}
-                                            >
-                                                {ordersCheckCancelling ? '…' : 'Cancel Request'}
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Reminder — shown after confirmation */}
-                                    {ordersCheckTask.ordersCheckStatus === 'confirmed' && ordersCheckTask._id && (
-                                        <LocalizationProvider dateAdapter={AdapterDayjs}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--s1)', border: '1px solid var(--line)', borderRadius: 'var(--r)' }}>
-                                                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)', flexShrink: 0 }}>Remind me:</span>
-                                                <DateTimePicker
-                                                    value={ordersCheckReminderAt}
-                                                    onChange={v => setOrdersCheckReminderAt(v)}
-                                                    slotProps={{
-                                                        textField: { size: 'small', sx: pickerSx },
-                                                        popper: { sx: { zIndex: 19999 } },
-                                                    }}
-                                                />
-                                                <button
-                                                    type='button'
-                                                    disabled={!ordersCheckReminderAt || ordersCheckReminderSaving}
-                                                    onClick={async () => {
-                                                        if (!ordersCheckReminderAt) return
-                                                        setOrdersCheckReminderSaving(true)
-                                                        try {
-                                                            const res = await fetch(`/api/operations/${opID}/orders-check`, {
-                                                                method: 'PATCH',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({ taskId: ordersCheckTask._id, action: 'set_reminder', proposedAt: ordersCheckReminderAt.toISOString() }),
-                                                            })
-                                                            if (res.ok) { setOrdersCheckReminderSet(true) }
-                                                            else { const d = await res.json(); alert(d.error ?? 'Failed.') }
-                                                        } finally {
-                                                            setOrdersCheckReminderSaving(false)
-                                                        }
-                                                    }}
-                                                    style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: 'var(--r)', background: ordersCheckReminderSet ? 'var(--s3)' : 'var(--s2)', border: `1px solid ${ordersCheckReminderSet ? 'var(--good)' : 'var(--acc)'}`, color: ordersCheckReminderSet ? 'var(--good)' : 'var(--acc)', cursor: 'pointer', flexShrink: 0 }}
-                                                >
-                                                    {ordersCheckReminderSet ? '✓ Set' : 'Set Reminder'}
-                                                </button>
-                                            </div>
-                                        </LocalizationProvider>
+                                    {i < checks.length - 1 && (
+                                        <div style={{ flex: 1, height: 2, marginTop: 10, background: connectorColor }} />
                                     )}
                                 </div>
-                            ) : (
-                                <button type='button' onClick={() => setOrdersCheckModal(true)}
-                                    style={{
-                                        fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
-                                        padding: '7px 16px', borderRadius: 'var(--r)', background: 'var(--s2)', border: '1px solid var(--acc)',
-                                        color: 'var(--acc)', cursor: 'pointer',
-                                    }}
-                                >
-                                    + Request Orders Check
-                                </button>
-                            )}
-                        </div>
+                            )
+                        })}
                     </div>
-                )}
-            </div>
+
+                    {/* Legend */}
+                    <div style={{ display: 'flex', gap: 16, fontSize: '0.55rem', color: 'var(--ink-3)' }}>
+                        <span><span style={{ color: 'var(--good)' }}>●</span> Completed</span>
+                        <span><span style={{ color: 'var(--warn)' }}>●</span> Overdue</span>
+                        <span><span style={{ color: 'var(--line-2)' }}>●</span> Pending</span>
+                        {!isJ2Lead && <span style={{ color: 'var(--ink-3)', fontStyle: 'italic' }}>J2 leads can complete checks</span>}
+                        <span style={{ marginLeft: 'auto', color: 'var(--ink-3)' }}>
+                            {isCampaignOp ? 'Campaign — 6 checks from campaign start' : 'Single mission — 5 checks from op date'}
+                        </span>
+                    </div>
+
+                    {/* Per-check detail rows for completed checks */}
+                    {checks.filter(ch => ch.completion).length > 0 && (
+                        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {checks.filter(ch => ch.completion).map(ch => (
+                                <div key={ch.id} style={{ padding: '8px 12px', background: 'var(--s2)', border: '1px solid var(--line)', borderRadius: 'var(--r)', display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                    <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                        <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'var(--good)', letterSpacing: '0.08em' }}>{ch.label}</span>
+                                        <span style={{ fontSize: '0.58rem', color: 'var(--ink-2)' }}>Reviewed by {ch.completion!.reviewerName}</span>
+                                        <span style={{ fontSize: '0.55rem', color: 'var(--ink-3)', marginLeft: 'auto' }}>
+                                            {new Date(ch.completion!.completedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    {ch.completion!.comments && (
+                                        <div style={{ fontSize: '0.58rem', color: 'var(--ink-2)', paddingLeft: 2 }}>{ch.completion!.comments}</div>
+                                    )}
+                                    {ch.completion!.outcome && (
+                                        <div style={{ fontSize: '0.58rem', color: 'var(--warn)', paddingLeft: 2 }}>Outcome: {ch.completion!.outcome}</div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Orders Check Request */}
+                    <div style={{ marginTop: 16, borderTop: '1px solid var(--line)', paddingTop: 14 }}>
+                        {ordersCheckTask ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)' }}>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--acc)', marginBottom: 3 }}>
+                                            Orders Check {ordersCheckTask.ordersCheckStatus === 'confirmed' ? '✓ Confirmed' : ordersCheckTask.ordersCheckStatus === 'proposed' ? '— Alternative Proposed' : '— Requested'}
+                                        </div>
+                                        {ordersCheckTask.ordersCheckAt && (
+                                            <div style={{ fontSize: '0.68rem', color: 'var(--ink-2)' }}>
+                                                Requested: {new Date(ordersCheckTask.ordersCheckAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
+                                            </div>
+                                        )}
+                                        {ordersCheckTask.ordersCheckStatus === 'proposed' && ordersCheckTask.ordersCheckProposedAt && (
+                                            <div style={{ fontSize: '0.65rem', color: 'var(--warn)', marginTop: 2 }}>
+                                                Alternative by {ordersCheckTask.ordersCheckProposedBy}: {new Date(ordersCheckTask.ordersCheckProposedAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {ordersCheckTask.ordersCheckStatus !== 'confirmed' && ordersCheckTask._id && (
+                                        <button
+                                            type='button'
+                                            disabled={ordersCheckCancelling}
+                                            onClick={async () => {
+                                                if (!confirm('Cancel this orders check request?')) return
+                                                setOrdersCheckCancelling(true)
+                                                try {
+                                                    const res = await fetch(`/api/operations/${opID}/orders-check?taskId=${ordersCheckTask._id}`, { method: 'DELETE' })
+                                                    if (res.ok) {
+                                                        setOrdersCheckTask(null)
+                                                        setOrdersCheckReminderSet(false)
+                                                    } else {
+                                                        const d = await res.json()
+                                                        alert(d.error ?? 'Failed to cancel.')
+                                                    }
+                                                } finally {
+                                                    setOrdersCheckCancelling(false)
+                                                }
+                                            }}
+                                            style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: 'var(--r)', background: 'none', border: '1px solid var(--crit)', color: 'var(--crit)', cursor: 'pointer', flexShrink: 0 }}
+                                        >
+                                            {ordersCheckCancelling ? '…' : 'Cancel Request'}
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Reminder — shown after confirmation */}
+                                {ordersCheckTask.ordersCheckStatus === 'confirmed' && ordersCheckTask._id && (
+                                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--s1)', border: '1px solid var(--line)', borderRadius: 'var(--r)' }}>
+                                            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)', flexShrink: 0 }}>Remind me:</span>
+                                            <DateTimePicker
+                                                value={ordersCheckReminderAt}
+                                                onChange={v => setOrdersCheckReminderAt(v)}
+                                                slotProps={{
+                                                    textField: { size: 'small', sx: pickerSx },
+                                                    popper: { sx: { zIndex: 19999 } },
+                                                }}
+                                            />
+                                            <button
+                                                type='button'
+                                                disabled={!ordersCheckReminderAt || ordersCheckReminderSaving}
+                                                onClick={async () => {
+                                                    if (!ordersCheckReminderAt) return
+                                                    setOrdersCheckReminderSaving(true)
+                                                    try {
+                                                        const res = await fetch(`/api/operations/${opID}/orders-check`, {
+                                                            method: 'PATCH',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ taskId: ordersCheckTask._id, action: 'set_reminder', proposedAt: ordersCheckReminderAt.toISOString() }),
+                                                        })
+                                                        if (res.ok) { setOrdersCheckReminderSet(true) }
+                                                        else { const d = await res.json(); alert(d.error ?? 'Failed.') }
+                                                    } finally {
+                                                        setOrdersCheckReminderSaving(false)
+                                                    }
+                                                }}
+                                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 10px', borderRadius: 'var(--r)', background: ordersCheckReminderSet ? 'var(--s3)' : 'var(--s2)', border: `1px solid ${ordersCheckReminderSet ? 'var(--good)' : 'var(--acc)'}`, color: ordersCheckReminderSet ? 'var(--good)' : 'var(--acc)', cursor: 'pointer', flexShrink: 0 }}
+                                            >
+                                                {ordersCheckReminderSet ? '✓ Set' : 'Set Reminder'}
+                                            </button>
+                                        </div>
+                                    </LocalizationProvider>
+                                )}
+                            </div>
+                        ) : (
+                            <button type='button' onClick={() => setOrdersCheckModal(true)}
+                                style={{
+                                    fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase',
+                                    padding: '7px 16px', borderRadius: 'var(--r)', background: 'var(--s2)', border: '1px solid var(--acc)',
+                                    color: 'var(--acc)', cursor: 'pointer',
+                                }}
+                            >
+                                + Request Orders Check
+                            </button>
+                        )}
+                    </div>
+                </div>
+            </TabPanel>
 
             {/* Completion modal */}
             {completingCheckId && (() => {
@@ -549,6 +547,16 @@ export default function DevelopmentTab({
                     </LocalizationProvider>
                 </div>
             )}
-        </div>
+
+            <ConfirmDialog
+                open={uncompleteCheckId !== null}
+                title='Remove Completion'
+                message={`Remove the completion record for the ${uncompleteCheckId?.replace('w', '')}W development check? The reviewer, comments and outcome will be discarded.`}
+                confirmLabel='Remove'
+                danger
+                onConfirm={() => { const id = uncompleteCheckId!; setUncompleteCheckId(null); removeCompletion(id) }}
+                onCancel={() => setUncompleteCheckId(null)}
+            />
+        </>
     )
 }
