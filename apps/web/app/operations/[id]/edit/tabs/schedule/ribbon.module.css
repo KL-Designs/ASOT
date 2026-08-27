@@ -200,9 +200,12 @@
     background: var(--acc);
     pointer-events: none;
 }
+/* Lifted clear of the boundary labels rather than sitting among them: the
+   `now` line lands wherever the clock puts it, which is often right beside a
+   boundary tick, and at 8.5px mono the two captions ran into each other. */
 .nowFlag {
     position: absolute;
-    top: -13px;
+    top: -82px;
     left: 5px;
     white-space: nowrap;
     font-family: var(--mono);

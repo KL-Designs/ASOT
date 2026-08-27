@@ -114,7 +114,13 @@ export default function ScheduleTab({
         : 'anchor — every phase below is measured from here'
 
     return (
-        <div style={{ width: '100%', maxWidth: 1220, margin: '0 auto', padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        // No max-width, unlike AttendanceTab's 1220. The ribbon is a
+        // wide-format diagram: every extra pixel goes into separating boundary
+        // labels and milestones that would otherwise collide, so capping it
+        // reintroduces the crowding the rebuild set out to remove. Attendance
+        // keeps its cap because it is 420px form controls, which only look
+        // worse stretched.
+        <div style={{ width: '100%', padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}>
             <TabPanel
                 title="Operation timeline"
                 horizon={isCampaignOp ? '16w out → +24h' : '12w out → +24h'}
@@ -134,7 +140,7 @@ export default function ScheduleTab({
 
                 <div style={{
                     borderTop: '1px solid var(--line)', padding: 16,
-                    display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(240px, 1fr)', gap: 26,
+                    display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 360px)', gap: 26,
                 }}>
                     <div style={{ minWidth: 0 }}>
                         {critical && (
