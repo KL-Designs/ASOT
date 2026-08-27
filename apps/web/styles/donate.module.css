@@ -113,6 +113,9 @@
 
 .lede {
     color: #eceff2;
+    /* globals.css sets text-align: left directly on p in @layer base, so the
+       centring inherited from .bandIn never reaches it. */
+    text-align: center;
     font-size: clamp(15.5px, 1.3vw, 18px);
     line-height: 1.6;
     max-width: 46ch;
