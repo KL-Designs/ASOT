@@ -16,16 +16,14 @@
 /* ---------- topo backdrop ------------------------------------------------ */
 
 /*
-   The drifting contour field. The mockups inlined ~160KB of contour paths and
-   repeated them with two <use> copies; here the same art is an external file
-   (public/designs/topo.svg, viewBox 0 0 2400 800) painted as a repeating
-   background, so it is cached once by the browser and never lands in the HTML
-   of every page.
+   The contour field. Drawn to a canvas by components/ui/Topo, which generates
+   the lines rather than translating a picture of them — see the notes there and
+   in lib/topo/field.ts.
 
-   The seam-free loop is the same trick by other means: the tile div is 340% of
-   its container wide with tiles at 50% of that (= 170% of the container), so
-   translating it by exactly -50% of itself advances precisely one tile. There
-   is no jump to hide, which is what makes an arbitrarily slow drift safe.
+   Only the frame and the edge masks live here now. The tile, its seam-free
+   translate loop and the reduced-motion override all went with the SVG: there
+   is no tile to advance, and the component holds a single frame rather than
+   pausing an animation.
 */
 .topo {
     position: absolute;
@@ -35,19 +33,10 @@
     z-index: 0;
 }
 
-.topoTile {
-    position: absolute;
-    top: 0;
-    left: 0;
+.topoCanvas {
+    display: block;
+    width: 100%;
     height: 100%;
-    width: 340%;
-    background-image: url('/designs/topo.svg');
-    background-repeat: repeat-x;
-    background-size: 50% auto;
-    /* The art is far taller than most bands it sits in; centring shows a
-       horizontal slice rather than the whole field. */
-    background-position: left center;
-    opacity: var(--topo-op, 0.065);
 }
 
 /* Fades in from both edges — for full-width bands that shouldn't have the
@@ -73,22 +62,6 @@
 .topoLeft {
     -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 38%, transparent 74%);
     mask-image: linear-gradient(90deg, #000 0%, #000 38%, transparent 74%);
-}
-
-.topoDrift .topoTile {
-    animation: topodrift var(--topo-drift, 720s) linear infinite;
-}
-
-@keyframes topodrift {
-    to {
-        transform: translateX(-50%);
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .topoDrift .topoTile {
-        animation: none;
-    }
 }
 
 /* ---------- notched button ----------------------------------------------- */
