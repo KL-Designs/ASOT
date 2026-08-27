@@ -766,6 +766,12 @@ delete confirmation, and embeds the TipTap collaborative `<OperationEditor
 documentId={opID}/>` (dynamic import of `@/components/editor/CollabEditor`) for the actual orders
 content. Also toggles a right-hand `<ActivityLog/>` panel and a live `<iframe>` preview pane.
 
+Composed via `edit/EditorShell.tsx` as four tabs (Brief / Map / Development / Attendance — the
+last `isHQ`-only) plus a right-hand mission deck (`edit/deck/`: CountdownStrip, DetailsCard,
+ScheduleCard, StageCard). **All attendance controls live in the Attendance tab**
+(`edit/tabs/AttendanceTab.tsx`): assigned units + custom units, the Discord ping toggle and its
+per-role targets, and the acknowledgement summary. The deck holds no attendance card.
+
 #### app/operations/[id]/edit/activity-log.tsx
 Client `ActivityLog` panel: polls `GET /api/operations/activity?id=` every 30s, shows a
 word-level diff (`before`/`after`) per edit entry when expanded, relative timestamps.

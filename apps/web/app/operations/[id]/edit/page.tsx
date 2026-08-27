@@ -20,7 +20,6 @@ import CountdownStrip from './deck/CountdownStrip'
 import ScheduleCard from './deck/ScheduleCard'
 import StageCard from './deck/StageCard'
 import DetailsCard from './deck/DetailsCard'
-import AttendanceCard from './deck/AttendanceCard'
 import BriefTab from './tabs/BriefTab'
 import MapTab from './tabs/MapTab'
 import DevelopmentTab from './tabs/DevelopmentTab'
@@ -146,10 +145,9 @@ export default function Page() {
 
     // Custom attendance units — the standalone Custom Attendance Units panel
     // that owned `customUnitsOpen`/`newUnitName`/`newUnitColor` is retired
-    // (Task 12): fully superseded by the deck AttendanceCard's "+ Custom
-    // Unit" chip since Task 11. `customUnits`/`customUnitsSaving` stay lifted
-    // — AttendanceCard still reads and writes them via addCustomUnit/
-    // removeCustomUnit below.
+    // (Task 12): fully superseded by the "+ Custom Unit" chip, which lives in
+    // AttendanceTab. `customUnits`/`customUnitsSaving` stay lifted — that tab
+    // reads and writes them via addCustomUnit/removeCustomUnit below.
     const [customUnits, setCustomUnits] = useState<{ id: string; name: string; color?: string }[]>([])
     const [customUnitsSaving, setCustomUnitsSaving] = useState(false)
 
@@ -523,9 +521,10 @@ export default function Page() {
         commitStageChange('confirmations_open')
     }
 
-    // AttendanceCard handlers (Task 11) — same saveAttendanceSettings path
-    // (with its `?? current` sibling-field fallbacks) the old Attendance
-    // Settings panel's platoon checkboxes and ping toggle already used.
+    // AttendanceTab's unit assignment and ping toggle — same
+    // saveAttendanceSettings path (with its `?? current` sibling-field
+    // fallbacks) the old Attendance Settings panel's platoon checkboxes and
+    // ping toggle already used.
     function handleTogglePlatoon(id: string) {
         const updated = assignedPlatoons.includes(id)
             ? assignedPlatoons.filter(p => p !== id)
@@ -549,7 +548,7 @@ export default function Page() {
         saveAttendanceSettings({ discordPingRoles: roles })
     }
 
-    // Custom-unit add/remove for AttendanceCard's "+ Custom Unit" chip — same
+    // Custom-unit add/remove for AttendanceTab's "+ Custom Unit" chip — same
     // endpoint the (untouched) Custom Attendance Units panel below uses, kept
     // as separate functions rather than reusing that panel's inline handlers
     // so this task doesn't touch code a later task owns.
@@ -938,21 +937,9 @@ export default function Page() {
                                 advancing={stageAdvancing}
                             />
                         )}
-                        {/* Gated by not rendering at all (spec §1) — not by disabling. */}
-                        {isHQ && opID && (
-                            <AttendanceCard
-                                platoons={PLATOON_OPTS}
-                                selected={assignedPlatoons}
-                                onToggle={handleTogglePlatoon}
-                                customUnits={customUnits}
-                                onAddCustomUnit={addCustomUnit}
-                                onRemoveCustomUnit={removeCustomUnit}
-                                customUnitsSaving={customUnitsSaving}
-                                pingEnabled={discordPingEnabled}
-                                onTogglePing={handleTogglePing}
-                            />
-                        )}
-                        {/* Later tasks add more deck cards here. */}
+                        {/* No attendance card here — unit assignment and the Discord
+                            ping toggle now live in the Attendance tab alongside the
+                            ping roles and acknowledgements they belong with. */}
                     </MissionDeck>
                 }
                 brief={
@@ -999,7 +986,15 @@ export default function Page() {
                         <AttendanceTab
                             opID={opID}
                             status={status}
+                            platoons={PLATOON_OPTS}
+                            selected={assignedPlatoons}
+                            onToggle={handleTogglePlatoon}
+                            customUnits={customUnits}
+                            onAddCustomUnit={addCustomUnit}
+                            onRemoveCustomUnit={removeCustomUnit}
+                            customUnitsSaving={customUnitsSaving}
                             discordPingEnabled={discordPingEnabled}
+                            onTogglePing={handleTogglePing}
                             discordPingRoles={discordPingRoles}
                             onChangeDiscordPingRoles={handleChangeDiscordPingRoles}
                             ackCount={ackCount}
