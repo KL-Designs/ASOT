@@ -46,6 +46,7 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 | Member Sync (Discord role + TeamSpeak group drift report/fix across every member, Roles Manager tab) | A (`/api/admin/orbat/member-sync`, `/api/admin/orbat/member-sync/apply`), F (`dashboard/orbat/MemberSyncTab.tsx`), H (`lib/orbat/member-sync.ts`) |
 | Operations (briefings, lifecycle, publish, campaigns, templates, recycle bin) | B, E (`j2/tabs/J2OperationsTab.tsx`), G (`/operations`, `/operations/[id]`, `/operations/[id]/edit`), H (`types/operation.d.ts`) |
 | Attendance / RSVP / confirmation / Lead Zeus / reservist allocation | B (`/api/operations/[id]/attendance/**`), F (`components/operations/AttendancePanel.tsx` etc. — see H), H (`lib/attendance/**`, `types/attendance.d.ts`) |
+| Live attendance board / slot roster / reservist pool / drag-to-place | B (`/api/operations/[id]/attendance/roster`), H (`lib/attendance/roster.ts` + `snapshot.ts` + `actions.ts`, `components/operations/board/**`), G (`app/operations/[id]/page.tsx` renders it full-width) |
 | OCAP after-action recordings | B (`/api/operations/ocap/**`), G (`OcapLinkPanel.tsx`, `OcapStatsPanel.tsx`), H (`lib/ocap.ts`) |
 | J2 member workspace (files/docs/versions) | B (`/api/j2/workspace/**`), E (`j2/tabs/MembersWorkspaceTab.tsx`) |
 | Mission development checks / dev-checks | B (`/api/j2/dev-checks/**`), E (`j2/tabs/MissionChecksTab.tsx`), D (`cron/dev-check-escalation`) |

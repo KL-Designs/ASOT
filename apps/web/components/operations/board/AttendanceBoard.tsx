@@ -11,6 +11,7 @@ import { derivePool, viewRoster, type PoolEntry, type SlotView } from '@/lib/att
 import { useAttendanceBoard } from './useAttendanceBoard'
 import SectionCard from './SectionCard'
 import PoolRail from './PoolRail'
+import MemberBar from './MemberBar'
 import { Avatar } from './parts'
 import s from './board.module.css'
 
@@ -95,6 +96,14 @@ export default function AttendanceBoard({
 
     const sectionColor = useCallback((category: string) =>
         data?.sectionMeta.find(m => m.category === category)?.color, [data])
+
+    const mySlot = useMemo(
+        () => (myUserId ? slots.find(x => x.occupantUserId === myUserId) : undefined),
+        [slots, myUserId],
+    )
+
+    const sectionNames = useMemo(() => [...new Set(slots.map(x => x.sectionTitle))], [slots])
+    const roleNames = useMemo(() => [...new Set(slots.map(x => x.role))].sort(), [slots])
 
     const stats = useMemo(() => {
         const filled = slots.filter(x => x.state === 'held' || x.state === 'backfilled').length
@@ -300,6 +309,18 @@ export default function AttendanceBoard({
                             onClick={() => run({ action: 'autofill' })}
                         >Auto-fill from pool</button>
                     </div>
+                )}
+
+                {myUserId && (
+                    <MemberBar
+                        me={data.members[myUserId]}
+                        mySlot={mySlot}
+                        sections={sectionNames}
+                        roles={roleNames}
+                        rsvpOpen={rsvpOpen}
+                        busy={busy}
+                        run={run}
+                    />
                 )}
 
                 {frozen && (

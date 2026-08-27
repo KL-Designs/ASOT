@@ -151,6 +151,26 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `collectOperations(sections): ParsedAttendanceOperation[]` — dedupes unique name+date op combos across all sections for DB matching.
 - Interfaces: `ParsedAttendanceOperation`, `ParsedAttendanceMember`, `ParsedAttendanceSection`.
 
+### lib/attendance/roster.ts
+- The pure slot model behind the live attendance board. Clock-free and dependency-injected the way `lib/operations/phases.ts` is — the stage and the RSVP answers are passed in, never read.
+- `RosterSlot` carries **two** user references that must not be conflated: `homeUserId` (whose ORBAT position this is — written once at snapshot, never again) and `occupantUserId` (who is actually playing in it). Splitting them is what fixes the old bug where joining another section overwrote a member's `orbatRole` in place.
+- `buildRoster(positions)` — the snapshot; a position's holder starts pencilled into their own slot, which is what "reserved" means.
+- `viewRoster(roster, ctx): SlotView[]` — derives all seven `SlotState`s in one pass (`held`, `awaiting`, `lapsed`, `backfilled`, `open`, `declined`, `released`) plus `vacatedBy` and `available`. `declined`/`released`/`open` stay distinct because they mean opposite things to a section leader. `lapsed` is `awaiting` after the window shuts — **derived from the stage, not written by a job**, so nothing runs at RSVP close and no release can run twice.
+- `assignSlot(roster, slotId, userId)` — **swaps** when the destination is occupied rather than refusing; returns a new array.
+- `derivePool(roster, members)` / `autoFill(roster, pool, ctx)` — who is unplaced (with the position they released, for the dual-identity case), and placement that serves the pickiest preferences first.
+- `snapshotCategories(assignedPlatoons)` / `orderPositions(positions, categories)` — which ORBAT categories a roster covers (game masters always included) and their display order.
+
+### lib/attendance/snapshot.ts
+- `ensureRosterSnapshot(operationId)` — cuts the roster once, when the op first reaches `rsvp_open`. Called from both server paths that can get it there (`cron/operations` and `attendance/platoons`), so the guard is the write itself: it only matches documents with no roster yet. Returns the roster if this call created it, else null.
+
+### lib/attendance/actions.ts
+- `BoardAction` = `MemberAction | StaffAction` — the wire format shared by the roster route that validates it and the hook that sends it, so the two cannot drift. `isMemberAction()` is the discriminator the route's gate uses.
+
+### components/operations/board/
+- `AttendanceBoard.tsx` — the live board, rendered by **both** the editor's Attendance tab and the operations view page (one board, two modes; `canManage` is the only difference). Groups slots by category → section, collapses everything outside the viewer's own category (~70 positions do not fit on a screen), and hosts the dnd-kit `DndContext`.
+- `useAttendanceBoard.ts` — Mongo stays authoritative and the Y.js doc (`att-{operationId}`) carries only `rev`. **The collab socket authenticates but never authorises per field**, so a CRDT board would let any connected member write any position — which is why board state is not in Y.js. Presence comes free from the awareness channel. Falls back to a 30s poll.
+- `SectionCard.tsx` / `SlotRow.tsx` / `PoolRail.tsx` / `MemberBar.tsx` / `parts.tsx` / `board.module.css` — a section and its drop target, one position, the docked reservist pool, the viewer's own controls, shared avatar/tag helpers, and the state-coloured styles.
+
 ### lib/attendance/meeting-init.ts
 - `initMeetingAttendance(meetingId, department, invitedUserIds=[]): Promise<number>` — builds and inserts the `MeetingAttendee[]` list for a meeting: department members, J4 members (unless meeting *is* J4), and explicitly invited outsiders; groups each into `j4`/`dept_lead`/`dept_member`/`invited` (lead detection via `PERMISSIONS.departmentLeads`), dedupes against existing attendees, sorts by group then name. Called on meeting creation and from the manual attendance-sync POST endpoint.
 

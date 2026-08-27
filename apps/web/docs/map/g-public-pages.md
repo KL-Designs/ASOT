@@ -692,6 +692,11 @@ title, op/lore dates), section-nav or paged-view content (delegates to `<PagedVi
 `<DocBody/>`), an `<AttendanceDrawer/>` sidebar, Zeus Notes tab (J6-only), OCAP tab
 (`<OcapLinkPanel/>` for HQ to sync, `<OcapStatsPanel/>` for anyone logged in once synced), and
 `<DocAcknowledgeCard/>` read-receipt banner+footer when `isAllStaff && status === 'Upcoming'`.
+Below all of that, signed-in viewers get `<AttendanceBoard/>` full-width — the same component the
+editor's Attendance tab renders (one board, two modes; `canManageAttendance`, computed here
+three-armed off `attendance.manage`, is the only difference). It sits outside the document/sidebar
+row because ~70 positions plus a docked pool rail will not fit in the drawer, and is wrapped in
+`.command` with the operation's `--acc`/`--acc-rgb` injected.
 Hidden (`isPublic: false`) sections show a "Classified — Login to Access" banner to logged-out
 visitors. Public read; edit link shown to `isHQ`.
 

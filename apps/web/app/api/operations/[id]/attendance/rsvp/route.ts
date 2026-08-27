@@ -40,12 +40,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const existingRecord = attendance.records.find(r => r.userId === me.id)
 
     if (existingRecord) {
-        // Update existing record's RSVP and reservist section
+        // `orbatRole` is deliberately NOT written here.
+        //
+        // It used to be: joining another section overwrote it with the role
+        // taken there, and leaving overwrote it back from the live ORBAT. Both
+        // destroyed the only record of where the member actually belongs, so
+        // "put them back" became guesswork and a member whose ORBAT position
+        // changed mid-operation silently had their history rewritten.
+        //
+        // A member's position *for an operation* is now the roster's business
+        // (`roster[].occupantUserId`, see lib/attendance/roster.ts), which is a
+        // separate field precisely so it cannot clobber ORBAT identity. This
+        // record keeps the identity; the roster keeps the assignment.
         await Db.operationAttendance.updateOne(
             { operationId, 'records.userId': me.id },
-            { $set: { 'records.$.rsvp': status, 'records.$.reservistSection': (status === 'not_attending' ? null : reservistSection ?? null), ...(reservistSection && status !== 'not_attending'
-            ? (reservistRole !== undefined ? { 'records.$.orbatRole': reservistRole } : {})
-            : (orbatPos?.role !== undefined ? { 'records.$.orbatRole': orbatPos.role } : {})) } }
+            { $set: {
+                'records.$.rsvp': status,
+                'records.$.reservistSection': status === 'not_attending' ? null : reservistSection ?? null,
+            } }
         )
     } else {
         // Insert new record
