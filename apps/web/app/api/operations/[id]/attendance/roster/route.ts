@@ -181,7 +181,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // read above. A miss means somebody else moved the board, so recompute
         // against theirs rather than clobbering it.
         const result = await Db.operationAttendance.updateOne(
-            { operationId, ...(rev === 0 ? {} : { rosterRev: rev }) } as Parameters<typeof Db.operationAttendance.updateOne>[0],
+            {
+                operationId,
+                // A document written before this field existed has no rosterRev
+                // at all, so `{ rosterRev: 0 }` would never match it and the
+                // first write would go through unguarded — the one write most
+                // likely to be raced, since everybody arrives at once when RSVP
+                // opens. Absent counts as zero.
+                ...(rev === 0
+                    ? { $or: [{ rosterRev: 0 }, { rosterRev: { $exists: false } }] }
+                    : { rosterRev: rev }),
+            } as Parameters<typeof Db.operationAttendance.updateOne>[0],
             { $set: { roster }, $inc: { rosterRev: 1 } },
         )
         if (result.modifiedCount === 0) continue
