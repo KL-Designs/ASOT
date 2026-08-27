@@ -828,6 +828,10 @@ choreography stays in that surface's own module.
   translating `public/designs/topo.svg`, so individual contours stretch, split and close into rings;
   the SVG is no longer referenced by anything. Field character (spacing, warp, index contours, depth)
   is fixed in the module — only `opacity` is per-surface, and the seven call sites run 0.045→0.32.
+  `GAIN` in the module scales every call site at once; the `opacity` default governs new call sites
+  only (all seven pass their own) and is deliberately not a global control. A call site's number is
+  not the alpha drawn: `DEPTH` ramps each contour to 0.63–1.19x it, and index contours take
+  `INDEX_BOOST` on top.
   `mask` unchanged: `fade` · `edges` · `left` · `none`, still pure CSS. `driftSeconds` is now a rate
   (720 = tuned speed, 1440 = half) and `0` still pins it. Stops via `IntersectionObserver` when
   off-screen and on `visibilitychange`; under `prefers-reduced-motion` it draws one frame and never

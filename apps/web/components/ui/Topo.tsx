@@ -48,12 +48,27 @@ import s from '@/styles/ui.module.css'
    relative to the high ones, which is what gives it relief.
 */
 const LEVELS = 30         // contour lines across the field
-const WEIGHT = 1.5          // px, before the index multiplier
+const WEIGHT = 1.25          // px, before the index multiplier
 const WARP = 0.55         // domain-warp strength — the twisting
 const INDEX_EVERY = 4     // heavier line every Nth contour
 const INDEX_BOOST = 2.15  // its opacity multiplier
 const INDEX_WEIGHT = 1.85 // its line-weight multiplier
 const DEPTH = 0.6         // how much brighter high ground reads
+
+/*
+   The one global lever on how present the field is anywhere.
+
+   `opacity` is per-surface and stays that way — a stat band and the Next Op
+   card want genuinely different intensities. GAIN scales all of them at once,
+   so the whole site can be lifted or dropped without relitigating seven
+   individually tuned numbers, and their relative order is preserved.
+
+   Worth knowing what a call site's number actually resolves to before tuning
+   either: DEPTH ramps each contour between 0.63x and 1.19x the value passed,
+   and index contours take another INDEX_BOOST on top. So `opacity={0.05}`
+   draws ordinary lines at 0.031-0.06 and its index lines at up to 0.128.
+*/
+const GAIN = 1
 const RATE = 0.0055       // clock units per second at driftSeconds = 720
 const FREQ = 0.0022       // per-pixel, so the field keeps its scale on any width
 const STROKE = '#dfe6ee'
@@ -97,7 +112,10 @@ const QUALITY_MAX = 2.4
 const QUALITY_STEP = 1.18
 
 export default function Topo({
-    opacity = 0.102,
+    // Every current call site passes its own, so this governs new ones only —
+    // it is not a global control, and 0.102 (the prototype's tuning value) read
+    // like one. GAIN above is the global control. 0.06 is where the bands sit.
+    opacity = 0.06,
     driftSeconds = 720,
     mask = 'fade',
     className = '',
@@ -235,7 +253,7 @@ export default function Topo({
                 const isIndex = L % INDEX_EVERY === 0
                 const ramp = 1 - DEPTH + DEPTH * (0.35 + level)
 
-                ctx!.globalAlpha = Math.min(1, alpha * ramp * (isIndex ? INDEX_BOOST : 1))
+                ctx!.globalAlpha = Math.min(1, alpha * GAIN * ramp * (isIndex ? INDEX_BOOST : 1))
                 ctx!.lineWidth = WEIGHT * (isIndex ? INDEX_WEIGHT : 1)
                 ctx!.beginPath()
                 for (let k = 0; k < out.length; k += 4) {
