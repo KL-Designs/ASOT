@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type CSSProperties } from 'react'
+import TabPanel from './TabPanel'
 
 interface AckEntry { userId: string; userName: string; acknowledgedAt: string }
 
@@ -32,23 +33,6 @@ const PING_ROLE_OPTS = [
     { id: '@friend of unit', label: '@friend of unit' },
     { id: '@veteran member', label: '@veteran member' },
 ]
-
-const panelStyle: CSSProperties = {
-    position: 'relative',
-    border: '1px solid var(--line)',
-    borderRadius: 'var(--r)',
-    background: 'linear-gradient(180deg, var(--s1) 0%, var(--bg) 100%)',
-}
-
-const tickStyle: CSSProperties = {
-    position: 'absolute', top: 0, left: 0, width: 36, height: 2, background: 'var(--acc)', opacity: 0.75,
-}
-
-const panelHeaderStyle: CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 12,
-    padding: '14px 18px', borderBottom: '1px solid var(--line)',
-    fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', fontWeight: 700, color: 'var(--ink)',
-}
 
 const labelStyle: CSSProperties = {
     fontSize: 10, fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase',
@@ -114,9 +98,7 @@ export default function AttendanceTab({
 
     return (
         <div style={{ width: '100%', maxWidth: 1220, margin: '0 auto', padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div style={panelStyle}>
-                <div style={tickStyle} />
-                <div style={panelHeaderStyle}>Assigned Units</div>
+            <TabPanel title='Assigned Units'>
                 <div style={{ padding: 16 }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                         {platoons.map(p => {
@@ -173,11 +155,9 @@ export default function AttendanceTab({
                         </div>
                     )}
                 </div>
-            </div>
+            </TabPanel>
 
-            <div style={panelStyle}>
-                <div style={tickStyle} />
-                <div style={panelHeaderStyle}>Notifications</div>
+            <TabPanel title='Notifications'>
                 <div style={{ padding: 16 }}>
                     {/* The master toggle sits directly above the roles it gates —
                         the point of moving it here. Its off-state message below
@@ -229,12 +209,10 @@ export default function AttendanceTab({
                         )}
                     </div>
                 </div>
-            </div>
+            </TabPanel>
 
             {status === 'Upcoming' && (
-                <div style={panelStyle}>
-                    <div style={tickStyle} />
-                    <div style={panelHeaderStyle}>Acknowledgements</div>
+                <TabPanel title='Acknowledgements'>
                     <div style={{ padding: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: ackExpanded ? 10 : 0 }}>
                             <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-2)' }}>Orders Acknowledged</span>
@@ -265,7 +243,7 @@ export default function AttendanceTab({
                             <div style={{ fontSize: '0.6rem', color: 'var(--ink-3)', fontStyle: 'italic' }}>No staff have acknowledged yet.</div>
                         )}
                     </div>
-                </div>
+                </TabPanel>
             )}
         </div>
     )
