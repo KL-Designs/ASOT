@@ -173,11 +173,14 @@ test.describe('Mission deck collapse state', () => {
 // ── Editing the operation date in the timeline persists ────────────────────
 
 test.describe('Timeline op-date edit', () => {
-    test('changing the operation date via the Schedule card persists across a reload', async ({ pageAs }) => {
+    test('changing the operation date via the Schedule tab\'s RSVP window panel persists across a reload', async ({ pageAs }) => {
         const opId = await createOperation()
         const page = await pageAs('j4')
         await page.setViewportSize({ width: 1440, height: 900 })
-        await page.goto(`/operations/${opId}/edit`)
+        // The op-date picker lives in RsvpWindowPanel, inside the Schedule
+        // tab — not the default tab (Brief) — so the deep link is needed to
+        // land there directly instead of clicking the tab button first.
+        await page.goto(`/operations/${opId}/edit?tab=schedule`)
 
         const dateInput = page.getByTestId('schedule-op-date-input')
         await expect(dateInput).toBeVisible({ timeout: 30_000 })
@@ -236,5 +239,29 @@ test.describe('Attendance tab visibility', () => {
         await page.goto(`/operations/${opId}/edit`)
 
         await expect(editorTab(page, 'ATTENDANCE')).toBeVisible({ timeout: 30_000 })
+    })
+})
+
+// ── Legacy tab deep links still resolve ─────────────────────────────────────
+
+test.describe('Schedule tab deep links', () => {
+    test('a legacy ?tab=development link lands on Schedule, not Brief', async ({ pageAs }) => {
+        // The tab was renamed development → schedule. An unrecognised ?tab=
+        // value falls back to 'brief' (EditorShell.tsx tabFromLocation), so
+        // without the alias every saved link would silently open the wrong
+        // tab — a failure with no error message. This is that alias.
+        const opId = await createOperation()
+        const page = await pageAs('j4')
+        await page.goto(`/operations/${opId}/edit?tab=development`)
+
+        await expect(editorTab(page, 'SCHEDULE')).toHaveAttribute('aria-current', 'page', { timeout: 30_000 })
+    })
+
+    test('positive control: ?tab=schedule selects the same tab', async ({ pageAs }) => {
+        const opId = await createOperation()
+        const page = await pageAs('j4')
+        await page.goto(`/operations/${opId}/edit?tab=schedule`)
+
+        await expect(editorTab(page, 'SCHEDULE')).toHaveAttribute('aria-current', 'page', { timeout: 30_000 })
     })
 })

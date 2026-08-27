@@ -715,3 +715,27 @@ After Task 6, before opening a PR:
 - [ ] An operation with no date shows empty states, not a blank tab
 - [ ] `?tab=development` and `?tab=schedule` both select Schedule
 - [ ] Ask the user before running `npm run test:e2e`
+
+---
+
+## Corrections applied during execution
+
+Two defects surfaced while carrying this plan out. Both are left here rather than edited into the
+body above, so the plan still reads as what was actually planned.
+
+**Task 3, Step 2 — `horizon` vs. `badge` contradiction.** The JSX snippet at Step 2 set `horizon` to
+the completion count (`` `${checks.filter(c => c.isCompleted).length} of ${checks.length} complete` ``),
+while point 6 of the same step said to set `horizon` to the week range
+(`isCampaignOp ? '16w → 4w out' : '12w → 4w out'`) — the panel can't carry both at once. Resolved by
+giving `horizon` the week range, as point 6 and every other panel's `horizon` (RSVP Window's
+`'days → hrs out'`, Stage's `'run day'`) already do, and moving the completion count into the
+`badge` slot alongside the Overdue/All-Complete/Saving indicators it already shared that slot with.
+`PreProductionPanel.tsx` implements it this way.
+
+**Task 4, Step 2 — the panel has five timeline rows, not two.** The step's prose said "The card
+stacked its Opens and Closes rows because it had 340px" and described wrapping "the two rows" in a
+grid. `RsvpWindowPanel`'s `timeline` prop (`buildTimeline()`, `lib/operations/schedule.ts`) actually
+carries five moments — RSVP opens, RSVP closes, Operation starts, Confirmations open, Completed —
+not two. The `display: grid` / `gridTemplateColumns: repeat(auto-fit, minmax(280px, 1fr))` wrapper
+was applied around the full `timeline.map()`, so it was already correctly applied to all five rows;
+only the prose undercounted them.

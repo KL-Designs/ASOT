@@ -753,7 +753,7 @@ Server layout: redirects to `/operations` unless the user has `PERMISSIONS.pages
 Gates the entire edit subtree.
 
 #### app/operations/[id]/edit/page.tsx
-Very large (2400+ line) client operation-editor page — the main HQ/J2 authoring surface. Covers:
+Very large (~1,050 line) client operation-editor page — the main HQ/J2 authoring surface. Covers:
 meta fields (title/department/date/lore-date/theme colour/page theme/status), cover image
 upload, mission-development check tracker (5 or 6 milestone checks counting back from op/campaign
 date, completable by J2 leads via `POST /api/operations/[id]/mission-development`), "Orders Check
@@ -766,11 +766,14 @@ delete confirmation, and embeds the TipTap collaborative `<OperationEditor
 documentId={opID}/>` (dynamic import of `@/components/editor/CollabEditor`) for the actual orders
 content. Also toggles a right-hand `<ActivityLog/>` panel and a live `<iframe>` preview pane.
 
-Composed via `edit/EditorShell.tsx` as four tabs (Brief / Map / Development / Attendance — the
-last `isHQ`-only) plus a right-hand mission deck (`edit/deck/`: CountdownStrip, DetailsCard,
-ScheduleCard, StageCard). **All attendance controls live in the Attendance tab**
-(`edit/tabs/AttendanceTab.tsx`): assigned units + custom units, the Discord ping toggle and its
-per-role targets, and the acknowledgement summary. The deck holds no attendance card.
+Composed via `edit/EditorShell.tsx` as four tabs (Brief / Map / Schedule / Attendance — the
+last `isHQ`-only) plus a right-hand mission deck (`edit/deck/`: CountdownStrip, DetailsCard).
+**All attendance controls live in the Attendance tab** (`edit/tabs/AttendanceTab.tsx`):
+assigned units + custom units, the Discord ping toggle and its per-role targets, and the
+acknowledgement summary. **The operation's lifecycle lives in the Schedule tab**
+(`edit/tabs/schedule/`): `PreProductionPanel` (mission development gates + Orders Check),
+`RsvpWindowPanel` (RSVP open/close), `StagePanel` (the six-step attendance stage machine).
+A legacy `?tab=development` deep link resolves to Schedule.
 
 #### app/operations/[id]/edit/activity-log.tsx
 Client `ActivityLog` panel: polls `GET /api/operations/activity?id=` every 30s, shows a
