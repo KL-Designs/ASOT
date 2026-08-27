@@ -236,11 +236,6 @@ export default function RsvpWindowPanel({
                                                     slotProps={{ textField: { size: 'small', sx: pickerSx } }}
                                                 />
                                             </LocalizationProvider>
-                                            {!date && (
-                                                <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--warn)' }}>
-                                                    Set an operation date first to compute the offset.
-                                                </div>
-                                            )}
                                         </>
                                     )}
                                 </div>
