@@ -177,7 +177,7 @@ test.describe('Timeline op-date edit', () => {
         const opId = await createOperation()
         const page = await pageAs('j4')
         await page.setViewportSize({ width: 1440, height: 900 })
-        // The op-date picker lives in RsvpWindowPanel, inside the Schedule
+        // The op-date picker lives in the Schedule tab's AnchorBar, inside the
         // tab — not the default tab (Brief) — so the deep link is needed to
         // land there directly instead of clicking the tab button first.
         await page.goto(`/operations/${opId}/edit?tab=schedule`)

@@ -4,7 +4,7 @@
  * for the same reason schedule.ts is.
  */
 import { describe, test, expect } from 'vitest'
-import { buildPhases, devCheckGates, rsvpWindow, scheduleProblems, fmtDuration, type ScheduleInput } from './phases'
+import { buildPhases, buildRibbon, devCheckGates, rsvpWindow, scheduleProblems, fmtDuration, type ScheduleInput } from './phases'
 
 const input = (over: Partial<ScheduleInput> = {}): ScheduleInput => ({
     operationDate: new Date('2026-09-12T08:00:00.000Z'),
@@ -238,5 +238,78 @@ describe('fmtDuration', () => {
 
     test('an unknown span has no label to give', () => {
         expect(fmtDuration(null)).toBe('—')
+    })
+})
+
+describe('buildRibbon', () => {
+    const scheduled = (over: Partial<ScheduleInput> = {}) =>
+        input({ rsvpOpenAt: new Date('2026-09-09T08:00:00.000Z'), ...over })
+
+    test('boundaries run first gate, last gate, opens, closes, op, completed', () => {
+        expect(buildRibbon(scheduled()).boundaries.map(b => b.id)).toEqual([
+            'first_gate', 'last_gate', 'rsvp_opens', 'rsvp_closes', 'op_starts', 'completed',
+        ])
+    })
+
+    test('boundary positions accumulate the phase widths across the whole ribbon', () => {
+        const pcts = buildRibbon(scheduled()).boundaries.map(b => b.atPct)
+        expect(pcts).toEqual([0, 25, 46, 67, 80, 100])
+    })
+
+    test('gate boundaries are labelled by week, so a campaign opens at W16 not W12', () => {
+        const single = buildRibbon(scheduled())
+        expect(single.boundaries[0].label).toBe('W12 · first gate')
+
+        const campaign = buildRibbon(scheduled({
+            isCampaignOp: true,
+            campaignStartDate: new Date('2026-10-03T08:00:00.000Z'),
+        }))
+        expect(campaign.boundaries[0].label).toBe('W16 · first gate')
+    })
+
+    test('the operation is the anchor boundary', () => {
+        const op = buildRibbon(scheduled()).boundaries.find(b => b.id === 'op_starts')!
+        expect(op.kind).toBe('anchor')
+    })
+
+    test('an inverted window marks its open boundary invalid', () => {
+        const r = buildRibbon(input({ rsvpOpenAt: new Date('2026-10-28T08:00:00.000Z') }))
+        expect(r.boundaries.find(b => b.id === 'rsvp_opens')!.state).toBe('invalid')
+    })
+
+    test('only the gates between the first and last hang inside pre-production', () => {
+        const ms = buildRibbon(scheduled()).milestones.filter(m => m.phaseId === 'pre_production')
+        expect(ms.map(m => m.label)).toEqual(['W10', 'W8', 'W6'])
+    })
+
+    test('interior gates are spaced across their phase by their real due dates', () => {
+        const ms = buildRibbon(scheduled()).milestones.filter(m => m.phaseId === 'pre_production')
+        expect(ms.map(m => Math.round(m.offsetPct))).toEqual([25, 50, 75])
+    })
+
+    test('a requested orders check hangs in the phase its date falls in', () => {
+        const r = buildRibbon(scheduled({ ordersCheckAt: new Date('2026-09-01T08:00:00.000Z') }))
+        const oc = r.milestones.find(m => m.id === 'orders_check')!
+        expect(oc.phaseId).toBe('lead_up')
+        expect(oc.state).toBe('pending')
+    })
+
+    test('an unrequested orders check still shows, as a ghost in the lead-up', () => {
+        const oc = buildRibbon(scheduled()).milestones.find(m => m.id === 'orders_check')!
+        expect(oc.state).toBe('ghost')
+        expect(oc.phaseId).toBe('lead_up')
+    })
+
+    test('the now line sits proportionally inside whichever phase contains it', () => {
+        // 27 Aug is 12 days into the 25-day lead-up, which starts at 25%.
+        expect(Math.round(buildRibbon(scheduled()).nowPct)).toBe(35)
+    })
+
+    test('the now line pins to the end once the whole schedule is behind us', () => {
+        expect(buildRibbon(scheduled({ now: new Date('2027-01-01T00:00:00.000Z') })).nowPct).toBe(100)
+    })
+
+    test('the now line pins to the start before the schedule begins', () => {
+        expect(buildRibbon(scheduled({ now: new Date('2026-01-01T00:00:00.000Z') })).nowPct).toBe(0)
     })
 })

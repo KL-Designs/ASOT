@@ -30,6 +30,8 @@ export interface ScheduleInput {
     /** Campaign start — gates count back from this instead of the op date. */
     campaignStartDate: Date | null
     completions: Record<string, MissionDevCompletion | undefined>
+    /** Confirmed or requested orders-check time, if there is an active request. */
+    ordersCheckAt?: Date | null
     now: Date
 }
 
@@ -330,4 +332,194 @@ export function fmtDuration(ms: number | null): string {
     const h = Math.floor(ms / HOUR_MS)
     const m = Math.floor((ms % HOUR_MS) / MIN_MS)
     return h ? `${h}h ${m}m` : `${m}m`
+}
+
+export interface Boundary {
+    id: 'first_gate' | 'last_gate' | 'rsvp_opens' | 'rsvp_closes' | 'op_starts' | 'completed'
+    label: string
+    at: Date | null
+    /** 'anchor' is the operation itself — the instant everything else derives from. */
+    kind: 'gate' | 'transition' | 'anchor'
+    state: 'done' | 'overdue' | 'pending' | 'invalid'
+    /** Absolute position across the whole ribbon, 0–100. */
+    atPct: number
+}
+
+export interface Milestone {
+    id: string
+    label: string
+    detail: string
+    at: Date | null
+    phaseId: PhaseId
+    /** Position within its own phase, 0–100. */
+    offsetPct: number
+    /** 'ghost' is a milestone that has not been scheduled but is worth a slot. */
+    state: 'done' | 'overdue' | 'pending' | 'ghost'
+}
+
+export interface Ribbon {
+    phases: Phase[]
+    boundaries: Boundary[]
+    milestones: Milestone[]
+    gates: DevCheckGate[]
+    window: RsvpWindow
+    problems: ScheduleProblem[]
+    /** Where the now line falls across the whole ribbon, 0–100. */
+    nowPct: number
+}
+
+/** Cumulative left edge of each phase, in ribbon percent. */
+export function phaseOffsets(phases: Phase[]): number[] {
+    const offsets: number[] = []
+    let acc = 0
+    for (const p of phases) {
+        offsets.push(acc)
+        acc += p.widthPct
+    }
+    return offsets
+}
+
+/** Where an instant falls inside a phase, 0–100, clamped to the phase. */
+function offsetWithin(phase: Phase, at: Date): number {
+    if (!phase.startsAt || !phase.endsAt) return 0
+    const span = phase.endsAt.getTime() - phase.startsAt.getTime()
+    if (span <= 0) return 0
+    const frac = (at.getTime() - phase.startsAt.getTime()) / span
+    return Math.max(0, Math.min(100, frac * 100))
+}
+
+function instantState(at: Date | null, now: Date): Boundary['state'] {
+    if (!at) return 'pending'
+    return at <= now ? 'done' : 'pending'
+}
+
+/**
+ * Everything the ribbon draws, in one pass.
+ *
+ * The component that renders this owns no schedule logic at all — it maps
+ * percentages onto CSS. Keeping the geometry here is what lets the ordering
+ * rules be tested without a browser.
+ */
+export function buildRibbon(input: ScheduleInput): Ribbon {
+    const { now } = input
+    const phases = buildPhases(input)
+    const gates = devCheckGates(input)
+    const window = rsvpWindow(input)
+    const problems = scheduleProblems(input)
+    const offsets = phaseOffsets(phases)
+
+    const firstGate = gates[0]
+    const lastGate = gates[gates.length - 1]
+
+    const openInvalid = window.inverted || window.opensAfterOp
+
+    const boundaries: Boundary[] = [
+        {
+            id: 'first_gate',
+            label: firstGate ? `${firstGate.label} · first gate` : 'First gate',
+            at: firstGate?.dueAt ?? null,
+            kind: 'gate',
+            state: firstGate?.state ?? 'pending',
+            atPct: offsets[0],
+        },
+        {
+            id: 'last_gate',
+            label: lastGate ? `${lastGate.label} · last gate` : 'Last gate',
+            at: lastGate?.dueAt ?? null,
+            kind: 'gate',
+            state: lastGate?.state ?? 'pending',
+            atPct: offsets[1],
+        },
+        {
+            id: 'rsvp_opens',
+            label: window.mode === 'manual' ? 'RSVP opens · manual' : 'RSVP opens',
+            at: window.opensAt,
+            kind: 'transition',
+            state: openInvalid ? 'invalid' : instantState(window.opensAt, now),
+            atPct: offsets[2],
+        },
+        {
+            id: 'rsvp_closes',
+            label: 'RSVP closes',
+            at: window.closesAt,
+            kind: 'transition',
+            state: instantState(window.closesAt, now),
+            atPct: offsets[3],
+        },
+        {
+            id: 'op_starts',
+            label: 'Op starts',
+            at: input.operationDate,
+            kind: 'anchor',
+            state: instantState(input.operationDate, now),
+            atPct: offsets[4],
+        },
+        {
+            id: 'completed',
+            label: 'Completed',
+            at: phases[4].endsAt,
+            kind: 'transition',
+            state: instantState(phases[4].endsAt, now),
+            atPct: 100,
+        },
+    ]
+
+    const preProduction = phases[0]
+    const milestones: Milestone[] = gates.slice(1, -1).map(g => ({
+        id: g.id,
+        label: g.label,
+        detail: g.completion ? `signed off by ${g.completion.reviewerName}` : fmtGateDate(g.dueAt),
+        at: g.dueAt,
+        phaseId: 'pre_production' as PhaseId,
+        offsetPct: offsetWithin(preProduction, g.dueAt),
+        state: g.state,
+    }))
+
+    // The orders check keeps a slot even when nobody has asked for one — its
+    // absence is the thing a mission maker most often needs reminding of.
+    const ordersCheckAt = input.ordersCheckAt ?? null
+    const ordersPhase = ordersCheckAt
+        ? phases.find(p => p.startsAt && p.endsAt && ordersCheckAt >= p.startsAt && ordersCheckAt < p.endsAt)
+        : undefined
+    milestones.push({
+        id: 'orders_check',
+        label: 'Orders check',
+        detail: ordersCheckAt ? fmtGateDate(ordersCheckAt) : 'not requested',
+        at: ordersCheckAt,
+        phaseId: ordersPhase?.id ?? 'lead_up',
+        offsetPct: ordersCheckAt && ordersPhase ? offsetWithin(ordersPhase, ordersCheckAt) : 80,
+        state: ordersCheckAt ? (ordersCheckAt <= now ? 'done' : 'pending') : 'ghost',
+    })
+
+    milestones.push({
+        id: 'mission_ends',
+        label: 'Mission ends',
+        detail: 'confirmations open',
+        at: null,
+        phaseId: 'op_confirmation',
+        offsetPct: 15,
+        state: 'pending',
+    })
+
+    return { phases, boundaries, milestones, gates, window, problems, nowPct: nowPosition(phases, offsets, now) }
+}
+
+function fmtGateDate(d: Date): string {
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+}
+
+/**
+ * The now line pins to an end rather than disappearing when it falls outside
+ * the drawn range — an operation whose whole schedule is behind it should read
+ * as finished, not as having no present at all.
+ */
+function nowPosition(phases: Phase[], offsets: number[], now: Date): number {
+    const currentIdx = phases.findIndex(p => p.state === 'current')
+    if (currentIdx >= 0) {
+        const p = phases[currentIdx]
+        return offsets[currentIdx] + (offsetWithin(p, now) / 100) * p.widthPct
+    }
+    const firstStart = phases.find(p => p.startsAt)?.startsAt
+    if (firstStart && now < firstStart) return 0
+    return phases.some(p => p.state === 'spent') ? 100 : 0
 }

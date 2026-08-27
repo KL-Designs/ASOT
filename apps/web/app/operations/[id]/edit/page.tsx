@@ -86,11 +86,13 @@ export default function Page() {
     const connected = wsStatus === 'connected' ? true : wsStatus === 'disconnected' ? false : null
 
     // Mission deck (Task 8) — days-until-op countdown for the deck's strip.
-    // Task 9 also consumes the timeline it builds, for the Timeline card.
-    const { timeline, daysUntil, refresh } = useOperationStatus(opID)
+    // The `timeline` this hook also builds is no longer read here: the Schedule
+    // tab derives its own from lib/operations/phases, off local state rather
+    // than this hook's 30s poll, so the controls can't lag their own writes.
+    const { daysUntil, refresh } = useOperationStatus(opID)
 
     // Mission Development — the gate timeline's own UI-local state
-    // (completion-modal form fields) now lives in PreProductionPanel;
+    // (completion-modal form fields) now lives in PreProductionInspector;
     // `missionDev` stays lifted because the deck's CountdownStrip reads it too.
     const [missionDev, setMissionDev] = useState<MissionDevelopment | null>(null)
     const [isCampaignOp, setIsCampaignOp] = useState(false)
@@ -114,7 +116,7 @@ export default function Page() {
     const [ackList, setAckList] = useState<{ userId: string; userName: string; acknowledgedAt: string }[]>([])
 
     // Orders Check Request — the request/reminder form's own UI-local state
-    // now lives in PreProductionPanel; `ordersCheckTask` stays lifted because
+    // now lives in PreProductionInspector; `ordersCheckTask` stays lifted because
     // it's populated by the load effect below.
     const [ordersCheckTask, setOrdersCheckTask]             = useState<null | { _id?: string; status: string; ordersCheckAt?: string; ordersCheckStatus?: string; ordersCheckProposedAt?: string; ordersCheckProposedBy?: string }>(null)
 
@@ -590,7 +592,7 @@ export default function Page() {
     // text, current/pending dot state — catch up immediately instead of
     // waiting for the next 30s poll. The picker/pill *values* don't need
     // that round trip: they're driven off local rsvpOpenAt/rsvpCloseOffsetMins
-    // state (passed into RsvpWindowPanel as props), the same way date and
+    // state (passed into RsvpWindowInspector as props), the same way date and
     // closeOffsetMins already were, not off the polled timeline.
     function handleChangeDate(v: Dayjs | null) {
         if (!v) return
@@ -953,7 +955,6 @@ export default function Page() {
                             setMissionDev={setMissionDev}
                             ordersCheckTask={ordersCheckTask}
                             setOrdersCheckTask={setOrdersCheckTask}
-                            timeline={timeline}
                             onChangeDate={handleChangeDate}
                             rsvpOpenAt={rsvpOpenAt}
                             onSetRsvpOpenManual={handleSetRsvpOpenManual}
