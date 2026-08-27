@@ -48,7 +48,7 @@ import s from '@/styles/ui.module.css'
    relative to the high ones, which is what gives it relief.
 */
 const LEVELS = 30         // contour lines across the field
-const WEIGHT = 0.9        // px, before the index multiplier
+const WEIGHT = 1.5          // px, before the index multiplier
 const WARP = 0.55         // domain-warp strength — the twisting
 const INDEX_EVERY = 4     // heavier line every Nth contour
 const INDEX_BOOST = 2.15  // its opacity multiplier
