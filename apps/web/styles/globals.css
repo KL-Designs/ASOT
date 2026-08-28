@@ -56,6 +56,7 @@
 	--font-disp: var(--font-oswald), var(--font-barlow-condensed), 'Arial Narrow', system-ui, sans-serif;
 	--font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 	--font-ui: var(--font-inter), system-ui, sans-serif;
+	--font-serif: var(--font-source-serif), Georgia, 'Times New Roman', serif;
 }
 
 :target {

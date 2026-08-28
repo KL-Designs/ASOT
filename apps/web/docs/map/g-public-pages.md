@@ -738,9 +738,16 @@ by both. The tab key is `orders`, not `brief`: "Brief" was the editor's name for
 and nobody outside the editor used it. `?tab=brief` and `?tab=development` are aliased for the
 bookmarks already out there.
 
-**Who sees which tab:** Orders and Map are for everyone (both have public routes); Schedule and
-Attendance appear only with `pages.operationsEdit`, since their own pages redirect anyone else away
-and offering a door that closes in your face is worse than not offering it.
+**Who sees which tab:** Orders and Map are for everyone (both have public routes). Schedule needs
+`pages.operationsEdit`, since its own page redirects anyone else away and offering a door that
+closes in your face is worse than not offering it. **Attendance opens for any signed-in member** —
+`visibleTabs(canEdit, signedIn)` — because the board is how they RSVP and claim a position, and the
+Modern rebuild moved it off the orders page and put a button here in its place. `/attendance` serves
+both audiences from one path: staff get `<EditorPage/>`, a member gets `attendance/MemberBoard.tsx`
+(the same board in read-and-claim mode under the same `OperationBar`, `canManage={false}` by
+construction — it is the branch a viewer *without* those rights fell through to). Rendering the
+editor for them would mount a Hocuspocus socket, a mission deck and a document rail to show one
+panel. A logged-out visitor is still sent back to the operation's public page.
 
 **Switching between the in-shell tabs never navigates.** `useEditorTab` (`edit/EditorShell.tsx`)
 rewrites the URL with `replaceState`, because a real navigation would tear down the Hocuspocus
@@ -764,22 +771,62 @@ would mean the link people paste to each other only works for half of them.
 asked for *this* operation, and the public page is the version of it they can see.
 
 #### app/operations/[id]/page.tsx
-The main public operation-orders viewer (very large, themeable — `modern`/`oldfashioned`/`scifi`
-page themes). Server component: fetches the operation + current user, computes role flags
-(`isHQ` via `operationsEdit`, `isAllStaff` via `attendance.confirm`, `isJ6` via `departments.j6`,
-`isSectionLeader` via `Db.orbatPositions`), renders hero banner (cover photo, department badge,
-title, op/lore dates), section-nav or paged-view content (delegates to `<PagedView/>` when
-`operation.pages.length > 1`, otherwise renders sections/legacy single body inline via
-`<DocBody/>`), an `<AttendanceDrawer/>` sidebar, Zeus Notes tab (J6-only), OCAP tab
-(`<OcapLinkPanel/>` for HQ to sync, `<OcapStatsPanel/>` for anyone logged in once synced), and
-`<DocAcknowledgeCard/>` read-receipt banner+footer when `isAllStaff && status === 'Upcoming'`.
-Below all of that, signed-in viewers get `<AttendanceBoard/>` full-width — the same component the
-editor's Attendance tab renders (one board, two modes; `canManageAttendance`, computed here
-three-armed off `attendance.manage`, is the only difference). It sits outside the document/sidebar
-row because ~70 positions plus a docked pool rail will not fit in the drawer, and is wrapped in
-`.command` with the operation's `--acc`/`--acc-rgb` injected.
-Hidden (`isPublic: false`) sections show a "Classified — Login to Access" banner to logged-out
-visitors. Public read; edit link shown to `isHQ`.
+**Fetches and gates; renders almost nothing.** Server component: loads the operation + current
+user, computes every role flag (`isHQ` via `operationsEdit`, `isAllStaff` via `attendance.confirm`,
+`isJ6` via `departments.j6`, `canManageAttendance` three-armed off `attendance.manage`,
+`isSectionLeader` via `Db.orbatPositions`), then **dispatches on `pageTheme` to a component under
+`themes/`**. Keeping the gates in one file is the point — three copies of a three-armed permission
+check drifting apart is a bug nobody notices until somebody sees something they shouldn't.
+
+For Modern it additionally runs `readAttendance()`: one projected query over `Db.operationAttendance`
+(`records`, `roster`, `rsvpOpen`) yielding attending count, seats/filled, the viewer's own RSVP and
+the position they hold. Server-side deliberately — that page states what the member owes *in its
+header*, and a header that fills in a second after paint is worse than one that never moved. The
+board's own payload (every record, every section's roles, a user lookup each) is far too much work
+to answer "are you coming, and do you have a position yet".
+
+#### app/operations/[id]/themes/
+One file per page theme, because Modern was rebuilt and the other two were not — a single component
+full of three-way ternaries meant every change to one theme risked the two nobody had asked to
+touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttendance` /
+`ModernPageProps`); themes are pure renderers with no `await`, no `Db`, no `fetchMe`.
+
+- **`ClassicPage.tsx`** — the page as it always looked, lifted out unchanged, now serving
+  `oldfashioned` and `scifi` only. Hero banner, `<SectionNav/>`, `<PageNavClient/>`,
+  `<OperationStatusBar/>`, `<PagedView/>` when `operation.pages.length > 1`, framed sections via
+  `<DocBody/>`, `<AttendanceDrawer/>` sidebar, the full-width `<AttendanceBoard/>` beneath, Zeus and
+  OCAP tabs. Its `isModern` branches are dead (the dispatch never sends Modern here) and are left in
+  place on purpose: pruning them by hand through that many nested ternaries is exactly the edit that
+  silently breaks two themes nobody asked to change. Splitting it into `OldFashionedPage` and
+  `SciFiPage` is the next step, and lets the dead branches fall out on their own.
+- **`ModernPage.tsx` + `modern.module.css`** — the rebuild, "**Warning Order**". The reordering *is*
+  the design: what a member owes comes above the document rather than beside or below it. A ~200px
+  cover **band** (not a screen) with the operation's facts welded to its bottom edge as an auto-fit
+  **ledger** (step off via `<LocalDate/>`, in-game date, terrain, positions filled, and one live
+  cell); then an **action band** pairing the acknowledgement prompt with the attendance call; then
+  the document. Sections lose their bordered plates, corner ticks and `ASOT // SECTION` watermarks —
+  a rule and a numbered heading say the same thing and leave the prose alone — and are set at a
+  reading measure in `--font-serif`, with the chrome around them in `--font-disp`/`--font-mono`.
+  That split is the typographic idea: the document reads like a document, the interface like an
+  instrument. Multi-document operations navigate by `?page=`, server-rendered, so every document has
+  a URL somebody can paste (Modern does not use `<PagedView/>`).
+- **`OrdersSpine.tsx`** — one outline replacing two navigations. Documents are `?page=` links;
+  the open one's sections nest beneath it as scroll-to buttons with an `IntersectionObserver`
+  scroll-spy. The nesting is information, not decoration: "Situation" is *part of* CHQ Orders, not a
+  sibling of it, which the old flat document-rail-plus-section-strip pair said otherwise.
+- **`RsvpCell.tsx`** — the ledger's one live cell, polling `live-status` (30s) and ticking its own
+  clock every second in between. The old page gave the single most time-critical fact on the screen
+  a wide strip at the same weight as everything around it; here it is one cell, and the only one
+  carrying the accent.
+
+**The attendance rail is gone from Modern.** It duplicated the Attendance tab and held a quarter of
+the window open for a control used once per operation. In its place is one call to action stating
+the *member's* position ("You're in — Rifleman", "You're attending, with no position yet") rather
+than the rail's headline figure, which answered a question staff ask and members don't. Classic
+keeps its drawer and full-width board, since only Modern was redesigned.
+
+Hidden (`isPublic: false`) sections still show a "Classified — Login to Access" banner to logged-out
+visitors in both. Public read; `<EditOrdersButton/>` shown to `isHQ`.
 
 #### app/operations/[id]/doc-body.tsx
 Client: renders TipTap ProseMirror JSON (`generateHTML` from `@tiptap/core` + StarterKit,

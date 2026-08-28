@@ -370,7 +370,7 @@ test.describe('Tab paths', () => {
         await expect(editorTab(page, 'ORDERS')).toHaveAttribute('aria-current', 'page')
     })
 
-    test('a member reading the orders gets no Orders menu and no staff tabs', async ({ pageAs }) => {
+    test('a member reading the orders gets no Orders menu and no Schedule tab', async ({ pageAs }) => {
         // The whole reason the public bar is a separate component: it carries
         // where you are and how to move, and none of the authoring controls.
         const opId = await createOperation()
@@ -381,7 +381,30 @@ test.describe('Tab paths', () => {
         await expect(editorTab(page, 'MAP')).toBeVisible()
         await expect(page.getByRole('button', { name: 'Orders options' })).toHaveCount(0)
         await expect(editorTab(page, 'SCHEDULE')).toHaveCount(0)
-        await expect(editorTab(page, 'ATTENDANCE')).toHaveCount(0)
+
+        // Attendance is the one staff-looking tab a member does get: the board
+        // is how they RSVP, and it moved out of the orders page to live there.
+        await expect(editorTab(page, 'ATTENDANCE')).toBeVisible()
+    })
+
+    test('a member can open the attendance board without the editor around it', async ({ pageAs }) => {
+        const opId = await createOperation()
+        const page = await pageAs('plainMember')
+        await page.goto(`/operations/${opId}/attendance`)
+
+        // It used to redirect them straight back to the operation.
+        await expect(page).toHaveURL(new RegExp(`/operations/${opId}/attendance$`), { timeout: 30_000 })
+        await expect(editorTab(page, 'ATTENDANCE')).toHaveAttribute('aria-current', 'page')
+        // None of the authoring surface comes with it.
+        await expect(editorTab(page, 'SCHEDULE')).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Orders options' })).toHaveCount(0)
+    })
+
+    test('a logged-out visitor is sent back from the attendance tab', async ({ page }) => {
+        // Nothing to answer, so nothing to show them.
+        const opId = await createOperation()
+        await page.goto(`/operations/${opId}/attendance`)
+        await expect(page).toHaveURL(new RegExp(`/operations/${opId}$`), { timeout: 30_000 })
     })
 
     test('a member without edit rights is sent to the operation, not the list', async ({ pageAs }) => {

@@ -71,12 +71,22 @@ export function editHref(operationId: string): Route {
  * Which tabs a viewer gets.
  *
  * Orders and Map are the operation as the unit reads it, and both have public
- * routes already. Schedule and Attendance are staff surfaces whose own pages
- * redirect anyone else away — showing them to a member would be offering a door
- * that closes in their face.
+ * routes already. Schedule stays a staff surface whose own page redirects
+ * anyone else away — showing it to a member would be offering a door that
+ * closes in their face.
+ *
+ * Attendance is the exception, and only for signed-in members: the board is
+ * how they RSVP and claim a position, and it used to live at the bottom of the
+ * orders page. Moving it behind the tab means the tab has to open for them —
+ * the same board in its read-and-claim mode, with none of the staff controls.
+ * A logged-out visitor still gets neither, since they have nothing to answer.
  */
-export function visibleTabs(canEdit: boolean): OperationTab[] {
-    return TABS.filter(t => canEdit || (t !== 'schedule' && t !== 'attendance'))
+export function visibleTabs(canEdit: boolean, signedIn = false): OperationTab[] {
+    return TABS.filter(t => {
+        if (t === 'schedule') return canEdit
+        if (t === 'attendance') return canEdit || signedIn
+        return true
+    })
 }
 
 /**

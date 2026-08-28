@@ -11,6 +11,8 @@ interface Props {
     themeColor?: string
     active: OperationTab
     canEdit: boolean
+    /** Signed in at all — enough for the Attendance tab, not for the rest. */
+    signedIn?: boolean
     /** True on the editor's own route — the Orders menu then ticks Edit. */
     editing?: boolean
     /** Came in from the J2 operations tab; the back link should go back there. */
@@ -39,7 +41,7 @@ const STATUS_COLOR: Record<string, string> = {
  * two lists that drift.
  */
 export default function OperationBar({
-    operationId, title, status, themeColor, active, canEdit, editing = false, fromJ2 = false,
+    operationId, title, status, themeColor, active, canEdit, signedIn = false, editing = false, fromJ2 = false,
 }: Props) {
     const accent = themeColor || '#db001d'
     const statusColor = (status && STATUS_COLOR[status]) || 'var(--ink-3)'
@@ -102,6 +104,7 @@ export default function OperationBar({
                 operationId={operationId}
                 active={active}
                 canEdit={canEdit}
+                signedIn={signedIn}
                 editing={editing}
             />
 

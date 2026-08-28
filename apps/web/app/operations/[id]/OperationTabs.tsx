@@ -17,8 +17,10 @@ import s from './tabs.module.css'
 interface Props {
     operationId: string
     active: OperationTab
-    /** Drives Schedule/Attendance visibility *and* whether the Orders menu appears. */
+    /** Drives Schedule visibility *and* whether the Orders menu appears. */
     canEdit: boolean
+    /** Signed-in members get Attendance too — it is how they RSVP. */
+    signedIn?: boolean
     /** True on `/edit` — the menu then marks Edit as the current mode. */
     editing?: boolean
     /**
@@ -43,8 +45,8 @@ interface Props {
  * and an author are looking at the same four names in the same order — the
  * editor is a mode of this page, not a different place.
  */
-export default function OperationTabs({ operationId, active, canEdit, editing = false, onSwitch }: Props) {
-    const tabs = visibleTabs(canEdit)
+export default function OperationTabs({ operationId, active, canEdit, signedIn = false, editing = false, onSwitch }: Props) {
+    const tabs = visibleTabs(canEdit, signedIn)
     /*
      * Orders is the only tab with a menu, and only once you are already on it.
      * Reading and writing the orders are two modes of one view, which is what
