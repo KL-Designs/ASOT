@@ -81,6 +81,9 @@ export default function ModernPage({
         || Object.values(operation.extraPageSections ?? {}).some(secs => secs.some(sec => !sec.isPublic))
     )
 
+    // The eyebrow over every section header, the way the editor shows it.
+    const documentTitle = documents.find(doc => doc.id === activeDocument)?.title ?? 'Operation Orders'
+
     const attendanceHref = `/operations/${id}/attendance` as Route
     const loreDate = operation.loreDate ? dayjs(operation.loreDate) : null
 
@@ -218,7 +221,7 @@ export default function ModernPage({
                                 </div>
 
                                 {sections.length > 0 ? (
-                                    sections.map((sec, i) => (
+                                    sections.map(sec => (
                                         <section
                                             key={sec.id}
                                             id={`section-${sec.id}`}
@@ -226,8 +229,11 @@ export default function ModernPage({
                                             className={s.section}
                                         >
                                             <div className={s.sectionHead}>
-                                                <span className={s.sectionNum}>{String(i + 1).padStart(2, '0')}</span>
-                                                <h2 className={s.sectionTitle}>{sec.title}</h2>
+                                                <div className={s.sectionHeadMain}>
+                                                    <span className={s.sectionEyebrow}>{documentTitle}</span>
+                                                    <h2 className={s.sectionTitle}>{sec.title}</h2>
+                                                    <div className={s.sectionRule} />
+                                                </div>
                                                 {isLoggedIn && !sec.isPublic && (
                                                     <span className={s.classified}>Classified</span>
                                                 )}
@@ -239,7 +245,11 @@ export default function ModernPage({
                                     /* Legacy single-body operations, from before sections existed. */
                                     <section className={s.section} data-print-section>
                                         <div className={s.sectionHead}>
-                                            <h2 className={s.sectionTitle}>Operation Orders</h2>
+                                            <div className={s.sectionHeadMain}>
+                                                <span className={s.sectionEyebrow}>{documentTitle}</span>
+                                                <h2 className={s.sectionTitle}>Operation Orders</h2>
+                                                <div className={s.sectionRule} />
+                                            </div>
                                         </div>
                                         <DocBody content={operation.content} themeColor={accent} pageTheme='modern' />
                                     </section>

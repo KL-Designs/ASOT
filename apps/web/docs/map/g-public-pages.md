@@ -804,11 +804,15 @@ touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttenda
   cover **band** (not a screen) with the operation's facts welded to its bottom edge as an auto-fit
   **ledger** (step off via `<LocalDate/>`, in-game date, terrain, positions filled, and one live
   cell); then an **action band** pairing the acknowledgement prompt with the attendance call; then
-  the document. Sections lose their bordered plates, corner ticks and `ASOT // SECTION` watermarks —
-  a rule and a numbered heading say the same thing and leave the prose alone — and are set at a
-  reading measure in `--font-serif`, with the chrome around them in `--font-disp`/`--font-mono`.
-  That split is the typographic idea: the document reads like a document, the interface like an
-  instrument. Multi-document operations navigate by `?page=`, server-rendered, so every document has
+  the document, centred at 920px. **The section formatting mirrors the editor's**: the header band
+  is `CollabEditor.tsx`'s — document eyebrow, 26px spaced title, the 36x2 accent rule, a full-width
+  hairline — and `.reader :global(.op-doc)` restates `.op-editor`'s card (ground, hairline border,
+  `28px 36px`, `0.92rem/1.75`). Writing something and then finding it laid out differently once
+  published is exactly the surprise a document editor should not produce. What did go is the *frame
+  around the frame*: sections used to sit in a bordered plate stamped `ASOT // SECTION` in both
+  bottom corners, on top of the body's own card. The card override is scoped to Modern rather than
+  folded into the global `.op-doc`, because the other two themes draw their own frames and would end
+  up with two. Multi-document operations navigate by `?page=`, server-rendered, so every document has
   a URL somebody can paste (Modern does not use `<PagedView/>`).
 - **`OrdersSpine.tsx`** — one outline replacing two navigations. Documents are `?page=` links;
   the open one's sections nest beneath it as scroll-to buttons with an `IntersectionObserver`

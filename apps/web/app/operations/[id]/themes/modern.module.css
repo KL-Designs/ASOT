@@ -306,42 +306,67 @@
 }
 .toolLink:hover { color: var(--ink); border-color: var(--acc); }
 
-.section { margin-bottom: 34px; scroll-margin-top: 24px; }
+.section { margin-bottom: 44px; scroll-margin-top: 24px; }
 
 /*
- * No frame, no watermark, no corner ticks. The old page wrapped every section
- * in a bordered plate stamped "ASOT // SITUATION" in both bottom corners, which
- * is a lot of furniture around prose that can carry itself. A rule and a
- * numbered heading say the same thing and leave the words alone.
+ * The section header band, matched to the editor's (`CollabEditor.tsx`, the
+ * block above `<EditorContent/>`): document eyebrow, a large spaced title, the
+ * short accent rule under it, and a full-width hairline closing the band off
+ * from the body. An author and a reader now see the same section header —
+ * writing something and then finding it laid out differently when published is
+ * exactly the surprise a document editor should not produce.
+ *
+ * What is gone from the old page is the *frame around the frame*: every section
+ * used to sit in a bordered plate stamped `ASOT // SITUATION` in both bottom
+ * corners, on top of the body's own card. One surface is enough.
  */
 .sectionHead {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    justify-content: space-between;
     gap: 12px;
-    padding-bottom: 9px;
-    margin-bottom: 14px;
+    padding: 6px 2px 14px;
+    margin-bottom: 18px;
     border-bottom: 1px solid var(--line);
 }
-.sectionNum {
+.sectionHeadMain { min-width: 0; flex: 1; }
+
+/* Which document this section belongs to — the editor shows it because a
+   section is only meaningful inside one, and multi-document operations make
+   that ambiguous otherwise. */
+.sectionEyebrow {
+    display: block;
+    margin-bottom: 6px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 9.5px;
     font-weight: 700;
-    color: var(--acc);
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
 }
+
+/* No font-family: the editor sets none either, so both inherit `--sans` from
+   their shell. Naming a face here is how the two drift apart again. */
 .sectionTitle {
     margin: 0;
-    font-family: var(--font-disp);
-    font-size: 0.95rem;
-    font-weight: 600;
-    letter-spacing: 0.16em;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    line-height: 1.1;
     text-transform: uppercase;
     color: var(--ink);
 }
+.sectionRule {
+    width: 36px;
+    height: 2px;
+    margin-top: 10px;
+    background: var(--acc);
+    opacity: 0.75;
+}
+
 .classified {
-    margin-left: auto;
     flex-shrink: 0;
+    margin-top: 4px;
     padding: 1px 7px;
     border: 1px solid rgba(212, 160, 58, 0.35);
     border-radius: 2px;
@@ -353,23 +378,27 @@
     color: rgba(212, 160, 58, 0.75);
 }
 
-/* The orders themselves get a serif. Everything around them stays condensed
-   and mono, which is what makes the document read as a document. */
+/*
+ * The reading surface, matched to `.op-editor` in globals.css — the writable
+ * ground an author is looking at while they type. `.op-doc` and `.op-editor`
+ * already shared their heading, list and blockquote rules; what the read view
+ * never had was the card itself, which is most of why the same content looked
+ * like two different documents.
+ *
+ * Scoped to Modern rather than folded into the global `.op-doc`, because the
+ * other two themes draw their own frames and would end up with two.
+ */
 .reader :global(.op-doc) {
-    font-family: var(--font-serif);
-    font-size: 0.98rem;
-    line-height: 1.72;
+    color: rgba(237, 237, 237, 0.85);
+    font-size: 0.92rem;
+    line-height: 1.75;
+    padding: 28px 36px;
+    background: var(--s1);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
 }
-.reader :global(.op-doc h1),
-.reader :global(.op-doc h2),
-.reader :global(.op-doc h3) {
-    font-family: var(--font-disp);
-    letter-spacing: 0.04em;
-}
-.reader :global(.op-doc code),
-.reader :global(.op-doc pre) {
-    font-family: var(--font-mono);
-}
+/* `.op-doc` sizes list items down a step and `.op-editor` does not. */
+.reader :global(.op-doc li) { font-size: inherit; }
 
 .empty {
     padding: 26px 0;

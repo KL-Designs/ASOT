@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { Montserrat, Barlow_Condensed, Oswald, JetBrains_Mono, Inter, Source_Serif_4 } from "next/font/google"
+import { Montserrat, Barlow_Condensed, Oswald, JetBrains_Mono, Inter } from "next/font/google"
 import "@/styles/globals.css"
 import "@/styles/command.css"
 import { headers } from "next/headers"
@@ -25,12 +25,8 @@ const barlowCondensed = Barlow_Condensed({ subsets: ["latin"], weight: ["400", "
 const oswald = Oswald({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-oswald" })
 const jetbrainsMono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-jetbrains-mono" })
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" })
-// The one serif on the site, and it earns its place: the Modern operation
-// orders page sets the orders themselves in it, so the document reads as a
-// document against chrome that stays condensed and monospaced.
-const sourceSerif = Source_Serif_4({ subsets: ["latin"], weight: ["400", "600"], style: ["normal", "italic"], variable: "--font-source-serif" })
 
-const fontVariables = [barlowCondensed, oswald, jetbrainsMono, inter, sourceSerif].map(f => f.variable).join(' ')
+const fontVariables = [barlowCondensed, oswald, jetbrainsMono, inter].map(f => f.variable).join(' ')
 
 export const viewport: Viewport = {
 	themeColor: "#9d000c",
