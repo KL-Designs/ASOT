@@ -336,7 +336,10 @@ test.describe('Tab paths', () => {
         const page = await pageAs('j4')
         await page.goto(`/operations/${opId}`)
 
-        const ribbon = page.getByRole('link', { name: /Edit orders/i })
+        // By title, not by label: the label is two words that have to fit inside
+        // the Orders tab's own width, so it is deliberately terse and would be
+        // an ambiguous locator on a page full of orders.
+        const ribbon = page.getByTitle('Open the orders in the editor')
         await expect(ribbon).toBeVisible({ timeout: 30_000 })
         await ribbon.click()
         await expect(page).toHaveURL(new RegExp(`/operations/${opId}/edit$`), { timeout: 30_000 })
@@ -351,7 +354,7 @@ test.describe('Tab paths', () => {
 
         await expect(editorTab(page, 'ORDERS')).toBeVisible({ timeout: 30_000 })
         await expect(editorTab(page, 'MAP')).toBeVisible()
-        await expect(page.getByRole('link', { name: /Edit orders/i })).toHaveCount(0)
+        await expect(page.getByTitle('Open the orders in the editor')).toHaveCount(0)
         await expect(editorTab(page, 'SCHEDULE')).toHaveCount(0)
         await expect(editorTab(page, 'ATTENDANCE')).toHaveCount(0)
     })

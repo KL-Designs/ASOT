@@ -703,6 +703,15 @@ deliberately **not** a fifth view: it is the editor opened *on* the Orders view,
 a ribbon under the Orders tab and only by people who can use it. `/edit` therefore lights the
 Orders tab — same view, opened for writing rather than reading.
 
+**The ribbon is the tab's underline thickened into a tongue**, pinned to the exact width of the
+Orders tab. That width is structural, not measured: each tab sits in a shrink-wrapped
+`.tabSlot`, and the ribbon is pinned to `left: 0; right: 0` inside its slot, so it matches at any
+font size with nothing to drift. It cost the strip its horizontal scrolling — a scrolling box clips
+on *both* axes and cut the tongue off at the header's edge — which four eight-character tabs did
+not need anyway; the operation title beside it ellipsizes instead. The labels are one word ("Edit",
+"Done") because they have to live inside a tab's width, and leaving the editor is drawn grey rather
+than accent: opening it is the action worth the colour, closing it is housekeeping.
+
 The model lives in **`app/operations/[id]/tabs.ts`** (a plain module, so the public server page and
 the editor's client header can both read it) and the strip itself in **`OperationTabs.tsx`**, shared
 by both. The tab key is `orders`, not `brief`: "Brief" was the editor's name for its own first tab

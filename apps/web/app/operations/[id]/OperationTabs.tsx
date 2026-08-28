@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { editHref, tabHref, TAB_LABELS, visibleTabs, type OperationTab } from './tabs'
-import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
 import s from './tabs.module.css'
 
 interface Props {
@@ -35,19 +34,24 @@ interface Props {
  * editor is a mode of this page, not a different place.
  */
 export default function OperationTabs({ operationId, active, canEdit, editing = false, onSwitch }: Props) {
-    const tabsFadeRef = useThinScrollFade<HTMLElement>()
     const tabs = visibleTabs(canEdit)
     const showRibbon = canEdit && active === 'orders'
 
     return (
-        // Not the scroller itself: the nav below scrolls, and the ribbon hangs
-        // out of this box. Putting the ribbon inside the scrolling strip would
-        // have it clipped the moment the tabs overflowed.
-        <div className={s.wrap}>
-            <nav ref={tabsFadeRef} className={`${s.tabsRow} thin-scroll`} aria-label='Operation views'>
-                {tabs.map(t => (
+        <nav className={s.tabsRow} aria-label='Operation views'>
+            {tabs.map(t => (
+                /*
+                 * Each tab gets a slot, and the slot is what the ribbon measures
+                 * against. It shrink-wraps its tab, so `left: 0; right: 0` on the
+                 * ribbon is the tab's exact width — at any font size, in any
+                 * language, with nothing measured and nothing to drift.
+                 *
+                 * The ribbon is the slot's *sibling* of the tab rather than its
+                 * child because both are links, and an anchor inside an anchor is
+                 * invalid markup that browsers unnest on you.
+                 */
+                <span key={t} className={s.tabSlot}>
                     <Link
-                        key={t}
                         href={tabHref(operationId, t)}
                         aria-current={t === active ? 'page' : undefined}
                         className={t === active ? `${s.tab} ${s.tabOn}` : s.tab}
@@ -59,17 +63,18 @@ export default function OperationTabs({ operationId, active, canEdit, editing = 
                     >
                         {TAB_LABELS[t].toUpperCase()}
                     </Link>
-                ))}
-            </nav>
 
-            {showRibbon && (
-                <Link
-                    href={editing ? tabHref(operationId, 'orders') : editHref(operationId)}
-                    className={`${s.ribbon} ${editing ? s.ribbonOut : ''}`}
-                >
-                    {editing ? '✓ Done editing' : '✎ Edit orders'}
-                </Link>
-            )}
-        </div>
+                    {t === 'orders' && showRibbon && (
+                        <Link
+                            href={editing ? tabHref(operationId, 'orders') : editHref(operationId)}
+                            className={`${s.ribbon} ${editing ? s.ribbonOut : ''}`}
+                            title={editing ? 'Stop editing and read the orders' : 'Open the orders in the editor'}
+                        >
+                            {editing ? '✓ Done' : '✎ Edit'}
+                        </Link>
+                    )}
+                </span>
+            ))}
+        </nav>
     )
 }
