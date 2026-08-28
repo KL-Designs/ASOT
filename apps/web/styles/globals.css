@@ -74,6 +74,12 @@ body.fullscreen-page #site-footer {
 	display: none !important;
 }
 
+/* Pages that bring their own top bar (see components/HideSiteNav.tsx). The
+   footer stays: what these pages replace is the navigation, not the chrome. */
+body.hide-site-nav #site-navbar {
+	display: none !important;
+}
+
 body {
 	color: var(--foreground);
 	background: var(--background);

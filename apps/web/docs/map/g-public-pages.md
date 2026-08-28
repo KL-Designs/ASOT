@@ -700,17 +700,37 @@ Sets dynamic `<Metadata>`/`<Viewport>` (theme colour) from `Db.operations` for t
 The operation's four views are **sibling paths under it**: `/operations/[id]` (**Orders** — the
 page anybody can read) · `/map` · `/schedule` · `/attendance`. `/operations/[id]/edit` is
 deliberately **not** a fifth view: it is the editor opened *on* the Orders view, reached only from
-a ribbon under the Orders tab and only by people who can use it. `/edit` therefore lights the
+the Orders tab's own menu and only by people who can use it. `/edit` therefore lights the
 Orders tab — same view, opened for writing rather than reading.
 
-**The ribbon is the tab's underline thickened into a tongue**, pinned to the exact width of the
-Orders tab. That width is structural, not measured: each tab sits in a shrink-wrapped
-`.tabSlot`, and the ribbon is pinned to `left: 0; right: 0` inside its slot, so it matches at any
-font size with nothing to drift. It cost the strip its horizontal scrolling — a scrolling box clips
-on *both* axes and cut the tongue off at the header's edge — which four eight-character tabs did
-not need anyway; the operation title beside it ellipsizes instead. The labels are one word ("Edit",
-"Done") because they have to live inside a tab's width, and leaving the editor is drawn grey rather
-than accent: opening it is the action worth the colour, closing it is housekeeping.
+**Orders is a split tab for anyone who can edit**: the label opens the orders, and a caret beside it
+opens a two-item menu — **Read** and **Edit** — with the current one ticked and drawn in the accent.
+Two items rather than one because reading and writing are two modes of a single view, so the menu
+doubles as the answer to which of them you are in; it works the same in both directions, and the
+header does not change shape as you move between them. The caret only appears once Orders is the
+active tab (nothing to offer from Map) and only with `pages.operationsEdit`. It carries the accent
+underline itself so the tab's underline runs unbroken across both halves. The strip has no
+horizontal scrolling — a scrolling box clips on *both* axes and would cut the menu off at the
+header's edge — which four eight-character tabs did not need anyway; the operation title beside it
+ellipsizes instead.
+
+**The mode is sticky per session** (`readOrdersMode`/`rememberOrdersMode` in `tabs.ts`,
+`sessionStorage` keyed by operation id). Switch to Map mid-edit and back, and Orders returns you to
+the editor rather than dropping you on the read-only page — you never asked to stop editing, and the
+socket is still up. Whenever Orders *is* the active tab the URL is authoritative and the mode is
+re-recorded from it; everywhere else it is read back. It starts at `read`, which is what the server
+renders, so the remembered value only ever arrives after mount and only ever changes an href. The
+mode also decides whether a click stays in the shell: `OperationTabs` calls `onSwitch('orders')`
+only in edit mode, which is why `useEditorTab` can now handle Orders in-shell instead of always
+refusing it. `sessionStorage` and not a saved preference — a new tab should start you reading.
+
+**The mode switch is a pair of buttons in one corner.** The editor's "⊡ Preview" (bottom-right of
+the editor column, `EditorShell.tsx`) and the orders page's "✎ Edit" (`EditOrdersButton.tsx`,
+`isHQ` only) share `mode-switch.module.css` — same skin, same corner, so flipping between reading
+and writing is one place to click from either side. Preview *switches in place* rather than opening
+a second tab, which is what it used to do and which left people editing in one tab and reading a
+stale copy in another. The Orders menu still does the same job; the menu is where you choose a
+mode, these are the one-click flip for somebody going back and forth.
 
 The model lives in **`app/operations/[id]/tabs.ts`** (a plain module, so the public server page and
 the editor's client header can both read it) and the strip itself in **`OperationTabs.tsx`**, shared
@@ -730,8 +750,11 @@ whether it handled the change, which is how one strip serves both cases; the tab
 than buttons so that middle-click and open-in-new-tab work, which the buttons had quietly removed.
 
 **`OperationBar.tsx`** is the slim bar over the public orders page: back link, title, status pill
-and the same strip. Deliberately *not* the editor's header — no save state, no Publish, no delete
-menu. Those belong to somebody who has opened the editor, and putting them on a page every member
+and the same strip. It *replaces* the site navbar rather than sitting under it — `<HideSiteNav/>`
+(`components/HideSiteNav.tsx`, a body class since the navbar lives in the root layout) drops it, and
+the bar's own "← Back" is the way out. Narrower than `FullscreenPage`, which also takes the footer:
+the orders page is still a document you scroll to the end of. Deliberately *not* the editor's
+header — no save state, no Publish, no delete menu. Those belong to somebody who has opened the editor, and putting them on a page every member
 can read would be showing controls that either do nothing or should not be there.
 
 `/operations/[id]/map` serves **both audiences from one path**: the editor's Map tab to anyone
@@ -835,7 +858,9 @@ client-side auto-fire timers and manual stage buttons, persisted via `POST
 /api/operations/[id]/attendance/platoons`), acknowledgement summary, custom attendance units,
 delete confirmation, and embeds the TipTap collaborative `<OperationEditor
 documentId={opID}/>` (dynamic import of `@/components/editor/CollabEditor`) for the actual orders
-content. Also toggles a right-hand `<ActivityLog/>` panel and a live `<iframe>` preview pane.
+content. Also toggles a right-hand `<ActivityLog/>` panel. The `<iframe>` "Live Preview" drawer that
+used to sit beside it is **gone** — nothing had opened it since Preview became a link, and leaving a
+second, stale idea of "preview" next to the new one was worse than the feature was worth.
 
 Composed via `edit/EditorShell.tsx` as the operation's four views (Orders / Map / Schedule /
 Attendance — the last two `isHQ`-only), where Orders is the collaborative editor mounted on

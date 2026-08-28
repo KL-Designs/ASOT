@@ -771,7 +771,10 @@ component so the active-cell rule is unit-testable on its own.
 - Default export `FireEmbers()` — canvas particle system (rising ember glow effect), no props, self-contained animation loop.
 
 #### components/FullscreenPage.tsx
-- Default export `FullscreenPage()` — client-only side-effect component; toggles `document.body.classList.add('fullscreen-page')` on mount/unmount. Renders nothing.
+- Default export `FullscreenPage()` — client-only side-effect component; toggles `document.body.classList.add('fullscreen-page')` on mount/unmount. Renders nothing. Hides both the site navbar and the footer (rule in `styles/globals.css`).
+
+#### components/HideSiteNav.tsx
+- Default export `HideSiteNav()` — the narrower sibling of `FullscreenPage`: toggles `body.hide-site-nav`, which drops the site navbar and leaves the footer. For a page that brings its own top bar but is still an ordinary scrolling document — currently the operation orders page, which is topped by `OperationBar`. A body class rather than page-scoped CSS because the navbar lives in the root layout, outside anything a route can style.
 
 #### components/info-card.tsx
 - Default export `InfoCard({title, children, icon?, accentColor='var(--red)', accentRgb='219,0,29'})` — bordered card with icon+uppercase title header.

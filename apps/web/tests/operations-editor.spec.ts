@@ -331,21 +331,46 @@ test.describe('Tab paths', () => {
         await expect(page).toHaveURL(new RegExp(`/operations/${opId}$`), { timeout: 30_000 })
     })
 
-    test('the edit ribbon takes a staff member from the orders page into the editor', async ({ pageAs }) => {
+    test('the Orders menu takes a staff member from the orders page into the editor', async ({ pageAs }) => {
         const opId = await createOperation()
         const page = await pageAs('j4')
         await page.goto(`/operations/${opId}`)
 
-        // By title, not by label: the label is two words that have to fit inside
-        // the Orders tab's own width, so it is deliberately terse and would be
-        // an ambiguous locator on a page full of orders.
-        const ribbon = page.getByTitle('Open the orders in the editor')
-        await expect(ribbon).toBeVisible({ timeout: 30_000 })
-        await ribbon.click()
+        const caret = page.getByRole('button', { name: 'Orders options' })
+        await expect(caret).toBeVisible({ timeout: 30_000 })
+        await caret.click()
+
+        // Scoped to the menu: "Edit" is one word and the page it sits on is a
+        // wall of prose, so an unscoped locator would be a coin toss.
+        const menu = page.getByRole('menu', { name: 'Orders' })
+        await expect(menu.getByRole('menuitem', { name: 'Read' })).toHaveAttribute('aria-current', 'true')
+        await menu.getByRole('menuitem', { name: 'Edit' }).click()
         await expect(page).toHaveURL(new RegExp(`/operations/${opId}/edit$`), { timeout: 30_000 })
+
+        // And the menu now says which of the two modes you are in.
+        await page.getByRole('button', { name: 'Orders options' }).click()
+        await expect(page.getByRole('menu', { name: 'Orders' }).getByRole('menuitem', { name: 'Edit' }))
+            .toHaveAttribute('aria-current', 'true')
     })
 
-    test('a member reading the orders gets no edit ribbon and no staff tabs', async ({ pageAs }) => {
+    test('Orders remembers it was in edit mode across a trip to Map', async ({ pageAs }) => {
+        // The strip is the same strip in both modes, so coming back from Map
+        // must not quietly drop an author onto the read-only page — they never
+        // asked to stop editing.
+        const opId = await createOperation()
+        const page = await pageAs('j4')
+        await page.goto(`/operations/${opId}/edit`)
+        await expect(editorTab(page, 'MAP')).toBeVisible({ timeout: 30_000 })
+
+        await editorTab(page, 'MAP').click()
+        await expect(page).toHaveURL(new RegExp(`/operations/${opId}/map$`))
+
+        await editorTab(page, 'ORDERS').click()
+        await expect(page).toHaveURL(new RegExp(`/operations/${opId}/edit$`), { timeout: 30_000 })
+        await expect(editorTab(page, 'ORDERS')).toHaveAttribute('aria-current', 'page')
+    })
+
+    test('a member reading the orders gets no Orders menu and no staff tabs', async ({ pageAs }) => {
         // The whole reason the public bar is a separate component: it carries
         // where you are and how to move, and none of the authoring controls.
         const opId = await createOperation()
@@ -354,7 +379,7 @@ test.describe('Tab paths', () => {
 
         await expect(editorTab(page, 'ORDERS')).toBeVisible({ timeout: 30_000 })
         await expect(editorTab(page, 'MAP')).toBeVisible()
-        await expect(page.getByTitle('Open the orders in the editor')).toHaveCount(0)
+        await expect(page.getByRole('button', { name: 'Orders options' })).toHaveCount(0)
         await expect(editorTab(page, 'SCHEDULE')).toHaveCount(0)
         await expect(editorTab(page, 'ATTENDANCE')).toHaveCount(0)
     })

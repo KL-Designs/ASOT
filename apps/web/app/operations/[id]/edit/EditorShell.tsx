@@ -1,14 +1,16 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
+import Link from 'next/link'
 import { rgbTriplet } from '@/lib/colour'
 import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
 import styles from './shell.module.css'
+import modeSwitch from '../mode-switch.module.css'
 
 export type { OperationTab as EditorTab } from '../tabs'
 export { TABS, TAB_LABELS } from '../tabs'
 
-import { resolveTab, tabFromSegment, visibleTabs, type OperationTab } from '../tabs'
+import { resolveTab, tabFromSegment, tabHref, visibleTabs, type OperationTab } from '../tabs'
 
 /** The last path segment, which is what names the tab. */
 function currentSegment(): string {
@@ -25,13 +27,14 @@ function operationBase(): string {
 /**
  * Where an *in-shell* tab lives.
  *
- * Only Map, Schedule and Attendance reach this. Orders is not a path this
- * function can produce, because Orders leaves the editor entirely — see
- * `../tabs.ts` for why the orders are the operation's own page rather than a
- * tab of the editor, and `useEditorTab` below for how leaving is handled.
+ * Orders maps to `/edit` rather than to `/operations/{id}`: reaching it from
+ * inside the shell means you are editing the orders, and the operation's own
+ * page is the *other* mode of that view — see `../tabs.ts` for why the orders
+ * are the operation's page rather than a tab of the editor, and `useEditorTab`
+ * below for which of the two a click resolves to.
  */
 function tabPath(tab: OperationTab): string {
-    return `${operationBase()}/${tab}`
+    return tab === 'orders' ? `${operationBase()}/edit` : `${operationBase()}/${tab}`
 }
 
 function tabFromLocation(): OperationTab {
@@ -79,23 +82,24 @@ export function useEditorTab(): [OperationTab, (t: OperationTab) => boolean] {
         const url = new URL(window.location.href)
         if (url.searchParams.has('tab')) {
             url.searchParams.delete('tab')
-            url.pathname = resolved === 'orders' ? `${operationBase()}/edit` : tabPath(resolved)
+            url.pathname = tabPath(resolved)
             window.history.replaceState(null, '', url)
         }
     }, [])
 
     /**
-     * Returns whether the switch was handled here.
+     * Returns whether the switch was handled here — `false` means "let the link
+     * navigate", which is how Orders leaves the editor for the operation's own
+     * page. That genuinely is a navigation: the collab socket goes with it and
+     * comes back when the editor is reopened, unlike every other tab, where a
+     * real navigation would tear the socket down and rebuild the Y.Doc for
+     * nothing.
      *
-     * `false` means "let the link navigate", which is what Orders needs: it
-     * leaves the editor for the operation's own page, and that genuinely is a
-     * navigation — the collab socket goes with it, and comes back when the
-     * editor is reopened. Everything else stays in the shell, where a real
-     * navigation would tear the socket down and rebuild the Y.Doc for nothing.
+     * Which of the two Orders means is not decided here. `OperationTabs` tracks
+     * the mode the orders were last open in and simply doesn't call this when
+     * it is `read`, so everything that reaches this function stays in the shell.
      */
     const change = (next: OperationTab): boolean => {
-        if (next === 'orders') return false
-
         setTab(next)
         const url = new URL(window.location.href)
         url.pathname = tabPath(next)
@@ -134,9 +138,9 @@ interface EditorShellProps {
      * an HQ user's role changing mid-session must not leave stale attendance
      * content selectable via a stale tab value. */
     attendance: ReactNode
-    /** Right-padding applied to the tab content area so a slide-over drawer
-     * (Activity/Preview, both fixed overlays rendered outside this shell)
-     * doesn't cover whichever tab is currently showing. */
+    /** Right-padding applied to the tab content area so the Activity drawer
+     * (a fixed overlay rendered outside this shell) doesn't cover whichever tab
+     * is currently showing. */
     contentPaddingRight?: string | number
 }
 
@@ -224,24 +228,29 @@ export default function EditorShell({
                      * itself (.main is `position: relative`, set above), not the
                      * viewport, so it always sits just left of the mission deck
                      * (deck is .main's sibling in .body) at every width, deck
-                     * state included. Opens the public operation page in a new
-                     * tab — same behaviour the old header overflow-menu "⊡
-                     * Preview" item had; only its position moved.
+                     * state included.
                      *
-                     * Brief only. It opens the public orders page, which is the
-                     * rendered form of what Brief edits — there is nothing on
-                     * Map, Schedule or Attendance it is a preview *of*, so on
-                     * those tabs it was just a button that took you elsewhere.
+                     * It switches mode in place rather than opening a second
+                     * tab: the orders page is the same view read instead of
+                     * written, and the way back is the identical button in the
+                     * identical corner over there (`../EditOrdersButton.tsx`).
+                     * Two tabs of the same operation was the older answer, and
+                     * it left people editing in one and reading a stale copy in
+                     * the other.
+                     *
+                     * Orders only. It shows the rendered form of what Orders
+                     * edits — there is nothing on Map, Schedule or Attendance it
+                     * is a preview *of*, so on those tabs it was just a button
+                     * that took you elsewhere.
                      */}
                     {operationId && active === 'orders' && (
-                        <button
-                            type='button'
-                            onClick={() => window.open(`/operations/${operationId}`, '_blank')}
-                            title='Preview operation'
-                            className={styles.previewBtn}
+                        <Link
+                            href={tabHref(operationId, 'orders')}
+                            title='Read the orders as the unit sees them'
+                            className={modeSwitch.btn}
                         >
                             ⊡ Preview
-                        </button>
+                        </Link>
                     )}
                 </div>
                 {/*

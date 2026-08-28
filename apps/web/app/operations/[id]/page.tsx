@@ -20,6 +20,8 @@ import OcapLinkPanel from './OcapLinkPanel'
 import OcapStatsPanel from './OcapStatsPanel'
 import DocAcknowledgeCard from './DocAcknowledgeCard'
 import OperationBar from './OperationBar'
+import HideSiteNav from '@/components/HideSiteNav'
+import EditOrdersButton from './EditOrdersButton'
 
 
 function hexToRgb(hex: string) {
@@ -114,9 +116,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                 one anybody can read — and the same four names appear here as in
                 the editor, so moving between them is one bar rather than two
                 different chromes. The slim bar deliberately carries none of the
-                editor's authoring controls; the ribbon under Orders is the only
-                way into `/edit`, and only for people who can use it.
+                editor's authoring controls; the Orders tab's menu is where you
+                pick a mode, and only people who can edit see it at all.
+
+                It replaces the site navbar rather than sitting under it — its
+                "← Back" link is the way out, and stacking the two would put two
+                rows of navigation over a page that is mostly a hero image. The
+                footer stays; this is still a document you scroll to the end of.
             */}
+            <HideSiteNav />
             <OperationBar
                 operationId={id}
                 title={operation.title}
@@ -911,6 +919,14 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                     />
                 </div>
             )}
+
+            {/*
+                The one-click way back into the editor, mirroring the editor's
+                own "Preview" button — same corner, same skin, so the pair reads
+                as one switch between reading and writing rather than two
+                shortcuts that happen to point at each other.
+            */}
+            {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} />}
 
         </div>
     )

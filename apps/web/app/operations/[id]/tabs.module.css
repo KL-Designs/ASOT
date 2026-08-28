@@ -8,7 +8,7 @@
  * The strip does not scroll, deliberately.
  *
  * It used to (`overflow-x: auto`), and a scrolling box clips on *both* axes —
- * which cut the ribbon off at the header's edge the moment it was drawn. Four
+ * which cut the Orders menu off at the header's edge the moment it opened. Four
  * tabs of eight characters do not need a scroller: the strip holds its width
  * and the operation title beside it ellipsizes instead, which it was already
  * set up to do.
@@ -22,11 +22,9 @@
 }
 
 /*
- * One slot per tab, shrink-wrapped to it. This is the whole mechanism behind
- * the ribbon's width: the slot is exactly as wide as its tab, so a ribbon
- * pinned to `left: 0; right: 0` inside it is exactly as wide as the tab too.
- * Nothing is measured, so nothing drifts when the font loads or the label
- * changes.
+ * One slot per tab, shrink-wrapped to it. It is what the Orders menu hangs
+ * from: `left: 0` on the menu is the tab's own left edge, so the two line up
+ * with nothing measured and nothing to drift when the font loads.
  */
 .tabSlot {
     position: relative;
@@ -58,58 +56,92 @@
 .tabOn { color: var(--ink); border-bottom-color: var(--acc); }
 .tab:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
 
+/* The label half of the split: the caret takes over its right padding, so the
+   two read as one control rather than a tab with something stuck beside it. */
+.tabSplit { padding-right: 3px; }
+
 /*
- * The edit ribbon: the tab's underline, thickened into a tongue.
+ * The caret that opens the Orders menu.
  *
- * Pinned to its slot's left and right edges, so it is the Orders tab's exact
- * width — that is the point, and it is why the slot above exists. It carries no
- * shadow and no gap: a shadow says "floating layer" and the previous version's
- * did exactly that, reading as a menu that had opened by accident rather than
- * as part of the tab it belongs to.
- *
- * It overlaps whatever is under the header on purpose. Giving it a row of its
- * own would push every page down by 19px to hold a control most viewers never
- * see — and the label is short ("Edit", "Done") precisely because it has to
- * live inside a tab's width, which is a useful constraint rather than a cost.
+ * It only exists on Orders and only while Orders is the active tab, so it can
+ * carry the accent underline unconditionally — that continues the tab's own
+ * underline across both halves instead of stopping short under the label.
  */
-.ribbon {
+.caret {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: none;
+    border-bottom: 2px solid var(--acc);
+    color: var(--ink-3);
+    font-size: 8px;
+    line-height: 1;
+    padding: 0 8px 0 1px;
+    height: 100%;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 120ms ease;
+}
+.caret:hover { color: var(--ink); }
+.caret:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
+.caretOn { color: var(--ink); }
+
+/*
+ * The menu itself. A real floating layer this time, so it gets a real border
+ * and shadow — the thing this replaced looked like a menu that had opened by
+ * accident precisely because it was drawn like one without being one.
+ *
+ * `min-width: 100%` keeps it at least as wide as the tab it hangs from, and
+ * `nowrap` lets it grow past that rather than wrapping two short words.
+ */
+.menu {
     position: absolute;
     top: 100%;
     left: 0;
-    right: 0;
-    z-index: 5;
+    z-index: 40;
+    min-width: 100%;
+    margin-top: 2px;
+    padding: 3px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    background: var(--s2);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+}
+
+.item {
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 5px;
-    height: 19px;
-    border-radius: 0 0 2px 2px;
-    background: var(--acc);
-    /* Fixed white rather than a token: this sits on the accent, which is the
-       operation's own theme colour and can be anything the author picked. */
-    color: #fff;
+    gap: 6px;
+    padding: 5px 12px 5px 5px;
+    border-radius: 2px;
+    color: var(--ink-2);
     font-family: var(--mono);
-    font-size: 8.5px;
+    font-size: 9.5px;
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     text-decoration: none;
-    white-space: nowrap;
-    overflow: hidden;
-    transition: filter 140ms ease;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
 }
-.ribbon:hover { filter: brightness(1.18); }
-.ribbon:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.item:hover { background: var(--s3); color: var(--ink); }
+.item:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
 
-/* Leaving the editor is housekeeping, not the accent action. Same geometry, so
- * the header does not change shape as you move between the two. */
-.ribbonOut {
-    background: var(--s3);
-    color: var(--ink-2);
-    box-shadow: inset 0 0 0 1px var(--line-2);
+/* The mode you are already in. Marked rather than hidden: the menu is also how
+   you find out which of the two you are looking at. */
+.itemOn { color: var(--acc); }
+
+/* Fixed width so both labels start on the same column, ticked or not. */
+.tick {
+    display: inline-block;
+    width: 9px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 9px;
 }
-.ribbonOut:hover { filter: none; background: var(--line-2); color: var(--ink); }
 
 @media (prefers-reduced-motion: reduce) {
-    .ribbon { transition: none; }
+    .caret,
+    .item { transition: none; }
 }

@@ -11,8 +11,8 @@
  * `orders` points at `/operations/{id}` — the page anybody can read — rather
  * than at `/edit`. That is the change this module exists for: the orders are
  * the operation as far as the unit is concerned, and the editor is a thing you
- * open *on* them. Editing is reached from the ribbon under the Orders tab, by
- * the few people who can, instead of being the destination everybody lands on.
+ * open *on* them. Editing is reached from the Orders tab's own menu, by the few
+ * people who can, instead of being the destination everybody lands on.
  *
  * The tab key is `orders` rather than `brief` for the same reason. "Brief" was
  * the editor's name for its own first tab; nobody outside the editor called it
@@ -54,7 +54,7 @@ export function resolveTab(raw: string): OperationTab | null {
  *
  * Orders is the operation's own URL; the other three are segments under it.
  * `/edit` is deliberately absent — it is not a tab, it is the editor opened on
- * the Orders view, and only the ribbon links to it.
+ * the Orders view, and only that menu links to it.
  */
 export function tabHref(operationId: string, tab: OperationTab): Route {
     return (tab === 'orders'
@@ -89,4 +89,49 @@ export function visibleTabs(canEdit: boolean): OperationTab[] {
 export function tabFromSegment(segment: string): OperationTab {
     if (segment === 'edit') return 'orders'
     return resolveTab(segment) ?? 'orders'
+}
+
+/* ── Which mode Orders is in ────────────────────────────────────────────── */
+
+/** Reading the orders, or writing them. Two modes of one view. */
+export type OrdersMode = 'read' | 'edit'
+
+/**
+ * Per-tab, per-operation, and deliberately not a saved preference.
+ *
+ * `sessionStorage`, so opening the operation in a new tab starts you reading —
+ * editing is something you chose to be doing right now, not a setting you carry
+ * between visits. Scoped by operation id because being mid-edit on one op says
+ * nothing about the next.
+ */
+function ordersModeKey(operationId: string): string {
+    return `asot:orders-mode:${operationId}`
+}
+
+/**
+ * The mode this session last had this operation's orders open in.
+ *
+ * Defaults to reading, which is also what the server renders — so the sticky
+ * value only ever arrives after mount and only ever changes an href.
+ *
+ * Wrapped because storage access throws outright in some privacy modes rather
+ * than returning nothing.
+ */
+export function readOrdersMode(operationId: string): OrdersMode {
+    if (typeof window === 'undefined') return 'read'
+    try {
+        return window.sessionStorage.getItem(ordersModeKey(operationId)) === 'edit' ? 'edit' : 'read'
+    } catch {
+        return 'read'
+    }
+}
+
+/** Records the mode. Failing to remember is not worth breaking a tab switch over. */
+export function rememberOrdersMode(operationId: string, mode: OrdersMode): void {
+    if (typeof window === 'undefined') return
+    try {
+        window.sessionStorage.setItem(ordersModeKey(operationId), mode)
+    } catch {
+        /* private mode, blocked site data — the strip works without it. */
+    }
 }

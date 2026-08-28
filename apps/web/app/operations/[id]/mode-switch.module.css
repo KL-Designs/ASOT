@@ -1,0 +1,44 @@
+/*
+ * The mode switch: "Preview" in the editor, "Edit" on the orders page.
+ *
+ * One skin and one corner for both, because they are the same control seen
+ * from either side — flipping between reading and writing is the same click in
+ * the same place, whichever side you are on. Only the anchor differs: in the
+ * editor it hangs off the editor column (so it sits just left of the mission
+ * deck at every width), and on the orders page there is no positioned column
+ * to hang from, so it rides the viewport instead.
+ *
+ * Tokens come from `.command`, which declares nothing but custom properties —
+ * so the public button can wear that class directly without inheriting a
+ * background it does not want.
+ */
+.btn {
+    position: absolute;
+    right: 24px;
+    bottom: 24px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    background: var(--s2);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    color: var(--ink-2);
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+.btn:hover { color: var(--ink); border-color: var(--acc); }
+.btn:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+/* The orders page is an ordinary scrolling document with no positioned column
+   to sit inside, so this one follows the viewport down the page. */
+.fixed {
+    position: fixed;
+    z-index: 30;
+}

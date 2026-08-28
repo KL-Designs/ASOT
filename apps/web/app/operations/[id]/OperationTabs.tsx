@@ -1,15 +1,25 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { editHref, tabHref, TAB_LABELS, visibleTabs, type OperationTab } from './tabs'
+import {
+    editHref,
+    readOrdersMode,
+    rememberOrdersMode,
+    tabHref,
+    TAB_LABELS,
+    visibleTabs,
+    type OperationTab,
+    type OrdersMode,
+} from './tabs'
 import s from './tabs.module.css'
 
 interface Props {
     operationId: string
     active: OperationTab
-    /** Drives Schedule/Attendance visibility *and* whether the ribbon appears. */
+    /** Drives Schedule/Attendance visibility *and* whether the Orders menu appears. */
     canEdit: boolean
-    /** True on `/edit` — the ribbon then offers the way back out. */
+    /** True on `/edit` — the menu then marks Edit as the current mode. */
     editing?: boolean
     /**
      * Lets the editor keep a switch in-shell. Return `true` to say it handled
@@ -35,46 +45,180 @@ interface Props {
  */
 export default function OperationTabs({ operationId, active, canEdit, editing = false, onSwitch }: Props) {
     const tabs = visibleTabs(canEdit)
-    const showRibbon = canEdit && active === 'orders'
+    /*
+     * Orders is the only tab with a menu, and only once you are already on it.
+     * Reading and writing the orders are two modes of one view, which is what
+     * the menu says out loud — the other three tabs have no second mode, so a
+     * caret on them would be an affordance for nothing.
+     */
+    const showMenu = canEdit && active === 'orders'
+
+    /*
+     * Orders remembers which of its two modes you were in.
+     *
+     * Switch to Map while editing and come back, and you land back in the
+     * editor — the socket is still up and the tab strip is the same strip, so
+     * dumping you into the read-only page would be undoing a choice you never
+     * made. Where you *are* is the answer whenever Orders is the active tab;
+     * everywhere else it comes out of session storage.
+     *
+     * It starts at `read`, which is what the server renders, so the remembered
+     * value only ever arrives after mount and only ever changes an href.
+     */
+    const [ordersMode, setOrdersMode] = useState<OrdersMode>('read')
+
+    useEffect(() => {
+        if (!canEdit) return setOrdersMode('read')
+        if (active === 'orders') {
+            const mode: OrdersMode = editing ? 'edit' : 'read'
+            rememberOrdersMode(operationId, mode)
+            return setOrdersMode(mode)
+        }
+        setOrdersMode(readOrdersMode(operationId))
+    }, [canEdit, active, editing, operationId])
+
+    const ordersHref = canEdit && ordersMode === 'edit'
+        ? editHref(operationId)
+        : tabHref(operationId, 'orders')
+
+    const [open, setOpen] = useState(false)
+    const slotRef = useRef<HTMLSpanElement>(null)
+    const caretRef = useRef<HTMLButtonElement>(null)
+    const menuRef = useRef<HTMLDivElement>(null)
+
+    // The menu closes when the tab that owns it goes away, so an in-shell
+    // switch to Map cannot leave it hanging open over the wrong tab.
+    useEffect(() => {
+        if (!showMenu) setOpen(false)
+    }, [showMenu])
+
+    useEffect(() => {
+        if (!open) return
+
+        const onPointerDown = (e: PointerEvent) => {
+            if (!slotRef.current?.contains(e.target as Node)) setOpen(false)
+        }
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return
+            setOpen(false)
+            caretRef.current?.focus()
+        }
+
+        document.addEventListener('pointerdown', onPointerDown)
+        document.addEventListener('keydown', onKeyDown)
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown)
+            document.removeEventListener('keydown', onKeyDown)
+        }
+    }, [open])
+
+    /** Arrow keys walk the items; two of them do not need more than a wrap-around. */
+    const moveFocus = (delta: number) => {
+        const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])
+        if (!items.length) return
+        const at = items.findIndex(el => el === document.activeElement)
+        items[(at + delta + items.length) % items.length]?.focus()
+    }
 
     return (
         <nav className={s.tabsRow} aria-label='Operation views'>
-            {tabs.map(t => (
-                /*
-                 * Each tab gets a slot, and the slot is what the ribbon measures
-                 * against. It shrink-wraps its tab, so `left: 0; right: 0` on the
-                 * ribbon is the tab's exact width — at any font size, in any
-                 * language, with nothing measured and nothing to drift.
-                 *
-                 * The ribbon is the slot's *sibling* of the tab rather than its
-                 * child because both are links, and an anchor inside an anchor is
-                 * invalid markup that browsers unnest on you.
-                 */
-                <span key={t} className={s.tabSlot}>
-                    <Link
-                        href={tabHref(operationId, t)}
-                        aria-current={t === active ? 'page' : undefined}
-                        className={t === active ? `${s.tab} ${s.tabOn}` : s.tab}
-                        onClick={e => {
-                            // Never swallow a deliberate new-tab or new-window click.
-                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
-                            if (onSwitch?.(t)) e.preventDefault()
-                        }}
-                    >
-                        {TAB_LABELS[t].toUpperCase()}
-                    </Link>
+            {tabs.map(t => {
+                const hasMenu = t === 'orders' && showMenu
 
-                    {t === 'orders' && showRibbon && (
+                return (
+                    /*
+                     * Each tab gets a slot. It shrink-wraps its tab, which is what
+                     * anchors the menu: `left: 0` on the menu is the tab's own left
+                     * edge, with nothing measured and nothing to drift when the
+                     * font loads.
+                     *
+                     * The caret is the tab's *sibling* inside that slot rather than
+                     * its child, because a button inside an anchor is invalid markup
+                     * that browsers unnest on you — and because clicking the label
+                     * itself should still just open the orders.
+                     */
+                    <span key={t} className={s.tabSlot} ref={hasMenu ? slotRef : undefined}>
                         <Link
-                            href={editing ? tabHref(operationId, 'orders') : editHref(operationId)}
-                            className={`${s.ribbon} ${editing ? s.ribbonOut : ''}`}
-                            title={editing ? 'Stop editing and read the orders' : 'Open the orders in the editor'}
+                            href={t === 'orders' ? ordersHref : tabHref(operationId, t)}
+                            aria-current={t === active ? 'page' : undefined}
+                            className={`${s.tab} ${t === active ? s.tabOn : ''} ${hasMenu ? s.tabSplit : ''}`}
+                            onClick={e => {
+                                // Never swallow a deliberate new-tab or new-window click.
+                                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return
+                                /*
+                                 * Orders is the one tab that can leave the shell. In
+                                 * edit mode it is the editor's own view and stays in,
+                                 * socket and all; in read mode it really is a
+                                 * different page, so the link is left to navigate.
+                                 */
+                                if (t === 'orders' && ordersMode !== 'edit') return
+                                if (onSwitch?.(t)) e.preventDefault()
+                            }}
                         >
-                            {editing ? '✓ Done' : '✎ Edit'}
+                            {TAB_LABELS[t].toUpperCase()}
                         </Link>
-                    )}
-                </span>
-            ))}
+
+                        {hasMenu && (
+                            <>
+                                <button
+                                    ref={caretRef}
+                                    type='button'
+                                    className={`${s.caret} ${open ? s.caretOn : ''}`}
+                                    aria-haspopup='menu'
+                                    aria-expanded={open}
+                                    aria-label='Orders options'
+                                    title='Read or edit the orders'
+                                    onClick={() => setOpen(v => !v)}
+                                    onKeyDown={e => {
+                                        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+                                        e.preventDefault()
+                                        setOpen(true)
+                                        // The menu has to be mounted before it can take focus.
+                                        requestAnimationFrame(() => moveFocus(e.key === 'ArrowDown' ? 0 : -1))
+                                    }}
+                                >
+                                    <span aria-hidden>▾</span>
+                                </button>
+
+                                {open && (
+                                    <div
+                                        ref={menuRef}
+                                        className={s.menu}
+                                        role='menu'
+                                        aria-label='Orders'
+                                        onKeyDown={e => {
+                                            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+                                            e.preventDefault()
+                                            moveFocus(e.key === 'ArrowDown' ? 1 : -1)
+                                        }}
+                                    >
+                                        <Link
+                                            href={tabHref(operationId, 'orders')}
+                                            role='menuitem'
+                                            className={`${s.item} ${editing ? '' : s.itemOn}`}
+                                            aria-current={editing ? undefined : 'true'}
+                                            onClick={() => setOpen(false)}
+                                        >
+                                            <span className={s.tick} aria-hidden>{editing ? '' : '✓'}</span>
+                                            Read
+                                        </Link>
+                                        <Link
+                                            href={editHref(operationId)}
+                                            role='menuitem'
+                                            className={`${s.item} ${editing ? s.itemOn : ''}`}
+                                            aria-current={editing ? 'true' : undefined}
+                                            onClick={() => setOpen(false)}
+                                        >
+                                            <span className={s.tick} aria-hidden>{editing ? '✓' : ''}</span>
+                                            Edit
+                                        </Link>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </span>
+                )
+            })}
         </nav>
     )
 }

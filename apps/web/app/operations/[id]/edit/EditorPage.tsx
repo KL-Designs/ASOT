@@ -151,7 +151,6 @@ export default function EditorPage() {
     const [stageCardConfirmTarget, setStageCardConfirmTarget] = useState<AttendanceStage | null>(null)
 
     const [confirmDelete, setConfirmDelete] = useState(false)
-    const [previewOpen, setPreviewOpen] = useState(false)
     const [activityOpen, setActivityOpen] = useState(false)
     const router = useRouter()
 
@@ -165,7 +164,6 @@ export default function EditorPage() {
 
     const metaSaveTimer = useRef<ReturnType<typeof setTimeout>>()
     const metaHandleRef = useRef<{ set: (key: string, value: string) => void } | null>(null)
-    const previewIframeRef = useRef<HTMLIFrameElement>(null)
     // Debounce timers for the Timeline card's two free-text pickers (Task 9 fix) —
     // same idea as metaSaveTimer, just per-field, so dragging through a picker's
     // month/day/hour/minute sections doesn't fire a save per completed section.
@@ -1041,7 +1039,7 @@ export default function EditorPage() {
                         />
                     ) : null
                 }
-                contentPaddingRight={previewOpen ? 'clamp(360px, 40vw, 700px)' : activityOpen ? 'clamp(280px, 30vw, 460px)' : 0}
+                contentPaddingRight={activityOpen ? 'clamp(280px, 30vw, 460px)' : 0}
             />
 
             {/* Activity log drawer — fixed overlay from right */}
@@ -1063,71 +1061,6 @@ export default function EditorPage() {
                 </div>
             )}
 
-            {/* Preview drawer — fixed overlay from right */}
-            {opID && (
-                <div style={{
-                    position: 'fixed',
-                    top: EDITOR_CHROME_HEIGHT,
-                    right: 0,
-                    bottom: 0,
-                    width: 'clamp(360px, 40vw, 700px)',
-                    transform: previewOpen ? 'translateX(0)' : 'translateX(100%)',
-                    transition: 'transform 0.25s ease',
-                    zIndex: 50,
-                    borderLeft: '1px solid rgba(255,255,255,0.09)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    background: 'rgba(8,8,8,0.97)',
-                }}>
-                    {/* Panel header */}
-                    <div style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '8px 16px',
-                        borderBottom: '1px solid rgba(255,255,255,0.06)',
-                        background: 'rgba(0,0,0,0.3)',
-                        flexShrink: 0,
-                    }}>
-                        <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.2)' }}>
-                            Live Preview
-                        </span>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <button
-                                onClick={() => {
-                                    if (previewIframeRef.current)
-                                        previewIframeRef.current.src = `/operations/${opID}?_t=${Date.now()}`
-                                }}
-                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', background: 'none', border: '1px solid rgba(255,255,255,0.08)', padding: '3px 10px', cursor: 'pointer' }}
-                                onMouseEnter={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.7)')}
-                                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(237,237,237,0.3)')}
-                            >
-                                Refresh
-                            </button>
-                            <button
-                                onClick={() => setPreviewOpen(false)}
-                                style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: c(0.5), background: 'none', border: `1px solid ${c(0.2)}`, padding: '3px 10px', cursor: 'pointer' }}
-                                onMouseEnter={e => (e.currentTarget.style.color = c(0.9))}
-                                onMouseLeave={e => (e.currentTarget.style.color = c(0.5))}
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                    <iframe
-                        ref={previewIframeRef}
-                        src={`/operations/${opID}`}
-                        onLoad={e => {
-                            try {
-                                const doc = (e.target as HTMLIFrameElement).contentDocument
-                                if (!doc) return
-                                const style = doc.createElement('style')
-                                style.textContent = '#site-navbar, #site-footer { display: none !important; }'
-                                doc.head.appendChild(style)
-                            } catch {}
-                        }}
-                        style={{ flex: 1, border: 'none', width: '100%', display: 'block' }}
-                    />
-                </div>
-            )}
         </>
     )
 }

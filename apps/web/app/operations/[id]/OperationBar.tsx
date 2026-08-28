@@ -11,7 +11,7 @@ interface Props {
     themeColor?: string
     active: OperationTab
     canEdit: boolean
-    /** True on the editor's own route — flips the ribbon to the way out. */
+    /** True on the editor's own route — the Orders menu then ticks Edit. */
     editing?: boolean
     /** Came in from the J2 operations tab; the back link should go back there. */
     fromJ2?: boolean
@@ -55,7 +55,7 @@ export default function OperationBar({
                 borderBottom: '1px solid var(--line)',
                 background: 'var(--s1)',
                 fontFamily: 'var(--sans)',
-                // Not `overflow: hidden`: the edit ribbon hangs below this box.
+                // Not `overflow: hidden`: the Orders menu opens below this box.
                 position: 'relative', zIndex: 20,
             }}
         >
