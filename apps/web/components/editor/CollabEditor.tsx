@@ -535,6 +535,32 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
         return () => { awareness.off('update', update) }
     }, [provider])
 
+    /**
+     * Dev only: fill this document with a real one.
+     *
+     * No prop gates this, deliberately — `onProviderReady` is on record as the
+     * only prop CollabEditor may gain, and the template is just as useful
+     * against a SOP or a workspace document as against an operation: all three
+     * are this same page/section model. `NODE_ENV` is set by the npm script, so
+     * a production build never renders the button and never loads the module
+     * behind it.
+     */
+    const isDev = process.env.NODE_ENV !== 'production'
+    const [templateNote, setTemplateNote] = useState<string | null>(null)
+
+    async function fillWithTemplate() {
+        setTemplateNote('Filling…')
+        try {
+            // Imported lazily so the content and the ProseMirror schema it
+            // builds stay out of the bundle everybody else downloads.
+            const { applyTemplateDocument } = await import('@/lib/operations/template-document')
+            const { pages, sections } = applyTemplateDocument(ydoc)
+            setTemplateNote(`+${sections} sections · +${pages} pages`)
+        } catch {
+            setTemplateNote('Could not apply the template')
+        }
+    }
+
     function addSection() {
         const id = Math.random().toString(36).slice(2, 10)
         const { orderKey, metaPrefix } = getPageKeys(activePage)
@@ -705,13 +731,32 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                                         />
                                     ))}
                                     {!readOnly && (
-                                        <button type='button' onClick={addSection}
-                                            style={{ alignSelf: 'flex-start', marginTop: 8, padding: '6px 2px', background: 'transparent', border: 'none', color: 'var(--ink-3)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color 0.15s' }}
-                                            onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
-                                            onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-3)' }}
-                                        >
-                                            + Add Section
-                                        </button>
+                                        <div style={{ alignSelf: 'flex-start', marginTop: 8, display: 'flex', alignItems: 'center', gap: 18 }}>
+                                            <button type='button' onClick={addSection}
+                                                style={{ padding: '6px 2px', background: 'transparent', border: 'none', color: 'var(--ink-3)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color 0.15s' }}
+                                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+                                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-3)' }}
+                                            >
+                                                + Add Section
+                                            </button>
+                                            {isDev && (
+                                                <>
+                                                    <button type='button' onClick={fillWithTemplate}
+                                                        title='Development only — appends a filled-in operation document: five-paragraph orders, a Zeus page, platoon orders and an AAR, using every mark the toolbar offers. It only ever adds.'
+                                                        style={{ padding: '5px 9px', background: 'transparent', border: '1px dashed var(--line-2)', borderRadius: 'var(--r, 3px)', color: 'var(--ink-3)', fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color 0.15s' }}
+                                                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+                                                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-3)' }}
+                                                    >
+                                                        ⚙ Template Document
+                                                    </button>
+                                                    {templateNote && (
+                                                        <span style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--ink-3)' }}>
+                                                            {templateNote}
+                                                        </span>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             )}
