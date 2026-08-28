@@ -682,6 +682,24 @@ Large (1158-line) client module exporting the three board building blocks used b
 #### app/operations/[id]/layout.tsx
 Sets dynamic `<Metadata>`/`<Viewport>` (theme colour) from `Db.operations` for the given id.
 
+#### Operation URL structure
+The four editor views are **sibling paths under the operation**, not children of `/edit`:
+`/operations/[id]` (public orders) · `/operations/[id]/edit` (Brief) · `/map` · `/schedule` ·
+`/attendance`. They are four views of one operation, and nesting three of them a level below
+the fourth read as if Brief were the operation and the rest were sub-pages of the editor.
+
+**Switching tabs never navigates.** `useEditorTab` (`edit/EditorShell.tsx`) rewrites the URL with
+`replaceState`, because a real navigation would tear down the Hocuspocus socket and force the
+Y.Doc to reconnect on every tab switch. The route files exist purely to answer a cold load or a
+refresh. The legacy `?tab=` form is still read, then normalised away into the path form so the
+two can never both linger in one URL.
+
+`/operations/[id]/map` serves **both audiences from one path**: the editor's Map tab to anyone
+with `pages.operationsEdit`, and the read-only fullscreen viewer to everyone else. Splitting it
+would mean the link people paste to each other only works for half of them.
+`/schedule` and `/attendance` redirect a viewer without edit rights to `/operations/[id]` — they
+asked for *this* operation, and the public page is the version of it they can see.
+
 #### app/operations/[id]/page.tsx
 The main public operation-orders viewer (very large, themeable — `modern`/`oldfashioned`/`scifi`
 page themes). Server component: fetches the operation + current user, computes role flags
