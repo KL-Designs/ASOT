@@ -28,6 +28,7 @@ npm run dev           # Standard dev server (no collab WebSocket)
 npm run dev-collab    # Dev server + Hocuspocus WebSocket (required for collaborative editor)
 npm run build         # Production build
 npm start             # Production server (Next.js + Hocuspocus on same port via server.mjs)
+npm run build:devtools / start:devtools   # the same pair, with the developer tools kept on
 npm run lint          # ESLint
 ```
 
@@ -232,6 +233,7 @@ All global types live in `types/*.d.ts` and are declared in `global` scope — n
 | `DISCORD_REDIRECT_URI` | OAuth callback path (default `/login/callback`) |
 | `CRON_SECRET` | Bearer token for authenticating internal cron requests |
 | `OVERRIDE` | Comma-separated Discord user IDs with unconditional admin bypass |
+| `NEXT_PUBLIC_DEV_TOOLS` | `true` keeps the developer tools on a *built* site (see `lib/dev-tools.ts`). `NODE_ENV` cannot do this — Next bakes it into the client bundle at build time, so the controls are compiled out, and `server.mjs` derives its own `dev` flag from it, so starting the build with `NODE_ENV=development` runs the dev compiler instead. Must be set for **both** build and start. Unset in production. |
 | `NEXT_PUBLIC_TS_ADDRESS` | Public TeamSpeak hostname |
 | `TS_HOST` / `TS_QUERY_PORT` / `TS_SERVER_PORT` / `TS_SERVERADMIN_PASSWORD` | TeamSpeak ServerQuery credentials |
 | `OCAP_API_URL` / `OCAP_VIEWER_URL` | OCAP after-action recording integration |

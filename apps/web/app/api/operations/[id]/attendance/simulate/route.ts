@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { isTurnoutKey, mulberry32, simulateAttendance } from '@/lib/attendance/simulate'
+import { DEV_TOOLS_ENABLED } from '@/lib/dev-tools'
 
 /**
  * Fill an operation's board with plausible attendance, for looking at.
@@ -12,16 +13,20 @@ import { isTurnoutKey, mulberry32, simulateAttendance } from '@/lib/attendance/s
  * **Development only.** It overwrites the roster and every RSVP answer on the
  * operation, which is exactly what you want while building the board and
  * exactly what you never want on a real one. The environment check is first,
- * before authentication, so there is no configuration in which a production
- * deployment exposes it at all — a permission check alone would leave it one
- * bad grant away from wiping a live operation's attendance.
+ * before authentication, so a permission check is never the only thing standing
+ * between a bad grant and a live operation's attendance being wiped.
+ *
+ * "Development" is `DEV_TOOLS_ENABLED`, not `NODE_ENV` — a built staging site
+ * can opt in explicitly, and does so for the UI and for this route with the
+ * same flag, so the button and the endpoint can never disagree about whether
+ * this exists. A deployment that has not set it is unchanged: 404, always.
  *
  * Real members are used rather than invented ones: the roster's own ORBAT
  * holders, plus whoever actually sits in the reservist categories. A board full
  * of fake names tells you nothing about how real names wrap.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    if (process.env.NODE_ENV === 'production') {
+    if (!DEV_TOOLS_ENABLED) {
         return NextResponse.json({ error: 'Not available' }, { status: 404 })
     }
 

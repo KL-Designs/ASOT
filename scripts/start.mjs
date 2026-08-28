@@ -768,6 +768,13 @@ const PRODUCTION_ITEMS = [
     { label: '🚀 Start Discord', command: 'npm', args: ['run', 'start', '--workspace=apps/bot'] },
     // No 'Build MilPac' — that app runs TypeScript directly via tsx, like apps/bot.
     { label: '🚀 Start MilPac', command: 'npm', args: ['run', 'start', '--workspace=apps/milpac'], port: MILPAC_PORT },
+    // The built site with the developer tools still on it — a staging box, or a
+    // look at the real build with the data generators still reachable. Both
+    // halves need the flag: it is NEXT_PUBLIC_*, so the client's copy is baked
+    // in at build time, and building without it leaves no buttons to press.
+    // See apps/web/lib/dev-tools.ts.
+    { label: '🏗️ Build Website (dev tools)', command: 'npm', args: ['--prefix', 'apps/web', 'run', 'build:devtools'] },
+    { label: '🚀 Start Website (dev tools)', command: 'npm', args: ['--prefix', 'apps/web', 'run', 'start:devtools'], port: WEB_PORT },
 ]
 
 const SETUP_ITEMS = [

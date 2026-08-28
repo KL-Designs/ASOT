@@ -7,6 +7,7 @@ import type { Editor } from '@tiptap/react'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { contentExtensions, FontSize } from './content-extensions'
+import { DEV_TOOLS_ENABLED } from '@/lib/dev-tools'
 import GlobalDragHandle from 'tiptap-extension-global-drag-handle'
 import Collaboration from '@tiptap/extension-collaboration'
 import { Extension } from '@tiptap/core'
@@ -541,11 +542,12 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
      * No prop gates this, deliberately — `onProviderReady` is on record as the
      * only prop CollabEditor may gain, and the template is just as useful
      * against a SOP or a workspace document as against an operation: all three
-     * are this same page/section model. `NODE_ENV` is set by the npm script, so
-     * a production build never renders the button and never loads the module
-     * behind it.
+     * are this same page/section model. Gated on DEV_TOOLS_ENABLED, which is
+     * `NODE_ENV` in the ordinary case and an explicit opt-in for a built site —
+     * see lib/dev-tools.ts. With it off the branch is dead code and the module
+     * behind it never enters anybody's bundle.
      */
-    const isDev = process.env.NODE_ENV !== 'production'
+    const isDev = DEV_TOOLS_ENABLED
     const [templateNote, setTemplateNote] = useState<string | null>(null)
 
     async function fillWithTemplate() {

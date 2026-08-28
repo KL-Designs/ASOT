@@ -6,6 +6,7 @@ import TabPanel from './TabPanel'
 import AttendanceBoard from '@/components/operations/board/AttendanceBoard'
 import ConfirmDialog from '@/components/confirm-dialog'
 import type { TurnoutKey } from '@/lib/attendance/simulate'
+import { DEV_TOOLS_ENABLED } from '@/lib/dev-tools'
 
 interface AckEntry { userId: string; userName: string; acknowledgedAt: string }
 
@@ -124,9 +125,10 @@ export default function AttendanceTab({
     const [resetError, setResetError] = useState<string | null>(null)
     const [boardReloadKey, setBoardReloadKey] = useState(0)
 
-    // Dev tooling. `NODE_ENV` is set by the npm script, never from .env, so this
-    // is false in any production build and the route refuses regardless.
-    const isDev = process.env.NODE_ENV !== 'production'
+    // Dev tooling. The route reads the same flag and refuses regardless; this
+    // only decides whether the button is worth rendering. See lib/dev-tools.ts
+    // for why `NODE_ENV` alone cannot answer this for a built site.
+    const isDev = DEV_TOOLS_ENABLED
     const [simulating, setSimulating] = useState<TurnoutKey | null>(null)
     const [simResult, setSimResult] = useState<string | null>(null)
 
