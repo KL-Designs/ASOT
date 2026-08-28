@@ -483,7 +483,14 @@ grouped by award type from `@/lib/military/awards`. Posts `POST /api/award-reque
 
 #### app/(landing)/milpacs/[username]/bio-editor.tsx
 Client `BiographyEditor`: inline edit/save biography text (max 2000 chars), `POST /api/me`. Only
-rendered for the profile owner (`isOwn`).
+rendered for the profile owner (`isOwn`). **Its read state uses `.bio` from
+`profile.module.css` — the same class the public view renders with**, and not an inline lookalike:
+the lookalike it replaced omitted `white-space: pre-wrap`, so a member saw their own paragraphs
+collapsed into one block while everyone else saw them laid out. The only thing that should differ
+between the two views is the Edit button. A biography is plain text typed into a textarea, so the
+newlines are its only structure — every full rendering of it needs `pre-wrap` (`/bios` too). The
+roster card (`milpacs/card.tsx`) deliberately does not: it is a three-line clamp, where collapsing
+newlines to spaces is what makes the teaser useful.
 
 #### app/(landing)/milpacs/[username]/cover-upload.tsx
 Client `CoverUpload`: file input to upload (`POST /api/uploads/cover`, multipart) or remove

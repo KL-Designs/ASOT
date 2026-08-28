@@ -1,7 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import s from './profile.module.css'
 
+/**
+ * The Personnel Summary, for the member it belongs to.
+ *
+ * The read state deliberately borrows `.bio` — the very class the public view
+ * renders with — rather than restating it inline. It used to restate it, and
+ * the restatement left out `white-space: pre-wrap`: a member's own profile
+ * collapsed their paragraphs into one block of text while everybody else saw
+ * them laid out properly. The only thing that should differ between the two
+ * views is the Edit button.
+ */
 export function BiographyEditor({ initial, accent }: { initial: string | null; accent: string }) {
     const [editing, setEditing] = useState(false)
     const [value, setValue] = useState(initial ?? '')
@@ -50,8 +61,8 @@ export function BiographyEditor({ initial, accent }: { initial: string | null; a
                         border: `1px solid ${accent}40`,
                         color: 'rgba(237,237,237,0.8)',
                         padding: '10px 12px',
-                        fontSize: '0.9rem',
-                        lineHeight: 1.8,
+                        fontSize: '14px',
+                        lineHeight: 1.75,
                         resize: 'vertical',
                         outline: 'none',
                         fontFamily: 'inherit',
@@ -104,9 +115,7 @@ export function BiographyEditor({ initial, accent }: { initial: string | null; a
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                 {value ? (
-                    <p style={{ margin: 0, lineHeight: 1.8, color: 'rgba(237,237,237,0.65)', fontSize: '0.9rem', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
-                        {value}
-                    </p>
+                    <p className={s.bio}>{value}</p>
                 ) : (
                     <p style={{ margin: 0, fontSize: '0.75rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic', letterSpacing: '0.05em' }}>
                         No biography on record.

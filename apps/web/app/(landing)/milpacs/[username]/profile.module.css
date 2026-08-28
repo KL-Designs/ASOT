@@ -479,6 +479,15 @@
 
 /* ── biography ───────────────────────────────────────────────────────────── */
 
+/*
+ * Shared by the public view and the owner's own (`bio-editor.tsx`), which is
+ * the point: the owner's copy used to be an inline lookalike missing
+ * `pre-wrap`, so members saw their own paragraphs collapsed into one block and
+ * everybody else saw them correctly.
+ *
+ * `pre-wrap` because a biography is plain text typed into a textarea — the
+ * newlines the author pressed Enter for are the only structure it has.
+ */
 .bio {
     margin: 0;
     color: var(--ink-2);
@@ -486,6 +495,8 @@
     line-height: 1.75;
     max-width: 74ch;
     white-space: pre-wrap;
+    /* A pasted URL or an unbroken name should not push the panel wider. */
+    overflow-wrap: break-word;
 }
 
 /* ── data rows ───────────────────────────────────────────────────────────── */

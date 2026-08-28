@@ -91,7 +91,9 @@ export default async function Page() {
                             <div style={{ height: 2, width: 40, background: 'var(--red)' }} />
 
                             <div style={{ borderLeft: '2px solid var(--red)', paddingLeft: '1rem', paddingTop: '0.5rem', paddingBottom: '0.5rem', background: 'rgba(0,0,0,0.2)' }}>
-                                <p style={{ fontSize: '0.83rem', lineHeight: 1.8, color: 'rgba(237,237,237,0.65)', margin: 0 }}>
+                                {/* pre-wrap: a biography is plain text from a textarea, so the
+                                    newlines the author typed are the only structure it has. */}
+                                <p style={{ fontSize: '0.83rem', lineHeight: 1.8, color: 'rgba(237,237,237,0.65)', margin: 0, whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}>
                                     {user.bio?.content}
                                 </p>
                             </div>
