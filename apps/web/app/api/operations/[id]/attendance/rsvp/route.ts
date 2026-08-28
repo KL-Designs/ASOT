@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
+import { releaseMember } from '@/lib/attendance/roster'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await client.updateRoles()
@@ -76,6 +77,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             { operationId },
             { $push: { records: newRecord } }
         )
+    }
+
+    // Declining anywhere has to take the member out of the position they hold.
+    //
+    // This route predates the board and only ever wrote the record, so a member
+    // who answered no here stayed stored as their slot's occupant. `viewRoster`
+    // refuses to draw them there — it derives the occupant from the answer —
+    // but leaving the stored roster contradicting the record means staff moves
+    // and auto-fill are working from a position that looks taken.
+    //
+    // Only the release, deliberately. Reclaiming a home position on the way
+    // back in displaces whoever took it and owes them a notification, and that
+    // belongs with the board's own route where both already live.
+    if (status === 'not_attending' && attendance.roster?.length) {
+        const released = releaseMember(attendance.roster, me.id)
+        if (released !== attendance.roster) {
+            // `rosterRev` moves with it. The board's writes are guarded on that
+            // counter, so a roster written without bumping it would be silently
+            // overwritten by any board write already in flight.
+            await Db.operationAttendance.updateOne(
+                { operationId },
+                { $set: { roster: released }, $inc: { rosterRev: 1 } },
+            )
+        }
     }
 
     return NextResponse.json({ ok: true })

@@ -86,6 +86,12 @@ function SlotRow({
         >
             <span className={s.role} title={slot.role}>{slot.role}</span>
 
+            {/*
+              * The name column holds whoever is in the position — or, when it is
+              * free and you may take it, the Claim button itself. "Open" is only
+              * for a free position you cannot claim: with the button there, the
+              * word was a second, quieter way of saying the same thing.
+              */}
             <span className={s.who}>
                 {member ? (
                     <motion.span
@@ -97,6 +103,14 @@ function SlotRow({
                         <Avatar member={member} />
                         <span className={s.name} title={member.displayName}>{member.displayName}</span>
                     </motion.span>
+                ) : canClaim ? (
+                    <button
+                        type='button'
+                        className={s.claim}
+                        onClick={() => onClaim(slot.id)}
+                        title={`Claim ${slot.role}`}
+                        {...swallow}
+                    >Claim</button>
                 ) : (
                     <span className={s.openLabel}>Open</span>
                 )}
@@ -112,10 +126,6 @@ function SlotRow({
                     title={occupied ? tag.label : undefined}
                     {...(occupied ? swallow : {})}
                 >{tag.label}</span>
-            )}
-
-            {canClaim && !slot.occupantUserId && (
-                <button type='button' className={s.claim} onClick={() => onClaim(slot.id)} {...swallow}>Claim</button>
             )}
 
             {canManage && (

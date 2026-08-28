@@ -4,7 +4,9 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { hasPermission } from '@/lib/orbat/hasPermission'
-import { assignSlot, autoFill, derivePool, reclaimHome, viewRoster, type RosterSlot } from '@/lib/attendance/roster'
+import {
+    assignSlot, autoFill, derivePool, reclaimHome, releaseMember, viewRoster, type RosterSlot,
+} from '@/lib/attendance/roster'
 import { createNotification } from '@/lib/notifications'
 import { sendPositionReclaimedDM } from '@/lib/discord/bot'
 import { logAction } from '@/lib/logAction'
@@ -114,7 +116,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 // so it returns to them and the stand-in goes back to the pool.
                 //
                 // A member already standing somewhere else is left alone: that
-                // was a deliberate choice, not a gap to be corrected.
+                // was a deliberate choice, not a gap to be corrected — a
+                // full-timer in 1-1 who went and claimed a reservist position in
+                // 1-3 should not be hauled home for confirming they are coming.
+                //
+                // With no home position at all this does nothing, which is
+                // right: they are attending and in no slot, so the pool lists
+                // them from the next render.
                 const home = roster.find(x => x.homeUserId === me.id)
                 const reclaimed = reclaimHome(roster, me.id)
                 roster = reclaimed.roster
@@ -129,8 +137,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             }
 
             case 'decline': {
-                const mine = roster.find(x => x.occupantUserId === me.id)
-                if (mine) roster = assignSlot(roster, mine.id, null)
+                // Out of everything, in one write: the position they were
+                // standing in, and the reservist pool — which is derived from
+                // who is available, so the answer itself takes them out of it.
+                // The preference goes too, or re-attending months later would
+                // silently carry a wish nobody remembers making.
+                roster = releaseMember(roster, me.id)
                 recordOps.rsvp = 'not_attending'
                 recordOps.preferredSection = null
                 recordOps.preferredRole = null
@@ -154,9 +166,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             }
 
             case 'leave': {
-                const mine = roster.find(s => s.occupantUserId === me.id)
-                if (!mine) return NextResponse.json({ ok: true, rev })
-                roster = assignSlot(roster, mine.id, null)
+                const released = releaseMember(roster, me.id)
+                // Same array back means they were not in one — nothing to write,
+                // and no revision bump for the rest of the board to react to.
+                if (released === roster) return NextResponse.json({ ok: true, rev })
+                roster = released
                 break
             }
 
@@ -164,8 +178,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 // A preference is a signal, not a claim: it leaves the member in
                 // the pool for staff or auto-fill to place. Stating one means
                 // stepping out of whatever position they hold.
-                const mine = roster.find(s => s.occupantUserId === me.id)
-                if (mine) roster = assignSlot(roster, mine.id, null)
+                roster = releaseMember(roster, me.id)
                 recordOps.rsvp = 'attending'
                 recordOps.preferredSection = body.preferredSection
                 recordOps.preferredRole = body.preferredRole

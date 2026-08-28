@@ -48,6 +48,12 @@ Use a second account or a private window.
 - [ ] Marking **Attending** while already holding a position must **not** move you.
 - [ ] Marking **Not attending** gives up your position and reopens it.
 - [ ] Claim an open position — you land in it and your RSVP flips to attending.
+- [ ] The Claim button sits **where the occupant's name would be**, and is
+      visible without hovering the row. A position you cannot claim still reads
+      "Open" there instead.
+- [ ] Every Claim button on the board is the **same width**, whether or not its
+      row carries a "Declined · Name" badge — a column of them should line up
+      with the names on the occupied rows around them.
 - [ ] **The change-your-mind case.** As a full-timer: mark *not attending*, have a
       second account take your position, then mark *attending* again. You get your
       position back; they land in the reservist pool.
@@ -185,6 +191,23 @@ Use a second account or a private window.
       until the board has settled, then fade in beneath it.
 - [ ] With no roster yet, and with a deliberate server error, the panels still
       appear — the Rebuild button is the way out of both.
+
+## 4g-bis. Saying no
+
+- [ ] **Not attending** takes you out of the position you were standing in —
+      your own or one you claimed in another section — and out of the reservist
+      pool, in one press.
+- [ ] Your stated preference is cleared with it, so re-attending later does not
+      quietly carry a wish you no longer remember making.
+- [ ] **Attending** afterwards puts you back in your own ORBAT position, and
+      whoever took it in the meantime returns to the pool and is notified.
+- [ ] **Attending** when you have no position of your own on this board leaves
+      you in the reservist pool.
+- [ ] A member who declines through the **older RSVP panel** (the operation view
+      page, not the board) is released from their position too.
+- [ ] Nobody with a DECLINED badge is ever shown standing in a position — check
+      an operation whose roster predates this, since the display derives the
+      occupant and heals a stale roster without anyone rewriting it.
 
 ## 4h. Performance
 

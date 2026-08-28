@@ -34,6 +34,15 @@
     --board-gutter: clamp(16px, 2vw, 28px);
     --ressy: #5f8fc4;
     --ressy-rgb: 95, 143, 196;
+    /*
+     * One width for every Claim button on the board. Letting each stretch to
+     * whatever its own row had left made them ragged — a row with a
+     * "DECLINED · CPL(L) GUARDSMAN" badge got a visibly shorter button than the
+     * row under it with no badge, for no reason a reader could act on. Roughly
+     * the width of an avatar and a name, so a column of them lines up with the
+     * occupied rows around it.
+     */
+    --claim-w: 136px;
 }
 
 .board {
@@ -581,24 +590,49 @@
 
 .mine { background: rgba(var(--acc-rgb), 0.07); }
 
+/*
+ * Claim stands where the occupant's name would be, and takes the width the name
+ * would have.
+ *
+ * It used to sit at the far right of the row at `opacity: 0` until the row was
+ * hovered, next to an "Open" label — two things saying the same thing, one of
+ * them invisible, and the actual target a ~50px chip at the end of a 30px row.
+ * In the name column it is the widest thing on the row, it is visible without
+ * hunting, and it says what the row is: nobody is in this, and you may be.
+ *
+ * Blue throughout, because claiming a position is what makes somebody a
+ * reservist filling in, and that is blue everywhere else on this board.
+ */
 .claim {
+    /* Basis, not a hard width: it still gives way in a narrow column rather
+     * than pushing the badge off the row. */
+    flex: 0 1 var(--claim-w, 136px);
+    min-width: 0;
+    text-align: center;
     font-family: var(--mono);
-    font-size: 8.5px;
-    letter-spacing: 0.1em;
+    font-size: 9px;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    padding: 2px 7px;
+    padding: 3px 8px;
     border-radius: 2px;
-    /* Blue, matching what claiming makes you on the board. */
-    border: 1px solid rgba(var(--ressy-rgb, 95, 143, 196), 0.5);
+    border: 1px dashed rgba(var(--ressy-rgb, 95, 143, 196), 0.38);
     background: transparent;
-    color: var(--ressy, #5f8fc4);
+    color: rgba(var(--ressy-rgb, 95, 143, 196), 0.8);
     cursor: pointer;
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity 140ms ease;
+    transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
-.slot:hover .claim, .claim:focus-visible { opacity: 1; }
-.claim:hover { background: rgba(var(--ressy-rgb, 95, 143, 196), 0.16); }
+/* Firms up as the row comes under the cursor, without ever being invisible. */
+.slot:hover .claim {
+    border-style: solid;
+    border-color: rgba(var(--ressy-rgb, 95, 143, 196), 0.55);
+    color: var(--ressy, #5f8fc4);
+}
+.claim:hover, .claim:focus-visible {
+    background: rgba(var(--ressy-rgb, 95, 143, 196), 0.16);
+    border-style: solid;
+    border-color: var(--ressy, #5f8fc4);
+    color: var(--ressy, #5f8fc4);
+}
 
 .draggable { cursor: grab; touch-action: none; }
 .draggable:active { cursor: grabbing; }

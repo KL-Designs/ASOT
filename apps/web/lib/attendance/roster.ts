@@ -109,7 +109,17 @@ export interface RosterContext {
     rsvpClosed: boolean
 }
 
-export interface SlotView extends RosterSlot {
+export interface SlotView extends Omit<RosterSlot, 'occupantUserId'> {
+    /**
+     * Who is actually in the position — **derived**, not the stored value.
+     *
+     * A member who answered no is not in it, whatever the roster says, and the
+     * board renders from this. It read the stored field before, so somebody who
+     * declined through a path that does not maintain the roster (the older RSVP
+     * panel) went on showing as standing in their position with a DECLINED
+     * badge beside their name.
+     */
+    occupantUserId: string | null
     state: SlotState
     /** Whose position it is, when they are not in it. Drives "Declined · Okafor". */
     vacatedBy: string | null
@@ -168,7 +178,10 @@ export function viewRoster(roster: RosterSlot[], ctx: RosterContext): SlotView[]
             else state = 'open'
         }
 
-        return { ...slot, state, vacatedBy, available: AVAILABLE.has(state) }
+        // `occupant`, not `slot.occupantUserId`: the derivation above is the
+        // whole point, and spreading the slot afterwards used to put the stored
+        // value straight back over it.
+        return { ...slot, occupantUserId: occupant, state, vacatedBy, available: AVAILABLE.has(state) }
     })
 }
 
@@ -343,6 +356,32 @@ export function orderPositions(
             rank.get(a.category)! - rank.get(b.category)!
             || a.sectionOrder - b.sectionOrder
             || a.positionOrder - b.positionOrder)
+}
+
+/**
+ * Take a member out of every position they occupy.
+ *
+ * What "not attending" means on this board, and what "leave position" does.
+ * Membership of the reservist pool is derived — `derivePool` lists whoever is
+ * available and not standing in a slot — so clearing the slot is the whole of
+ * it: answering no removes the answer from the pool's input as well, and both
+ * halves fall out of the same write.
+ *
+ * It sweeps rather than clearing the first match. `assignSlot` maintains one
+ * occupancy per member, but that is an invariant the shape does not enforce,
+ * and of everything this board can get wrong, showing somebody standing in a
+ * position after they said they are not coming is the worst.
+ *
+ * `homeUserId` is untouched: the position is still theirs in the ORBAT, which
+ * is exactly what makes it read as *released* rather than merely empty, and
+ * what lets them reclaim it if they change their mind.
+ *
+ * Returns the same array when they held nothing, so a caller can tell a no-op
+ * from a change without comparing contents.
+ */
+export function releaseMember(roster: RosterSlot[], userId: string): RosterSlot[] {
+    if (!roster.some(s => s.occupantUserId === userId)) return roster
+    return roster.map(s => (s.occupantUserId === userId ? { ...s, occupantUserId: null } : s))
 }
 
 /**

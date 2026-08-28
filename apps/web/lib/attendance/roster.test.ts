@@ -5,7 +5,8 @@
  */
 import { describe, test, expect } from 'vitest'
 import {
-    assignSlot, autoFill, buildRoster, derivePool, orderPositions, reclaimHome, snapshotCategories, viewRoster,
+    assignSlot, autoFill, buildRoster, derivePool, orderPositions, reclaimHome, releaseMember,
+    snapshotCategories, viewRoster,
     type OrbatSnapshotPosition, type PoolMember, type RosterContext, type RosterSlot, type SlotState,
 } from './roster'
 
@@ -130,6 +131,30 @@ describe('viewRoster — slot states', () => {
         const slot = alpha({ homeUserId: 'u-okafor', occupantUserId: 'u-okafor' })
         expect(stateOf([slot], ctx({ rsvp: { 'u-okafor': 'not_attending' } }))).toBe('declined')
     })
+
+    test('and the view says nobody is in it, not just that it is declined', () => {
+        // The state was already right; the *occupant* was not. `viewRoster`
+        // derived it correctly and then spread the raw slot back over the top,
+        // so the board — which renders a row's member from this field — kept
+        // drawing the declined member's name with a DECLINED badge beside it.
+        const slot = alpha({ homeUserId: 'u-okafor', occupantUserId: 'u-okafor' })
+        const view = viewRoster([slot], ctx({ rsvp: { 'u-okafor': 'not_attending' } }))[0]
+        expect(view.occupantUserId).toBe(null)
+        // Still theirs in the ORBAT, which is what makes it read as declined
+        // rather than as a position nobody was ever assigned.
+        expect(view.vacatedBy).toBe('u-okafor')
+    })
+
+    test('a declined member is not counted as standing anywhere', () => {
+        // What the member bar and "leave position" both key off.
+        const roster = [
+            alpha({ id: 'a1', homeUserId: 'u-okafor', occupantUserId: 'u-okafor' }),
+            alpha({ id: 'a2', homeUserId: 'u-vance', occupantUserId: 'u-vance' }),
+        ]
+        const view = viewRoster(roster, ctx({ rsvp: { 'u-okafor': 'not_attending' } }))
+        expect(view.find(s => s.occupantUserId === 'u-okafor')).toBeUndefined()
+        expect(view.find(s => s.occupantUserId === 'u-vance')?.id).toBe('a2')
+    })
 })
 
 describe('viewRoster — availability', () => {
@@ -220,6 +245,69 @@ describe('assignSlot', () => {
     test('re-assigning a member to the slot they already hold is a no-op', () => {
         const roster = assignSlot(threeSlots(), 'a1', 'u-ivarsson')
         expect(occupants(assignSlot(roster, 'a1', 'u-ivarsson'))).toEqual(occupants(roster))
+    })
+})
+
+describe('releaseMember', () => {
+    test('takes the member out of the position they hold', () => {
+        const roster = assignSlot(threeSlots(), 'a1', 'u-ivarsson')
+        expect(occupants(releaseMember(roster, 'u-ivarsson')))
+            .toEqual({ a1: null, a2: null, b1: null })
+    })
+
+    test('clears every position they are in, not just the first', () => {
+        // assignSlot maintains one occupancy per member, but nothing about the
+        // shape enforces it — and somebody left standing in a position after
+        // saying they are not coming is the worst thing this board can show.
+        const roster = [
+            alpha({ id: 'a1', occupantUserId: 'u-vance' }),
+            alpha({ id: 'a2', occupantUserId: 'u-vance' }),
+            alpha({ id: 'b1', occupantUserId: 'u-ivarsson' }),
+        ]
+        expect(occupants(releaseMember(roster, 'u-vance')))
+            .toEqual({ a1: null, a2: null, b1: 'u-ivarsson' })
+    })
+
+    test('keeps the position theirs in the ORBAT, so they can take it back', () => {
+        const roster = [alpha({ id: 'a1', homeUserId: 'u-vance', occupantUserId: 'u-vance' })]
+        const next = releaseMember(roster, 'u-vance')
+        expect(next[0].homeUserId).toBe('u-vance')
+        expect(next[0].occupantUserId).toBe(null)
+    })
+
+    test('hands back the same array when they held nothing', () => {
+        // The route reads this to tell a no-op from a change, and skips both
+        // the write and the revision bump on a no-op.
+        const roster = threeSlots()
+        expect(releaseMember(roster, 'u-vance')).toBe(roster)
+    })
+
+    test('never mutates the roster it was given', () => {
+        const roster = assignSlot(threeSlots(), 'a1', 'u-ivarsson')
+        releaseMember(roster, 'u-ivarsson')
+        expect(occupants(roster)).toEqual({ a1: 'u-ivarsson', a2: null, b1: null })
+    })
+
+    test('releasing then re-attending puts the member back in their own position', () => {
+        // The full round trip the RSVP buttons make: not attending, somebody
+        // takes the position, attending again.
+        const start = [alpha({ id: 'a1', homeUserId: 'u-vance', occupantUserId: 'u-vance' })]
+        const afterDecline = releaseMember(start, 'u-vance')
+        const standIn = assignSlot(afterDecline, 'a1', 'u-ivarsson')
+
+        const back = reclaimHome(standIn, 'u-vance')
+        expect(back.roster[0].occupantUserId).toBe('u-vance')
+        expect(back.displaced).toBe('u-ivarsson')
+    })
+
+    test('a member with no position of their own is left in the pool by re-attending', () => {
+        // The other half of the same rule: no home position means nothing to
+        // return to, so they simply wait to be placed.
+        const roster = releaseMember(assignSlot(threeSlots(), 'a1', 'u-bhandari'), 'u-bhandari')
+        const back = reclaimHome(roster, 'u-bhandari')
+        expect(back.roster).toBe(roster)
+        expect(derivePool(back.roster, [member('u-bhandari')]).map(p => p.userId))
+            .toEqual(['u-bhandari'])
     })
 })
 
