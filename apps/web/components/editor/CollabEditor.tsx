@@ -4,9 +4,8 @@ import React, { useContext, useEffect, useLayoutEffect, useRef, useState, useCal
 import { createPortal } from 'react-dom'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
-import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
-import { contentExtensions, FontSize } from './content-extensions'
+import { ContentImage, contentExtensions, FontSize } from './content-extensions'
 import { DEV_TOOLS_ENABLED } from '@/lib/dev-tools'
 import GlobalDragHandle from 'tiptap-extension-global-drag-handle'
 import Collaboration from '@tiptap/extension-collaboration'
@@ -367,45 +366,13 @@ function ResizableImageView({ node, selected, updateAttributes }: {
     )
 }
 
-const ResizableImage = Image.extend({
-    addAttributes() {
-        return {
-            ...this.parent?.(),
-            width: {
-                default: null,
-                parseHTML: el => {
-                    const w = el.getAttribute('width') || el.style.width
-                    return w ? (parseInt(w, 10) || null) : null
-                },
-                renderHTML: attrs => attrs.width ? { style: `width:${attrs.width}px`, width: attrs.width } : {},
-            },
-            align: {
-                default: 'center',
-                parseHTML: el => el.getAttribute('data-align') || 'center',
-                renderHTML: attrs => ({ 'data-align': attrs.align || 'center' }),
-            },
-            position: {
-                default: 'break',
-                parseHTML: el => (el.getAttribute('data-position') as ImgPosition) || 'break',
-                renderHTML: attrs => ({ 'data-position': attrs.position || 'break' }),
-            },
-            borderStyle: {
-                default: 'none',
-                parseHTML: el => el.getAttribute('data-border-style') || 'none',
-                renderHTML: attrs => ({ 'data-border-style': attrs.borderStyle || 'none' }),
-            },
-            borderColor: {
-                default: '#ffffff',
-                parseHTML: el => el.getAttribute('data-border-color') || '#ffffff',
-                renderHTML: attrs => ({ 'data-border-color': attrs.borderColor || '#ffffff' }),
-            },
-            borderWidth: {
-                default: 2,
-                parseHTML: el => parseInt(el.getAttribute('data-border-width') || '2'),
-                renderHTML: attrs => ({ 'data-border-width': String(attrs.borderWidth ?? 2) }),
-            },
-        }
-    },
+/*
+ * The resize handles, and nothing else. Every attribute this node carries is
+ * schema, so it lives in `content-extensions.ts` with the rest of the schema —
+ * the read view has to parse the same image node this one writes, and a second
+ * copy of the attribute list is how the two stopped agreeing last time.
+ */
+const ResizableImage = ContentImage.extend({
     addNodeView() {
         return ReactNodeViewRenderer(ResizableImageView)
     },

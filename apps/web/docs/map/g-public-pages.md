@@ -833,9 +833,24 @@ Hidden (`isPublic: false`) sections still show a "Classified — Login to Access
 visitors in both. Public read; `<EditOrdersButton/>` shown to `isHQ`.
 
 #### app/operations/[id]/doc-body.tsx
-Client: renders TipTap ProseMirror JSON (`generateHTML` from `@tiptap/core` + StarterKit,
-Underline, Image, Link, TextAlign, Highlight) as themed HTML (`.op-doc` CSS varies per
-`pageTheme`). Used by both the single-page view and `PagedView`/`StaffView`.
+Client: renders TipTap ProseMirror JSON as themed HTML (`.op-doc` CSS varies per `pageTheme`) via
+`generateHTML` from `@tiptap/core`. Used by the single-page view, `PagedView`/`StaffView` and the
+Modern theme.
+
+**Its schema is `contentExtensions()` — the editor's own** (`components/editor/content-extensions.ts`),
+and that is not tidiness. This file used to keep a hand-written lookalike beside it, missing
+`TextStyle` and the `FontSize` global attribute that rides on it. ProseMirror refuses to parse a
+document carrying a mark its schema has never heard of, so the moment an author set a font size
+anywhere in a section, the *whole* section threw on load and readers were shown "No document body
+yet" over content sitting in Mongo — 40kB of live orders on Operation New Winter, invisible for as
+long as nobody compared the two lists. `ContentImage` (the `ResizableImage` attributes, minus the
+React node view that only the editor needs) moved into that shared list for the same reason.
+`lib/operations/doc-schema.test.ts` pins it at the parse step, including a control case that must
+still throw. Two lists describing one document format will always end up describing two.
+
+The failure is also no longer silent: the `catch` logs, and a section that *could not be rendered*
+now says so instead of borrowing the "nothing written yet" message — telling a reader a section is
+empty when it is not is how this stayed hidden.
 
 #### app/operations/[id]/DocAcknowledgeCard.tsx
 Client read-receipt widget: fetches ack state from `GET

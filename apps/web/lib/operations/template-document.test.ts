@@ -78,7 +78,14 @@ describe('buildTemplateDocument', () => {
         const defined = Object.keys(templateSchema().nodes)
             // `text` is implicit and `doc` is the wrapper — neither is content
             // anybody can look at.
-            .filter(n => n !== 'text' && n !== 'doc')
+            //
+            // `image` joined the shared schema when the read view started using
+            // it (see doc-schema.test.ts), and the template cannot honestly
+            // cover it: an image node needs a `src` pointing at a real uploaded
+            // file, and this generator writes into a Y.Doc without touching
+            // storage. A fabricated URL would put a broken image in every dev
+            // document, which is worse than the gap it closes.
+            .filter(n => n !== 'text' && n !== 'doc' && n !== 'image')
         expect([...defined].sort().filter(n => !nodes.has(n))).toEqual([])
     })
 

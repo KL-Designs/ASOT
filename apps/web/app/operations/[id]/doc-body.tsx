@@ -2,21 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { generateHTML } from '@tiptap/core'
-import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
-import Underline from '@tiptap/extension-underline'
-import TextAlign from '@tiptap/extension-text-align'
-import Highlight from '@tiptap/extension-highlight'
-import Link from '@tiptap/extension-link'
-
-const extensions = [
-    StarterKit,
-    Underline,
-    Image,
-    Link.configure({ HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' }, protocols: ['http', 'https'] }),
-    TextAlign.configure({ types: ['heading', 'paragraph'] }),
-    Highlight,
-]
+import { contentExtensions } from '@/components/editor/content-extensions'
 
 function hexToRgb(hex: string) {
     const h = hex.replace('#', '')
@@ -27,15 +13,33 @@ function hexToRgb(hex: string) {
     }
 }
 
+/**
+ * Renders a section's stored ProseMirror JSON as HTML.
+ *
+ * The schema comes from `contentExtensions()` — the editor's own — and that is
+ * not a tidy-up. This file used to keep a hand-written list beside it, and the
+ * list was missing `TextStyle`/`FontSize`. ProseMirror refuses to parse a
+ * document carrying a mark its schema has never heard of, so the moment an
+ * author set a font size anywhere in a section, the whole section threw on load
+ * and the reader was told there was no document body — over 40kB of orders
+ * sitting in the database. Two lists describing one document format will always
+ * end up describing two.
+ */
 export default function DocBody({ content, themeColor = '#db001d', pageTheme = 'modern' }: { content: any, themeColor?: string, pageTheme?: 'modern' | 'oldfashioned' | 'scifi' }) {
     const [html, setHtml] = useState<string | null>(null)
+    const [failed, setFailed] = useState(false)
 
     useEffect(() => {
-        if (!content) return
+        if (!content) { setHtml(null); setFailed(false); return }
         try {
-            setHtml(generateHTML(content, extensions))
-        } catch {
+            setHtml(generateHTML(content, contentExtensions()))
+            setFailed(false)
+        } catch (err) {
+            // Loudly. The silent version of this catch is what let a schema
+            // mismatch read as an empty section for as long as it did.
+            console.error('[DocBody] could not render section content', err)
             setHtml(null)
+            setFailed(true)
         }
     }, [content])
 
@@ -103,13 +107,22 @@ export default function DocBody({ content, themeColor = '#db001d', pageTheme = '
     `
     }
 
+    /*
+     * Two different states, said differently. "Nothing written yet" is a fact
+     * about the operation; "we could not render it" is a fault, and telling a
+     * reader the section is empty when it is not is how this stayed hidden.
+     */
     if (!html) return (
         <div style={{
             textAlign: 'center', padding: '60px 0',
-            color: pageTheme === 'oldfashioned' ? 'rgba(160,120,50,0.25)' : 'rgba(237,237,237,0.15)',
+            color: failed
+                ? 'rgba(212,160,58,0.75)'
+                : pageTheme === 'oldfashioned' ? 'rgba(160,120,50,0.25)' : 'rgba(237,237,237,0.15)',
             fontSize: '0.75rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontStyle: 'italic'
         }}>
-            No document body yet
+            {failed
+                ? 'This section could not be displayed — it is still in the editor'
+                : 'No document body yet'}
         </div>
     )
 
