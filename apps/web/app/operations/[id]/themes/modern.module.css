@@ -267,15 +267,16 @@
     padding: 30px clamp(16px, 4vw, 56px) 72px;
 }
 /*
- * Centred in its column, and wide enough to fill it without becoming a wall.
- * An OPORD is short paragraphs, phase lists and control-measure tables rather
- * than flowing essay prose, so it takes a wider measure than running text
- * would — but left hard against the spine with the rest of the window empty,
- * it read as though the page had failed to load the other half.
+ * Full width of its column — no measure cap.
+ *
+ * The usual argument against this is reading measure, and it does not apply
+ * here: an OPORD is short paragraphs, phase lists and control-measure tables,
+ * not flowing essay prose, and the people reading it are scanning for the line
+ * that concerns them rather than reading start to finish. The column's own
+ * padding is what keeps the text off the edges.
  */
 .readerInner {
-    max-width: 1280px;
-    margin: 0 auto;
+    max-width: none;
 }
 
 /* Document actions — export, the OCAP link. They belong with the document
