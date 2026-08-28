@@ -4,7 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { hasPermission } from '@/lib/orbat/hasPermission'
-import { mulberry32, simulateAttendance } from '@/lib/attendance/simulate'
+import { isTurnoutKey, mulberry32, simulateAttendance } from '@/lib/attendance/simulate'
 
 /**
  * Fill an operation's board with plausible attendance, for looking at.
@@ -53,7 +53,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         )
     }
 
-    const { seed } = await req.json().catch(() => ({ seed: undefined })) as { seed?: number }
+    const body = await req.json().catch(() => ({})) as { seed?: number; turnout?: unknown }
+    // An unrecognised turnout is an ordinary night rather than an error: this is
+    // a button, and the only caller is the dev panel three lines away.
+    const turnout = isTurnoutKey(body.turnout) ? body.turnout : 'medium'
 
     // The unit's real reservists, minus anyone who already holds a position in
     // this roster — a member can be both, and counting them twice would have
@@ -69,7 +72,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const result = simulateAttendance({
         roster: att.roster,
         reservists,
-        rand: mulberry32(seed ?? Date.now()),
+        rand: mulberry32(body.seed ?? Date.now()),
+        turnout,
     })
 
     // Rebuild the records for everyone the simulation had an opinion about,
@@ -99,6 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return NextResponse.json({
         ok: true,
+        turnout,
         placed: result.roster.filter(s => s.occupantUserId).length,
         answered: Object.keys(result.rsvp).length,
         reservists: reservists.length,

@@ -159,16 +159,49 @@ Use a second account or a private window.
 
 - [ ] A **Developer** panel appears at the bottom of the Attendance tab in dev,
       and **not** in a production build.
-- [ ] "Generate Attendance Data" fills the board and reports what it did.
-- [ ] The result shows **every** state at once: attending, awaiting, declined,
-      released, backfilled reservists, and open positions.
+- [ ] Three buttons — **Quiet Night**, **Ordinary Night**, **Busy Night** — each
+      fill the board and report the turnout alongside what it did.
+- [ ] Quiet leaves most positions unfilled and a thin pool; busy fills nearly
+      everything and overflows the rail. They should look obviously different.
+- [ ] Every one of them shows **every** state at once: attending, awaiting,
+      declined, released, backfilled reservists, and open positions — a night
+      where nobody failed to reply would mean no `awaiting` rows at all.
 - [ ] Members waiting in the pool include both some with a stated preference and
       some with none.
 - [ ] Nobody appears in two positions, and nobody marked not-attending is shown
       standing in one.
-- [ ] Pressing it again produces a *different* board.
+- [ ] Pressing the same one again produces a *different* board.
 - [ ] The route 404s in production regardless of permission — the environment
       check runs before authentication.
+
+## 4g. Loading
+
+- [ ] Hard-reload the Attendance page. The skeleton is the **board's** shape —
+      header, stat strip, platoon columns at 1 / 1 / 2, pool rail — not a stack
+      of grey blocks.
+- [ ] Nothing jumps when the real board arrives; it fades in over the skeleton
+      in place.
+- [ ] The setup panels (Assigned Units, Notifications, Developer) are **absent**
+      until the board has settled, then fade in beneath it.
+- [ ] With no roster yet, and with a deliberate server error, the panels still
+      appear — the Rebuild button is the way out of both.
+
+## 4h. Performance
+
+The board is the heaviest thing the editor renders — roughly a hundred rows,
+each with a dnd-kit droppable, a draggable and a motion projection node — so it
+is unusually sensitive to anything that re-renders it for unrelated reasons.
+
+- [ ] Sit on the Attendance page doing nothing, with a Performance profile
+      running. There should be **no repeating long task**. Two one-second
+      clocks in the editor (the auto-transition tick and `useOperationStatus`)
+      used to re-render the whole tree twice a second at ~240ms a time.
+- [ ] Scrolling the board is smooth, and hovering rows does not stutter.
+- [ ] Dragging is still smooth with a full ORBAT on screen.
+- [ ] The auto-transitions still fire on time — RSVP opening and closing, and
+      Upcoming → Active — even though nothing re-renders each second now. Set an
+      RSVP close a minute out and watch it happen without a refresh.
+- [ ] A peer joining or leaving still updates the "watching" cluster promptly.
 
 ## 5. Live — two browsers side by side
 

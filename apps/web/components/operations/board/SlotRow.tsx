@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { motion } from 'motion/react'
 import type { SlotView } from '@/lib/attendance/roster'
@@ -15,8 +16,11 @@ interface Props {
     canManage: boolean
     /** Whether this viewer may take this position right now. */
     canClaim: boolean
-    onClaim: () => void
-    onMenu: (e: React.MouseEvent) => void
+    /** Takes the slot id rather than being pre-bound: a `() => onClaim(id)`
+     * closure built per row per render would give this memoised component a new
+     * prop identity every time and defeat the memo entirely. */
+    onClaim: (slotId: string) => void
+    onMenu: (slotId: string, e: React.MouseEvent) => void
     /** Somebody else changed this row — play the arrival effect once. */
     pinged: boolean
 }
@@ -45,9 +49,10 @@ const swallow = {
  * other. Motion matches the two by id across the whole tree, so nothing here
  * has to know the pool exists.
  */
-export default function SlotRow({
+function SlotRow({
     slot, member, nameOf, isMe, canManage, canClaim, onClaim, onMenu, pinged,
 }: Props) {
+    const menu = (e: React.MouseEvent) => onMenu(slot.id, e)
     const { setNodeRef: dropRef, isOver } = useDroppable({
         id: `slot:${slot.id}`,
         data: { slotId: slot.id },
@@ -75,7 +80,7 @@ export default function SlotRow({
                 draggable ? s.draggable : '',
                 pinged ? s.ping : '',
             ].filter(Boolean).join(' ')}
-            onContextMenu={canManage ? onMenu : undefined}
+            onContextMenu={canManage ? menu : undefined}
             {...(draggable ? listeners : {})}
             {...(draggable ? attributes : {})}
         >
@@ -110,14 +115,14 @@ export default function SlotRow({
             )}
 
             {canClaim && !slot.occupantUserId && (
-                <button type='button' className={s.claim} onClick={onClaim} {...swallow}>Claim</button>
+                <button type='button' className={s.claim} onClick={() => onClaim(slot.id)} {...swallow}>Claim</button>
             )}
 
             {canManage && (
                 <button
                     type='button'
                     className={s.rowMenu}
-                    onClick={onMenu}
+                    onClick={menu}
                     aria-label={`Options for ${slot.role}`}
                     {...swallow}
                 >⋯</button>
@@ -125,3 +130,12 @@ export default function SlotRow({
         </div>
     )
 }
+
+/**
+ * Memoised, and the reason is the board's size: ~100 of these, each carrying a
+ * dnd-kit droppable, a dnd-kit draggable and a motion projection node. Without
+ * this, anything that re-rendered the board at all — a peer joining, the live
+ * pill flipping, a notice appearing — re-rendered and re-measured every one of
+ * them, which is what the profiler showed as a repeating long task.
+ */
+export default memo(SlotRow)

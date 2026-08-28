@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     DndContext, DragOverlay, PointerSensor, KeyboardSensor,
     useSensor, useSensors, closestCenter,
@@ -13,6 +13,7 @@ import SectionCard from './SectionCard'
 import PoolRail from './PoolRail'
 import MemberBar from './MemberBar'
 import Legend from './Legend'
+import BoardSkeleton from './BoardSkeleton'
 import type { PickableRole } from './AddRole'
 import { Avatar } from './parts'
 import s from './board.module.css'
@@ -29,6 +30,13 @@ interface Props {
      * panel's re-snapshot). The board reloads rather than waiting on its poll.
      */
     reloadKey?: number
+    /**
+     * Fired once the first load settles — with data, with an error, or with no
+     * roster at all. The setup panels below the board wait on this so the page
+     * arrives as one thing rather than a form that lands first and gets shoved
+     * down a screen when the board follows it.
+     */
+    onReady?: () => void
 }
 
 /**
@@ -89,8 +97,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 interface MenuState { slotId: string; x: number; y: number }
 
-export default function AttendanceBoard({
-    operationId, operationName, operationWhen, myUserId, canManage, reloadKey = 0,
+function AttendanceBoard({
+    operationId, operationName, operationWhen, myUserId, canManage, reloadKey = 0, onReady,
 }: Props) {
     const { data, loading, connected, peers, fromPeer, error, act, reload } = useAttendanceBoard(operationId)
     const reduced = useReducedMotion()
@@ -116,6 +124,16 @@ export default function AttendanceBoard({
             .then(d => { if (Array.isArray(d.roles)) setRoles(d.roles) })
             .catch(() => {})
     }, [operationId, canManage])
+
+    // Settled, whichever way it went. An error and an empty roster both count:
+    // the panels below carry the Rebuild button, which is the fix for exactly
+    // those two states, so withholding them there would hide the way out.
+    const told = useRef(false)
+    useEffect(() => {
+        if (loading || told.current) return
+        told.current = true
+        onReady?.()
+    }, [loading, onReady])
 
     // A roster change made outside this component does not bump the Y.js
     // revision — only `act` does — so it is reloaded explicitly here. Other
@@ -311,23 +329,29 @@ export default function AttendanceBoard({
         }
     }, [menu])
 
-    function openMenu(slotId: string, e: React.MouseEvent) {
+    // Stable identities, all three. SectionCard and SlotRow are memoised, and a
+    // handler rebuilt per card per render would hand every one of them a new
+    // prop on every render and undo that.
+    const openMenu = useCallback((slotId: string, e: React.MouseEvent) => {
         e.preventDefault()
         e.stopPropagation()
         setMenu({ slotId, x: e.clientX, y: e.clientY })
-    }
+    }, [])
+
+    const claimSlot = useCallback(
+        (slotId: string) => run({ action: 'claim', slotId }),
+        [run],
+    )
+
+    const addRole = useCallback(
+        (roleId: string, sectionTitle: string, category: string) =>
+            run({ action: 'addSlot', sectionTitle, category, roleId }),
+        [run],
+    )
 
     // ── Render ────────────────────────────────────────────────────────────────
 
-    if (loading) {
-        return (
-            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[46, 30, 120, 120].map((h, i) => (
-                    <div key={i} className={s.skel} style={{ height: h }} />
-                ))}
-            </div>
-        )
-    }
+    if (loading) return <BoardSkeleton canManage={canManage} />
 
     if (error) {
         return <div className={`${s.banner} ${s.bannerErr}`}>{error}</div>
@@ -404,17 +428,12 @@ export default function AttendanceBoard({
                             myUserId={myUserId}
                             canManage={canManage}
                             canClaim={rsvpOpen && !!myUserId}
-                            onClaim={slotId => run({ action: 'claim', slotId })}
+                            onClaim={claimSlot}
                             onMenu={openMenu}
                             pinged={pinged}
                             roles={roles}
                             busy={busy}
-                            onAddRole={roleId => run({
-                                action: 'addSlot',
-                                sectionTitle: title,
-                                category,
-                                roleId,
-                            })}
+                            onAddRole={addRole}
                         />
         )
     }
@@ -422,7 +441,7 @@ export default function AttendanceBoard({
     return (
         <MotionConfig reducedMotion={reduced ? 'always' : 'never'}>
         <LayoutGroup>
-            <div className={s.root}>
+            <div className={`${s.root} ${s.enter}`}>
                 {/* Header */}
                 <div className={s.top}>
                     <div className={s.opName}>
@@ -589,3 +608,13 @@ export default function AttendanceBoard({
         </MotionConfig>
     )
 }
+
+/**
+ * Memoised. The board is the most expensive thing the operations editor
+ * renders — ~100 rows inside a motion LayoutGroup, which re-measures every
+ * tagged element on each commit — and the editor above it re-renders for
+ * reasons that have nothing to do with attendance (save status, presence, a
+ * clock). Every prop here is a primitive except `onReady`, which the caller
+ * holds stable.
+ */
+export default memo(AttendanceBoard)

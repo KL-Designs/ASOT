@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { AnimatePresence, motion } from 'motion/react'
 import type { SlotView } from '@/lib/attendance/roster'
@@ -26,7 +27,9 @@ interface Props {
     pinged: Set<string>
     roles: PickableRole[]
     busy: boolean
-    onAddRole: (roleId: string) => void
+    /** Reports which section it was, so the board can hold one stable handler
+     * instead of building a closure per card — see the memo note below. */
+    onAddRole: (roleId: string, sectionTitle: string, category: string) => void
 }
 
 /**
@@ -37,7 +40,7 @@ interface Props {
  * a 30px row. The count in the header is filled-over-total, which is the number
  * a section leader actually wants.
  */
-export default function SectionCard({
+function SectionCard({
     title, category, color, patchUrl, slots, members, nameOf, myUserId, canManage, canClaim,
     onClaim, onMenu, pinged, roles, busy, onAddRole,
 }: Props) {
@@ -67,7 +70,7 @@ export default function SectionCard({
                 <b title={title}>{title}</b>
                 <span className={s.cnt}>{filled} / {slots.length}</span>
                 {canManage && (
-                    <AddRole category={category} roles={roles} busy={busy} onPick={onAddRole} />
+                    <AddRole category={category} roles={roles} busy={busy} onPick={roleId => onAddRole(roleId, title, category)} />
                 )}
             </div>
 
@@ -87,8 +90,8 @@ export default function SectionCard({
                             isMe={!!myUserId && slot.occupantUserId === myUserId}
                             canManage={canManage}
                             canClaim={canClaim && slot.available}
-                            onClaim={() => onClaim(slot.id)}
-                            onMenu={e => onMenu(slot.id, e)}
+                            onClaim={onClaim}
+                            onMenu={onMenu}
                             pinged={pinged.has(slot.id)}
                         />
                     </motion.div>
@@ -97,3 +100,10 @@ export default function SectionCard({
         </div>
     )
 }
+
+/**
+ * Memoised for the same reason SlotRow is: a section that has not changed
+ * should not re-render its dozen rows, nor re-measure the motion wrappers
+ * around them, because something in the board's header moved.
+ */
+export default memo(SectionCard)

@@ -126,6 +126,10 @@ export function useAttendanceBoard(operationId: string) {
     // own echo coming back off the wire, not somebody else's move.
     const ownRevs = useRef(new Set<number>())
 
+    /** The peer list as last rendered, so an awareness heartbeat that changed
+     * nothing does not re-render the board. */
+    const peerKey = useRef('')
+
     const load = useCallback(async (fromPeer: boolean) => {
         try {
             const res = await fetch(`/api/operations/${operationId}/attendance`)
@@ -170,9 +174,11 @@ export function useAttendanceBoard(operationId: string) {
                         if (!destroyed) setState(prev => ({ ...prev, connected: true }))
                     },
                     onStatus: ({ status }) => {
-                        if (!destroyed && status !== 'connected') {
-                            setState(prev => ({ ...prev, connected: false }))
-                        }
+                        // Guarded rather than set unconditionally: the provider
+                        // reports status repeatedly, and a fresh state object
+                        // each time re-renders the whole board for no change.
+                        if (destroyed || status === 'connected') return
+                        setState(prev => (prev.connected ? { ...prev, connected: false } : prev))
                     },
                     onAwarenessUpdate: () => {
                         if (destroyed) return
@@ -183,6 +189,13 @@ export function useAttendanceBoard(operationId: string) {
                             if (clientId === provider.awareness?.clientID) return
                             if (s?.boardUser) peers.push(s.boardUser as BoardPeer)
                         })
+                        // Awareness fires on its own heartbeat as well as on
+                        // real joins and leaves. A new array every time is a
+                        // new prop for the whole board several times a minute,
+                        // so an unchanged list keeps the old one.
+                        const key = peers.map(p => `${p.name}|${p.color}|${p.avatar}`).join(',')
+                        if (key === peerKey.current) return
+                        peerKey.current = key
                         setState(prev => ({ ...prev, peers }))
                     },
                 })

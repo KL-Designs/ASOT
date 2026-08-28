@@ -802,8 +802,17 @@
     animation: shimmer 1.6s ease-in-out infinite;
 }
 
+/*
+ * The board fading up as it replaces the skeleton. Opacity only, deliberately:
+ * a transform here would make this element the containing block for the
+ * position-fixed context menu inside it, and the menu is placed from raw
+ * clientX/clientY.
+ */
+@keyframes boardIn { from { opacity: 0; } to { opacity: 1; } }
+.enter { animation: boardIn 300ms ease-out; }
+
 @media (prefers-reduced-motion: reduce) {
-    .ping, .skel { animation: none; }
+    .ping, .skel, .enter { animation: none; }
     .fillbar > i, .claim { transition: none; }
 }
 

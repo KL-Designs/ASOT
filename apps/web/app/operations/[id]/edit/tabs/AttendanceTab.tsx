@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, type CSSProperties } from 'react'
+import { useCallback, useState, type CSSProperties } from 'react'
+import { motion, useReducedMotion } from 'motion/react'
 import TabPanel from './TabPanel'
 import AttendanceBoard from '@/components/operations/board/AttendanceBoard'
 import ConfirmDialog from '@/components/confirm-dialog'
+import type { TurnoutKey } from '@/lib/attendance/simulate'
 
 interface AckEntry { userId: string; userName: string; acknowledgedAt: string }
 
@@ -33,6 +35,17 @@ interface Props {
     myUserId: string | null
     canManageAttendance: boolean
 }
+
+/**
+ * The three nights the generator can produce. A single fixed rate only ever
+ * showed one board, and the two ends are the interesting ones: a quiet night is
+ * mostly gaps, a busy one fills nearly every position and overflows the pool.
+ */
+const TURNOUTS: { key: TurnoutKey; label: string; hint: string; color: string }[] = [
+    { key: 'quiet', label: 'Quiet Night', hint: 'Thin turnout, most positions unfilled', color: 'var(--crit)' },
+    { key: 'medium', label: 'Ordinary Night', hint: 'A normal Saturday', color: 'var(--warn)' },
+    { key: 'busy', label: 'Busy Night', hint: 'Full sections and a deep pool', color: 'var(--good)' },
+]
 
 const PING_ROLE_OPTS = [
     { id: '@everyone', label: '@everyone' },
@@ -82,6 +95,18 @@ export default function AttendanceTab({
     ackCount, ackList,
     operationName, operationWhen, myUserId, canManageAttendance,
 }: Props) {
+    // The setup panels wait for the board. They are the small print under a
+    // wide, slow surface, and rendering them first meant the page arrived as a
+    // form that then got shoved a screen down when the board landed on top of
+    // it. The board reports ready however its first load settles — including on
+    // an error or an empty roster, since the Rebuild button down here is the
+    // fix for both of those.
+    const [boardReady, setBoardReady] = useState(false)
+    // Stable identity: AttendanceBoard is memoised, and an inline arrow here
+    // would defeat that on every render of this tab.
+    const onBoardReady = useCallback(() => setBoardReady(true), [])
+    const reduced = useReducedMotion()
+
     const [ackExpanded, setAckExpanded] = useState(false)
     const [remindSaving, setRemindSaving] = useState(false)
     const [remindSent, setRemindSent] = useState<number | null>(null)
@@ -102,28 +127,28 @@ export default function AttendanceTab({
     // Dev tooling. `NODE_ENV` is set by the npm script, never from .env, so this
     // is false in any production build and the route refuses regardless.
     const isDev = process.env.NODE_ENV !== 'production'
-    const [simulating, setSimulating] = useState(false)
+    const [simulating, setSimulating] = useState<TurnoutKey | null>(null)
     const [simResult, setSimResult] = useState<string | null>(null)
 
-    async function generateData() {
-        setSimulating(true)
+    async function generateData(turnout: TurnoutKey) {
+        setSimulating(turnout)
         setSimResult(null)
         try {
             const res = await fetch(`/api/operations/${opID}/attendance/simulate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({}),
+                body: JSON.stringify({ turnout }),
             })
             const json = await res.json().catch(() => ({}))
             if (!res.ok) setSimResult(json.error ?? 'Could not generate data.')
             else {
-                setSimResult(`${json.answered} answered · ${json.placed} placed · ${json.reservists} reservists in play`)
+                setSimResult(`${TURNOUTS.find(t => t.key === turnout)!.label} · ${json.answered} answered · ${json.placed} placed · ${json.reservists} reservists in play`)
                 setBoardReloadKey(k => k + 1)
             }
         } catch {
             setSimResult('Could not reach the server.')
         } finally {
-            setSimulating(false)
+            setSimulating(null)
         }
     }
 
@@ -180,9 +205,16 @@ export default function AttendanceTab({
                 myUserId={myUserId}
                 canManage={canManageAttendance}
                 reloadKey={boardReloadKey}
+                onReady={onBoardReady}
             />
 
-            <div style={{ width: '100%', maxWidth: 1220, padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {boardReady && (
+            <motion.div
+                initial={reduced ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: [0.2, 0.9, 0.3, 1] }}
+                style={{ width: '100%', maxWidth: 1220, padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}
+            >
             <TabPanel title='Assigned Units'>
                 <div style={{ padding: 16 }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -377,30 +409,54 @@ RSVP answers themselves are kept.`}
             */}
             {isDev && canManageAttendance && (
                 <TabPanel title='Developer'>
-                    <div style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                        <button
-                            type='button'
-                            disabled={simulating}
-                            onClick={generateData}
-                            style={{ ...chipStyle(false), borderStyle: 'dashed', opacity: simulating ? 0.5 : 1 }}
-                        >
-                            {simulating ? 'Generating…' : 'Generate Attendance Data'}
-                        </button>
-                        <span style={{ fontSize: '0.68rem', color: 'var(--ink-3)', lineHeight: 1.5, maxWidth: 520 }}>
+                    <div style={{ padding: 16 }}>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--ink-3)', lineHeight: 1.5, display: 'block', maxWidth: 640 }}>
                             Fills the board with plausible attendance using real members — some attending,
                             some not, some never replying, reservists filling in from other sections, and
-                            others waiting in the pool with and without a preference.
+                            others waiting in the pool with and without a preference. Pick how well the
+                            night turns out: the two ends are what the layout has to survive.
                             <b style={{ color: 'var(--warn)' }}> Overwrites every RSVP on this operation.</b>
                         </span>
+
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>
+                            {TURNOUTS.map(t => (
+                                <button
+                                    key={t.key}
+                                    type='button'
+                                    disabled={!!simulating}
+                                    onClick={() => generateData(t.key)}
+                                    title={t.hint}
+                                    style={{
+                                        ...chipStyle(false),
+                                        borderStyle: 'dashed',
+                                        flexDirection: 'column',
+                                        alignItems: 'flex-start',
+                                        gap: 3,
+                                        padding: '7px 11px',
+                                        opacity: simulating && simulating !== t.key ? 0.4 : 1,
+                                    }}
+                                >
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                                        <i style={dotStyle(t.color)} />
+                                        {simulating === t.key ? 'Generating…' : t.label}
+                                    </span>
+                                    <span style={{ textTransform: 'none', letterSpacing: 0, fontSize: 9.5, color: 'var(--ink-3)' }}>
+                                        {t.hint}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+
                         {simResult && (
-                            <span style={{ fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'var(--ink-2)' }}>
+                            <div style={{ fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'var(--ink-2)', marginTop: 12 }}>
                                 {simResult}
-                            </span>
+                            </div>
                         )}
                     </div>
                 </TabPanel>
             )}
-            </div>
+            </motion.div>
+            )}
         </div>
     )
 }

@@ -5,7 +5,9 @@
  */
 import { describe, test, expect } from 'vitest'
 import { buildRoster, viewRoster, type OrbatSnapshotPosition } from './roster'
-import { mulberry32, simulateAttendance } from './simulate'
+import {
+    isTurnoutKey, mulberry32, simulateAttendance, TURNOUT_KEYS, type TurnoutKey,
+} from './simulate'
 
 /** A plausible little ORBAT: two sections of four in one platoon, one in another. */
 function positions(): OrbatSnapshotPosition[] {
@@ -23,12 +25,28 @@ function positions(): OrbatSnapshotPosition[] {
     ]
 }
 
-const sim = (seed = 1, reservists = ['u-r1', 'u-r2', 'u-r3', 'u-r4']) =>
+const RESERVISTS = ['u-r1', 'u-r2', 'u-r3', 'u-r4']
+
+const sim = (seed = 1, reservists = RESERVISTS, turnout?: TurnoutKey) =>
     simulateAttendance({
         roster: buildRoster(positions()),
         reservists,
         rand: mulberry32(seed),
+        turnout,
     })
+
+/** Totalled across seeds: any one night can go against the odds, so a single
+ * seed would make these assertions a coin toss rather than a check. */
+function totals(turnout: TurnoutKey, seeds = 40) {
+    let placed = 0
+    let attending = 0
+    for (let seed = 1; seed <= seeds; seed++) {
+        const r = sim(seed, RESERVISTS, turnout)
+        placed += r.roster.filter(s => s.occupantUserId).length
+        attending += Object.values(r.rsvp).filter(a => a === 'attending').length
+    }
+    return { placed, attending }
+}
 
 describe('simulateAttendance', () => {
     test('is deterministic for a given seed', () => {
@@ -141,5 +159,58 @@ describe('mulberry32', () => {
             expect(n).toBeGreaterThanOrEqual(0)
             expect(n).toBeLessThan(1)
         }
+    })
+})
+
+describe('turnout profiles', () => {
+    test('a busier night fills more positions than a quiet one', () => {
+        const quiet = totals('quiet')
+        const medium = totals('medium')
+        const busy = totals('busy')
+        expect(quiet.placed).toBeLessThan(medium.placed)
+        expect(medium.placed).toBeLessThan(busy.placed)
+    })
+
+    test('a busier night has more people saying yes', () => {
+        expect(totals('quiet').attending).toBeLessThan(totals('busy').attending)
+    })
+
+    test('every profile holds the invariants the board depends on', () => {
+        for (const turnout of TURNOUT_KEYS) {
+            for (let seed = 1; seed <= 12; seed++) {
+                const r = sim(seed, RESERVISTS, turnout)
+                const held = r.roster.map(s => s.occupantUserId).filter(Boolean)
+                expect(held.length, `${turnout}/${seed}`).toBe(new Set(held).size)
+                for (const [userId, answer] of Object.entries(r.rsvp)) {
+                    if (answer !== 'not_attending') continue
+                    expect(r.roster.some(s => s.occupantUserId === userId), `${turnout}/${seed}`).toBe(false)
+                }
+            }
+        }
+    })
+
+    test('no profile answers for everybody — someone always fails to reply', () => {
+        // The reserved-but-unanswered position is the state the whole RSVP
+        // window exists for; a profile that never produced one would quietly
+        // stop the board from ever being generated with an `awaiting` row.
+        for (const turnout of TURNOUT_KEYS) {
+            const holders = new Set(buildRoster(positions()).map(s => s.homeUserId).filter(Boolean))
+            const silent = [...Array(20).keys()].some(i => {
+                const r = sim(i + 1, RESERVISTS, turnout)
+                return [...holders].some(h => r.rsvp[h as string] === undefined)
+            })
+            expect(silent, turnout).toBe(true)
+        }
+    })
+
+    test('defaults to an ordinary night', () => {
+        expect(sim(5)).toEqual(sim(5, RESERVISTS, 'medium'))
+    })
+
+    test('isTurnoutKey rejects anything not on the list', () => {
+        expect(TURNOUT_KEYS.every(isTurnoutKey)).toBe(true)
+        expect(isTurnoutKey('busiest')).toBe(false)
+        expect(isTurnoutKey(undefined)).toBe(false)
+        expect(isTurnoutKey(2)).toBe(false)
     })
 })

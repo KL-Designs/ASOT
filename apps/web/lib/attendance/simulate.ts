@@ -26,11 +26,75 @@ export function mulberry32(seed: number): () => number {
     }
 }
 
+/** How well a given night turns out. */
+export interface TurnoutProfile {
+    holderAttends: number
+    holderDeclines: number
+    /** Of the holders attending, how many turn out for a different section. */
+    holderGoesReservist: number
+    reservistAttends: number
+    /** Of reservists attending, how many grab a position rather than wait. */
+    reservistClaims: number
+    /** Of those waiting, how many say where they would like to be. */
+    reservistHasPreference: number
+}
+
+export type TurnoutKey = 'quiet' | 'medium' | 'busy'
+
+/**
+ * Three nights worth generating.
+ *
+ * One set of numbers only ever showed one board. What the board has to survive
+ * is the two ends: a quiet night is mostly gaps and a nearly empty pool, which
+ * is when "who is missing" has to be readable at a glance; a busy night fills
+ * almost every position and leaves a pool longer than the rail, which is when
+ * the layout is under pressure. The middle is an ordinary Saturday.
+ *
+ * Whatever is left after attending and declining never answers at all, which is
+ * the largest group on a real board and the reason positions stay reserved
+ * until RSVP closes — so `holderAttends + holderDeclines` is deliberately well
+ * under 1 in every profile.
+ */
+export const TURNOUT_PROFILES: Record<TurnoutKey, TurnoutProfile> = {
+    quiet: {
+        holderAttends: 0.34,
+        holderDeclines: 0.34,
+        holderGoesReservist: 0.08,
+        reservistAttends: 0.35,
+        reservistClaims: 0.45,
+        reservistHasPreference: 0.5,
+    },
+    medium: {
+        holderAttends: 0.6,
+        holderDeclines: 0.18,
+        holderGoesReservist: 0.12,
+        reservistAttends: 0.75,
+        reservistClaims: 0.55,
+        reservistHasPreference: 0.6,
+    },
+    busy: {
+        holderAttends: 0.82,
+        holderDeclines: 0.06,
+        holderGoesReservist: 0.16,
+        reservistAttends: 0.92,
+        reservistClaims: 0.7,
+        reservistHasPreference: 0.65,
+    },
+}
+
+export const TURNOUT_KEYS = Object.keys(TURNOUT_PROFILES) as TurnoutKey[]
+
+export function isTurnoutKey(value: unknown): value is TurnoutKey {
+    return typeof value === 'string' && (TURNOUT_KEYS as string[]).includes(value)
+}
+
 export interface SimulationInput {
     roster: RosterSlot[]
     /** Members with no position of their own — the real reservist pool. */
     reservists: string[]
     rand: () => number
+    /** Defaults to an ordinary night. */
+    turnout?: TurnoutKey
 }
 
 export interface SimulationResult {
@@ -39,30 +103,14 @@ export interface SimulationResult {
     preferences: Record<string, { section: string | null; role: string | null }>
 }
 
-/**
- * Roughly what a real operation looks like the day before it runs. Tuned so a
- * generated board shows every state at once rather than a realistic-but-boring
- * one where almost everybody simply said yes.
- */
-const P_HOLDER_ATTENDS = 0.6
-const P_HOLDER_DECLINES = 0.18
-// The remainder never answer, which is what makes "awaiting" the largest group
-// on a real board — and the reason positions stay reserved until RSVP closes.
-
-/** Of those attending, how many turn out for a different section instead. */
-const P_HOLDER_GOES_RESSY = 0.12
-
-const P_RESERVIST_ATTENDS = 0.75
-/** Of reservists attending, how many grab a position rather than wait. */
-const P_RESERVIST_CLAIMS = 0.55
-/** Of those waiting, how many say where they would like to be. */
-const P_RESERVIST_HAS_PREFERENCE = 0.6
-
 function pick<T>(items: T[], rand: () => number): T | undefined {
     return items.length === 0 ? undefined : items[Math.floor(rand() * items.length)]
 }
 
-export function simulateAttendance({ roster, reservists, rand }: SimulationInput): SimulationResult {
+export function simulateAttendance(
+    { roster, reservists, rand, turnout = 'medium' }: SimulationInput,
+): SimulationResult {
+    const odds = TURNOUT_PROFILES[turnout]
     const rsvp: SimulationResult['rsvp'] = {}
     const preferences: SimulationResult['preferences'] = {}
 
@@ -86,7 +134,7 @@ export function simulateAttendance({ roster, reservists, rand }: SimulationInput
         const home = next.find(s => s.homeUserId === userId)
         const roll = rand()
 
-        if (roll < P_HOLDER_DECLINES) {
+        if (roll < odds.holderDeclines) {
             rsvp[userId] = 'not_attending'
             // Cleared rather than left to the derivation: this roster is
             // written to the database, and a stored occupant who has declined
@@ -96,13 +144,13 @@ export function simulateAttendance({ roster, reservists, rand }: SimulationInput
         }
 
         // Never answered: they stay pencilled in, which is what "awaiting" is.
-        if (roll >= P_HOLDER_DECLINES + P_HOLDER_ATTENDS) continue
+        if (roll >= odds.holderDeclines + odds.holderAttends) continue
 
         rsvp[userId] = 'attending'
 
         // Some turn out somewhere else, which is what leaves their own position
         // showing as released and puts them in another section as a backfill.
-        if (home && rand() < P_HOLDER_GOES_RESSY) {
+        if (home && rand() < odds.holderGoesReservist) {
             next = assignSlot(next, home.id, null)
             wanderers.push(userId)
         }
@@ -125,20 +173,20 @@ export function simulateAttendance({ roster, reservists, rand }: SimulationInput
     }
 
     for (const userId of reservists) {
-        if (rand() >= P_RESERVIST_ATTENDS) {
+        if (rand() >= odds.reservistAttends) {
             rsvp[userId] = 'not_attending'
             continue
         }
         rsvp[userId] = 'attending'
 
-        if (rand() < P_RESERVIST_CLAIMS) {
+        if (rand() < odds.reservistClaims) {
             const target = pick(freeSlots(), rand)
             if (target) { next = assignSlot(next, target.id, userId); continue }
         }
 
         // Waiting in the pool. Some name a section or a role, some will take
         // anything — the board needs both to be worth looking at.
-        if (rand() < P_RESERVIST_HAS_PREFERENCE) {
+        if (rand() < odds.reservistHasPreference) {
             preferences[userId] = rand() < 0.5
                 ? { section: pick(sections, rand) ?? null, role: null }
                 : { section: null, role: pick(roles, rand) ?? null }
