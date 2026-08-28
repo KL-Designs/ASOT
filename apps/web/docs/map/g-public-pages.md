@@ -659,25 +659,39 @@ a new row leaves them blank. This is the internal counterpart to the public read
 Sets page metadata ("Operations"); no auth gate (public board).
 
 #### app/operations/page.tsx
-Server page: determines `editAccess` via `PERMISSIONS.pages.operationsEdit`, renders header +
-`<SearchBar/>` + conditional `<CreateButton/>` + `<OperationsBoard editAccess/>` — all from
-`./list.tsx`. Public read; create/edit UI only shown to staff.
+Server page, deliberately thin: resolves `editAccess` via `PERMISSIONS.pages.operationsEdit` for
+the Mission Making link, then hands everything else to `<OperationsBoard/>`. The board's content
+is per-viewer (your RSVP, which operations you were on, whether the staff line shows) *and* paged,
+so it is resolved client-side rather than rendered here and contradicted a moment later.
 
-#### app/operations/list.tsx
-Large (1158-line) client module exporting the three board building blocks used by
-`operations/page.tsx`:
-- **`SearchBar`** — debounced live search hitting `/api/operations?search=`, dropdown results.
-- **`CreateButton`** — modal to create a new mission: single (`GET /api/operations/new` →
-  redirects to edit) or campaign-linked (existing campaign via `GET
-  /api/operations/campaign-missions?campaignId=` + `POST` to add a mission, or brand-new campaign
-  via `POST /api/operations/campaigns`). Roman-numeral mission naming (`toRoman`).
-- **`OperationsBoard`** (exported, used by the page) — 3-column layout: left
-  `ActiveMissionsPanel` (polls `/api/operations?status=Active,Upcoming` every 5s), centre
-  `MonthlyMissionsPanel` (fetches `/api/operations?year=&month=` + `/api/operations/campaigns` +
-  per-campaign `/api/operations/campaign-missions`, groups ops into campaign hierarchies with
-  Saturday/Sunday slot detection via title parsing), right `CalendarPicker` (year/month browser).
-  Also renders `CampaignsBand`/`CampaignEntry`/`MissionRow` sub-components with J2/Edit/Map/View
-  quick-links for staff (`hasAccess`).
+#### app/operations/board/ — the board itself
+Replaced the old three-column layout (a single upcoming card beside a flat month-at-a-time list
+beside twelve month buttons). Two halves with different jobs:
+
+- **`OperationsBoard.tsx`** — the shell: skeleton, error state, and the two sections below.
+- **`useBoard.ts`** — one request to `/api/operations/board` for the whole page. The filter lives
+  in the URL via `replaceState` (not `push`, so Back still leaves the page) so a filtered view can
+  be pasted into Discord — "every operation 1-3 was on" is a useful thing to be able to send.
+  Nothing fetches until the deep link has been read, so a shared link is one request, not two.
+- **`UpcomingBand.tsx`** — everything not yet run, as a wrapping grid rather than a featured card:
+  more than one operation upcoming is the normal case, and a layout that promotes the first is
+  wrong every time there are two. **One card per campaign *mission*, not per campaign** — a
+  mission's Saturday and Sunday are one decision and share a card, but a campaign with two
+  missions still to run is two cards. Carries the countdown, the units called, turnout so far and
+  the viewer's own RSVP. **Operations in development never appear**: nobody can answer one, so it
+  has no business on the page whose job is answering.
+- **`ArchiveFilters.tsx`** — search (debounced), facets that carry their own counts, the applied
+  filters as individually removable chips, and a month histogram you drag a range across. The
+  histogram replaces the old month picker and does a second job it could not: it shows where the
+  weight of the unit's history sits. Bars outside a selection dim rather than disappear.
+- **`Archive.tsx`** — the past, grouped by campaign. A campaign is a bracket, its numbered
+  missions are the rows, and each mission's two nights are two slots on that row. Straight halving
+  of the row count for a campaign, and the only view that can show a night that *didn't* run
+  (a dashed empty slot). Grouping runs over everything loaded so far, so a campaign straddling a
+  page boundary is still one bracket.
+- **`MissionMakingButton.tsx`** — the staff link, extracted when `list.tsx` was retired. Staff
+  quick-links (Edit · Map · View on every row) are gone with it: one dashed line under the band
+  carries the in-development count and a route to the J2 dashboard, and only with the permission.
 
 #### app/operations/[id]/layout.tsx
 Sets dynamic `<Metadata>`/`<Viewport>` (theme colour) from `Db.operations` for the given id.
