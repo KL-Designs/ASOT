@@ -144,7 +144,7 @@ export default function ModernPage({
                 {operation.mapWorld && (
                     <div className={s.cell}>
                         <dt className={s.cellKey}>Terrain</dt>
-                        <dd className={s.cellVal}>{operation.mapWorld}</dd>
+                        <dd className={`${s.cellVal} ${s.cellValCaps}`}>{operation.mapWorld}</dd>
                     </div>
                 )}
                 {attendance.seats > 0 && (

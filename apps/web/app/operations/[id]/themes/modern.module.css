@@ -140,6 +140,9 @@
     color: var(--ink);
     font-variant-numeric: tabular-nums;
 }
+/* Terrain comes out of the map's own folder name, so it arrives lowercase.
+   Everything else in the ledger is a date or a count already in caps. */
+.cellValCaps { text-transform: uppercase; }
 .cellValAcc { color: var(--acc); }
 .cellValWarn { color: var(--warn); }
 .cellValMuted { color: var(--ink-3); }
@@ -247,10 +250,15 @@
 
 /* ── Body ─────────────────────────────────────────────────────────────── */
 
+/*
+ * `align-items` is left at its default `stretch` on purpose: that is what makes
+ * the spine's column run the full height of the page rather than stopping under
+ * its last item and leaving a hard edge halfway down the screen. The sticking
+ * is done by `.spineInner` inside it, not by the column itself.
+ */
 .body {
     display: grid;
     grid-template-columns: 236px minmax(0, 1fr);
-    align-items: start;
     flex: 1;
 }
 
@@ -258,9 +266,17 @@
     min-width: 0;
     padding: 30px clamp(16px, 4vw, 56px) 72px;
 }
-/* A reading measure, not the window's width. Seventy-odd characters is where
-   an OPORD stops being a wall. */
-.readerInner { max-width: 78ch; }
+/*
+ * Centred in its column, and wide enough to fill it without becoming a wall.
+ * An OPORD is short paragraphs, phase lists and control-measure tables rather
+ * than flowing essay prose, so it takes a wider measure than running text
+ * would — but left hard against the spine with the rest of the window empty,
+ * it read as though the page had failed to load the other half.
+ */
+.readerInner {
+    max-width: 920px;
+    margin: 0 auto;
+}
 
 /* Document actions — export, the OCAP link. They belong with the document
    rather than in the action band above, which is for what the reader owes. */
@@ -404,15 +420,21 @@
  * document they belong to, because that is the actual relationship: "Situation"
  * is part of CHQ Orders, not a sibling of it.
  */
+/* The column. Paints the full height of the page — nothing sticks here. */
 .spine {
+    background: var(--s1);
+    border-right: 1px solid var(--line);
+}
+
+/* What actually follows you down the page. Capped to the viewport with its own
+   scroller, so a long operation with many documents can still reach all of
+   them without the outline running off the bottom. */
+.spineInner {
     position: sticky;
     top: 0;
-    align-self: start;
     max-height: 100vh;
     overflow-y: auto;
     padding: 22px 0 40px;
-    background: var(--s1);
-    border-right: 1px solid var(--line);
 }
 .spineGroup { padding: 0 16px; }
 .spineGroup + .spineGroup {
@@ -489,10 +511,13 @@
 @media (max-width: 900px) {
     .body { grid-template-columns: minmax(0, 1fr); }
     .spine {
-        position: static;
-        max-height: none;
         border-right: none;
         border-bottom: 1px solid var(--line);
+    }
+    .spineInner {
+        position: static;
+        max-height: none;
+        overflow-y: visible;
         padding: 16px 0 18px;
     }
     .reader { padding-top: 22px; }

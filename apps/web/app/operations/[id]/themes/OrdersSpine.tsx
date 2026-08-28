@@ -113,18 +113,26 @@ export default function OrdersSpine({ operationId, documents, activeDocument, se
     }
 
     return (
+        /*
+         * Two elements, not one: the <nav> is the column and paints the full
+         * height of the page, while the box inside it is what sticks. Sticking
+         * the nav itself made it only as tall as its own items, which left the
+         * rail's background stopping in the middle of the screen.
+         */
         <nav className={s.spine} aria-label='Orders contents'>
-            <div className={s.spineGroup}>
-                <span className={s.spineKey}>Orders</span>
-                {orders.map(renderDoc)}
-            </div>
-
-            {aside.length > 0 && (
+            <div className={s.spineInner}>
                 <div className={s.spineGroup}>
-                    <span className={s.spineKey}>Also here</span>
-                    {aside.map(renderDoc)}
+                    <span className={s.spineKey}>Orders</span>
+                    {orders.map(renderDoc)}
                 </div>
-            )}
+
+                {aside.length > 0 && (
+                    <div className={s.spineGroup}>
+                        <span className={s.spineKey}>Also here</span>
+                        {aside.map(renderDoc)}
+                    </div>
+                )}
+            </div>
         </nav>
     )
 }
