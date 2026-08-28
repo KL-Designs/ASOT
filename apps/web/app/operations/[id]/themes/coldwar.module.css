@@ -24,8 +24,6 @@
     --carbon-3: #8b8477;
     --stamp:    #8c2b1d;
     --desk:     #1b1a17;
-    --desk-2:   #14130f;
-    --desk-line:#2b291f;
 
     --type: "Courier New", Courier, monospace;
 
@@ -40,15 +38,24 @@
 
 .desk {
     flex: 1;
-    display: grid;
-    grid-template-columns: 188px minmax(0, 1fr);
-    align-items: start;
-    gap: 0;
+    display: flex;
+    justify-content: center;
     padding: 28px clamp(14px, 3vw, 40px) 56px;
     background:
         /* A faint blotter grain, so the sheet has something to sit on. */
         repeating-linear-gradient(56deg, rgba(255, 255, 255, 0.008) 0 2px, transparent 2px 5px),
         var(--desk);
+}
+
+/* Tabs and sheet centre together as one object. Centring the sheet alone would
+   open a gap between it and its own tabs, which is the one thing the folder
+   illusion cannot survive. */
+.folder {
+    display: grid;
+    grid-template-columns: 188px minmax(0, 900px);
+    align-items: start;
+    width: 100%;
+    max-width: 1088px;
 }
 
 /* ── File tabs ────────────────────────────────────────────────────────── */
@@ -59,13 +66,15 @@
  * stock as the sheet and runs into it, the rest are the darker manila behind.
  */
 .tabs {
+    /* Above the sheet: its drop shadow otherwise falls across the rail and
+       greys out every tab. */
     position: sticky;
     top: 12px;
+    z-index: 2;
     display: flex;
     flex-direction: column;
     align-items: stretch;
     padding-top: 34px;
-    z-index: 2;
 }
 .tabGroup + .tabGroup { margin-top: 18px; }
 .tabGroupKey {
@@ -144,10 +153,10 @@
 
 /* ── The sheet ────────────────────────────────────────────────────────── */
 
-.sheetWrap { min-width: 0; }
+.sheetWrap { min-width: 0; position: relative; z-index: 1; }
 
 .sheet {
-    max-width: 900px;
+    width: 100%;
     background:
         /* Very faint ruling, the ghost of a typewriter's line spacing. */
         repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.014) 0 2px, transparent 2px 4px),
@@ -441,7 +450,7 @@
 }
 
 @media (max-width: 900px) {
-    .desk { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    .folder { grid-template-columns: minmax(0, 1fr); gap: 18px; }
     .tabs { position: static; flex-direction: row; flex-wrap: wrap; padding-top: 0; }
     .tabGroup + .tabGroup { margin-top: 0; }
     .tab { border-radius: 3px; border-right: 1px solid rgba(0, 0, 0, 0.25); margin-right: 4px; }
@@ -451,6 +460,102 @@
 
 @media print {
     .tabs, .slip { display: none; }
-    .desk { grid-template-columns: minmax(0, 1fr); padding: 0; }
-    .sheet { box-shadow: none; max-width: none; }
+    .desk { padding: 0; }
+    .folder { grid-template-columns: minmax(0, 1fr); max-width: none; }
+    .sheet { box-shadow: none; }
 }
+/* ── Ink on paper ─────────────────────────────────────────────────────── */
+
+/*
+ * The document's own styling, scoped under `.sheet` so it outranks the base
+ * `.op-doc` rule in globals.css outright. Injecting it from DocBody does not
+ * work: those rules land at the same specificity and lose the tie, which on a
+ * dark theme is invisible and on a light one leaves the body text pale on paper
+ * while `strong` — one step more specific — goes black. That was this theme's
+ * first bug.
+ *
+ * Every colour here is a fixed ink rather than the operation's `--acc`. A typed
+ * page does not change colour per operation, and one themed pale blue would
+ * print invisibly.
+ */
+.sheet :global(.op-doc) {
+    padding: 0;
+    font-family: var(--type);
+    font-size: 0.92rem;
+    line-height: 1.75;
+    color: var(--carbon);
+}
+.sheet :global(.op-doc p),
+.sheet :global(.op-doc li),
+.sheet :global(.op-doc td),
+.sheet :global(.op-doc th) { color: var(--carbon); }
+
+.sheet :global(.op-doc h1) {
+    margin: 1.5em 0 0.7em;
+    padding: 7px 13px;
+    border: none;
+    border-left: 4px solid var(--stamp);
+    background: rgba(140, 43, 29, 0.06);
+    font-family: var(--type);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--carbon);
+}
+.sheet :global(.op-doc h2) {
+    margin: 1.4em 0 0.5em;
+    padding-bottom: 3px;
+    border-bottom: 1px dotted var(--carbon-3);
+    font-family: var(--type);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--stamp);
+}
+.sheet :global(.op-doc h2)::before { content: ''; }
+.sheet :global(.op-doc h3) {
+    margin: 1.1em 0 0.35em;
+    font-family: var(--type);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--carbon-2);
+}
+
+.sheet :global(.op-doc li)::marker { color: var(--stamp); }
+.sheet :global(.op-doc li) { font-size: inherit; }
+
+.sheet :global(.op-doc blockquote) {
+    margin: 1em 0;
+    padding: 10px 15px;
+    border: none;
+    border-left: 4px solid var(--stamp);
+    background: rgba(140, 43, 29, 0.05);
+    color: var(--carbon-2);
+    font-style: italic;
+}
+.sheet :global(.op-doc hr) { border: none; border-top: 1px solid var(--carbon-3); margin: 1.6em 0; }
+.sheet :global(.op-doc mark) { background: rgba(200, 150, 40, 0.38); color: var(--carbon); }
+.sheet :global(.op-doc strong) { color: #14120e; font-weight: 700; }
+.sheet :global(.op-doc a) { color: var(--stamp); opacity: 1; text-decoration: underline; text-underline-offset: 2px; }
+.sheet :global(.op-doc a):hover { color: var(--carbon); }
+.sheet :global(.op-doc code) {
+    background: rgba(0, 0, 0, 0.06);
+    border: 1px solid #b5ad9b;
+    color: var(--carbon);
+    font-family: var(--type);
+}
+.sheet :global(.op-doc pre) {
+    padding: 10px 13px;
+    background: rgba(0, 0, 0, 0.05);
+    border: 1px solid #b5ad9b;
+    overflow-x: auto;
+}
+.sheet :global(.op-doc img) {
+    border: 1px solid var(--carbon-3);
+    filter: grayscale(0.7) sepia(0.2) contrast(1.1);
+}
+

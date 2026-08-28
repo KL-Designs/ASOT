@@ -90,6 +90,7 @@ export default function ColdWarPage({
             />
 
             <div className={s.desk}>
+              <div className={s.folder}>
                 <FileTabs
                     operationId={id}
                     documents={documents}
@@ -225,7 +226,7 @@ export default function ColdWarPage({
                                                 </div>
 
                                                 {visible
-                                                    ? <DocBody content={sec.content ?? null} themeColor={operation.themeColor || '#db001d'} pageTheme='coldwar' />
+                                                    ? <DocBody content={sec.content ?? null} themeColor={operation.themeColor || '#db001d'} />
                                                     : <Redacted />}
                                             </section>
                                         )
@@ -236,7 +237,7 @@ export default function ColdWarPage({
                                             <span className={s.paraNum}>1.</span>
                                             <h2 className={s.paraTitle}>Operation Orders</h2>
                                         </div>
-                                        <DocBody content={operation.content} themeColor={operation.themeColor || '#db001d'} pageTheme='coldwar' />
+                                        <DocBody content={operation.content} themeColor={operation.themeColor || '#db001d'} />
                                     </section>
                                 ) : (
                                     <p className={s.empty}>No orders have been typed yet.</p>
@@ -262,6 +263,7 @@ export default function ColdWarPage({
                         </article>
                     )}
                 </div>
+              </div>
             </div>
 
             {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} />}
