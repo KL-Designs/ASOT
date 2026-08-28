@@ -51,9 +51,11 @@ Use a second account or a private window.
 - [ ] The Claim button sits **where the occupant's name would be**, and is
       visible without hovering the row. A position you cannot claim still reads
       "Open" there instead.
-- [ ] Role names read in full, including the long ones above a section —
-      "Regimental Sergeant Major", "Officer Commanding", "Squadron Commander".
-      Three rows of "…" where the column exists to tell them apart is the bug.
+- [ ] Every role a **section** holds reads in full — "Squadron Commander" and
+      "Section Commander" are the longest. The appointment titles above a
+      section ("Regimental Sergeant Major") clip on purpose and carry the full
+      text on hover: widening the column for those five spends a column of empty
+      space on the other seventy rows.
 - [ ] Every Claim button on the board is the **same width**, whether or not its
       row carries a "Declined · Name" badge — a column of them should line up
       with the names on the occupied rows around them.

@@ -34,10 +34,9 @@
     --board-gutter: clamp(16px, 2vw, 28px);
     --ressy: #5f8fc4;
     --ressy-rgb: 95, 143, 196;
-    /* Wide enough for "REGIMENTAL SERGEANT MAJOR", the longest role in the
-     * ORBAT. It still shrinks in a narrow column rather than forcing a
-     * horizontal scrollbar — see .role. */
-    --role-w: 168px;
+    /* Sized for the longest role a *section* holds — "Squadron Commander",
+     * "Section Commander" — not for the longest in the whole ORBAT. See .role. */
+    --role-w: 124px;
     /*
      * One width for every Claim button on the board. Letting each stretch to
      * whatever its own row had left made them ragged — a row with a
@@ -481,15 +480,16 @@
  * instead (see .tagClip): the role gets a fixed, generous column and the name
  * takes what is left.
  *
- * The column is sized for the longest role the ORBAT actually holds —
- * "REGIMENTAL SERGEANT MAJOR" — rather than for the common case. 110px fitted
- * almost nothing above a section: company HQ read "COMMANDING OFFIC…",
- * "OFFICER COMMANDI…", "REGIMENTAL SERGE…", which is three rows of the same
- * ellipsis where the whole point of the column is telling them apart.
+ * The width is a compromise and worth stating as one. It fits every role a
+ * section holds — "Squadron Commander" is the longest — which is almost every
+ * row on the board. The half-dozen appointment titles above a section
+ * ("Regimental Sergeant Major", "Company Sergeant Major") clip, and carry the
+ * full text in their `title`. Sizing for those instead charged all seventy
+ * other rows a column of empty space in order to spell out five.
  *
- * Sized to content instead would be worse, not better: each card would pick its
- * own width from its own longest role and the boards' columns would no longer
- * line up with each other.
+ * Sized to content would be worse again: each card would pick its own width
+ * from its own longest role and the columns would stop lining up with each
+ * other.
  */
 .role {
     flex: 0 1 var(--role-w, 168px);
