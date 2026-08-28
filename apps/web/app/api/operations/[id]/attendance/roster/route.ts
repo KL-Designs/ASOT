@@ -4,7 +4,9 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { hasPermission } from '@/lib/orbat/hasPermission'
-import { assignSlot, autoFill, derivePool, viewRoster, type RosterSlot } from '@/lib/attendance/roster'
+import { assignSlot, autoFill, derivePool, reclaimHome, viewRoster, type RosterSlot } from '@/lib/attendance/roster'
+import { createNotification } from '@/lib/notifications'
+import { sendPositionReclaimedDM } from '@/lib/discord/bot'
 import { logAction } from '@/lib/logAction'
 import { isMemberAction, type BoardAction } from '@/lib/attendance/actions'
 import { roleAllowedIn } from '@/lib/orbat/roleScope'
@@ -99,13 +101,30 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         let roster: RosterSlot[] = att.roster ?? []
         const recordOps: Record<string, unknown> = {}
+        /** Set when reclaiming a home position turfed somebody out of it. */
+        let displaced: { userId: string; sectionTitle: string; role: string } | null = null
 
         switch (body.action) {
             case 'attend': {
-                // Deliberately does not move anyone. Answering "yes" is not a
-                // statement about which position you want, and silently
-                // relocating someone who already has one would be a surprise.
                 recordOps.rsvp = 'attending'
+
+                // Changing your mind gets your own position back. A full-timer
+                // who declines opens their position, somebody from the pool
+                // takes it, and then they re-attend — the position is theirs,
+                // so it returns to them and the stand-in goes back to the pool.
+                //
+                // A member already standing somewhere else is left alone: that
+                // was a deliberate choice, not a gap to be corrected.
+                const home = roster.find(x => x.homeUserId === me.id)
+                const reclaimed = reclaimHome(roster, me.id)
+                roster = reclaimed.roster
+                if (reclaimed.displaced && home) {
+                    displaced = {
+                        userId: reclaimed.displaced,
+                        sectionTitle: home.sectionTitle,
+                        role: home.role,
+                    }
+                }
                 break
             }
 
@@ -260,6 +279,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         if (Object.keys(recordOps).length > 0) await upsertRecordFields(operationId, me.id, recordOps)
 
+        // Only after the write has actually landed, so a retry against a moved
+        // board cannot send the same person two notifications for one change.
+        if (displaced) await notifyDisplaced(operationId, id, displaced)
+
         await logAction({
             action: `attendance.${body.action}`,
             category: 'operation',
@@ -276,6 +299,43 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { error: 'The board changed while you were moving. Try again.' },
         { status: 409 },
     )
+}
+
+/**
+ * Tell a member their position was taken back by the person it belongs to.
+ *
+ * Both channels, on purpose: they chose that position deliberately and are no
+ * longer in it, and a site notification alone would not reach them until they
+ * next opened the board — possibly after the operation had started.
+ *
+ * Never throws. Losing a notification is not a reason to fail a board write
+ * that has already succeeded.
+ */
+async function notifyDisplaced(
+    operationId: ObjectId,
+    operationIdStr: string,
+    displaced: { userId: string; sectionTitle: string; role: string },
+) {
+    try {
+        const op = await Db.operations.findOne({ _id: operationId }, { projection: { title: 1 } })
+        const name = op?.title ?? 'an operation'
+        const actionUrl = `/operations/${operationIdStr}`
+
+        await createNotification({
+            userId: displaced.userId,
+            type: 'attendance_position_reclaimed',
+            title: 'Your position was taken back',
+            body: `${displaced.sectionTitle} · ${displaced.role} on ${name} belongs to a member who has now marked themselves attending. You are back in the reservist pool — pick another position or set a preference.`,
+            actionUrl,
+            relatedId: operationIdStr,
+        })
+
+        await sendPositionReclaimedDM(
+            displaced.userId, name, displaced.sectionTitle, displaced.role, actionUrl,
+        )
+    } catch (err) {
+        console.error('[attendance] could not notify displaced member', err)
+    }
 }
 
 /**

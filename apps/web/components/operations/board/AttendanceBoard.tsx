@@ -437,7 +437,7 @@ export default function AttendanceBoard({
                     <div className={`${s.stat} ${frozen ? s.statCrit : ''}`}><u>{stats.open}</u><span>{frozen ? 'Unfilled' : 'Open'}</span></div>
                     <div className={`${s.stat} ${s.statGood}`}><u>{pool.length}</u><span>{frozen ? 'Available' : 'In pool'}</span></div>
                     <div className={s.fillbar}>
-                        <i style={{ width: `${(stats.filled / stats.total) * 100}%`, background: 'var(--acc)' }} />
+                        <i style={{ width: `${(stats.filled / stats.total) * 100}%`, background: 'var(--good)' }} />
                         <i style={{ width: `${(stats.awaiting / stats.total) * 100}%`, background: 'rgba(212,160,58,0.65)' }} />
                         <i style={{ width: `${(stats.open / stats.total) * 100}%`, background: frozen ? 'rgba(192,90,72,0.35)' : 'var(--s3)' }} />
                     </div>

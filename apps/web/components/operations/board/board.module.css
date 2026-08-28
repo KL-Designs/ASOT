@@ -17,7 +17,24 @@
  * their backgrounds and rules running to the window edge — that full-bleed is
  * what makes this read as the page rather than a panel on it.
  */
-.root { --board-gutter: clamp(16px, 2vw, 28px); }
+/*
+ * Semantic colour is fixed, never the operation's accent.
+ *
+ * --acc is per-operation data — it is whatever theme colour someone picked, and
+ * on this board it happened to be red, so "attending" was rendering in the same
+ * hue as "declined". A state's colour has to mean the same thing on every
+ * operation, so attending is always green and a reservist filling in is always
+ * blue. The accent keeps the things that genuinely are about *this* operation:
+ * drop targets, your own row, the fill bar's own accent.
+ *
+ * --ressy is board-local because command.css has no blue; it is pitched at the
+ * same muted weight as --good / --warn / --crit so the four read as one set.
+ */
+.root {
+    --board-gutter: clamp(16px, 2vw, 28px);
+    --ressy: #5f8fc4;
+    --ressy-rgb: 95, 143, 196;
+}
 
 .board {
     display: grid;
@@ -147,7 +164,7 @@
     text-transform: uppercase;
     color: var(--ink-3);
 }
-.statAcc u  { color: var(--acc); }
+.statAcc u  { color: var(--good); }
 .statWarn u { color: var(--warn); }
 .statGood u { color: var(--good); }
 .statCrit u { color: var(--crit); }
@@ -500,10 +517,10 @@
 }
 
 /* State edges — the whole point of the colour system. */
-.held      { border-left-color: rgba(var(--acc-rgb), 0.75); }
+.held      { border-left-color: var(--good, #7fae5c); }
 .awaiting  { border-left-color: rgba(212, 160, 58, 0.6); }
 .lapsed    { border-left-color: rgba(212, 160, 58, 0.35); }
-.backfilled { border-left-color: var(--good); background: rgba(127, 174, 92, 0.045); }
+.backfilled { border-left-color: var(--ressy, #5f8fc4); background: rgba(var(--ressy-rgb, 95, 143, 196), 0.05); }
 .declined  { border-left-color: rgba(192, 90, 72, 0.45); }
 .released  { border-left-color: rgba(192, 90, 72, 0.45); }
 .open      { border-left-color: transparent; }
@@ -536,6 +553,7 @@
 .tagClip:hover, .tagClip:focus-visible { flex-shrink: 0; }
 
 .tagGood { background: rgba(127, 174, 92, 0.16); color: var(--good); }
+.tagRessy { background: rgba(var(--ressy-rgb, 95, 143, 196), 0.18); color: var(--ressy, #5f8fc4); }
 .tagWarn { background: rgba(212, 160, 58, 0.13); color: var(--warn); }
 .tagCrit { background: rgba(192, 90, 72, 0.14); color: var(--crit); }
 .tagAcc  { background: rgba(var(--acc-rgb), 0.16); color: var(--acc); }
@@ -550,16 +568,17 @@
     text-transform: uppercase;
     padding: 2px 7px;
     border-radius: 2px;
-    border: 1px solid rgba(var(--acc-rgb), 0.4);
+    /* Blue, matching what claiming makes you on the board. */
+    border: 1px solid rgba(var(--ressy-rgb, 95, 143, 196), 0.5);
     background: transparent;
-    color: var(--acc);
+    color: var(--ressy, #5f8fc4);
     cursor: pointer;
     flex-shrink: 0;
     opacity: 0;
     transition: opacity 140ms ease;
 }
 .slot:hover .claim, .claim:focus-visible { opacity: 1; }
-.claim:hover { background: rgba(var(--acc-rgb), 0.14); }
+.claim:hover { background: rgba(var(--ressy-rgb, 95, 143, 196), 0.16); }
 
 .draggable { cursor: grab; touch-action: none; }
 .draggable:active { cursor: grabbing; }

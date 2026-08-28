@@ -5,7 +5,7 @@
  */
 import { describe, test, expect } from 'vitest'
 import {
-    assignSlot, autoFill, buildRoster, derivePool, orderPositions, snapshotCategories, viewRoster,
+    assignSlot, autoFill, buildRoster, derivePool, orderPositions, reclaimHome, snapshotCategories, viewRoster,
     type OrbatSnapshotPosition, type PoolMember, type RosterContext, type RosterSlot, type SlotState,
 } from './roster'
 
@@ -363,5 +363,51 @@ describe('orderPositions', () => {
         // could not show a section that was three riflemen short.
         const ordered = orderPositions([pos({ userId: null })], ['platoon11'])
         expect(ordered).toHaveLength(1)
+    })
+})
+
+// ── Reclaiming a home position ────────────────────────────────────────────────
+
+describe('reclaimHome', () => {
+    test('puts a member back in their own position when it is free', () => {
+        const roster = [alpha({ id: 'a1', homeUserId: 'u-vance', occupantUserId: null })]
+        const result = reclaimHome(roster, 'u-vance')
+        expect(occupants(result.roster)).toEqual({ a1: 'u-vance' })
+        expect(result.displaced).toBe(null)
+    })
+
+    test('displaces whoever took it, and names them', () => {
+        // The member who has to be told: their position was never really open,
+        // it was reserved for somebody who had said they were not coming.
+        const roster = [alpha({ id: 'a1', homeUserId: 'u-vance', occupantUserId: 'u-nakamura' })]
+        const result = reclaimHome(roster, 'u-vance')
+        expect(occupants(result.roster)).toEqual({ a1: 'u-vance' })
+        expect(result.displaced).toBe('u-nakamura')
+    })
+
+    test('leaves a member who is already standing somewhere else alone', () => {
+        // They chose that position deliberately. Yanking them home because they
+        // pressed "attending" would undo a decision they had already made.
+        const roster = [
+            alpha({ id: 'a1', homeUserId: 'u-vance', occupantUserId: null }),
+            alpha({ id: 'b1', sectionTitle: '1-1 Bravo', occupantUserId: 'u-vance' }),
+        ]
+        const result = reclaimHome(roster, 'u-vance')
+        expect(occupants(result.roster)).toEqual({ a1: null, b1: 'u-vance' })
+        expect(result.displaced).toBe(null)
+    })
+
+    test('does nothing for a member with no position of their own', () => {
+        const roster = [alpha({ id: 'a1' })]
+        const result = reclaimHome(roster, 'u-ivarsson')
+        expect(result.roster).toBe(roster)
+        expect(result.displaced).toBe(null)
+    })
+
+    test('is a no-op when they are already in it', () => {
+        const roster = [alpha({ id: 'a1', homeUserId: 'u-vance', occupantUserId: 'u-vance' })]
+        const result = reclaimHome(roster, 'u-vance')
+        expect(result.roster).toBe(roster)
+        expect(result.displaced).toBe(null)
     })
 })

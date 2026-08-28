@@ -157,6 +157,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `buildRoster(positions)` — the snapshot; a position's holder starts pencilled into their own slot, which is what "reserved" means.
 - `viewRoster(roster, ctx): SlotView[]` — derives all seven `SlotState`s in one pass (`held`, `awaiting`, `lapsed`, `backfilled`, `open`, `declined`, `released`) plus `vacatedBy` and `available`. `declined`/`released`/`open` stay distinct because they mean opposite things to a section leader. `lapsed` is `awaiting` after the window shuts — **derived from the stage, not written by a job**, so nothing runs at RSVP close and no release can run twice.
 - `assignSlot(roster, slotId, userId)` — **swaps** when the destination is occupied rather than refusing; returns a new array.
+- `reclaimHome(roster, userId)` — puts a member back in their own ORBAT position and names whoever was displaced. Leaves alone anyone already standing elsewhere: that was a decision, not a gap. Pure — it names the displaced member, the caller notifies.
 - `derivePool(roster, members)` / `autoFill(roster, pool, ctx)` — who is unplaced (with the position they released, for the dual-identity case), and placement that serves the pickiest preferences first.
 - `snapshotCategories(assignedPlatoons)` / `orderPositions(positions, categories)` — which ORBAT categories a roster covers (game masters always included) and their display order.
 

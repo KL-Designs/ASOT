@@ -48,6 +48,13 @@ Use a second account or a private window.
 - [ ] Marking **Attending** while already holding a position must **not** move you.
 - [ ] Marking **Not attending** gives up your position and reopens it.
 - [ ] Claim an open position — you land in it and your RSVP flips to attending.
+- [ ] **The change-your-mind case.** As a full-timer: mark *not attending*, have a
+      second account take your position, then mark *attending* again. You get your
+      position back; they land in the reservist pool.
+- [ ] That displaced member gets **both** a site notification and a Discord DM
+      naming the operation and the position they lost.
+- [ ] Marking attending while standing in a position you claimed **elsewhere** must
+      leave you there — it must not haul you back to your own section.
 - [ ] Leave it — you return to the pool and the position reopens.
 - [ ] "Set a preference" → pick a section and/or role → you sit in the pool
       tagged with it, not placed anywhere.

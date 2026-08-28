@@ -60,7 +60,7 @@ export function slotTag(
     switch (slot.state) {
         case 'held':       return null
         case 'open':       return null
-        case 'backfilled': return { label: 'Ressy', className: s.tagGood }
+        case 'backfilled': return { label: 'Ressy', className: s.tagRessy }
         case 'awaiting':   return { label: compact ? 'Await' : 'Awaiting', className: s.tagWarn }
         case 'lapsed':     return {
             label: compact ? 'No reply' : who ? `No response · ${who}` : 'No response',

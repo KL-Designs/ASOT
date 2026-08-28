@@ -27,6 +27,7 @@ type NotificationType =
     | 'task_delete_requested'        // Assignee requested task deletion
     | 'task_delete_approved'         // Task deletion approved — task removed
     | 'task_delete_denied'           // Task deletion denied — task stays
+    | 'attendance_position_reclaimed'  // A full-timer took their own position back; you are in the pool
     | 'calendar_reminder'
     | 'meeting_created'
     | 'meeting_started'

@@ -344,3 +344,35 @@ export function orderPositions(
             || a.sectionOrder - b.sectionOrder
             || a.positionOrder - b.positionOrder)
 }
+
+/**
+ * Put a member back in the position that is theirs in the ORBAT.
+ *
+ * The case this exists for: a full-timer marks themselves not attending, their
+ * position opens, somebody from the pool takes it — and then they change their
+ * mind. The position is theirs, so re-attending takes it back, and whoever was
+ * standing in it returns to the pool.
+ *
+ * Two things it deliberately will not do:
+ *
+ * - It leaves a member who is *already* standing somewhere alone. If they went
+ *   and claimed a position in another section, that was a decision; hauling
+ *   them home because they pressed "attending" would silently undo it.
+ * - It does not decide whether the displaced member should be told. That is a
+ *   side effect, and this is a pure function — it only names them, and the
+ *   caller notifies.
+ */
+export function reclaimHome(
+    roster: RosterSlot[],
+    userId: string,
+): { roster: RosterSlot[]; displaced: string | null } {
+    if (roster.some(s => s.occupantUserId === userId)) return { roster, displaced: null }
+
+    const home = roster.find(s => s.homeUserId === userId)
+    if (!home) return { roster, displaced: null }
+
+    return {
+        roster: assignSlot(roster, home.id, userId),
+        displaced: home.occupantUserId,
+    }
+}
