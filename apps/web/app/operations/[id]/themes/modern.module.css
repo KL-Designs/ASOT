@@ -25,17 +25,21 @@
 /* ── Hero ─────────────────────────────────────────────────────────────── */
 
 /*
- * A band, not a screen. The old hero spent half the viewport restating a title
- * the bar above it already carries; this keeps the cover art present and hands
- * the height back to the ledger and the actions under it.
+ * A band, not a screen. The old hero spent the whole viewport restating a title
+ * the bar above it already carries; this gives the cover art real room while
+ * still leaving the ledger and the action band above the fold.
+ *
+ * `vh`-relative so it scales with the window and cannot eat a short laptop
+ * screen: at 38vh a 900px-tall display gets ~340px, and the clamp holds it
+ * between 300 and 430 either side of that.
  */
 .hero {
     position: relative;
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    min-height: 200px;
-    padding: 0 clamp(16px, 3vw, 34px) 18px;
+    min-height: clamp(300px, 38vh, 430px);
+    padding: 0 clamp(16px, 3vw, 34px) 22px;
     background-size: cover;
     background-position: center 32%;
     overflow: hidden;
@@ -69,7 +73,48 @@
     pointer-events: none;
 }
 
-.heroInner { position: relative; }
+/* Title block left, clock right, both sitting on the cover's dark floor. */
+.heroRow {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px 32px;
+    flex-wrap: wrap;
+}
+.heroInner { min-width: 0; }
+
+/*
+ * The clock. A different one from the ledger's: that counts down to the RSVP
+ * deadline, this to the operation itself, and on an op a fortnight out the two
+ * are hours apart.
+ */
+.heroCount {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    flex-shrink: 0;
+    padding-bottom: 4px;
+}
+.heroCountKey {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+}
+.heroCountVal {
+    font-family: var(--font-mono);
+    font-size: clamp(20px, 3vw, 30px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.7);
+}
 
 .heroEyebrow {
     display: flex;
@@ -275,7 +320,7 @@
  * more than it is read, but it is still read.
  */
 .readerInner {
-    max-width: 800px;
+    max-width: 1300px;
     margin: 0 auto;
 }
 

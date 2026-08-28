@@ -13,6 +13,7 @@ import OperationBar from '../OperationBar'
 import EditOrdersButton from '../EditOrdersButton'
 import HideSiteNav from '@/components/HideSiteNav'
 import OrdersSpine, { type SpineDocument } from './OrdersSpine'
+import StepOff from './StepOff'
 import RsvpCell from './RsvpCell'
 import type { ModernPageProps } from './theme-props'
 import s from './modern.module.css'
@@ -35,7 +36,7 @@ const OCAP = '__ocap__'
  */
 export default function ModernPage({
     id, operation, isLoggedIn, isHQ, isJ6, showAcknowledgeCard,
-    activePageParam, fromJ2, attendance,
+    activePageParam, fromJ2, attendance, lineage,
 }: ModernPageProps) {
     const accent = operation.themeColor || '#db001d'
     const rgb = hexToRgb(accent)
@@ -114,15 +115,29 @@ export default function ModernPage({
             >
                 <div className={s.heroShade} />
                 <div className={s.heroGrid} />
-                <div className={s.heroInner}>
-                    {(operation.department || operation.daySlot) && (
-                        <div className={s.heroEyebrow}>
-                            {operation.department && <span>{operation.department}</span>}
-                            {operation.department && operation.daySlot && <span className={s.heroTick} />}
-                            {operation.daySlot && <span>{operation.daySlot} serial</span>}
-                        </div>
-                    )}
-                    <h1 className={s.heroTitle}>{operation.title || 'Untitled Operation'}</h1>
+                <div className={s.heroRow}>
+                    <div className={s.heroInner}>
+                        {/*
+                            Where this operation sits: which department runs it, which
+                            campaign it belongs to, which mission of that campaign, and
+                            which night of the pair. "Saturday serial" on its own said a
+                            night without saying a night *of* what.
+                        */}
+                        <Eyebrow
+                            parts={[
+                                operation.department,
+                                lineage?.campaign,
+                                lineage?.sequence ? `Mission ${lineage.sequence}` : null,
+                                operation.daySlot ? `${operation.daySlot} serial` : null,
+                            ]}
+                        />
+                        <h1 className={s.heroTitle}>{operation.title || 'Untitled Operation'}</h1>
+                    </div>
+
+                    <StepOff
+                        iso={operation.date ? new Date(operation.date).toISOString() : null}
+                        status={operation.status}
+                    />
                 </div>
             </header>
 
@@ -276,6 +291,23 @@ export default function ModernPage({
             </div>
 
             {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} />}
+        </div>
+    )
+}
+
+/** The hero's lineage line, with separators only between the parts that exist. */
+function Eyebrow({ parts }: { parts: (string | null | undefined)[] }) {
+    const shown = parts.filter((p): p is string => !!p)
+    if (!shown.length) return null
+
+    return (
+        <div className={s.heroEyebrow}>
+            {shown.map((part, i) => (
+                <span key={part} style={{ display: 'contents' }}>
+                    {i > 0 && <span className={s.heroTick} />}
+                    <span>{part}</span>
+                </span>
+            ))}
         </div>
     )
 }

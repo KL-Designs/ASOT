@@ -6,7 +6,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import ClassicPage from './themes/ClassicPage'
 import ModernPage from './themes/ModernPage'
-import type { OrdersAttendance, ThemePageProps } from './themes/theme-props'
+import type { OrdersAttendance, OrdersLineage, ThemePageProps } from './themes/theme-props'
 
 /**
  * `/operations/{id}` -- the Orders view, the page anybody can read.
@@ -62,7 +62,45 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     const pageTheme = operation.pageTheme || 'modern'
     if (pageTheme !== 'modern') return <ClassicPage {...shared} />
 
-    return <ModernPage {...shared} attendance={await readAttendance(id, me?.id ?? null)} />
+    const [attendance, lineage] = await Promise.all([
+        readAttendance(id, me?.id ?? null),
+        readLineage(operation),
+    ])
+
+    return <ModernPage {...shared} attendance={attendance} lineage={lineage} />
+}
+
+/**
+ * Which campaign this operation belongs to, and which mission of it.
+ *
+ * The operation has carried `campaignId`/`campaignMissionId` since campaigns
+ * existed, and no public page has ever shown either — so "Saturday serial" in
+ * the hero named a night without saying a night *of* what.
+ *
+ * Null unless the campaign itself resolves: a mission number with no campaign
+ * to number it against says less than nothing.
+ */
+async function readLineage(operation: Operation): Promise<OrdersLineage | null> {
+    if (!operation.campaignId) return null
+
+    const campaign = await Db.operationCampaigns
+        .findOne({ _id: operation.campaignId, isDeleted: { $ne: true } }, { projection: { name: 1 } })
+        .catch(() => null)
+    if (!campaign?.name) return null
+
+    // The link is stored as a plain string, so it can be anything.
+    let missionId: ObjectId | null = null
+    try {
+        if (operation.campaignMissionId) missionId = new ObjectId(operation.campaignMissionId)
+    } catch { /* not an id — the campaign name alone is still worth showing */ }
+
+    const mission = missionId
+        ? await Db.campaignMissions
+            .findOne({ _id: missionId, isDeleted: { $ne: true } }, { projection: { sequence: 1 } })
+            .catch(() => null)
+        : null
+
+    return { campaign: campaign.name, sequence: mission?.sequence ?? null }
 }
 
 /**

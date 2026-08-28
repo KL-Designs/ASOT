@@ -807,8 +807,14 @@ touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttenda
   silently breaks two themes nobody asked to change. Splitting it into `OldFashionedPage` and
   `SciFiPage` is the next step, and lets the dead branches fall out on their own.
 - **`ModernPage.tsx` + `modern.module.css`** — the rebuild, "**Warning Order**". The reordering *is*
-  the design: what a member owes comes above the document rather than beside or below it. A ~200px
-  cover **band** (not a screen) with the operation's facts welded to its bottom edge as an auto-fit
+  the design: what a member owes comes above the document rather than beside or below it. A
+  `clamp(300px, 38vh, 430px)` cover **band** (not a screen) carrying the operation's lineage —
+  department, campaign, mission number, day serial (`readLineage()` in page.tsx; `campaignId`/
+  `campaignMissionId` have been on the operation since campaigns existed and no public page ever
+  showed either, so "Saturday serial" named a night without saying a night *of* what) — plus
+  `<StepOff/>`, a locally-ticking countdown to the operation itself. That is a *different* clock
+  from the ledger's, which counts to the RSVP deadline; on an op a fortnight out the two are hours
+  apart. Below it the facts are welded to the band's bottom edge as an auto-fit
   **ledger** (step off via `<LocalDate/>`, in-game date, terrain, positions filled, and one live
   cell); then an **action band** pairing the acknowledgement prompt with the attendance call; then
   the document, centred at 920px. **The section formatting mirrors the editor's**: the header band

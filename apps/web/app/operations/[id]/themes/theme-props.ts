@@ -48,6 +48,20 @@ export interface OrdersAttendance {
     myPosition: string | null
 }
 
+/**
+ * Where the operation sits in its campaign.
+ *
+ * Null for a standalone operation, and null rather than partial if the campaign
+ * itself has gone — a mission number with no campaign to number it against is
+ * worse than saying nothing.
+ */
+export interface OrdersLineage {
+    campaign: string
+    /** The mission's position in the campaign, when it is linked to one. */
+    sequence: number | null
+}
+
 export interface ModernPageProps extends ThemePageProps {
     attendance: OrdersAttendance
+    lineage: OrdersLineage | null
 }
