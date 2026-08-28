@@ -12,6 +12,8 @@ import { useAttendanceBoard } from './useAttendanceBoard'
 import SectionCard from './SectionCard'
 import PoolRail from './PoolRail'
 import MemberBar from './MemberBar'
+import Legend from './Legend'
+import type { PickableRole } from './AddRole'
 import { Avatar } from './parts'
 import s from './board.module.css'
 
@@ -46,9 +48,22 @@ export default function AttendanceBoard({
     const [notice, setNotice] = useState<string | null>(null)
     const [pinged, setPinged] = useState<Set<string>>(new Set())
     const [busy, setBusy] = useState(false)
+    const [roles, setRoles] = useState<PickableRole[]>([])
 
     const rsvpOpen = data?.stage === 'rsvp_open'
     const frozen = !!data && data.stage !== 'preparing' && !rsvpOpen
+
+    // Fetched once for the whole board rather than per section: a full ORBAT
+    // has ~15 sections and every add-role picker wants the same list. The
+    // endpoint is a deliberately narrow projection — it never returns the grant
+    // configuration the Roles Manager's own endpoint does.
+    useEffect(() => {
+        if (!canManage) return
+        fetch(`/api/operations/${operationId}/attendance/roles`)
+            .then(r => r.json())
+            .then(d => { if (Array.isArray(d.roles)) setRoles(d.roles) })
+            .catch(() => {})
+    }, [operationId, canManage])
 
     // ── Derivation ────────────────────────────────────────────────────────────
 
@@ -335,6 +350,8 @@ export default function AttendanceBoard({
 
                 {notice && <div className={`${s.banner} ${s.bannerErr}`}>{notice}</div>}
 
+                <Legend />
+
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -346,7 +363,8 @@ export default function AttendanceBoard({
                         <div className={s.sections}>
                             {[...grouped.entries()].map(([category, sections]) => {
                                 const catSlots = [...sections.values()].flat()
-                                const filled = catSlots.filter(x => x.occupantUserId).length
+                                const filled = catSlots.filter(
+                                    x => x.state === 'held' || x.state === 'backfilled').length
                                 const isCollapsed = collapsed[category]
                                 return (
                                     <div key={category}>
@@ -367,6 +385,7 @@ export default function AttendanceBoard({
                                                     <SectionCard
                                                         key={title}
                                                         title={title}
+                                                        category={category}
                                                         color={sectionColor(category)}
                                                         slots={secSlots}
                                                         members={data.members}
@@ -377,6 +396,14 @@ export default function AttendanceBoard({
                                                         onClaim={slotId => run({ action: 'claim', slotId })}
                                                         onMenu={openMenu}
                                                         pinged={pinged}
+                                                        roles={roles}
+                                                        busy={busy}
+                                                        onAddRole={roleId => run({
+                                                            action: 'addSlot',
+                                                            sectionTitle: title,
+                                                            category,
+                                                            roleId,
+                                                        })}
                                                     />
                                                 ))}
                                             </div>

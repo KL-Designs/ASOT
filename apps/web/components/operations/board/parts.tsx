@@ -44,20 +44,36 @@ export function Avatar({ member, className }: { member: BoardMember | undefined;
  * are separate states. A section leader chasing people up needs to know
  * whether somebody is not coming at all, is playing elsewhere, or simply never
  * answered, and "Open" for all three throws that away.
+ *
+ * `compact` is for rows that already have an occupant, where the badge is
+ * competing with the member's name for a ~300px card. The name wins: those
+ * rows get a short badge and lean on the row's coloured left edge (and the
+ * board's legend) to carry the state. An empty row has no name to lose, so it
+ * gets the full sentence.
  */
 export function slotTag(
     slot: SlotView,
     nameOf: (userId: string) => string,
+    compact = false,
 ): { label: string; className: string } | null {
     const who = slot.vacatedBy ? nameOf(slot.vacatedBy) : ''
     switch (slot.state) {
         case 'held':       return null
-        case 'backfilled': return { label: 'Ressy', className: s.tagGood }
-        case 'awaiting':   return { label: 'Awaiting', className: s.tagWarn }
-        case 'lapsed':     return { label: who ? `No response · ${who}` : 'No response', className: s.tagWarn }
-        case 'declined':   return { label: who ? `Declined · ${who}` : 'Declined', className: s.tagCrit }
-        case 'released':   return { label: who ? `Released · ${who}` : 'Released', className: s.tagCrit }
         case 'open':       return null
+        case 'backfilled': return { label: 'Ressy', className: s.tagGood }
+        case 'awaiting':   return { label: compact ? 'Await' : 'Awaiting', className: s.tagWarn }
+        case 'lapsed':     return {
+            label: compact ? 'No reply' : who ? `No response · ${who}` : 'No response',
+            className: s.tagWarn,
+        }
+        case 'declined':   return {
+            label: compact ? 'Declined' : who ? `Declined · ${who}` : 'Declined',
+            className: s.tagCrit,
+        }
+        case 'released':   return {
+            label: compact ? 'Released' : who ? `Released · ${who}` : 'Released',
+            className: s.tagCrit,
+        }
     }
 }
 

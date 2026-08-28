@@ -22,13 +22,28 @@ interface Props {
 }
 
 /**
+ * Buttons sitting inside the drag surface must not start a drag — by pointer or
+ * by keyboard. The row carries dnd-kit's KeyboardSensor listeners, so without
+ * the keydown guard pressing Enter on Claim would both claim and pick the row up.
+ */
+const swallow = {
+    onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+    onKeyDown: (e: React.KeyboardEvent) => e.stopPropagation(),
+}
+
+/**
  * One position on the board.
+ *
+ * **The whole row is the drag handle.** It began as a separate grip, which
+ * meant aiming at a 12px target to move somebody — the single most common
+ * action on this board. The row is the thing you are moving, so the row is what
+ * you pick up; the buttons inside it swallow pointer-down so they still click.
  *
  * The occupant is wrapped in a `layoutId`-tagged element shared with the pool
  * card for the same member, which is what makes a member appear to travel from
- * the rail into the section rather than vanishing from one and appearing in
- * the other. Motion matches the two by id across the whole tree, so nothing
- * here has to know the pool exists.
+ * the rail into the section rather than vanishing from one and appearing in the
+ * other. Motion matches the two by id across the whole tree, so nothing here
+ * has to know the pool exists.
  */
 export default function SlotRow({
     slot, member, nameOf, isMe, canManage, canClaim, onClaim, onMenu, pinged,
@@ -38,37 +53,31 @@ export default function SlotRow({
         data: { slotId: slot.id },
     })
 
+    const draggable = canManage && !!slot.occupantUserId
     const { attributes, listeners, setNodeRef: dragRef, isDragging } = useDraggable({
         id: `occupant:${slot.occupantUserId ?? slot.id}`,
-        disabled: !canManage || !slot.occupantUserId,
+        disabled: !draggable,
         data: { userId: slot.occupantUserId, fromSlotId: slot.id },
     })
 
-    const tag = slotTag(slot, nameOf)
+    const tag = slotTag(slot, nameOf, !!slot.occupantUserId)
 
     return (
         <div
-            ref={dropRef}
+            ref={node => { dropRef(node); dragRef(node) }}
             className={[
                 s.slot,
                 STATE_CLASS[slot.state],
                 isOver ? s.slotOver : '',
                 isMe ? s.mine : '',
                 isDragging ? s.dragging : '',
+                draggable ? s.draggable : '',
                 pinged ? s.ping : '',
             ].filter(Boolean).join(' ')}
             onContextMenu={canManage ? onMenu : undefined}
+            {...(draggable ? listeners : {})}
+            {...(draggable ? attributes : {})}
         >
-            {canManage && slot.occupantUserId && (
-                <span
-                    ref={dragRef}
-                    className={s.grip}
-                    aria-label={`Move ${member?.displayName ?? 'member'}`}
-                    {...listeners}
-                    {...attributes}
-                >⣿</span>
-            )}
-
             <span className={s.role} title={slot.role}>{slot.role}</span>
 
             <span className={s.who}>
@@ -77,37 +86,29 @@ export default function SlotRow({
                         layoutId={`member-${member.id}`}
                         layout='position'
                         transition={{ type: 'spring', stiffness: 420, damping: 34 }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}
+                        className={s.whoInner}
                     >
                         <Avatar member={member} />
-                        <span
-                            style={{
-                                fontSize: 12,
-                                color: 'var(--ink)',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                            }}
-                        >{member.displayName}</span>
+                        <span className={s.name} title={member.displayName}>{member.displayName}</span>
                     </motion.span>
                 ) : (
-                    <span>Open</span>
+                    <span className={s.openLabel}>Open</span>
                 )}
             </span>
 
             {tag && <span className={`${s.tag} ${tag.className}`}>{tag.label}</span>}
 
             {canClaim && !slot.occupantUserId && (
-                <button type='button' className={s.claim} onClick={onClaim}>Claim</button>
+                <button type='button' className={s.claim} onClick={onClaim} {...swallow}>Claim</button>
             )}
 
             {canManage && (
                 <button
                     type='button'
-                    className={s.claim}
-                    style={{ opacity: undefined }}
+                    className={s.rowMenu}
                     onClick={onMenu}
                     aria-label={`Options for ${slot.role}`}
+                    {...swallow}
                 >⋯</button>
             )}
         </div>

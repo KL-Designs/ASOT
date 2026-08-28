@@ -66,6 +66,39 @@ Use a second account or a private window.
 - [ ] Right-click still works after a click-and-hold on the grip (there is a 5px
       drag threshold specifically so a click does not register as a zero-length drag).
 
+## 4b. Adding positions after the snapshot
+
+- [ ] Each section header shows a **+** button in manage mode.
+- [ ] It lists site roles, searchable, and **only** those permitted in that
+      section's platoon. A role scoped to `support` must not appear under 1-1.
+- [ ] Roles with a `tag` show it — that is the only thing distinguishing two
+      same-named roles with overlapping scope.
+- [ ] Picking one adds an open position to that section immediately.
+- [ ] **Try to bypass the filter.** POST an out-of-scope role by hand:
+
+      ```
+      POST /api/operations/<id>/attendance/roster
+      { "action": "addSlot", "sectionTitle": "1-1 Alpha", "category": "platoon11",
+        "roleId": "<a support-only role>" }
+      ```
+
+      It must return 400 with "<name> cannot be used in this platoon." The picker
+      filtering its own list is a convenience, not the rule.
+- [ ] The added position can then be filled by drag, right-click, or auto-fill.
+
+## 4c. Row layout and dragging
+
+- [ ] Member names are **readable**, not truncated to "P..". The role label is
+      what truncates now, and a truncated "SECTION COM…" is still meaningful.
+- [ ] Occupied rows show a short badge (`Ressy`, `Await`, `No reply`); empty rows
+      show the full sentence with the name (`Declined · Okafor`).
+- [ ] **The whole row drags**, not just a grip.
+- [ ] The Claim button and the ⋯ menu still click without starting a drag, by
+      pointer *and* by keyboard (Enter on Claim must not also pick the row up).
+- [ ] The colour **legend** appears above the board and matches what the rows do.
+- [ ] "Filled" agrees everywhere: stats bar, category header, section header.
+      A section where nobody has replied must not read "5 / 5 filled".
+
 ## 5. Live — two browsers side by side
 
 The headline feature. Worth doing properly.

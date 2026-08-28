@@ -14,6 +14,7 @@ const pos = (over: Partial<OrbatSnapshotPosition> = {}): OrbatSnapshotPosition =
     sectionTitle: '1-1 Alpha',
     role: 'Rifleman',
     userId: null,
+    roleId: null,
     sectionOrder: 1,
     positionOrder: 0,
     ...over,
@@ -22,8 +23,8 @@ const pos = (over: Partial<OrbatSnapshotPosition> = {}): OrbatSnapshotPosition =
 describe('buildRoster', () => {
     test('turns each ORBAT position into a slot with its holder already in it', () => {
         const roster = buildRoster([
-            pos({ role: 'Section Commander', userId: 'u-hollis', positionOrder: 0 }),
-            pos({ role: 'Rifleman', userId: null, positionOrder: 1 }),
+            pos({ role: 'Section Commander', roleId: 'r-sc', userId: 'u-hollis', positionOrder: 0 }),
+            pos({ role: 'Rifleman', roleId: 'r-rfn', userId: null, positionOrder: 1 }),
         ])
 
         expect(roster).toEqual([
@@ -32,6 +33,7 @@ describe('buildRoster', () => {
                 category: 'platoon11',
                 sectionTitle: '1-1 Alpha',
                 role: 'Section Commander',
+                roleId: 'r-sc',
                 order: 0,
                 homeUserId: 'u-hollis',
                 occupantUserId: 'u-hollis',
@@ -41,11 +43,18 @@ describe('buildRoster', () => {
                 category: 'platoon11',
                 sectionTitle: '1-1 Alpha',
                 role: 'Rifleman',
+                roleId: 'r-rfn',
                 order: 1,
                 homeUserId: null,
                 occupantUserId: null,
             },
         ])
+    })
+
+    test('a position with no role definition behind it still becomes a slot', () => {
+        // Positions predate the Roles Manager, so some carry only the
+        // denormalized name. The slot keeps the name and simply has no link.
+        expect(buildRoster([pos({ role: 'Rifleman', roleId: null })])[0].roleId).toBe(null)
     })
 })
 
@@ -56,6 +65,7 @@ const alpha = (over: Partial<RosterSlot> = {}): RosterSlot => ({
     category: 'platoon11',
     sectionTitle: '1-1 Alpha',
     role: 'Rifleman',
+    roleId: null,
     order: 0,
     homeUserId: null,
     occupantUserId: null,

@@ -153,12 +153,15 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 
 ### lib/attendance/roster.ts
 - The pure slot model behind the live attendance board. Clock-free and dependency-injected the way `lib/operations/phases.ts` is — the stage and the RSVP answers are passed in, never read.
-- `RosterSlot` carries **two** user references that must not be conflated: `homeUserId` (whose ORBAT position this is — written once at snapshot, never again) and `occupantUserId` (who is actually playing in it). Splitting them is what fixes the old bug where joining another section overwrote a member's `orbatRole` in place.
+- `RosterSlot` carries `role` + `roleId` (denormalized name alongside the `OrbatRole` link, the same pairing `OrbatPosition` uses) and **two** user references that must not be conflated: `homeUserId` (whose ORBAT position this is — written once at snapshot, never again) and `occupantUserId` (who is actually playing in it). Splitting them is what fixes the old bug where joining another section overwrote a member's `orbatRole` in place.
 - `buildRoster(positions)` — the snapshot; a position's holder starts pencilled into their own slot, which is what "reserved" means.
 - `viewRoster(roster, ctx): SlotView[]` — derives all seven `SlotState`s in one pass (`held`, `awaiting`, `lapsed`, `backfilled`, `open`, `declined`, `released`) plus `vacatedBy` and `available`. `declined`/`released`/`open` stay distinct because they mean opposite things to a section leader. `lapsed` is `awaiting` after the window shuts — **derived from the stage, not written by a job**, so nothing runs at RSVP close and no release can run twice.
 - `assignSlot(roster, slotId, userId)` — **swaps** when the destination is occupied rather than refusing; returns a new array.
 - `derivePool(roster, members)` / `autoFill(roster, pool, ctx)` — who is unplaced (with the position they released, for the dual-identity case), and placement that serves the pickiest preferences first.
 - `snapshotCategories(assignedPlatoons)` / `orderPositions(positions, categories)` — which ORBAT categories a roster covers (game masters always included) and their display order.
+
+### lib/orbat/roleScope.ts
+- `roleAllowedIn(role, category)` / `rolesFor(roles, category)` — where an ORBAT role may be used. `OrbatRole.categories` is a whitelist in which an **empty array means "usable everywhere"**, not "nowhere" — an inversion that was easy to get backwards while the rule was re-typed at each call site (the Roles Manager's picker inline, the mass importer's own variant). Shared so the attendance board applies the same rule the ORBAT does, and so the server can *check* it rather than trusting a client that filtered a dropdown.
 
 ### lib/attendance/snapshot.ts
 - `ensureRosterSnapshot(operationId)` — cuts the roster once, when the op first reaches `rsvp_open`. Called from both server paths that can get it there (`cron/operations` and `attendance/platoons`), so the guard is the write itself: it only matches documents with no roster yet. Returns the roster if this call created it, else null.
@@ -169,7 +172,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### components/operations/board/
 - `AttendanceBoard.tsx` — the live board, rendered by **both** the editor's Attendance tab and the operations view page (one board, two modes; `canManage` is the only difference). Groups slots by category → section, collapses everything outside the viewer's own category (~70 positions do not fit on a screen), and hosts the dnd-kit `DndContext`.
 - `useAttendanceBoard.ts` — Mongo stays authoritative and the Y.js doc (`att-{operationId}`) carries only `rev`. **The collab socket authenticates but never authorises per field**, so a CRDT board would let any connected member write any position — which is why board state is not in Y.js. Presence comes free from the awareness channel. Falls back to a 30s poll.
-- `SectionCard.tsx` / `SlotRow.tsx` / `PoolRail.tsx` / `MemberBar.tsx` / `parts.tsx` / `board.module.css` — a section and its drop target, one position, the docked reservist pool, the viewer's own controls, shared avatar/tag helpers, and the state-coloured styles.
+- `SectionCard.tsx` / `SlotRow.tsx` / `PoolRail.tsx` / `MemberBar.tsx` / `AddRole.tsx` / `Legend.tsx` / `parts.tsx` / `board.module.css` — a section and its drop target, one position, the docked reservist pool, the viewer's own controls, the per-section add-position picker (scoped by `rolesFor`), the colour key, shared avatar/tag helpers, and the state-coloured styles.
+- **The whole slot row is the drag handle**, not a grip — the row is the thing being moved, and a 12px target for the board's most common action was the wrong trade. Buttons inside swallow pointer-down *and* keydown so they still work.
+- "Filled" means `held` + `backfilled` — actually playing — everywhere it appears (stats bar, category header, section header). Counting occupants instead produced "5 / 5 filled" on a section where nobody had replied.
 
 ### lib/attendance/meeting-init.ts
 - `initMeetingAttendance(meetingId, department, invitedUserIds=[]): Promise<number>` — builds and inserts the `MeetingAttendee[]` list for a meeting: department members, J4 members (unless meeting *is* J4), and explicitly invited outsiders; groups each into `j4`/`dept_lead`/`dept_member`/`invited` (lead detection via `PERMISSIONS.departmentLeads`), dedupes against existing attendees, sorts by group then name. Called on meeting creation and from the manual attendance-sync POST endpoint.

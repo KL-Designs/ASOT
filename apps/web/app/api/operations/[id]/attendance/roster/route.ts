@@ -7,6 +7,7 @@ import { hasPermission } from '@/lib/orbat/hasPermission'
 import { assignSlot, autoFill, derivePool, viewRoster, type RosterSlot } from '@/lib/attendance/roster'
 import { logAction } from '@/lib/logAction'
 import { isMemberAction, type BoardAction } from '@/lib/attendance/actions'
+import { roleAllowedIn } from '@/lib/orbat/roleScope'
 
 /**
  * Every write to the live attendance board.
@@ -154,13 +155,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             case 'addSlot': {
                 // Hand-authored positions are how a custom section gets any
                 // positions at all, and how a night that needs two medics gets
-                // a second one. The id is namespaced so it cannot collide with
-                // an ORBAT-derived id, which is built from section coordinates.
+                // a second one.
+                let roleDoc
+                try {
+                    roleDoc = await Db.orbatRoles.findOne({ _id: new ObjectId(body.roleId) })
+                } catch {
+                    return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+                }
+                if (!roleDoc) return NextResponse.json({ error: 'No such role' }, { status: 404 })
+
+                // The picker only offers roles valid for this category, but a
+                // filtered dropdown is a convenience and not a rule — the ORBAT
+                // restricts some roles to particular platoons and that has to
+                // hold against a request that did not come from the picker.
+                if (!roleAllowedIn(roleDoc, body.category)) {
+                    return NextResponse.json(
+                        { error: `${roleDoc.name} cannot be used in this platoon.` },
+                        { status: 400 },
+                    )
+                }
+
                 roster = [...roster, {
+                    // Namespaced so it cannot collide with an ORBAT-derived id,
+                    // which is built from section coordinates. The revision makes
+                    // it unique even if a position is added, removed and re-added.
                     id: `custom-${rev}-${roster.length}`,
                     category: body.category,
                     sectionTitle: body.sectionTitle,
-                    role: body.role,
+                    role: roleDoc.name,
+                    roleId: String(roleDoc._id),
                     order: roster.filter(s => s.sectionTitle === body.sectionTitle).length,
                     homeUserId: null,
                     occupantUserId: null,

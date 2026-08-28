@@ -38,7 +38,22 @@ export async function ensureRosterSnapshot(operationId: ObjectId): Promise<Roste
 
     const categories = snapshotCategories(existing?.assignedPlatoons ?? [])
     const positions = await Db.orbatPositions.find({ category: { $in: categories } }).toArray()
-    const roster = buildRoster(orderPositions(positions as OrbatSnapshotPosition[], categories))
+
+    // `roleId` is an ObjectId on the position and a string on the slot: the
+    // roster is JSON that goes over the wire to the board, so it cannot hold
+    // BSON types. Converted here rather than cast, because a cast would have
+    // silently shipped ObjectIds into the document.
+    const snapshot: OrbatSnapshotPosition[] = positions.map(p => ({
+        category: p.category,
+        sectionTitle: p.sectionTitle,
+        role: p.role,
+        roleId: p.roleId ? String(p.roleId) : null,
+        userId: p.userId,
+        sectionOrder: p.sectionOrder,
+        positionOrder: p.positionOrder,
+    }))
+
+    const roster = buildRoster(orderPositions(snapshot, categories))
 
     const result = await Db.operationAttendance.updateOne(
         { operationId, $or: [{ roster: { $exists: false } }, { roster: { $size: 0 } }] },

@@ -26,6 +26,8 @@ export interface OrbatSnapshotPosition {
     category: string
     sectionTitle: string
     role: string
+    /** The OrbatRole behind the name, where the position has one. */
+    roleId: string | null
     userId: string | null
     sectionOrder: number
     positionOrder: number
@@ -36,6 +38,15 @@ export interface RosterSlot {
     category: string
     sectionTitle: string
     role: string
+    /**
+     * The OrbatRole this position is an instance of, with `role` kept as a
+     * denormalized copy of its name — the same pairing `OrbatPosition` uses, so
+     * every consumer of the plain string keeps working while the link survives
+     * for anything that needs the definition (its category scope, its grants).
+     * null for positions that predate the Roles Manager, and for slots whose
+     * role was never a defined one.
+     */
+    roleId: string | null
     order: number
     /** ORBAT holder at snapshot time. null = the position was vacant. */
     homeUserId: string | null
@@ -61,6 +72,7 @@ export function buildRoster(positions: OrbatSnapshotPosition[]): RosterSlot[] {
         category: p.category,
         sectionTitle: p.sectionTitle,
         role: p.role,
+        roleId: p.roleId ?? null,
         order: p.positionOrder,
         homeUserId: p.userId,
         occupantUserId: p.userId,

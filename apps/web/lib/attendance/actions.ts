@@ -26,8 +26,16 @@ export type StaffAction =
     | { action: 'assign'; slotId: string; userId: string | null }
     /** Place the whole pool at once, honouring stated preferences. */
     | { action: 'autofill' }
-    /** Author a position that the ORBAT does not have. */
-    | { action: 'addSlot'; sectionTitle: string; category: string; role: string }
+    /**
+     * Author a position the snapshot does not have — an extra medic for a night
+     * that needs two, or any position at all for a custom section.
+     *
+     * Identified by `roleId` rather than a name so the server can re-check the
+     * role's category scope. A picker that filters its own dropdown is a
+     * convenience, not a rule: without the id there is nothing to check against
+     * and a 1-3-only role could be posted straight into 1-1.
+     */
+    | { action: 'addSlot'; sectionTitle: string; category: string; roleId: string }
     | { action: 'removeSlot'; slotId: string }
 
 export type BoardAction = MemberAction | StaffAction

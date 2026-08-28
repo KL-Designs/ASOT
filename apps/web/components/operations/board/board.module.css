@@ -262,7 +262,7 @@
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
     gap: 10px;
     align-items: start;
 }
@@ -319,9 +319,16 @@
 }
 .slot:last-child { border-bottom: none; }
 
+/*
+ * The role label is allowed to truncate; the member's name is not. It was a
+ * fixed 88px, which together with a long status badge left ~50px for the name
+ * and rendered every member as "P..". Narrower, and it shrinks before the name
+ * does — a truncated "SECTION COM…" is still readable, "C.." is not.
+ */
 .role {
-    width: 88px;
-    flex-shrink: 0;
+    width: 62px;
+    min-width: 40px;
+    flex-shrink: 1;
     padding-left: 8px;
     font-family: var(--mono);
     font-size: 9.5px;
@@ -333,18 +340,32 @@
     text-overflow: ellipsis;
 }
 .who {
-    flex: 1;
+    flex: 1 1 auto;
     min-width: 0;
     display: flex;
     align-items: center;
     gap: 6px;
 }
-.who > span {
+.whoInner {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    flex: 1;
+}
+.name {
     font-size: 12px;
     color: var(--ink);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+}
+.openLabel {
+    font-size: 12px;
+    color: var(--ink-3);
+    font-style: italic;
+    white-space: nowrap;
 }
 
 .av {
@@ -364,9 +385,9 @@
 .tag {
     font-family: var(--mono);
     font-size: 8.5px;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
-    padding: 1px 5px;
+    padding: 1px 4px;
     border-radius: 2px;
     flex-shrink: 0;
     white-space: nowrap;
@@ -381,10 +402,7 @@
 .released  { border-left-color: rgba(192, 90, 72, 0.45); }
 .open      { border-left-color: transparent; }
 
-.awaiting .who > span, .lapsed .who > span { color: var(--ink-3); }
-.open .who > span { color: var(--ink-3); font-style: italic; }
-.declined .who > span { color: var(--ink-3); font-style: italic; }
-.released .who > span { color: var(--ink-3); font-style: italic; }
+.awaiting .name, .lapsed .name { color: var(--ink-2); }
 
 .tagGood { background: rgba(127, 174, 92, 0.16); color: var(--good); }
 .tagWarn { background: rgba(212, 160, 58, 0.13); color: var(--warn); }
@@ -411,6 +429,23 @@
 }
 .slot:hover .claim, .claim:focus-visible { opacity: 1; }
 .claim:hover { background: rgba(var(--acc-rgb), 0.14); }
+
+.draggable { cursor: grab; }
+.draggable:active { cursor: grabbing; }
+
+.rowMenu {
+    font-family: var(--mono);
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 4px;
+    border: none;
+    background: none;
+    color: var(--ink-3);
+    cursor: pointer;
+    flex-shrink: 0;
+    border-radius: 2px;
+}
+.rowMenu:hover, .rowMenu:focus-visible { color: var(--ink); background: var(--s3); }
 
 .grip {
     color: var(--ink-3);
@@ -612,3 +647,124 @@
     .ping, .skel { animation: none; }
     .fillbar > i, .chevron, .claim { transition: none; }
 }
+
+/* ── Add role ────────────────────────────────────────────────────────────── */
+
+.addRoleWrap { position: relative; flex-shrink: 0; }
+
+.addRole {
+    width: 18px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r);
+    background: none;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+.addRole:hover:not(:disabled), .addRole:focus-visible {
+    color: var(--acc);
+    border-color: rgba(var(--acc-rgb), 0.5);
+    border-style: solid;
+}
+.addRole:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.addRoleMenu {
+    position: absolute;
+    z-index: 50;
+    top: calc(100% + 4px);
+    right: 0;
+    width: 224px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    background: #14171d;
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.75);
+    padding: 5px;
+}
+.addRoleSearch {
+    width: 100%;
+    background: var(--s1);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    padding: 5px 7px;
+    outline: none;
+    margin-bottom: 4px;
+}
+.addRoleSearch:focus { border-color: rgba(var(--acc-rgb), 0.5); }
+
+.addRoleList { max-height: 210px; overflow-y: auto; display: flex; flex-direction: column; }
+.addRoleList button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+    padding: 5px 7px;
+    background: none;
+    border: none;
+    border-radius: 2px;
+    color: var(--ink-2);
+    font-size: 11.5px;
+    text-align: left;
+    cursor: pointer;
+}
+.addRoleList button:hover, .addRoleList button:focus-visible {
+    background: rgba(var(--acc-rgb), 0.14);
+    color: var(--acc);
+}
+.addRoleList button em {
+    font-style: normal;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    flex-shrink: 0;
+}
+.addRoleEmpty {
+    margin: 0;
+    padding: 8px 7px;
+    font-size: 11px;
+    font-style: italic;
+    color: var(--ink-3);
+    line-height: 1.5;
+}
+
+/* ── Legend ──────────────────────────────────────────────────────────────── */
+
+.legend {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    background: var(--s1);
+    border-bottom: 1px solid var(--line);
+}
+.legendKey {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+.legendKey i {
+    width: 3px;
+    height: 13px;
+    border-radius: 1px;
+    display: block;
+    flex-shrink: 0;
+}
+.legendKey b { color: var(--ink-2); font-weight: 500; }
