@@ -161,6 +161,30 @@ Scope: 42 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 #### /api/operations/[id]/attendance/simulate
 - **POST** — **development only**; fills the board with plausible attendance for looking at. The `NODE_ENV === 'production'` check runs *before* authentication, so no configuration exposes it in production — a permission check alone would leave it one bad grant away from wiping a live operation's attendance. Uses real members (the roster's ORBAT holders plus whoever actually sits in the reservist categories, minus anyone counted twice), so a generated board shows how real names wrap. Overwrites `roster` and every RSVP answer, bumps `rosterRev`. Optional `seed` for a reproducible run, and `turnout` (`quiet` | `medium` | `busy`, default `medium` — an unrecognised value is an ordinary night rather than a 400, since the only caller is the dev panel). Gate: not-production **and** `attendance.manage` (three-armed). Collections: `Db.operationAttendance`, `Db.orbatPositions`. Model: `lib/attendance/simulate.ts`.
 
+#### /api/operations/board
+- **GET** — everything the public operations board draws, in one request: the upcoming band, a
+  page of the archive, facet counts, a month histogram, and the campaign/mission refs the client
+  groups with. Query: `q`, `campaign`, `unit`, `terrain`, `mine=1`, `from`/`to` (`YYYY-MM`), `skip`.
+- **Separate from `/api/operations` on purpose.** That endpoint has four other callers (dashboard
+  overview, J2 tab, calendar modal, and search) and none of them want attendance joined in, facet
+  aggregations or paging — widening it would make all of them pay for this page.
+- **Past and future are split by the clock, not by `status`.** Status drifts: an operation that ran
+  last month can still read `Upcoming` because nobody advanced it. Partitioning on the date means a
+  mission that has happened is in the archive whatever its status says.
+- **In-development operations are excluded everywhere.** Staff get a *count* (gated on
+  `pages.operationsEdit`) pointing at the J2 dashboard; the operations themselves never leave it.
+- Attendance is joined only for the operations on screen — a `$lookup` across the collection would
+  read every attendance document to render twenty rows. Turnout is the *confirmed* count, which is
+  what a section leader recorded actually happened; the pre-op number is the `attending` RSVP count.
+- Facet counts ignore their own facet's selection, so "Unit" still shows what switching to another
+  unit would give rather than reading `1-3 · 142` and zero everywhere else. The histogram likewise
+  ignores the range selection, so bars outside it can be dimmed rather than dropped.
+- Fields are **allow-listed**, not excluded by name: this route is reachable signed out, and a field
+  added to the operation model later must not become public by default.
+- Gate: public (personal fields resolve only when signed in). Collections: `Db.operations`,
+  `Db.operationAttendance`, `Db.operationCampaigns`, `Db.campaignMissions`. Model:
+  `lib/operations/board.ts`.
+
 #### /api/operations/[id]/attendance/roster
 - **POST** — every write to the live attendance board, for both audiences. Member actions (`attend` / `decline` — answer the RSVP; `attend` reclaims the member's own ORBAT position if they are not already standing somewhere — the decline-then-change-your-mind case — displacing whoever took it back to the pool and **notifying them** (site notification + Discord DM, `attendance_position_reclaimed`), while leaving alone anyone who had deliberately claimed a position elsewhere; `decline` gives up any position held so it reopens rather than sitting reserved all window; `claim` a specific open position, `leave` it, `prefer` a section/role and sit in the pool) are allowed only while `stage === 'rsvp_open'` — **the RSVP freeze is enforced here, not by a disabled button**. Staff actions (`assign` — which swaps when the destination is occupied, `autofill` the pool honouring preferences, `addSlot` — takes a `roleId`, and **re-checks the role's category scope server-side** via `roleAllowedIn` before writing, because a picker that filters its own dropdown is a convenience and not a rule; `removeSlot`; `resnapshot` — throws the roster away and cuts a fresh one from the ORBAT, destructive and the escape hatch for a roster that no longer matches its assigned units, also the only way to cut a board for an operation whose RSVP opened before rosters existed) need `attendance.manage` and are not bound by the window. Every write is computed from `rosterRev` and only lands if that revision is still current, retrying up to 3× against the winner — two members claiming the same position is the normal case on op night, not the edge case. `rosterRev` is also what the live board broadcasts over Y.js. Gate: authenticated for member actions; `attendance.manage` (three-armed, see `platoons`) for staff actions. Collections: `Db.operationAttendance`. Side effects: `logAction('attendance.*')`. Action shapes: `lib/attendance/actions.ts`.
 - **Responds with `{ ok, rev, roster, member }`** — `member` being the acting member's record as it now stands, whenever the write touched it. The client applies both rather than refetching. Sending the roster alone was a 30-second bug: everything RSVP-shaped on the board (which button is lit, whether a position reads held or declined, who is in the pool) derives from the *record*, and `attend` does not necessarily change the roster at all, so the person who pressed the button watched their own answer do nothing until the backstop poll came round.
