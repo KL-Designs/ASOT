@@ -168,6 +168,10 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `buildRosterForOperation(assignedPlatoons)` — the roster an operation *would* have if cut now, without writing it. Shared by the automatic cut and the deliberate re-take so the two cannot disagree about what a roster is made of.
 - `ensureRosterSnapshot(operationId)` — cuts the roster once, when the op first reaches `rsvp_open`. Called from both server paths that can get it there (`cron/operations` and `attendance/platoons`), so the guard is the write itself: it only matches documents with no roster yet. Returns the roster if this call created it, else null.
 
+### lib/attendance/simulate.ts
+- `simulateAttendance({ roster, reservists, rand })` — dev-only generator producing plausible attendance: holders attending / declining / never replying, some turning out for another section as backfills, reservists claiming positions or waiting in the pool with and without a preference. Pure and seeded (`mulberry32`), so it is testable and so "show me that again" reproduces rather than reshuffles.
+- It writes to a real roster, so it holds the board's invariants: nobody in two positions, nobody who declined left standing in one. It starts from the state a fresh snapshot leaves — holders pencilled into their own positions — because clearing the board first made `awaiting` impossible to generate, which is the state a generated board most needs to show.
+
 ### lib/attendance/actions.ts
 - `BoardAction` = `MemberAction | StaffAction` — the wire format shared by the roster route that validates it and the hook that sends it, so the two cannot drift. `isMemberAction()` is the discriminator the route's gate uses.
 

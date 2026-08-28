@@ -155,6 +155,21 @@ Use a second account or a private window.
 - [ ] Other viewers pick the rebuild up within 30s (it does not bump the live
       revision — a known, accepted trade for a rare staff action).
 
+## 4f. Generating data (development only)
+
+- [ ] A **Developer** panel appears at the bottom of the Attendance tab in dev,
+      and **not** in a production build.
+- [ ] "Generate Attendance Data" fills the board and reports what it did.
+- [ ] The result shows **every** state at once: attending, awaiting, declined,
+      released, backfilled reservists, and open positions.
+- [ ] Members waiting in the pool include both some with a stated preference and
+      some with none.
+- [ ] Nobody appears in two positions, and nobody marked not-attending is shown
+      standing in one.
+- [ ] Pressing it again produces a *different* board.
+- [ ] The route 404s in production regardless of permission — the environment
+      check runs before authentication.
+
 ## 5. Live — two browsers side by side
 
 The headline feature. Worth doing properly.

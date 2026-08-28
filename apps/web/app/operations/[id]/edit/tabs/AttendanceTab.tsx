@@ -99,6 +99,34 @@ export default function AttendanceTab({
     const [resetError, setResetError] = useState<string | null>(null)
     const [boardReloadKey, setBoardReloadKey] = useState(0)
 
+    // Dev tooling. `NODE_ENV` is set by the npm script, never from .env, so this
+    // is false in any production build and the route refuses regardless.
+    const isDev = process.env.NODE_ENV !== 'production'
+    const [simulating, setSimulating] = useState(false)
+    const [simResult, setSimResult] = useState<string | null>(null)
+
+    async function generateData() {
+        setSimulating(true)
+        setSimResult(null)
+        try {
+            const res = await fetch(`/api/operations/${opID}/attendance/simulate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            })
+            const json = await res.json().catch(() => ({}))
+            if (!res.ok) setSimResult(json.error ?? 'Could not generate data.')
+            else {
+                setSimResult(`${json.answered} answered · ${json.placed} placed · ${json.reservists} reservists in play`)
+                setBoardReloadKey(k => k + 1)
+            }
+        } catch {
+            setSimResult('Could not reach the server.')
+        } finally {
+            setSimulating(false)
+        }
+    }
+
     async function resetBoard() {
         setResetting(true)
         setResetError(null)
@@ -337,6 +365,37 @@ RSVP answers themselves are kept.`}
                         )}
                         {ackExpanded && ackList.length === 0 && (
                             <div style={{ fontSize: '0.6rem', color: 'var(--ink-3)', fontStyle: 'italic' }}>No staff have acknowledged yet.</div>
+                        )}
+                    </div>
+                </TabPanel>
+            )}
+
+            {/*
+                Development only, and last on the page — it is a workbench, not
+                part of the operation. The route refuses outside development too;
+                this only decides whether the button is worth rendering.
+            */}
+            {isDev && canManageAttendance && (
+                <TabPanel title='Developer'>
+                    <div style={{ padding: 16, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                        <button
+                            type='button'
+                            disabled={simulating}
+                            onClick={generateData}
+                            style={{ ...chipStyle(false), borderStyle: 'dashed', opacity: simulating ? 0.5 : 1 }}
+                        >
+                            {simulating ? 'Generating…' : 'Generate Attendance Data'}
+                        </button>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--ink-3)', lineHeight: 1.5, maxWidth: 520 }}>
+                            Fills the board with plausible attendance using real members — some attending,
+                            some not, some never replying, reservists filling in from other sections, and
+                            others waiting in the pool with and without a preference.
+                            <b style={{ color: 'var(--warn)' }}> Overwrites every RSVP on this operation.</b>
+                        </span>
+                        {simResult && (
+                            <span style={{ fontFamily: 'var(--mono)', fontSize: '0.65rem', color: 'var(--ink-2)' }}>
+                                {simResult}
+                            </span>
                         )}
                     </div>
                 </TabPanel>
