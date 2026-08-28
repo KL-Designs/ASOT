@@ -25,7 +25,7 @@ function hexToRgb(hex: string) {
  * sitting in the database. Two lists describing one document format will always
  * end up describing two.
  */
-export default function DocBody({ content, themeColor = '#db001d', pageTheme = 'modern' }: { content: any, themeColor?: string, pageTheme?: 'modern' | 'oldfashioned' | 'scifi' }) {
+export default function DocBody({ content, themeColor = '#db001d', pageTheme = 'modern' }: { content: any, themeColor?: string, pageTheme?: 'modern' | 'oldfashioned' | 'scifi' | 'coldwar' }) {
     const [html, setHtml] = useState<string | null>(null)
     const [failed, setFailed] = useState(false)
 
@@ -85,6 +85,37 @@ export default function DocBody({ content, themeColor = '#db001d', pageTheme = '
         .op-doc img { max-width: 100%; border: 1px solid rgba(160,120,50,0.25); }
         .op-doc strong { color: #d4b870; font-weight: 700; }
         .op-doc code { font-family: "Courier New", Courier, monospace; font-size: 0.88em; background: rgba(160,120,50,0.08); padding: 1px 5px; border: 1px solid rgba(160,120,50,0.2); color: #c8a850; }
+    `
+    } else if (pageTheme === 'coldwar') {
+        /*
+         * The only light palette on the site. Fixed rather than derived from the
+         * operation's `--acc`: a typed page does not change colour per
+         * operation, and an operation themed pale blue would print invisibly on
+         * paper. Stamp red is the typewriter's second ribbon.
+         *
+         * Everything here restates a rule `.op-doc` already has — the point is
+         * only to invert it for ink on paper, not to lay it out differently.
+         */
+        themeCSS = `
+        .op-doc { font-family: "Courier New", Courier, monospace; color: #2b2721; line-height: 1.75; font-size: 0.92rem; padding: 0; }
+        .op-doc p { margin: 0.7em 0; }
+        .op-doc h1 { font-family: "Courier New", Courier, monospace; border: none; border-left: 4px solid #8c2b1d; background: rgba(140,43,29,0.06); padding: 7px 13px; font-size: 0.95rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: #23201a; margin: 1.5em 0 0.7em; }
+        .op-doc h2 { font-family: "Courier New", Courier, monospace; font-size: 0.85rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #8c2b1d; border-bottom: 1px dotted #8b8477; padding-bottom: 3px; margin: 1.4em 0 0.5em; }
+        .op-doc h2::before { content: ''; }
+        .op-doc h3 { font-family: "Courier New", Courier, monospace; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #4f4a3f; margin: 1.1em 0 0.35em; }
+        .op-doc ul, .op-doc ol { padding-left: 1.7em; margin: 0.6em 0; }
+        .op-doc li { color: #2b2721; }
+        .op-doc ul li::marker { color: #8c2b1d; }
+        .op-doc ol li::marker { color: #8c2b1d; }
+        .op-doc blockquote { border-left: 4px solid #8c2b1d; border-top: none; border-right: none; border-bottom: none; background: rgba(140,43,29,0.05); padding: 10px 15px; margin: 1em 0; color: #4f4a3f; font-style: italic; }
+        .op-doc hr { border: none; border-top: 1px solid #8b8477; margin: 1.6em 0; }
+        .op-doc mark { background: rgba(200,150,40,0.35); color: #23201a; padding: 1px 3px; }
+        .op-doc a { color: #8c2b1d; text-decoration: underline; text-underline-offset: 2px; opacity: 1; }
+        .op-doc a:hover { color: #23201a; }
+        .op-doc img { max-width: 100%; border: 1px solid #8b8477; filter: grayscale(0.7) sepia(0.2) contrast(1.1); }
+        .op-doc strong { color: #14120e; font-weight: 700; }
+        .op-doc code { font-family: "Courier New", monospace; font-size: 0.88em; background: rgba(0,0,0,0.06); border: 1px solid #b5ad9b; color: #23201a; padding: 1px 5px; }
+        .op-doc pre { background: rgba(0,0,0,0.05); border: 1px solid #b5ad9b; padding: 10px 13px; overflow-x: auto; }
     `
     } else if (pageTheme === 'scifi') {
         themeCSS = `

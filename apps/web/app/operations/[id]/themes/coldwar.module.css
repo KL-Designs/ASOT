@@ -1,0 +1,456 @@
+/*
+ * The Cold War orders page — "Declassified".
+ *
+ * The orders as a released file: a typed sheet on a dark desk, classification
+ * banners top and bottom, a stamp across the header, and a rail of file tabs
+ * down the left for the other documents in the folder.
+ *
+ * It is the only light surface on the site, and that is the point of it — a
+ * theme that changes what the page *is* rather than what colour it is. Only the
+ * sheet is paper; the desk around it stays dark, which is what lets the
+ * operation bar and the Zeus/OCAP panels stay as they are everywhere else.
+ *
+ * The palette is fixed rather than taking the operation's `--acc`. A typed
+ * document does not change colour per operation, and an operation themed pale
+ * blue would print invisibly on paper. Stamp red is the ribbon.
+ */
+
+.page {
+    --paper:    #e8e2d2;
+    --paper-2:  #ddd5c1;
+    --paper-3:  #cfc6ae;
+    --carbon:   #23201a;
+    --carbon-2: #4f4a3f;
+    --carbon-3: #8b8477;
+    --stamp:    #8c2b1d;
+    --desk:     #1b1a17;
+    --desk-2:   #14130f;
+    --desk-line:#2b291f;
+
+    --type: "Courier New", Courier, monospace;
+
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    background: var(--desk);
+    color: var(--paper-2);
+}
+
+/* ── Desk ─────────────────────────────────────────────────────────────── */
+
+.desk {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 188px minmax(0, 1fr);
+    align-items: start;
+    gap: 0;
+    padding: 28px clamp(14px, 3vw, 40px) 56px;
+    background:
+        /* A faint blotter grain, so the sheet has something to sit on. */
+        repeating-linear-gradient(56deg, rgba(255, 255, 255, 0.008) 0 2px, transparent 2px 5px),
+        var(--desk);
+}
+
+/* ── File tabs ────────────────────────────────────────────────────────── */
+
+/*
+ * The folder's other documents, as tabs cut into its edge. A sheet of paper has
+ * no sidebar, and this is the period-honest answer: the active tab is the same
+ * stock as the sheet and runs into it, the rest are the darker manila behind.
+ */
+.tabs {
+    position: sticky;
+    top: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding-top: 34px;
+    z-index: 2;
+}
+.tabGroup + .tabGroup { margin-top: 18px; }
+.tabGroupKey {
+    display: block;
+    padding: 0 12px 6px;
+    font-family: var(--type);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--carbon-3);
+}
+
+.tab {
+    display: block;
+    position: relative;
+    margin-bottom: 3px;
+    padding: 9px 12px 9px 14px;
+    background: var(--paper-3);
+    color: var(--carbon-2);
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    border-right: none;
+    border-radius: 3px 0 0 3px;
+    font-family: var(--type);
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-decoration: none;
+    box-shadow: inset -6px 0 10px -6px rgba(0, 0, 0, 0.35);
+}
+.tab:hover { background: var(--paper-2); color: var(--carbon); }
+.tab:focus-visible { outline: 2px solid var(--stamp); outline-offset: -2px; }
+
+/* The open one is the sheet's own stock, and reaches across the seam. */
+.tabOn {
+    margin-right: -2px;
+    padding-left: 12px;
+    background: var(--paper);
+    color: var(--carbon);
+    border-left: 4px solid var(--stamp);
+    box-shadow: none;
+    z-index: 1;
+}
+.tabOn:hover { background: var(--paper); color: var(--carbon); }
+
+/* Sections of the open document, written down its tab. */
+.tabSecs {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 6px 0 6px 16px;
+    background: var(--paper);
+    border-left: 4px solid rgba(140, 43, 29, 0.35);
+    margin-right: -2px;
+}
+.tabSec {
+    display: flex;
+    gap: 7px;
+    width: 100%;
+    padding: 3px 6px 3px 0;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    font-family: var(--type);
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--carbon-2);
+}
+.tabSec:hover { color: var(--carbon); }
+.tabSecOn { color: var(--stamp); font-weight: 700; }
+.tabSecN { color: var(--carbon-3); }
+.tabSecOn .tabSecN { color: var(--stamp); }
+.tabSec:focus-visible { outline: 2px solid var(--stamp); outline-offset: -1px; }
+
+/* ── The sheet ────────────────────────────────────────────────────────── */
+
+.sheetWrap { min-width: 0; }
+
+.sheet {
+    max-width: 900px;
+    background:
+        /* Very faint ruling, the ghost of a typewriter's line spacing. */
+        repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.014) 0 2px, transparent 2px 4px),
+        var(--paper);
+    color: var(--carbon);
+    box-shadow: 0 20px 54px rgba(0, 0, 0, 0.62);
+    font-family: var(--type);
+}
+
+/* The banner a classified document carries at both ends, so a loose page found
+   on its own still says what it is. */
+.classification {
+    padding: 7px 0;
+    background: var(--stamp);
+    color: var(--paper);
+    text-align: center;
+    font-family: var(--type);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+}
+
+.head {
+    position: relative;
+    padding: 28px clamp(20px, 4vw, 44px) 18px;
+    border-bottom: 2px solid var(--carbon);
+}
+.org {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 11.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--carbon-2);
+}
+.title {
+    margin: 16px 0 6px;
+    font-family: var(--type);
+    font-size: clamp(20px, 3.4vw, 30px);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.15;
+    text-transform: uppercase;
+    text-wrap: balance;
+    color: var(--carbon);
+}
+.lineage {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--carbon-2);
+}
+
+/* Rubber stamp: rotated, double-ruled, and slightly transparent so the rule
+   under it shows through the way ink does. */
+.stamp {
+    position: absolute;
+    top: 22px;
+    right: clamp(16px, 4vw, 40px);
+    padding: 6px 13px;
+    transform: rotate(-9deg);
+    border: 3px double var(--stamp);
+    border-radius: 2px;
+    color: var(--stamp);
+    opacity: 0.8;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.refs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    margin: 0;
+    border-bottom: 1px solid var(--carbon-3);
+}
+.ref {
+    padding: 11px 14px;
+    border-right: 1px dotted var(--carbon-3);
+}
+.ref:last-child { border-right: none; }
+.refKey {
+    margin: 0 0 4px;
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--carbon-3);
+}
+.refVal {
+    margin: 0;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--carbon);
+}
+.refUrgent { color: var(--stamp); }
+
+/* ── Routing slip ─────────────────────────────────────────────────────── */
+
+/*
+ * What the reader owes, as the form a real file carries: a line to sign and a
+ * line saying what you are detailed to. The controls are live, but the shape is
+ * the period's — which is the whole trick of this theme, and the reason the
+ * acknowledgement and the attendance call can sit on a typed page at all.
+ */
+.slip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    border-bottom: 1px solid var(--carbon-3);
+    background: rgba(0, 0, 0, 0.035);
+}
+.slipRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    border-right: 1px dotted var(--carbon-3);
+    text-decoration: none;
+    color: inherit;
+}
+.slipRow:last-child { border-right: none; }
+.slipRow:focus-visible { outline: 2px solid var(--stamp); outline-offset: -2px; }
+.slipMain { min-width: 0; }
+.slipKey {
+    display: block;
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--carbon-3);
+}
+.slipVal {
+    display: block;
+    margin-top: 3px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--carbon);
+}
+.slipOutstanding .slipVal { color: var(--stamp); }
+
+.slipBtn {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 7px 14px;
+    background: var(--stamp);
+    color: var(--paper);
+    border-radius: 2px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.slipRow:hover .slipBtn { background: var(--carbon); }
+
+/* ── Photographic plate ───────────────────────────────────────────────── */
+
+/*
+ * The cover art, pasted in rather than bled to the edges. A full-width
+ * photograph is the one thing a typed page in 1985 could not do; a reconnaissance
+ * print stuck to the sheet with a typed caption under it is exactly what it
+ * could, and keeps the operation's own art on the page.
+ */
+.plate {
+    margin: 22px clamp(20px, 4vw, 44px);
+    padding: 9px 9px 0;
+    background: var(--paper-2);
+    border: 1px solid var(--carbon-3);
+    box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.12);
+}
+.plateImg {
+    display: block;
+    width: 100%;
+    height: clamp(150px, 22vw, 260px);
+    object-fit: cover;
+    /* Period print rather than a glossy web hero: desaturated and contrasty. */
+    filter: grayscale(0.72) sepia(0.22) contrast(1.12) brightness(0.95);
+}
+.plateCap {
+    padding: 7px 2px 8px;
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--carbon-2);
+}
+
+/* ── Body ─────────────────────────────────────────────────────────────── */
+
+.body { padding: 24px clamp(20px, 4vw, 44px) 40px; }
+
+.para { margin-bottom: 30px; scroll-margin-top: 20px; }
+.paraHead {
+    display: flex;
+    align-items: baseline;
+    gap: 11px;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--carbon-3);
+}
+.paraNum {
+    flex-shrink: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--carbon);
+}
+.paraTitle {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--carbon);
+}
+.paraTag {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 1px 7px;
+    border: 1px solid var(--stamp);
+    border-radius: 2px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--stamp);
+}
+
+.empty {
+    padding: 18px 0;
+    font-size: 11px;
+    font-style: italic;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--carbon-3);
+}
+
+/* ── Redaction ────────────────────────────────────────────────────────── */
+
+/*
+ * What a logged-out reader gets in place of a section they cannot see.
+ *
+ * The other themes show them a banner saying the information is classified.
+ * This shows them the document with the classified parts struck out, which is
+ * both truer to the fiction and more useful: they can see how much is being
+ * withheld and where it sits.
+ */
+.redacted { user-select: none; }
+.redactBar {
+    height: 13px;
+    margin-bottom: 7px;
+    background: var(--carbon);
+    border-radius: 1px;
+}
+.redactNote {
+    margin-top: 12px;
+    font-size: 11px;
+    font-style: italic;
+    letter-spacing: 0.06em;
+    color: var(--carbon-2);
+}
+.redactNote a { color: var(--stamp); font-weight: 700; }
+
+/* ── Foot ─────────────────────────────────────────────────────────────── */
+
+.foot {
+    padding: 14px clamp(20px, 4vw, 44px);
+    border-top: 1px solid var(--carbon-3);
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--carbon-3);
+}
+.footLink { color: var(--carbon-2); text-decoration: none; border-bottom: 1px dotted var(--carbon-3); }
+.footLink:hover { color: var(--stamp); border-bottom-color: var(--stamp); }
+
+/* ── Panels on the bare desk ──────────────────────────────────────────── */
+
+/* Zeus Notes and OCAP are staff instruments, not orders. They keep the dark
+   chrome they wear everywhere else and simply sit on the desk beside the file. */
+.panel {
+    max-width: 900px;
+    padding: 4px 0;
+}
+
+@media (max-width: 900px) {
+    .desk { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+    .tabs { position: static; flex-direction: row; flex-wrap: wrap; padding-top: 0; }
+    .tabGroup + .tabGroup { margin-top: 0; }
+    .tab { border-radius: 3px; border-right: 1px solid rgba(0, 0, 0, 0.25); margin-right: 4px; }
+    .tabOn { margin-right: 4px; }
+    .tabSecs { display: none; }
+}
+
+@media print {
+    .tabs, .slip { display: none; }
+    .desk { grid-template-columns: minmax(0, 1fr); padding: 0; }
+    .sheet { box-shadow: none; max-width: none; }
+}

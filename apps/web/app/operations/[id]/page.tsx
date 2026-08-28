@@ -6,6 +6,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import ClassicPage from './themes/ClassicPage'
 import ModernPage from './themes/ModernPage'
+import ColdWarPage from './themes/ColdWarPage'
 import type { OrdersAttendance, OrdersLineage, ThemePageProps } from './themes/theme-props'
 
 /**
@@ -59,15 +60,21 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         isJ6, isSectionLeader, showAcknowledgeCard, activePageParam, fromJ2,
     }
 
+    /*
+     * Themes that have their own page get one; everything else falls back to
+     * the page as it always looked. `coldwar` was already a selectable era with
+     * no rendering of its own, which is why choosing it used to give you Modern.
+     */
     const pageTheme = operation.pageTheme || 'modern'
-    if (pageTheme !== 'modern') return <ClassicPage {...shared} />
+    if (pageTheme !== 'modern' && pageTheme !== 'coldwar') return <ClassicPage {...shared} />
 
     const [attendance, lineage] = await Promise.all([
         readAttendance(id, me?.id ?? null),
         readLineage(operation),
     ])
 
-    return <ModernPage {...shared} attendance={attendance} lineage={lineage} />
+    const themed = { ...shared, attendance, lineage }
+    return pageTheme === 'coldwar' ? <ColdWarPage {...themed} /> : <ModernPage {...themed} />
 }
 
 /**

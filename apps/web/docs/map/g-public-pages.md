@@ -827,14 +827,34 @@ touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttenda
   folded into the global `.op-doc`, because the other two themes draw their own frames and would end
   up with two. Multi-document operations navigate by `?page=`, server-rendered, so every document has
   a URL somebody can paste (Modern does not use `<PagedView/>`).
+- **`ColdWarPage.tsx` + `coldwar.module.css` + `FileTabs.tsx`** — the `coldwar` era, "**Declassified**".
+  The orders as a released file: a typed sheet (Courier, fixed paper/carbon/stamp palette) on a dark
+  desk, classification banners at both ends, a rotated rubber stamp over the header, and the cover
+  art pasted in as a captioned photographic plate rather than bled to the edges. **Only the sheet is
+  paper** — the desk stays dark, which is what lets `OperationBar` and the Zeus/OCAP panels keep the
+  chrome they wear everywhere else and sit on the bare desk when selected.
+  Two things no other theme does: **redaction** (a logged-out reader gets the document with the
+  paragraphs they are not cleared for struck out *in place*, rather than one banner at the bottom —
+  truer to the fiction and more useful, since they can see how much is withheld and where), and a
+  **routing slip** (the acknowledgement and attendance call as the form a real file carries — a line
+  to sign, a line saying what you are detailed to). `FileTabs.tsx` is the navigation: a sheet of
+  paper has no sidebar, so the documents become tabs cut into the folder's edge, the open one cut
+  from the sheet's own stock and reaching across the seam. Its palette is **fixed, not the
+  operation's `--acc`**: a typed page does not change colour per operation, and one themed pale blue
+  would print invisibly on paper.
+  `coldwar` was already a selectable era (`/api/admin/era-options`) with no rendering of its own,
+  which is why choosing it used to give you Modern. **`wwii`, `vietnam` and `fantasy` still do** —
+  they are offered in the picker and fall through to `ClassicPage`.
 - **`OrdersSpine.tsx`** — one outline replacing two navigations. Documents are `?page=` links;
   the open one's sections nest beneath it as scroll-to buttons with an `IntersectionObserver`
   scroll-spy. The nesting is information, not decoration: "Situation" is *part of* CHQ Orders, not a
   sibling of it, which the old flat document-rail-plus-section-strip pair said otherwise.
-- **`RsvpCell.tsx`** — the ledger's one live cell, polling `live-status` (30s) and ticking its own
-  clock every second in between. The old page gave the single most time-critical fact on the screen
-  a wide strip at the same weight as everything around it; here it is one cell, and the only one
-  carrying the accent.
+- **`RsvpCell.tsx`** / **`PaperRsvp.tsx`** — the same live cell, drawn by Modern and Cold War
+  respectively. The rules are in **`useRsvpCountdown.ts`**, shared: it polls `live-status` (30s) and
+  ticks its own clock every second in between, and lives in one place so two themes cannot end up
+  disagreeing about the same operation. The old page gave the single most time-critical fact on the
+  screen a wide strip at the same weight as everything around it; here it is one cell, and the only
+  one carrying the accent.
 
 **The attendance rail is gone from Modern.** It duplicated the Attendance tab and held a quarter of
 the window open for a control used once per operation. In its place is one call to action stating
@@ -846,8 +866,10 @@ Hidden (`isPublic: false`) sections still show a "Classified — Login to Access
 visitors in both. Public read; `<EditOrdersButton/>` shown to `isHQ`.
 
 #### app/operations/[id]/doc-body.tsx
-Client: renders TipTap ProseMirror JSON as themed HTML (`.op-doc` CSS varies per `pageTheme`) via
-`generateHTML` from `@tiptap/core`. Used by the single-page view, `PagedView`/`StaffView` and the
+Client: renders TipTap ProseMirror JSON as themed HTML (`.op-doc` CSS varies per `pageTheme` —
+`modern` / `oldfashioned` / `scifi` / `coldwar`, the last being **the only light palette on the
+site**, fixed rather than derived from the operation's accent) via `generateHTML` from
+`@tiptap/core`. Used by the single-page view, `PagedView`/`StaffView` and the
 Modern theme.
 
 **Its schema is `contentExtensions()` — the editor's own** (`components/editor/content-extensions.ts`),
