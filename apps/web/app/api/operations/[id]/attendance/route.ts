@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
+import { toBoardUser } from '@/lib/attendance/board-user'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -153,23 +154,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const recordsWithUsers = orderedRecords.map(record => {
         const u = userMap.get(record.userId)
         if (!u) return { ...record, user: null }
-
-        const rankAbbr = u.milpac?.currentRank
-        const memberName = u.name
-        const displayName = rankAbbr && memberName
-            ? `${rankAbbr} ${memberName}`
-            : u.guild?.displayName || u.globalName || u.username || record.userId
-
-        return {
-            ...record,
-            user: {
-                id: u.id,
-                displayName,
-                avatarURL: u.guild?.avatarURL || u.avatarURL || '',
-                isSkeletonAccount: u.isSkeletonAccount,
-                csvName: u.csvName,
-            },
-        }
+        return { ...record, user: toBoardUser(u, record.userId) }
     })
 
     if (!attendance) {

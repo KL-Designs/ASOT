@@ -13,6 +13,7 @@ import { logAction } from '@/lib/logAction'
 import { isMemberAction, type BoardAction } from '@/lib/attendance/actions'
 import { roleAllowedIn } from '@/lib/orbat/roleScope'
 import { buildRosterForOperation } from '@/lib/attendance/snapshot'
+import { toBoardUser } from '@/lib/attendance/board-user'
 
 /**
  * Every write to the live attendance board.
@@ -103,6 +104,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         let roster: RosterSlot[] = att.roster ?? []
         const recordOps: Record<string, unknown> = {}
+        /** This member's record before the write, for composing the echo below. */
+        const before = (att.records ?? []).find(r => r.userId === me.id)
         /** Set when reclaiming a home position turfed somebody out of it. */
         let displaced: { userId: string; sectionTitle: string; role: string } | null = null
 
@@ -305,7 +308,32 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             entityId: id,
         })
 
-        return NextResponse.json({ ok: true, rev: rev + 1, roster })
+        // The member's record as it now stands, when this write touched it.
+        //
+        // Without this the client had no way to learn its own answer: the
+        // response carried only the roster, and everything RSVP-shaped on the
+        // board — which button is lit, whether a position reads held or
+        // declined, who is in the pool — is derived from the *record*. Pressing
+        // Attending therefore did nothing visible until the 30s backstop poll
+        // came round, which is exactly how long it appeared to take. `attend`
+        // does not even change the roster for a member with no position of
+        // their own, so there was nothing else to react to.
+        //
+        // A spread over the record as read, because that is precisely what the
+        // write did: `attend` sets only `rsvp` and deliberately leaves a
+        // preference standing.
+        const after = { ...before, ...recordOps } as Partial<OperationAttendanceRecord>
+        const member = Object.keys(recordOps).length > 0
+            ? {
+                userId: me.id,
+                rsvp: after.rsvp ?? null,
+                preferredSection: after.preferredSection ?? null,
+                preferredRole: after.preferredRole ?? null,
+                user: toBoardUser(me),
+            }
+            : null
+
+        return NextResponse.json({ ok: true, rev: rev + 1, roster, member })
     }
 
     return NextResponse.json(

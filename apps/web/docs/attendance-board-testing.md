@@ -51,6 +51,9 @@ Use a second account or a private window.
 - [ ] The Claim button sits **where the occupant's name would be**, and is
       visible without hovering the row. A position you cannot claim still reads
       "Open" there instead.
+- [ ] Role names read in full, including the long ones above a section —
+      "Regimental Sergeant Major", "Officer Commanding", "Squadron Commander".
+      Three rows of "…" where the column exists to tell them apart is the bug.
 - [ ] Every Claim button on the board is the **same width**, whether or not its
       row carries a "Declined · Name" badge — a column of them should line up
       with the names on the occupied rows around them.
@@ -193,6 +196,11 @@ Use a second account or a private window.
       appear — the Rebuild button is the way out of both.
 
 ## 4g-bis. Saying no
+
+- [ ] **Attending and Not attending take effect immediately** — the pressed
+      button lights up, the status line changes and the affected rows recolour
+      within a moment, not on the next 30-second poll. Same for Claim, Leave
+      and setting a preference.
 
 - [ ] **Not attending** takes you out of the position you were standing in —
       your own or one you claimed in another section — and out of the reservist

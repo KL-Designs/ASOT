@@ -78,32 +78,39 @@ export interface BoardState {
     error: string | null
 }
 
+/** One member's attendance record, as both endpoints send it. */
+interface MemberRecord {
+    userId: string
+    rsvp: 'attending' | 'not_attending' | null
+    preferredSection?: string | null
+    preferredRole?: string | null
+    user: { id: string; displayName: string; avatarURL: string } | null
+}
+
 interface AttendanceResponse {
     roster?: RosterSlot[]
     rosterRev?: number
     stage?: AttendanceStage
-    recordsWithUsers?: {
-        userId: string
-        rsvp: 'attending' | 'not_attending' | null
-        preferredSection?: string | null
-        preferredRole?: string | null
-        user: { id: string; displayName: string; avatarURL: string } | null
-    }[]
+    recordsWithUsers?: MemberRecord[]
     sectionMeta?: SectionMeta[]
     customUnits?: { id: string; name: string; color?: string }[]
+}
+
+function toBoardMember(r: MemberRecord): BoardMember {
+    return {
+        id: r.userId,
+        displayName: r.user?.displayName ?? 'Unknown',
+        avatarURL: r.user?.avatarURL ?? '',
+        rsvp: r.rsvp,
+        preferredSection: r.preferredSection ?? null,
+        preferredRole: r.preferredRole ?? null,
+    }
 }
 
 function toBoardData(res: AttendanceResponse): BoardData {
     const members: Record<string, BoardMember> = {}
     for (const r of res.recordsWithUsers ?? []) {
-        members[r.userId] = {
-            id: r.userId,
-            displayName: r.user?.displayName ?? 'Unknown',
-            avatarURL: r.user?.avatarURL ?? '',
-            rsvp: r.rsvp,
-            preferredSection: r.preferredSection ?? null,
-            preferredRole: r.preferredRole ?? null,
-        }
+        members[r.userId] = toBoardMember(r)
     }
     return {
         roster: res.roster ?? [],
@@ -243,10 +250,25 @@ export function useAttendanceBoard(operationId: string) {
             // Apply our own result directly: we already have the authoritative
             // roster back, so a refetch would only add a round-trip of lag to
             // the one person who most needs the board to feel immediate.
+            //
+            // The member's record comes back with it, and applying that matters
+            // as much as the roster: which RSVP button is lit, whether a
+            // position reads held or declined, and who is in the pool are all
+            // derived from the record, not from the slots. Merging only the
+            // roster left the person who pressed the button watching their own
+            // answer do nothing until the 30-second poll caught up.
             if (json.roster) {
-                setState(prev => prev.data
-                    ? { ...prev, data: { ...prev.data, roster: json.roster, rosterRev: json.rev }, fromPeer: false }
-                    : prev)
+                setState(prev => {
+                    if (!prev.data) return prev
+                    const members = json.member
+                        ? { ...prev.data.members, [json.member.userId]: toBoardMember(json.member) }
+                        : prev.data.members
+                    return {
+                        ...prev,
+                        data: { ...prev.data, roster: json.roster, rosterRev: json.rev, members },
+                        fromPeer: false,
+                    }
+                })
             } else {
                 await load(false)
             }

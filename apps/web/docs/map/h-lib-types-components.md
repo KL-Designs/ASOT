@@ -181,6 +181,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - **It only ever appends.** This runs against documents other people may have open, so clearing first would be a one-click way to destroy someone's work; appending gives the same test surface. One `ydoc.transact`, so peers see it arrive whole.
 - Content covers **every node and mark** in `contentExtensions()`, and the tests assert exactly that — an unknown mark is discarded silently rather than throwing, so a typo would otherwise ship a document quietly missing half its formatting.
 
+### lib/attendance/board-user.ts
+- `toBoardUser(user, fallbackId?)` — how the board names and pictures a member: rank + milpac name when there is one, then guild display name, global name, username, id. Shared because two endpoints build it — the board's GET for the whole member list and the roster route for the one member a write changed — and two copies would drift into the same row being labelled one way on load and another the instant somebody pressed a button.
+
 ### lib/attendance/actions.ts
 - `BoardAction` = `MemberAction | StaffAction` — the wire format shared by the roster route that validates it and the hook that sends it, so the two cannot drift. `isMemberAction()` is the discriminator the route's gate uses.
 

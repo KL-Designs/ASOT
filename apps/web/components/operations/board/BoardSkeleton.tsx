@@ -51,8 +51,10 @@ function Card({ rows, delay }: { rows: number; delay: number }) {
             </div>
             {Array.from({ length: rows }, (_, i) => (
                 <div key={i} className={s.slot} style={{ paddingLeft: 10 }}>
+                    {/* Role, then the occupant — the order and the widths the
+                        real row uses, so nothing shifts sideways on arrival. */}
+                    {bar('var(--role-w, 168px)', 8, delay + i * 45)}
                     {bar(18, 18, delay + i * 45, '50%')}
-                    {bar(96, 8, delay + i * 45)}
                     {bar(`${34 + ((i * 17) % 30)}%`, 8, delay + i * 45)}
                 </div>
             ))}
