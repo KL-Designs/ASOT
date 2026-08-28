@@ -313,6 +313,55 @@
     align-items: flex-start;
 }
 
+/*
+ * A platoon is one column of stacked sections, and it grows to fill the row.
+ * `flex: 1 1 0` rather than a content-sized basis: with `auto` the columns only
+ * ever took the width of their widest card and left half the board empty.
+ */
+.category {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+}
+
+/*
+ * 1-3 Support is six sections and sixty-odd positions against an infantry
+ * platoon's four and twenty-eight. It takes twice the width and spends it on a
+ * second column of sections, so the tall stack becomes half as tall rather than
+ * twice as narrow. With 1-1 and 1-3 assigned that is exactly a third and two
+ * thirds; adding 1-2 splits the left third and leaves 1-3 alone.
+ */
+.categoryWide { flex: 2 1 0; }
+.categoryWide .stack {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+    align-items: start;
+}
+
+/* Sections within a category stack; the column is what runs horizontally. */
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+}
+
+/* Below this the two-column split inside 1-3 costs more than it gains. */
+@media (max-width: 1500px) {
+    .categoryWide .stack { grid-template-columns: minmax(0, 1fr); }
+}
+
+/*
+ * A zero flex-basis never wraps, so the weights would squeeze three platoons
+ * into a phone width rather than reflowing. Below this they stack instead.
+ */
+@media (max-width: 1200px) {
+    .columns { flex-direction: column; }
+    .category, .categoryWide { flex: 1 1 auto; }
+}
+
 .sec {
     border: 1px solid var(--line);
     border-radius: var(--r);
