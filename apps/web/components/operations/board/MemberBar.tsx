@@ -21,13 +21,17 @@ interface Props {
 }
 
 /**
- * The viewer's own controls — where they stand and how to change it.
+ * The viewer's own controls: are you coming, and where do you want to be.
  *
- * Kept as one bar above the board rather than scattered through it because a
- * member has exactly one position and needs to find it without scanning
- * seventy rows. Claiming happens on the rows themselves, since that is
- * inherently a choice about a specific position; everything else about *your*
- * status belongs here.
+ * Answering the RSVP is the single most common action anyone takes on this
+ * board and the one most people will only ever do once, so it is two large
+ * mutually-exclusive buttons that show which one is currently true — not a
+ * link among links. It began as small neutral buttons beside everything else,
+ * which buried the one decision the whole window exists to collect.
+ *
+ * Attending and choosing a position stay separate. Saying you will be there is
+ * not a statement about which slot you want, and a member who already holds one
+ * should not have it moved out from under them for confirming they are coming.
  *
  * Once RSVP closes the bar stops offering anything and says why. The route
  * rejects these actions after the window regardless — this is the courtesy
@@ -45,43 +49,60 @@ export default function MemberBar({ me, mySlot, sections, roles, rsvpOpen, busy,
     const preferredSection = me?.preferredSection ?? null
     const preferredRole = me?.preferredRole ?? null
 
-    const select = {
-        background: 'var(--s1)',
-        border: '1px solid var(--line-2)',
-        borderRadius: 'var(--r)',
-        color: 'var(--ink)',
-        fontFamily: 'var(--mono)',
-        fontSize: 10,
-        padding: '4px 7px',
-        outline: 'none',
-        maxWidth: 170,
-    } as const
-
     if (!rsvpOpen) {
         return (
-            <div className={s.banner}>
+            <div className={s.memberBar}>
                 <span className={s.pill}>Your position</span>
-                <span>
+                <span className={s.memberStatus}>
                     {mySlot
-                        ? <><b>{mySlot.sectionTitle} · {mySlot.role}</b>. RSVP has closed — ask a staff member to change it.</>
-                        : <>You have no position for this operation. RSVP has closed — ask a staff member to add you.</>}
+                        ? <><b>{mySlot.sectionTitle} · {mySlot.role}</b> — RSVP has closed, so ask a staff member to change it.</>
+                        : rsvp === 'not_attending'
+                            ? <>You marked yourself <b>not attending</b>. RSVP has closed.</>
+                            : <>You have no position for this operation, and RSVP has closed. Ask a staff member to add you.</>}
                 </span>
             </div>
         )
     }
 
     return (
-        <div className={s.banner} style={{ background: 'var(--s1)' }}>
-            <span className={s.pill}>Your position</span>
+        <div className={s.memberBar}>
+            <div className={s.rsvpGroup} role='group' aria-label='Your RSVP'>
+                <button
+                    type='button'
+                    disabled={busy}
+                    aria-pressed={rsvp === 'attending'}
+                    className={`${s.rsvpBtn} ${rsvp === 'attending' ? s.rsvpYesOn : ''}`}
+                    onClick={() => run({ action: 'attend' })}
+                >
+                    <svg width='11' height='11' viewBox='0 0 12 12' fill='none' aria-hidden>
+                        <path d='M2 6l3 3 5-5' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round' />
+                    </svg>
+                    Attending
+                </button>
+                <button
+                    type='button'
+                    disabled={busy}
+                    aria-pressed={rsvp === 'not_attending'}
+                    className={`${s.rsvpBtn} ${rsvp === 'not_attending' ? s.rsvpNoOn : ''}`}
+                    onClick={() => run({ action: 'decline' })}
+                >
+                    <svg width='11' height='11' viewBox='0 0 12 12' fill='none' aria-hidden>
+                        <path d='M3 3l6 6M9 3l-6 6' stroke='currentColor' strokeWidth='2' strokeLinecap='round' />
+                    </svg>
+                    Not attending
+                </button>
+            </div>
 
-            <span style={{ marginRight: 'auto' }}>
-                {mySlot
-                    ? <><b>{mySlot.sectionTitle} · {mySlot.role}</b></>
-                    : preferredSection || preferredRole
-                        ? <>In the pool — prefers <b>{preferredRole || preferredSection}</b></>
-                        : rsvp === 'attending'
-                            ? <>In the pool, no preference</>
-                            : <>Not responded. Claim a position below, or join the pool.</>}
+            <span className={s.memberStatus}>
+                {rsvp === 'not_attending'
+                    ? <>You are not down for this operation.</>
+                    : mySlot
+                        ? <>You are in <b>{mySlot.sectionTitle} · {mySlot.role}</b></>
+                        : preferredSection || preferredRole
+                            ? <>In the pool, hoping for <b>{[preferredRole, preferredSection].filter(Boolean).join(' in ')}</b></>
+                            : rsvp === 'attending'
+                                ? <>In the pool — claim a position below, or wait to be placed.</>
+                                : <>Not answered yet. Claim a position below, or use the buttons.</>}
             </span>
 
             {mySlot && (
@@ -90,19 +111,26 @@ export default function MemberBar({ me, mySlot, sections, roles, rsvpOpen, busy,
                 </button>
             )}
 
-            {!picking && (
-                <button type='button' className={s.btn} disabled={busy} onClick={() => setPicking(true)}>
-                    {mySlot ? 'Move to pool instead' : 'Set a preference'}
+            {!picking ? (
+                <button
+                    type='button'
+                    className={`${s.btn} ${s.btnPrimary} ${s.prefBtn}`}
+                    disabled={busy}
+                    onClick={() => {
+                        setSection(preferredSection ?? '')
+                        setRole(preferredRole ?? '')
+                        setPicking(true)
+                    }}
+                >
+                    {preferredSection || preferredRole ? 'Change preference' : 'Set a preference'}
                 </button>
-            )}
-
-            {picking && (
-                <>
-                    <select style={select} value={section} onChange={e => setSection(e.target.value)}>
+            ) : (
+                <div className={s.prefPicker}>
+                    <select className={s.prefSelect} value={section} onChange={e => setSection(e.target.value)}>
                         <option value=''>Any section</option>
                         {sections.map(x => <option key={x} value={x}>{x}</option>)}
                     </select>
-                    <select style={select} value={role} onChange={e => setRole(e.target.value)}>
+                    <select className={s.prefSelect} value={role} onChange={e => setRole(e.target.value)}>
                         <option value=''>Any role</option>
                         {roles.map(x => <option key={x} value={x}>{x}</option>)}
                     </select>
@@ -118,9 +146,9 @@ export default function MemberBar({ me, mySlot, sections, roles, rsvpOpen, busy,
                                 preferredRole: role || null,
                             })
                         }}
-                    >Join pool</button>
+                    >Save</button>
                     <button type='button' className={s.btn} onClick={() => setPicking(false)}>Cancel</button>
-                </>
+                </div>
             )}
         </div>
     )

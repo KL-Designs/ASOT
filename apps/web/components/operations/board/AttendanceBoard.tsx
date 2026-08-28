@@ -52,6 +52,33 @@ const COLUMN_CATEGORIES = ['platoon11', 'platoon12', 'support']
  */
 const WIDE_CATEGORIES = ['support']
 
+/**
+ * Split sections across `count` columns so the columns come out roughly level.
+ *
+ * A CSS grid cannot do this: its rows align, so a fourteen-row section beside an
+ * eight-row one pins the short one's neighbour a whole card lower and leaves the
+ * gap you can see under it. Packing by content instead means each column is
+ * filled to its own depth.
+ *
+ * Greedy, in ORBAT order — each section joins whichever column is currently
+ * shortest — so sections keep their relative order within a column instead of
+ * being sorted into an order nobody recognises. Position count stands in for
+ * height, which it is: every row is the same height.
+ */
+function balanceColumns<T>(items: { item: T; weight: number }[], count: number): T[][] {
+    const columns: T[][] = Array.from({ length: count }, () => [])
+    const heights = new Array(count).fill(0)
+
+    for (const { item, weight } of items) {
+        let shortest = 0
+        for (let i = 1; i < count; i++) if (heights[i] < heights[shortest]) shortest = i
+        columns[shortest].push(item)
+        // The card's own header costs a row's worth on top of its positions.
+        heights[shortest] += weight + 2
+    }
+    return columns
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
     companyHQ: 'India 1-0 HQ',
     platoon11: 'India 1-1 Platoon',
@@ -304,19 +331,41 @@ export default function AttendanceBoard({
         if (!sections) return null
         const catSlots = [...sections.values()].flat()
         const filled = catSlots.filter(x => x.state === 'held' || x.state === 'backfilled').length
+        const wide = WIDE_CATEGORIES.includes(category)
 
         return (
-            <div
-                key={category}
-                className={`${s.category} ${WIDE_CATEGORIES.includes(category) ? s.categoryWide : ''}`}
-            >
+            <div key={category} className={`${s.category} ${wide ? s.categoryWide : ''}`}>
                 <div className={s.catHead}>
                     <h4>{CATEGORY_LABELS[category] ?? category}</h4>
                     <em>{filled} / {catSlots.length} filled</em>
                 </div>
 
-                <div className={s.stack}>
-                    {[...sections.entries()].map(([title, secSlots]) => (
+                {wide ? (
+                    <div className={s.split}>
+                        {balanceColumns(
+                            [...sections.entries()].map(([title, secSlots]) => ({
+                                item: [title, secSlots] as const,
+                                weight: secSlots.length,
+                            })),
+                            2,
+                        ).map((column, i) => (
+                            <div key={i} className={s.stack}>
+                                {column.map(([title, secSlots]) => card(category, title, secSlots))}
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className={s.stack}>
+                        {[...sections.entries()].map(([title, secSlots]) => card(category, title, secSlots))}
+                    </div>
+                )}
+            </div>
+        )
+    }
+
+    /** One section card. Shared by the stacked and split layouts. */
+    function card(category: string, title: string, secSlots: SlotView[]) {
+        return (
                         <SectionCard
                             key={title}
                             title={title}
@@ -340,9 +389,6 @@ export default function AttendanceBoard({
                                 roleId,
                             })}
                         />
-                    ))}
-                </div>
-            </div>
         )
     }
 

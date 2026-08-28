@@ -101,6 +101,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const recordOps: Record<string, unknown> = {}
 
         switch (body.action) {
+            case 'attend': {
+                // Deliberately does not move anyone. Answering "yes" is not a
+                // statement about which position you want, and silently
+                // relocating someone who already has one would be a surprise.
+                recordOps.rsvp = 'attending'
+                break
+            }
+
+            case 'decline': {
+                const mine = roster.find(x => x.occupantUserId === me.id)
+                if (mine) roster = assignSlot(roster, mine.id, null)
+                recordOps.rsvp = 'not_attending'
+                recordOps.preferredSection = null
+                recordOps.preferredRole = null
+                break
+            }
+
             case 'claim': {
                 const slot = viewRoster(roster, ctx).find(s => s.id === body.slotId)
                 if (!slot) return NextResponse.json({ error: 'No such position' }, { status: 404 })

@@ -43,6 +43,10 @@ Nothing to show yet." Nothing is back-filled. Say if you want them migrated.
 
 Use a second account or a private window.
 
+- [ ] **Attending / Not attending** are two large buttons at the top, and the one
+      that is currently true is filled in (green / red), not just outlined.
+- [ ] Marking **Attending** while already holding a position must **not** move you.
+- [ ] Marking **Not attending** gives up your position and reopens it.
 - [ ] Claim an open position — you land in it and your RSVP flips to attending.
 - [ ] Leave it — you return to the pool and the position reopens.
 - [ ] "Set a preference" → pick a section and/or role → you sit in the pool
@@ -114,6 +118,8 @@ Use a second account or a private window.
 - [ ] Fighting platoons run as **columns** with sections stacked inside them.
 - [ ] **1-3 Support gets a double-width column** with its sections in two columns.
       With only 1-1 and 1-3 assigned that should read as roughly one third / two thirds.
+- [ ] 1-3's two inner columns are packed by content, not aligned as grid rows —
+      a 14-row section beside an 8-row one must not leave a card-height gap.
 - [ ] Platoon columns do **not** stretch to match each other — a four-row platoon HQ
       must not be inflated to the height of a fourteen-row engineer section.
 - [ ] Categories cannot be collapsed. There is no chevron and no toggle.

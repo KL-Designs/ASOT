@@ -9,6 +9,18 @@
 
 /** Actions a member may perform on themselves, while RSVP is open. */
 export type MemberAction =
+    /**
+     * "I'm coming." Answers the RSVP without touching where you stand: a member
+     * already holding a position keeps it, one who is not lands in the pool for
+     * staff to place. Separate from `claim` because saying you will be there is
+     * a different decision from choosing where.
+     */
+    | { action: 'attend' }
+    /**
+     * "I'm not coming." Answers the RSVP and gives up any position held, so it
+     * reopens for somebody else rather than sitting reserved all window.
+     */
+    | { action: 'decline' }
     /** Take a specific open position. Binding, first come first served. */
     | { action: 'claim'; slotId: string }
     /** Step out of whatever position you hold, back into the pool. */
@@ -52,7 +64,7 @@ export type StaffAction =
 
 export type BoardAction = MemberAction | StaffAction
 
-export const MEMBER_ACTIONS = ['claim', 'leave', 'prefer'] as const
+export const MEMBER_ACTIONS = ['attend', 'decline', 'claim', 'leave', 'prefer'] as const
 
 export function isMemberAction(action: BoardAction): action is MemberAction {
     return (MEMBER_ACTIONS as readonly string[]).includes(action.action)

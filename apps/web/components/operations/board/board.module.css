@@ -333,11 +333,22 @@
  * thirds; adding 1-2 splits the left third and leaves 1-3 alone.
  */
 .categoryWide { flex: 2 1 0; }
-.categoryWide .stack {
+
+/*
+ * Two independent columns, not a two-column grid.
+ *
+ * A grid aligns its rows, so a fourteen-row section beside an eight-row one
+ * pins whatever follows the short one a whole card lower and leaves a gap the
+ * height of the difference. These columns are packed by content instead (see
+ * `balanceColumns`), so each one fills to its own depth and the wasted band
+ * disappears.
+ */
+.split {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-content: start;
+    gap: 10px;
     align-items: start;
+    flex: 1;
 }
 
 /* Sections within a category stack; the column is what runs horizontally. */
@@ -350,7 +361,7 @@
 
 /* Below this the two-column split inside 1-3 costs more than it gains. */
 @media (max-width: 1500px) {
-    .categoryWide .stack { grid-template-columns: minmax(0, 1fr); }
+    .split { grid-template-columns: minmax(0, 1fr); }
 }
 
 /*
@@ -879,3 +890,96 @@
     flex-shrink: 0;
 }
 .legendKey b { color: var(--ink-2); font-weight: 500; }
+
+/* ── The viewer's own bar ─────────────────────────────────────────────────── */
+
+/*
+ * Given more room than the other bars on purpose. Answering the RSVP is the one
+ * action the whole window exists to collect, and most members will do it once
+ * and never touch the board again — so it gets weight rather than sitting as
+ * another small neutral button in a row of them.
+ */
+.memberBar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px var(--board-gutter, 16px);
+    background: var(--s1);
+    border-bottom: 1px solid var(--line);
+}
+
+.memberStatus {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    line-height: 1.5;
+    color: var(--ink-3);
+    margin-right: auto;
+}
+.memberStatus b { color: var(--ink); font-weight: 500; }
+
+/* Two mutually-exclusive answers, so they read as one control. */
+.rsvpGroup {
+    display: inline-flex;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.rsvpBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 14px;
+    border: none;
+    background: var(--s2);
+    color: var(--ink-3);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: background 140ms ease, color 140ms ease;
+}
+.rsvpBtn + .rsvpBtn { border-left: 1px solid var(--line-2); }
+.rsvpBtn svg { opacity: 0.45; }
+.rsvpBtn:hover:not(:disabled) { color: var(--ink); background: var(--s3); }
+.rsvpBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* The chosen answer is filled, not merely outlined — at a glance, across a room. */
+.rsvpYesOn, .rsvpYesOn:hover:not(:disabled) {
+    background: rgba(127, 174, 92, 0.18);
+    color: var(--good);
+    box-shadow: inset 0 0 0 1px rgba(127, 174, 92, 0.45);
+}
+.rsvpNoOn, .rsvpNoOn:hover:not(:disabled) {
+    background: rgba(192, 90, 72, 0.18);
+    color: var(--crit);
+    box-shadow: inset 0 0 0 1px rgba(192, 90, 72, 0.45);
+}
+.rsvpYesOn svg, .rsvpNoOn svg { opacity: 1; }
+
+/* Bigger than the toolbar buttons it sits beside — it is a real choice, not a tweak. */
+.prefBtn {
+    padding: 8px 14px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+}
+
+.prefPicker { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.prefSelect {
+    background: var(--s2);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    padding: 7px 8px;
+    outline: none;
+    max-width: 190px;
+}
+.prefSelect:focus { border-color: rgba(var(--acc-rgb), 0.5); }
+
+@media (prefers-reduced-motion: reduce) {
+    .rsvpBtn { transition: none; }
+}
