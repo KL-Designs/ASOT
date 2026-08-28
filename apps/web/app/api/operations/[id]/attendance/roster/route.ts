@@ -8,6 +8,7 @@ import { assignSlot, autoFill, derivePool, viewRoster, type RosterSlot } from '@
 import { logAction } from '@/lib/logAction'
 import { isMemberAction, type BoardAction } from '@/lib/attendance/actions'
 import { roleAllowedIn } from '@/lib/orbat/roleScope'
+import { buildRosterForOperation } from '@/lib/attendance/snapshot'
 
 /**
  * Every write to the live attendance board.
@@ -71,7 +72,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         const att = await Db.operationAttendance.findOne({ operationId })
         if (!att) return NextResponse.json({ error: 'No attendance for this operation' }, { status: 404 })
-        if (!att.roster?.length) {
+        // Every action but one operates on an existing roster. `resnapshot`
+        // creates one, so it is also the way to cut a board for an operation
+        // whose RSVP opened before rosters existed.
+        if (!att.roster?.length && body.action !== 'resnapshot') {
             return NextResponse.json({ error: 'The roster has not been cut yet' }, { status: 409 })
         }
 
@@ -93,7 +97,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             rsvpClosed,
         }
 
-        let roster: RosterSlot[] = att.roster
+        let roster: RosterSlot[] = att.roster ?? []
         const recordOps: Record<string, unknown> = {}
 
         switch (body.action) {
@@ -196,6 +200,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 break
             }
 
+            case 'resnapshot': {
+                // A clean re-cut, not a merge. Everyone attending falls back
+                // into the pool, and ORBAT holders are pencilled into their own
+                // positions again — which is the state the board would have had
+                // if RSVP had opened now.
+                roster = await buildRosterForOperation(att.assignedPlatoons ?? [])
+                if (roster.length === 0) {
+                    return NextResponse.json(
+                        { error: 'No ORBAT positions for the assigned units — nothing to snapshot.' },
+                        { status: 400 },
+                    )
+                }
+                break
+            }
+
             default:
                 return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
         }
@@ -215,7 +234,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                     ? { $or: [{ rosterRev: 0 }, { rosterRev: { $exists: false } }] }
                     : { rosterRev: rev }),
             } as Parameters<typeof Db.operationAttendance.updateOne>[0],
-            { $set: { roster }, $inc: { rosterRev: 1 } },
+            {
+                $set: { roster, ...(body.action === 'resnapshot' ? { rosterTakenAt: new Date() } : {}) },
+                $inc: { rosterRev: 1 },
+            },
         )
         if (result.modifiedCount === 0) continue
 

@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from 'react'
 import TabPanel from './TabPanel'
 import AttendanceBoard from '@/components/operations/board/AttendanceBoard'
+import ConfirmDialog from '@/components/confirm-dialog'
 
 interface AckEntry { userId: string; userName: string; acknowledgedAt: string }
 
@@ -89,6 +90,35 @@ export default function AttendanceTab({
     const [name, setName] = useState('')
     const [color, setColor] = useState('#6366f1')
 
+    // Re-snapshot: the escape hatch for a roster that no longer matches the
+    // units below it. Destructive, so it is confirmed rather than instant, and
+    // the board is told to reload because a write made from here does not bump
+    // the revision its live channel watches.
+    const [resetOpen, setResetOpen] = useState(false)
+    const [resetting, setResetting] = useState(false)
+    const [resetError, setResetError] = useState<string | null>(null)
+    const [boardReloadKey, setBoardReloadKey] = useState(0)
+
+    async function resetBoard() {
+        setResetting(true)
+        setResetError(null)
+        try {
+            const res = await fetch(`/api/operations/${opID}/attendance/roster`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'resnapshot' }),
+            })
+            const json = await res.json().catch(() => ({}))
+            if (!res.ok) setResetError(json.error ?? 'Could not rebuild the board.')
+            else setBoardReloadKey(k => k + 1)
+        } catch {
+            setResetError('Could not reach the server.')
+        } finally {
+            setResetting(false)
+            setResetOpen(false)
+        }
+    }
+
     function submitAdd() {
         if (!name.trim()) return
         onAddCustomUnit(name.trim(), color || undefined)
@@ -104,24 +134,27 @@ export default function AttendanceTab({
     }
 
     return (
-        <div style={{ width: '100%', padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column' }}>
             {/*
-                The board is the tab's centre of gravity once RSVP opens, so it
-                comes first and takes the full page width — a 70-position roster
-                plus a docked pool has nothing to spare. The setup panels below
-                keep their reading measure, since they are forms.
-            */}
-            <TabPanel title='Attendance Board'>
-                <AttendanceBoard
-                    operationId={opID}
-                    operationName={operationName}
-                    operationWhen={operationWhen}
-                    myUserId={myUserId}
-                    canManage={canManageAttendance}
-                />
-            </TabPanel>
+                The board is not *in* this tab so much as it *is* it: no panel
+                frame, no title bar, no page padding. It carries its own header,
+                stat strip and toolbar, so wrapping it in a titled container put
+                chrome around chrome and cost it width a 70-position roster with
+                a docked pool rail cannot spare.
 
-            <div style={{ width: '100%', maxWidth: 1220, display: 'flex', flexDirection: 'column', gap: 20 }}>
+                The setup panels below stay in a container at a reading measure,
+                because they are forms and forms want to be narrow.
+            */}
+            <AttendanceBoard
+                operationId={opID}
+                operationName={operationName}
+                operationWhen={operationWhen}
+                myUserId={myUserId}
+                canManage={canManageAttendance}
+                reloadKey={boardReloadKey}
+            />
+
+            <div style={{ width: '100%', maxWidth: 1220, padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}>
             <TabPanel title='Assigned Units'>
                 <div style={{ padding: 16 }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -151,6 +184,45 @@ export default function AttendanceTab({
                             + Custom Unit
                         </button>
                     </div>
+
+                    {canManageAttendance && (
+                        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            <button
+                                type='button'
+                                disabled={resetting}
+                                onClick={() => { setResetError(null); setResetOpen(true) }}
+                                style={{
+                                    ...chipStyle(false),
+                                    borderColor: 'rgba(192,90,72,0.45)',
+                                    color: 'var(--crit)',
+                                    opacity: resetting ? 0.5 : 1,
+                                }}
+                            >
+                                {resetting ? 'Rebuilding…' : 'Rebuild Attendance Board'}
+                            </button>
+                            <span style={{ fontSize: '0.68rem', color: 'var(--ink-3)', lineHeight: 1.5, maxWidth: 460 }}>
+                                Takes a fresh snapshot of the ORBAT for the units above. Use it when the
+                                assigned units change after RSVP has opened — it discards every placement.
+                            </span>
+                            {resetError && (
+                                <span style={{ fontSize: '0.68rem', color: 'var(--crit)' }}>{resetError}</span>
+                            )}
+                        </div>
+                    )}
+
+                    <ConfirmDialog
+                        open={resetOpen}
+                        danger
+                        title='Rebuild the attendance board?'
+                        message={`Every position on the board will be cut fresh from the ORBAT as it stands now.
+
+All current placements are lost: members who claimed a position, anyone staff placed by hand, and every added position. Members who said they are attending return to the reservist pool.
+
+RSVP answers themselves are kept.`}
+                        confirmLabel='Rebuild'
+                        onConfirm={resetBoard}
+                        onCancel={() => setResetOpen(false)}
+                    />
 
                     {addOpen && (
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 10, maxWidth: 420 }}>

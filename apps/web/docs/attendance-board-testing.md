@@ -107,6 +107,34 @@ Use a second account or a private window.
 - [ ] "Filled" agrees everywhere: stats bar, category header, section header.
       A section where nobody has replied must not read "5 / 5 filled".
 
+## 4d. Layout
+
+- [ ] Company HQ and Game Masters sit **side by side across the top**, and their
+      cards are the **same height** as each other.
+- [ ] Fighting platoons run as **columns** with sections stacked inside them.
+- [ ] **1-3 Support gets a double-width column** with its sections in two columns.
+      With only 1-1 and 1-3 assigned that should read as roughly one third / two thirds.
+- [ ] Platoon columns do **not** stretch to match each other — a four-row platoon HQ
+      must not be inflated to the height of a fourteen-row engineer section.
+- [ ] Categories cannot be collapsed. There is no chevron and no toggle.
+- [ ] The board is **the page**: no panel frame or title bar around it, running
+      edge to edge, with the setup forms in a narrower container below.
+- [ ] The **+ add role menu is not clipped** by the section card — it should
+      overlay everything, and flip upward near the bottom of the window.
+- [ ] That menu keeps the operation's accent colour despite being portalled out
+      of the board (hover a role — the highlight should be the op's theme colour).
+
+## 4e. Rebuilding the board
+
+- [ ] Assigned Units shows a **Rebuild Attendance Board** button for staff only.
+- [ ] It confirms first, and the dialog says plainly that placements are lost.
+- [ ] After rebuilding, the board reflects the currently assigned units — add
+      1-2 Platoon, rebuild, and 1-2 should appear as a new column.
+- [ ] Placements are gone and everyone attending is back in the pool; RSVP
+      answers are **kept**.
+- [ ] Other viewers pick the rebuild up within 30s (it does not bump the live
+      revision — a known, accepted trade for a rare staff action).
+
 ## 5. Live — two browsers side by side
 
 The headline feature. Worth doing properly.

@@ -37,6 +37,18 @@ export type StaffAction =
      */
     | { action: 'addSlot'; sectionTitle: string; category: string; roleId: string }
     | { action: 'removeSlot'; slotId: string }
+    /**
+     * Throw the roster away and cut a fresh one from the ORBAT as it stands
+     * now. Destructive: every placement made since the last cut is lost.
+     *
+     * The escape hatch for a roster that no longer matches reality — assigned
+     * platoons changed after RSVP opened, or the ORBAT was restructured
+     * mid-cycle. It is not a merge: reconciling a live board against a changed
+     * ORBAT position-by-position is a different, much subtler operation, and
+     * pretending a reset is one would lose placements silently instead of
+     * loudly.
+     */
+    | { action: 'resnapshot' }
 
 export type BoardAction = MemberAction | StaffAction
 

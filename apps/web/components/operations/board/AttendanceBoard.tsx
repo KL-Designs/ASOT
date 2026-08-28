@@ -24,7 +24,33 @@ interface Props {
     operationWhen: string
     myUserId: string | null
     canManage: boolean
+    /**
+     * Bumped by an outside control that changed the roster (the Assigned Units
+     * panel's re-snapshot). The board reloads rather than waiting on its poll.
+     */
+    reloadKey?: number
 }
+
+/**
+ * The board's shape, which mirrors the unit's rather than the data's.
+ *
+ * Command elements sit across the top because they are small, fixed and shared;
+ * the fighting platoons run as columns beneath because that is how they are
+ * read — down a platoon, not across all of them. Laying every category out as a
+ * full-width band instead put 1-1 Alpha beside 1-1 Bravo beside 1-1 Charlie and
+ * pushed 1-2 an entire screen down, which is the opposite of how anyone looks
+ * for a section.
+ */
+const TOP_CATEGORIES = ['companyHQ', 'gamemaster']
+const COLUMN_CATEGORIES = ['platoon11', 'platoon12', 'support']
+
+/**
+ * Categories that earn a double-width column with their sections in two.
+ * 1-3 Support is six sections and sixty-odd positions against an infantry
+ * platoon's four and twenty-eight — an equal split cramps it and wastes the
+ * space next to the others.
+ */
+const WIDE_CATEGORIES = ['support']
 
 const CATEGORY_LABELS: Record<string, string> = {
     companyHQ: 'India 1-0 HQ',
@@ -37,12 +63,11 @@ const CATEGORY_LABELS: Record<string, string> = {
 interface MenuState { slotId: string; x: number; y: number }
 
 export default function AttendanceBoard({
-    operationId, operationName, operationWhen, myUserId, canManage,
+    operationId, operationName, operationWhen, myUserId, canManage, reloadKey = 0,
 }: Props) {
-    const { data, loading, connected, peers, fromPeer, error, act } = useAttendanceBoard(operationId)
+    const { data, loading, connected, peers, fromPeer, error, act, reload } = useAttendanceBoard(operationId)
     const reduced = useReducedMotion()
 
-    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
     const [menu, setMenu] = useState<MenuState | null>(null)
     const [dragging, setDragging] = useState<string | null>(null)
     const [notice, setNotice] = useState<string | null>(null)
@@ -64,6 +89,16 @@ export default function AttendanceBoard({
             .then(d => { if (Array.isArray(d.roles)) setRoles(d.roles) })
             .catch(() => {})
     }, [operationId, canManage])
+
+    // A roster change made outside this component does not bump the Y.js
+    // revision — only `act` does — so it is reloaded explicitly here. Other
+    // viewers pick it up on their 30s poll, which is the right trade for an
+    // action taken a handful of times per operation.
+    const firstReload = useRef(true)
+    useEffect(() => {
+        if (firstReload.current) { firstReload.current = false; return }
+        reload()
+    }, [reloadKey])   // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── Derivation ────────────────────────────────────────────────────────────
 
@@ -127,19 +162,14 @@ export default function AttendanceBoard({
         return { filled, awaiting, open, total: slots.length }
     }, [slots])
 
-    // Collapse everything except the category the viewer is in — a full ORBAT
-    // is ~70 positions and does not fit on a screen. Runs once per operation.
-    const initialised = useRef(false)
-    useEffect(() => {
-        if (initialised.current || !data || slots.length === 0) return
-        initialised.current = true
-        const mine = myUserId
-            ? slots.find(x => x.occupantUserId === myUserId || x.homeUserId === myUserId)?.category
-            : undefined
-        const next: Record<string, boolean> = {}
-        for (const cat of grouped.keys()) next[cat] = mine ? cat !== mine : false
-        setCollapsed(next)
-    }, [data, slots, grouped, myUserId])
+    // Split the categories into the two rows the board is built from. Anything
+    // unrecognised (a category added to the ORBAT later) becomes another column
+    // rather than disappearing.
+    const topCats = TOP_CATEGORIES.filter(c => grouped.has(c))
+    const columnCats = [
+        ...COLUMN_CATEGORIES.filter(c => grouped.has(c)),
+        ...[...grouped.keys()].filter(c => !TOP_CATEGORIES.includes(c) && !COLUMN_CATEGORIES.includes(c)),
+    ]
 
     // ── Animating other people's changes ──────────────────────────────────────
     //
@@ -263,10 +293,63 @@ export default function AttendanceBoard({
 
     const menuSlot = menu ? slots.find(x => x.id === menu.slotId) : null
 
+    /**
+     * A category and its sections, stacked. The same block serves the top row
+     * and the platoon columns — only the grid around it differs, which is what
+     * keeps the two rows visually identical rather than two similar layouts
+     * that drift apart.
+     */
+    function renderCategory(category: string) {
+        const sections = grouped.get(category)
+        if (!sections) return null
+        const catSlots = [...sections.values()].flat()
+        const filled = catSlots.filter(x => x.state === 'held' || x.state === 'backfilled').length
+
+        return (
+            <div
+                key={category}
+                className={`${s.category} ${WIDE_CATEGORIES.includes(category) ? s.categoryWide : ''}`}
+            >
+                <div className={s.catHead}>
+                    <h4>{CATEGORY_LABELS[category] ?? category}</h4>
+                    <em>{filled} / {catSlots.length} filled</em>
+                </div>
+
+                <div className={s.stack}>
+                    {[...sections.entries()].map(([title, secSlots]) => (
+                        <SectionCard
+                            key={title}
+                            title={title}
+                            category={category}
+                            color={sectionColor(category)}
+                            slots={secSlots}
+                            members={data!.members}
+                            nameOf={nameOf}
+                            myUserId={myUserId}
+                            canManage={canManage}
+                            canClaim={rsvpOpen && !!myUserId}
+                            onClaim={slotId => run({ action: 'claim', slotId })}
+                            onMenu={openMenu}
+                            pinged={pinged}
+                            roles={roles}
+                            busy={busy}
+                            onAddRole={roleId => run({
+                                action: 'addSlot',
+                                sectionTitle: title,
+                                category,
+                                roleId,
+                            })}
+                        />
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
     return (
         <MotionConfig reducedMotion={reduced ? 'always' : 'never'}>
         <LayoutGroup>
-            <div>
+            <div className={s.root}>
                 {/* Header */}
                 <div className={s.top}>
                     <div className={s.opName}>
@@ -361,56 +444,17 @@ export default function AttendanceBoard({
                 >
                     <div className={s.board}>
                         <div className={s.sections}>
-                            {[...grouped.entries()].map(([category, sections]) => {
-                                const catSlots = [...sections.values()].flat()
-                                const filled = catSlots.filter(
-                                    x => x.state === 'held' || x.state === 'backfilled').length
-                                const isCollapsed = collapsed[category]
-                                return (
-                                    <div key={category}>
-                                        <button
-                                            type='button'
-                                            className={s.catHead}
-                                            aria-expanded={!isCollapsed}
-                                            onClick={() => setCollapsed(p => ({ ...p, [category]: !p[category] }))}
-                                        >
-                                            <span className={`${s.chevron} ${isCollapsed ? '' : s.chevronOpen}`}>▸</span>
-                                            <h4>{CATEGORY_LABELS[category] ?? category}</h4>
-                                            <em>{filled} / {catSlots.length} filled</em>
-                                        </button>
+                            {topCats.length > 0 && (
+                                <div className={s.topRow}>
+                                    {topCats.map(category => renderCategory(category))}
+                                </div>
+                            )}
 
-                                        {!isCollapsed && (
-                                            <div className={s.grid}>
-                                                {[...sections.entries()].map(([title, secSlots]) => (
-                                                    <SectionCard
-                                                        key={title}
-                                                        title={title}
-                                                        category={category}
-                                                        color={sectionColor(category)}
-                                                        slots={secSlots}
-                                                        members={data.members}
-                                                        nameOf={nameOf}
-                                                        myUserId={myUserId}
-                                                        canManage={canManage}
-                                                        canClaim={rsvpOpen && !!myUserId}
-                                                        onClaim={slotId => run({ action: 'claim', slotId })}
-                                                        onMenu={openMenu}
-                                                        pinged={pinged}
-                                                        roles={roles}
-                                                        busy={busy}
-                                                        onAddRole={roleId => run({
-                                                            action: 'addSlot',
-                                                            sectionTitle: title,
-                                                            category,
-                                                            roleId,
-                                                        })}
-                                                    />
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                )
-                            })}
+                            {columnCats.length > 0 && (
+                                <div className={s.columns}>
+                                    {columnCats.map(category => renderCategory(category))}
+                                </div>
+                            )}
                         </div>
 
                         <PoolRail

@@ -18,25 +18,12 @@ import {
  */
 
 /**
- * Cut the roster for an operation, once.
- *
- * Called from every path that moves an operation into `rsvp_open` — the cron,
- * the editor's own ticker, and a manual Advance — so it must be safe to call
- * repeatedly. The guard is the write itself: the update only matches documents
- * that have no roster yet, so a second caller changes nothing rather than
- * replacing a roster people are already standing in.
- *
- * Returns the roster if this call created it, and null if there already was
- * one. Callers use that to decide whether anything is worth broadcasting.
+ * Build the roster an operation *would* have if cut right now, without writing
+ * it. Shared by the automatic cut at RSVP open and the deliberate re-take, so
+ * the two can never disagree about what a roster is made of.
  */
-export async function ensureRosterSnapshot(operationId: ObjectId): Promise<RosterSlot[] | null> {
-    const existing = await Db.operationAttendance.findOne(
-        { operationId },
-        { projection: { roster: 1, assignedPlatoons: 1 } },
-    )
-    if (existing?.roster?.length) return null
-
-    const categories = snapshotCategories(existing?.assignedPlatoons ?? [])
+export async function buildRosterForOperation(assignedPlatoons: string[]): Promise<RosterSlot[]> {
+    const categories = snapshotCategories(assignedPlatoons)
     const positions = await Db.orbatPositions.find({ category: { $in: categories } }).toArray()
 
     // `roleId` is an ObjectId on the position and a string on the slot: the
@@ -53,7 +40,32 @@ export async function ensureRosterSnapshot(operationId: ObjectId): Promise<Roste
         positionOrder: p.positionOrder,
     }))
 
-    const roster = buildRoster(orderPositions(snapshot, categories))
+    return buildRoster(orderPositions(snapshot, categories))
+}
+
+/**
+ * Cut the roster for an operation, once.
+ *
+ * Called from every path that moves an operation into `rsvp_open` — the cron,
+ * the editor's own ticker, and a manual Advance — so it must be safe to call
+ * repeatedly. The guard is the write itself: the update only matches documents
+ * that have no roster yet, so a second caller changes nothing rather than
+ * replacing a roster people are already standing in.
+ *
+ * Returns the roster if this call created it, and null if there already was
+ * one. Callers use that to decide whether anything is worth broadcasting.
+ *
+ * Deliberately re-cutting an existing roster is a separate, destructive
+ * operation — see the `resnapshot` action in the roster route.
+ */
+export async function ensureRosterSnapshot(operationId: ObjectId): Promise<RosterSlot[] | null> {
+    const existing = await Db.operationAttendance.findOne(
+        { operationId },
+        { projection: { roster: 1, assignedPlatoons: 1 } },
+    )
+    if (existing?.roster?.length) return null
+
+    const roster = await buildRosterForOperation(existing?.assignedPlatoons ?? [])
 
     const result = await Db.operationAttendance.updateOne(
         { operationId, $or: [{ roster: { $exists: false } }, { roster: { $size: 0 } }] },
