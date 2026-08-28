@@ -697,16 +697,33 @@ beside twelve month buttons). Two halves with different jobs:
 Sets dynamic `<Metadata>`/`<Viewport>` (theme colour) from `Db.operations` for the given id.
 
 #### Operation URL structure
-The four editor views are **sibling paths under the operation**, not children of `/edit`:
-`/operations/[id]` (public orders) · `/operations/[id]/edit` (Brief) · `/map` · `/schedule` ·
-`/attendance`. They are four views of one operation, and nesting three of them a level below
-the fourth read as if Brief were the operation and the rest were sub-pages of the editor.
+The operation's four views are **sibling paths under it**: `/operations/[id]` (**Orders** — the
+page anybody can read) · `/map` · `/schedule` · `/attendance`. `/operations/[id]/edit` is
+deliberately **not** a fifth view: it is the editor opened *on* the Orders view, reached only from
+a ribbon under the Orders tab and only by people who can use it. `/edit` therefore lights the
+Orders tab — same view, opened for writing rather than reading.
 
-**Switching tabs never navigates.** `useEditorTab` (`edit/EditorShell.tsx`) rewrites the URL with
-`replaceState`, because a real navigation would tear down the Hocuspocus socket and force the
-Y.Doc to reconnect on every tab switch. The route files exist purely to answer a cold load or a
-refresh. The legacy `?tab=` form is still read, then normalised away into the path form so the
-two can never both linger in one URL.
+The model lives in **`app/operations/[id]/tabs.ts`** (a plain module, so the public server page and
+the editor's client header can both read it) and the strip itself in **`OperationTabs.tsx`**, shared
+by both. The tab key is `orders`, not `brief`: "Brief" was the editor's name for its own first tab
+and nobody outside the editor used it. `?tab=brief` and `?tab=development` are aliased for the
+bookmarks already out there.
+
+**Who sees which tab:** Orders and Map are for everyone (both have public routes); Schedule and
+Attendance appear only with `pages.operationsEdit`, since their own pages redirect anyone else away
+and offering a door that closes in your face is worse than not offering it.
+
+**Switching between the in-shell tabs never navigates.** `useEditorTab` (`edit/EditorShell.tsx`)
+rewrites the URL with `replaceState`, because a real navigation would tear down the Hocuspocus
+socket and force the Y.Doc to reconnect. **Orders is the exception and navigates for real** — it
+leaves the editor for the operation's own page, and the socket goes with it. `onSwitch` returns
+whether it handled the change, which is how one strip serves both cases; the tabs are links rather
+than buttons so that middle-click and open-in-new-tab work, which the buttons had quietly removed.
+
+**`OperationBar.tsx`** is the slim bar over the public orders page: back link, title, status pill
+and the same strip. Deliberately *not* the editor's header — no save state, no Publish, no delete
+menu. Those belong to somebody who has opened the editor, and putting them on a page every member
+can read would be showing controls that either do nothing or should not be there.
 
 `/operations/[id]/map` serves **both audiences from one path**: the editor's Map tab to anyone
 with `pages.operationsEdit`, and the read-only fullscreen viewer to everyone else. Splitting it
@@ -811,8 +828,10 @@ delete confirmation, and embeds the TipTap collaborative `<OperationEditor
 documentId={opID}/>` (dynamic import of `@/components/editor/CollabEditor`) for the actual orders
 content. Also toggles a right-hand `<ActivityLog/>` panel and a live `<iframe>` preview pane.
 
-Composed via `edit/EditorShell.tsx` as four tabs (Brief / Map / Schedule / Attendance — the
-last `isHQ`-only) plus a right-hand mission deck (`edit/deck/`: CountdownStrip, DetailsCard —
+Composed via `edit/EditorShell.tsx` as the operation's four views (Orders / Map / Schedule /
+Attendance — the last two `isHQ`-only), where Orders is the collaborative editor mounted on
+`/edit` and the tab itself points at the public page; see "Operation URL structure" above. Plus a
+right-hand mission deck (`edit/deck/`: CountdownStrip, DetailsCard —
 the latter no longer carries the lifecycle Status selector, see the Schedule tab below).
 **All attendance controls live in the Attendance tab** (`edit/tabs/AttendanceTab.tsx`):
 assigned units + custom units, the Discord ping toggle and its per-role targets, and the

@@ -5,67 +5,46 @@ import { rgbTriplet } from '@/lib/colour'
 import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
 import styles from './shell.module.css'
 
-export type EditorTab = 'brief' | 'map' | 'schedule' | 'attendance'
+export type { OperationTab as EditorTab } from '../tabs'
+export { TABS, TAB_LABELS } from '../tabs'
 
-/** Also used by Header.tsx, which renders the tab links inline in the merged
- * header row — see that file for why the row owns them instead of this one. */
-export const TABS: readonly EditorTab[] = ['brief', 'map', 'schedule', 'attendance']
-
-export const TAB_LABELS: Record<EditorTab, string> = {
-    brief: 'Brief',
-    map: 'Map',
-    schedule: 'Schedule',
-    attendance: 'Attendance',
-}
-
-/** Tab values that used to be valid and still appear in saved links.
- * Without this an old `development` bookmark silently resolves to `brief`,
- * since an unrecognised value already falls back there. */
-const LEGACY_TAB_ALIASES: Record<string, EditorTab> = { development: 'schedule' }
-
-function resolveTab(raw: string): EditorTab | null {
-    if (raw in LEGACY_TAB_ALIASES) return LEGACY_TAB_ALIASES[raw]
-    return (TABS as readonly string[]).includes(raw) ? (raw as EditorTab) : null
-}
+import { resolveTab, tabFromSegment, visibleTabs, type OperationTab } from '../tabs'
 
 /** The last path segment, which is what names the tab. */
 function currentSegment(): string {
     return window.location.pathname.replace(/\/+$/, '').split('/').pop() ?? ''
 }
 
-/**
- * Where a tab lives.
- *
- * The four tabs are siblings under the operation — `/operations/{id}/edit`,
- * `/map`, `/schedule`, `/attendance` — rather than children of `/edit`. They are
- * four views of one operation, and nesting three of them a level below the
- * fourth read as if Brief were the operation and the rest were sub-pages of the
- * editor.
- *
- * Brief keeps the bare `/edit` instead of `/brief`: it is where the editor
- * opens, and `/edit` already says what the page is.
- */
-function tabPath(tab: EditorTab): string {
-    const base = window.location.pathname
+/** The operation's own path, with any view segment stripped off the end. */
+function operationBase(): string {
+    return window.location.pathname
         .replace(/\/+$/, '')
         .replace(/\/(edit|brief|map|schedule|attendance)$/, '')
-    return `${base}/${tab === 'brief' ? 'edit' : tab}`
 }
 
-function tabFromLocation(): EditorTab {
-    if (typeof window === 'undefined') return 'brief'
+/**
+ * Where an *in-shell* tab lives.
+ *
+ * Only Map, Schedule and Attendance reach this. Orders is not a path this
+ * function can produce, because Orders leaves the editor entirely — see
+ * `../tabs.ts` for why the orders are the operation's own page rather than a
+ * tab of the editor, and `useEditorTab` below for how leaving is handled.
+ */
+function tabPath(tab: OperationTab): string {
+    return `${operationBase()}/${tab}`
+}
+
+function tabFromLocation(): OperationTab {
+    if (typeof window === 'undefined') return 'orders'
 
     // The path is authoritative.
-    const segment = decodeURIComponent(currentSegment())
-    if (segment === 'edit') return 'brief'
-    const fromPath = resolveTab(segment)
-    if (fromPath) return fromPath
+    const fromPath = tabFromSegment(decodeURIComponent(currentSegment()))
+    if (fromPath !== 'orders' || currentSegment() === 'edit') return fromPath
 
     // `?tab=` is the old shape and still turns up in bookmarks, Discord
     // messages and the E2E suite. It is read, then normalised away by the
     // effect below so the two forms never both linger in one URL.
-    const fromQuery = resolveTab(new URLSearchParams(window.location.search).get('tab') ?? '')
-    return fromQuery ?? 'brief'
+    return resolveTab(new URLSearchParams(window.location.search).get('tab') ?? '') ?? 'orders'
 }
 
 /**
@@ -86,8 +65,8 @@ function tabFromLocation(): EditorTab {
  * for a non-HQ user — EditorShell (which does know isHQ) is responsible for
  * falling back to `brief` when the resolved tab isn't actually visible.
  */
-export function useEditorTab(): [EditorTab, (t: EditorTab) => void] {
-    const [tab, setTab] = useState<EditorTab>('brief')
+export function useEditorTab(): [OperationTab, (t: OperationTab) => boolean] {
+    const [tab, setTab] = useState<OperationTab>('orders')
 
     // Read the deep link after mount — the server render has no location.
     useEffect(() => {
@@ -100,18 +79,30 @@ export function useEditorTab(): [EditorTab, (t: EditorTab) => void] {
         const url = new URL(window.location.href)
         if (url.searchParams.has('tab')) {
             url.searchParams.delete('tab')
-            url.pathname = tabPath(resolved)
+            url.pathname = resolved === 'orders' ? `${operationBase()}/edit` : tabPath(resolved)
             window.history.replaceState(null, '', url)
         }
     }, [])
 
-    const change = (next: EditorTab) => {
+    /**
+     * Returns whether the switch was handled here.
+     *
+     * `false` means "let the link navigate", which is what Orders needs: it
+     * leaves the editor for the operation's own page, and that genuinely is a
+     * navigation — the collab socket goes with it, and comes back when the
+     * editor is reopened. Everything else stays in the shell, where a real
+     * navigation would tear the socket down and rebuild the Y.Doc for nothing.
+     */
+    const change = (next: OperationTab): boolean => {
+        if (next === 'orders') return false
+
         setTab(next)
         const url = new URL(window.location.href)
         url.pathname = tabPath(next)
         url.searchParams.delete('tab')
         // replaceState, not router.push: no navigation, so the collab socket lives.
         window.history.replaceState(null, '', url)
+        return true
     }
 
     return [tab, change]
@@ -121,8 +112,8 @@ interface EditorShellProps {
     operationId: string
     themeColor: string
     isHQ: boolean
-    tab: EditorTab
-    onTabChange: (t: EditorTab) => void
+    tab: OperationTab
+    onTabChange: (t: OperationTab) => boolean
     header: ReactNode
     /** Optional for now — nothing populates it until the deck itself exists. */
     deck?: ReactNode
@@ -153,12 +144,12 @@ export default function EditorShell({
     operationId, themeColor, isHQ, tab, onTabChange, header, deck, statusBar,
     brief, map, schedule, attendance, contentPaddingRight,
 }: EditorShellProps) {
-    const visibleTabs = TABS.filter(t => t !== 'attendance' || isHQ)
+    const shown = visibleTabs(isHQ)
     // A tab that isn't in the visible set — a non-HQ user deep-linking
     // ?tab=attendance, or a stale value from before a role change — must not
     // be selected: that renders nothing (no placeholder, no content) with no
-    // way back except editing the URL. Fall back to brief instead.
-    const active = visibleTabs.includes(tab) ? tab : 'brief'
+    // way back except editing the URL. Fall back to Orders instead.
+    const active = shown.includes(tab) ? tab : 'orders'
 
     // Map mounts on first visit, then — like Brief — stays mounted forever
     // and is only ever hidden with `display: none` (see the `brief` prop doc).
@@ -217,7 +208,7 @@ export default function EditorShell({
                          * of relying on a hardcoded `calc(100vh - N)` that drifts every
                          * time the chrome above or below it changes height.
                          */}
-                        <div style={{ display: active === 'brief' ? undefined : 'none', height: '100%' }}>
+                        <div style={{ display: active === 'orders' ? undefined : 'none', height: '100%' }}>
                             {brief}
                         </div>
                         {mapVisited && (
@@ -242,7 +233,7 @@ export default function EditorShell({
                      * Map, Schedule or Attendance it is a preview *of*, so on
                      * those tabs it was just a button that took you elsewhere.
                      */}
-                    {operationId && active === 'brief' && (
+                    {operationId && active === 'orders' && (
                         <button
                             type='button'
                             onClick={() => window.open(`/operations/${operationId}`, '_blank')}

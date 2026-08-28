@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { useOperationStatus } from './hooks/useOperationStatus'
-import { TABS, TAB_LABELS, type EditorTab } from './EditorShell'
-import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
+import OperationTabs from '../OperationTabs'
+import type { OperationTab } from '../tabs'
 import styles from './shell.module.css'
 
 export type SaveStatus = 'saved' | 'saving' | 'unsaved'
@@ -26,14 +26,16 @@ interface HeaderProps {
     onPublishClick: () => void
     onPublishConfirm: () => void
     onPublishCancel: () => void
-    /** The section tabs (Brief/Map/Schedule/Attendance), rendered inline
-     * in this same row (spec §3) rather than in a separate bar underneath —
-     * EditorShell still owns which tab's *content* is on screen (it needs
-     * that regardless of where the buttons live), so this component mirrors
-     * its `visibleTabs`/fallback logic rather than importing a decision from
-     * it, to keep this a plain, self-contained header. */
-    tab: EditorTab
-    onTabChange: (t: EditorTab) => void
+    /** The operation's four views, rendered inline in this same row (spec §3)
+     * rather than in a separate bar underneath. The strip itself is
+     * `../OperationTabs`, shared with the public orders bar so a reader and an
+     * author see the same four names; EditorShell still owns which tab's
+     * *content* is on screen. `onTabChange` returns whether it handled the
+     * switch in-shell — Orders does not, because it leaves the editor. */
+    tab: OperationTab
+    onTabChange: (t: OperationTab) => boolean
+    /** True on `/edit`, which flips the ribbon under Orders to the way out. */
+    editing?: boolean
 }
 
 // Token-backed; translucent fills use the same hex→rgb the tokens carry
@@ -70,7 +72,7 @@ export default function Header({
     operationId, fromJ2, title, status, saveStatus, isHQ,
     onDelete, activityOpen, onToggleActivity,
     publishConfirmOpen, publishSaving, onPublishClick, onPublishConfirm, onPublishCancel,
-    tab, onTabChange,
+    tab, onTabChange, editing = false,
 }: HeaderProps) {
     // Supplementary real data (not fabricated) for the status pill's countdown —
     // the pill's colour/label still comes from `status` above, which updates
@@ -80,7 +82,6 @@ export default function Header({
 
     const [menuOpen, setMenuOpen] = useState(false)
     const menuRef = useRef<HTMLDivElement>(null)
-    const tabsRowFadeRef = useThinScrollFade<HTMLElement>()
 
     useEffect(() => {
         if (!menuOpen) return
@@ -93,13 +94,11 @@ export default function Header({
     const save = SAVE_COPY[saveStatus]
     const showPublish = isHQ && status === 'In Development'
 
-    // Same visibility/fallback rule as EditorShell's own `visibleTabs`/
-    // `active` (EditorShell.tsx) — kept in sync by construction since both
-    // read the same `TABS` constant and the same `tab`/`isHQ` props page.tsx
-    // passes to each. Attendance absent from the DOM entirely for non-HQ
-    // users, not merely disabled (spec §1's gate).
-    const visibleTabs = TABS.filter(t => t !== 'attendance' || isHQ)
-    const activeTab = visibleTabs.includes(tab) ? tab : 'brief'
+    // Tab visibility and the active fallback live in ../tabs.ts now, applied by
+    // OperationTabs below and by EditorShell's own `active` — one rule, read by
+    // both, rather than the same filter written out twice and kept in step by
+    // hand. Schedule and Attendance are absent from the DOM entirely without
+    // edit access, not merely disabled (spec §1's gate).
 
     return (
         <div style={{
@@ -143,19 +142,13 @@ export default function Header({
                 title above — separates the title/pill group from the tabs. */}
             <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
 
-            <nav ref={tabsRowFadeRef} className={`${styles.tabsRow} thin-scroll`} aria-label='Operation editor sections'>
-                {visibleTabs.map(t => (
-                    <button
-                        key={t}
-                        type='button'
-                        onClick={() => onTabChange(t)}
-                        aria-current={t === activeTab ? 'page' : undefined}
-                        className={t === activeTab ? `${styles.tab} ${styles.tabOn}` : styles.tab}
-                    >
-                        {TAB_LABELS[t].toUpperCase()}
-                    </button>
-                ))}
-            </nav>
+            <OperationTabs
+                operationId={operationId}
+                active={tab}
+                canEdit={isHQ}
+                editing={editing}
+                onSwitch={onTabChange}
+            />
 
             {/* Flexible spacer — pushes the save state / Publish / overflow
                 cluster to the row's end regardless of how much room the

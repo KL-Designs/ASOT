@@ -899,6 +899,10 @@ export default function EditorPage() {
                         onPublishCancel={() => setPublishConfirmOpen(false)}
                         tab={tab}
                         onTabChange={setTab}
+                        // Orders is only ever the active tab inside the shell
+                        // when we are on `/edit` — that is the one route where
+                        // the orders are open for editing rather than reading.
+                        editing={tab === 'orders'}
                     />
                 }
                 statusBar={

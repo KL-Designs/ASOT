@@ -19,6 +19,7 @@ import OperationStatusBar from '@/components/operations/OperationStatusBar'
 import OcapLinkPanel from './OcapLinkPanel'
 import OcapStatsPanel from './OcapStatsPanel'
 import DocAcknowledgeCard from './DocAcknowledgeCard'
+import OperationBar from './OperationBar'
 
 
 function hexToRgb(hex: string) {
@@ -108,6 +109,23 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             className='flex flex-col min-h-full'
             style={isOF ? { background: '#140f07' } : isSF ? { backgroundColor: '#01050a', backgroundImage: sfStars, backgroundAttachment: 'fixed' } : undefined}
         >
+            {/*
+                The operation's view strip. This page is the Orders view — the
+                one anybody can read — and the same four names appear here as in
+                the editor, so moving between them is one bar rather than two
+                different chromes. The slim bar deliberately carries none of the
+                editor's authoring controls; the ribbon under Orders is the only
+                way into `/edit`, and only for people who can use it.
+            */}
+            <OperationBar
+                operationId={id}
+                title={operation.title}
+                status={operation.status}
+                themeColor={operation.themeColor}
+                active='orders'
+                canEdit={isHQ}
+                fromJ2={fromJ2}
+            />
 
             {/* ── Hero ─────────────────────────────────────────────────────── */}
             <div style={{ position: 'relative', overflow: 'hidden', paddingBottom: 1 }}>

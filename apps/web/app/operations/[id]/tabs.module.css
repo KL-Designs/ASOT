@@ -1,0 +1,104 @@
+/*
+ * The operation's view strip, shared by the editor header and the public
+ * orders bar. Colour comes entirely from the `.command` tokens plus the
+ * per-operation `--acc` its consumers inject.
+ */
+
+/*
+ * The wrapper does not scroll and does not clip — the nav inside it does the
+ * scrolling, and the ribbon hangs below this box. Both matter: a ribbon inside
+ * the scrolling strip disappears the moment the tabs overflow, and a wrapper
+ * that clips cuts it off at the header's edge.
+ */
+.wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+.tabsRow {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    min-width: 0;
+    overflow-x: auto;
+}
+
+.tab {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 0 10px;
+    height: 100%;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.tab:hover { color: var(--ink-2); }
+.tabOn { color: var(--ink); border-bottom-color: var(--acc); }
+.tab:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
+
+/*
+ * The edit ribbon, hanging under the Orders tab.
+ *
+ * Under the *first* tab by construction — Orders leads the strip, and the
+ * wrapper's left edge is its left edge — rather than measured, which would
+ * need a ref per tab and would still be wrong for a frame after any resize.
+ *
+ * It overlaps the content below the header on purpose: it is a control that
+ * belongs to the tab above it, and giving it its own row would push every page
+ * down by 22px to hold a button most viewers never see.
+ */
+.ribbon {
+    position: absolute;
+    top: calc(100% - 5px);
+    left: 8px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px 4px;
+    border: 1px solid rgba(var(--acc-rgb), 0.45);
+    border-top: none;
+    border-radius: 0 0 var(--r) var(--r);
+    background: color-mix(in srgb, var(--acc) 14%, var(--s1));
+    color: var(--acc);
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+    transition: background 140ms ease, color 140ms ease;
+}
+.ribbon:hover {
+    background: color-mix(in srgb, var(--acc) 26%, var(--s1));
+    color: var(--ink);
+}
+.ribbon:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+/* Leaving the editor is not the accent action — it is the quiet one. */
+.ribbonOut {
+    border-color: var(--line-2);
+    background: var(--s2);
+    color: var(--ink-2);
+}
+.ribbonOut:hover { background: var(--s3); color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+    .ribbon { transition: none; }
+}

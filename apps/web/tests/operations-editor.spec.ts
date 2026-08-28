@@ -89,9 +89,15 @@ test.beforeEach(async () => {
     await withDb(db => db.collection('operations').deleteMany({}))
 })
 
+/**
+ * The operation's view strip — shared by the editor's header and the public
+ * orders bar, so this helper works on both. They are links rather than buttons
+ * now: Orders leaves the editor for the operation's own page, so the strip has
+ * to behave like navigation, and middle-click/open-in-new-tab come back with it.
+ */
 function editorTab(page: import('@playwright/test').Page, name: string) {
-    return page.getByRole('navigation', { name: 'Operation editor sections' })
-        .getByRole('button', { name, exact: true })
+    return page.getByRole('navigation', { name: 'Operation views' })
+        .getByRole('link', { name, exact: true })
 }
 
 // ── Tab switching preserves the collaborative editor ───────────────────────
@@ -101,7 +107,7 @@ function editorTab(page: import('@playwright/test').Page, name: string) {
 // against today's `webServer` command.
 
 test.describe('Tab switching preserves the collaborative editor', () => {
-    test('typed content and the connection indicator survive a Brief → Map → Brief round trip', async ({ pageAs }) => {
+    test('the orders editor stays mounted while another tab is showing', async ({ pageAs }) => {
         const opId = await createOperation()
         const page = await pageAs('j4')
         await page.goto(`/operations/${opId}/edit`)
@@ -127,13 +133,16 @@ test.describe('Tab switching preserves the collaborative editor', () => {
         await editorTab(page, 'MAP').click()
         await expect(editorTab(page, 'MAP')).toHaveAttribute('aria-current', 'page')
 
-        await editorTab(page, 'BRIEF').click()
-        await expect(editorTab(page, 'BRIEF')).toHaveAttribute('aria-current', 'page')
-
-        // The regression this spec exists to catch: if EditorShell ever
-        // stops keeping Brief mounted (display:none) and instead unmounts
-        // it per tab, CollabEditor's `useState(() => new Y.Doc())` rebuilds
-        // from scratch on remount and this text is gone.
+        // This used to be a Brief → Map → Brief round trip. It cannot be any
+        // more: Orders points at the operation's own page, so clicking it is a
+        // real navigation out of the editor rather than a switch inside it.
+        //
+        // The regression the spec exists to catch is unchanged, and so is the
+        // assertion that matters — if EditorShell ever stops keeping the orders
+        // editor mounted (display:none) and unmounts it per tab instead,
+        // CollabEditor's `useState(() => new Y.Doc())` rebuilds from scratch and
+        // the typed text is gone. Asserting it while Map is showing tests that
+        // directly, without needing a way back.
         await expect(editor).toContainText(marker)
         await expect(connection).toHaveText(connectionBefore ?? '')
     })
@@ -227,7 +236,7 @@ test.describe('Attendance tab visibility', () => {
         // Absent from the DOM outright, not merely unrendered because the
         // whole page redirected away — this holds regardless of which page
         // the user lands on.
-        await expect(page.getByRole('button', { name: 'ATTENDANCE', exact: true })).toHaveCount(0)
+        await expect(page.getByRole('link', { name: 'ATTENDANCE', exact: true })).toHaveCount(0)
     })
 
     test('positive control: an HQ user does see the Attendance tab', async ({ pageAs }) => {
@@ -245,9 +254,9 @@ test.describe('Attendance tab visibility', () => {
 // ── Legacy tab deep links still resolve ─────────────────────────────────────
 
 test.describe('Schedule tab deep links', () => {
-    test('a legacy ?tab=development link lands on Schedule, not Brief', async ({ pageAs }) => {
+    test('a legacy ?tab=development link lands on Schedule, not Orders', async ({ pageAs }) => {
         // The tab was renamed development → schedule. An unrecognised ?tab=
-        // value falls back to 'brief' (EditorShell.tsx tabFromLocation), so
+        // value falls back to 'orders' (tabs.ts tabFromSegment), so
         // without the alias every saved link would silently open the wrong
         // tab — a failure with no error message. This is that alias.
         const opId = await createOperation()
@@ -282,12 +291,14 @@ test.describe('Schedule tab deep links', () => {
 // ── Tabs are sibling paths under the operation ──────────────────────────────
 
 test.describe('Tab paths', () => {
-    for (const [path, label] of [['edit', 'BRIEF'], ['schedule', 'SCHEDULE'], ['attendance', 'ATTENDANCE']] as const) {
+    for (const [path, label] of [['edit', 'ORDERS'], ['schedule', 'SCHEDULE'], ['attendance', 'ATTENDANCE']] as const) {
         test(`/${path} opens the ${label} tab on a cold load`, async ({ pageAs }) => {
-            // Switching tabs never navigates — useEditorTab uses replaceState so
-            // the Hocuspocus socket survives — so these routes exist purely to
-            // answer a refresh or a pasted link. If one stops resolving, the tab
-            // still works in-app and only breaks for the person you sent it to.
+            // Switching between the in-shell tabs never navigates — useEditorTab
+            // uses replaceState so the Hocuspocus socket survives — so these
+            // routes exist purely to answer a refresh or a pasted link. If one
+            // stops resolving, the tab still works in-app and only breaks for the
+            // person you sent it to. `/edit` lights ORDERS: it is the same view,
+            // opened for editing rather than reading.
             const opId = await createOperation()
             const page = await pageAs('j4')
             await page.goto(`/operations/${opId}/${path}`)
@@ -300,11 +311,49 @@ test.describe('Tab paths', () => {
         const opId = await createOperation()
         const page = await pageAs('j4')
         await page.goto(`/operations/${opId}/edit`)
-        await expect(editorTab(page, 'BRIEF')).toBeVisible({ timeout: 30_000 })
+        await expect(editorTab(page, 'ORDERS')).toBeVisible({ timeout: 30_000 })
 
         await editorTab(page, 'SCHEDULE').click()
         await expect(page).toHaveURL(new RegExp(`/operations/${opId}/schedule$`))
         await expect(editorTab(page, 'SCHEDULE')).toHaveAttribute('aria-current', 'page')
+    })
+
+    test('Orders leaves the editor for the operation\u2019s own page', async ({ pageAs }) => {
+        // The point of the change: the orders are the operation, not a tab of
+        // the editor. Clicking Orders from Map has to land on /operations/{id}
+        // — a real navigation, unlike every other tab in the strip.
+        const opId = await createOperation()
+        const page = await pageAs('j4')
+        await page.goto(`/operations/${opId}/map`)
+        await expect(editorTab(page, 'ORDERS')).toBeVisible({ timeout: 30_000 })
+
+        await editorTab(page, 'ORDERS').click()
+        await expect(page).toHaveURL(new RegExp(`/operations/${opId}$`), { timeout: 30_000 })
+    })
+
+    test('the edit ribbon takes a staff member from the orders page into the editor', async ({ pageAs }) => {
+        const opId = await createOperation()
+        const page = await pageAs('j4')
+        await page.goto(`/operations/${opId}`)
+
+        const ribbon = page.getByRole('link', { name: /Edit orders/i })
+        await expect(ribbon).toBeVisible({ timeout: 30_000 })
+        await ribbon.click()
+        await expect(page).toHaveURL(new RegExp(`/operations/${opId}/edit$`), { timeout: 30_000 })
+    })
+
+    test('a member reading the orders gets no edit ribbon and no staff tabs', async ({ pageAs }) => {
+        // The whole reason the public bar is a separate component: it carries
+        // where you are and how to move, and none of the authoring controls.
+        const opId = await createOperation()
+        const page = await pageAs('plainMember')
+        await page.goto(`/operations/${opId}`)
+
+        await expect(editorTab(page, 'ORDERS')).toBeVisible({ timeout: 30_000 })
+        await expect(editorTab(page, 'MAP')).toBeVisible()
+        await expect(page.getByRole('link', { name: /Edit orders/i })).toHaveCount(0)
+        await expect(editorTab(page, 'SCHEDULE')).toHaveCount(0)
+        await expect(editorTab(page, 'ATTENDANCE')).toHaveCount(0)
     })
 
     test('a member without edit rights is sent to the operation, not the list', async ({ pageAs }) => {
