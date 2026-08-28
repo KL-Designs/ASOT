@@ -149,7 +149,7 @@ Scope: 42 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 ## `app/api/operations/[id]/attendance/` (attendance sub-resource)
 
 #### /api/operations/[id]/attendance
-- **GET** — builds the full attendance roster view: merges ORBAT positions (ordered by category/section/position) with existing attendance records, includes reservists in uncovered slots, resolves display names/avatars from `Db.users`, and returns `sectionRolesMap` + `sectionMeta` (with Discord role colors) for the UI. Gate: none explicit (public read). Collections: `Db.operationAttendance`, `Db.orbatPositions`, `Db.orbatSectionMeta`, `Db.roles`, `Db.users`.
+- **GET** — builds the full attendance roster view: merges ORBAT positions (ordered by category/section/position) with existing attendance records, includes reservists in uncovered slots, resolves display names/avatars from `Db.users`, and returns `sectionRolesMap` + `sectionMeta` (per `(category, sectionTitle)`, now including `patch` so the board can render unit badges) (with Discord role colors) for the UI. Gate: none explicit (public read). Collections: `Db.operationAttendance`, `Db.orbatPositions`, `Db.orbatSectionMeta`, `Db.roles`, `Db.users`.
 - **POST** — initialises/upserts the attendance doc for an op (`rsvpOpen`, `confirmationOpen` flags); stamps `confirmationOpenedAt` when confirmation transitions open and triggers section-leader task creation. Gate: any authenticated user (`client.fetchMe()` only, no role check). Collections: `Db.operationAttendance`. Side effects: `createAttendanceTasksForOperation()` (lib/attendance/tasks) when confirmation newly opens.
 
 #### /api/operations/[id]/attendance/confirm

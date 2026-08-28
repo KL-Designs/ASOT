@@ -33,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const coveredUserIds = new Set<string>()
 
     let sectionRolesMap: Record<string, { role: string; userId: string | null }[]> = {}
-    let sectionMeta: Array<{ category: string; sectionTitle: string | null; color?: string }> = []
+    let sectionMeta: Array<{ category: string; sectionTitle: string | null; color?: string; patch?: string }> = []
 
     if (true) {
         const categoriesToFetch = [...new Set([
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const metaRecords = await Db.orbatSectionMeta.find(
             { category: { $in: categoriesToFetch } },
-            { projection: { category: 1, sectionTitle: 1, color: 1, discordRoleId: 1 } },
+            { projection: { category: 1, sectionTitle: 1, color: 1, patch: 1, discordRoleId: 1 } },
         ).toArray()
 
         // Resolve Discord role colors for entries that have no explicit color
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 const n = roleColorMap.get(m.discordRoleId)
                 if (n && n > 0) color = `#${n.toString(16).padStart(6, '0')}`
             }
-            return { category: m.category, sectionTitle: m.sectionTitle ?? null, color }
+            return { category: m.category, sectionTitle: m.sectionTitle ?? null, color, patch: m.patch }
         })
 
         const positions = await Db.orbatPositions

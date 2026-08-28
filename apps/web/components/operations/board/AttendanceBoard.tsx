@@ -171,8 +171,31 @@ export default function AttendanceBoard({
         return slot ? `${slot.sectionTitle} · ${slot.role}` : 'a position'
     }, [data])
 
-    const sectionColor = useCallback((category: string) =>
-        data?.sectionMeta.find(m => m.category === category)?.color, [data])
+    /**
+     * A section's own patch and colour, falling back to its platoon's.
+     *
+     * Meta rows are keyed on (category, sectionTitle) with a null title meaning
+     * the platoon itself, and this was matching on category alone — so every
+     * section in 1-1 rendered 1-1's colour and none of them could ever have
+     * shown their own. Section first, platoon second, nothing if neither.
+     */
+    const metaFor = useCallback((category: string, sectionTitle: string | null) => {
+        const meta = data?.sectionMeta ?? []
+        const own = sectionTitle ? meta.find(m => m.category === category && m.sectionTitle === sectionTitle) : undefined
+        const platoon = meta.find(m => m.category === category && !m.sectionTitle)
+        const source = own?.patch ? own : platoon?.patch ? platoon : own ?? platoon
+
+        return {
+            color: own?.color ?? platoon?.color,
+            // `v` busts the cache when a patch is replaced — the route serves by
+            // category/section, not by filename, so the URL is otherwise stable.
+            patchUrl: source?.patch
+                ? `/api/orbat/patch?category=${encodeURIComponent(source.category)}`
+                    + `&section=${encodeURIComponent(source.sectionTitle ?? '')}`
+                    + `&v=${encodeURIComponent(source.patch)}`
+                : undefined,
+        }
+    }, [data])
 
     const mySlot = useMemo(
         () => (myUserId ? slots.find(x => x.occupantUserId === myUserId) : undefined),
@@ -336,6 +359,10 @@ export default function AttendanceBoard({
         return (
             <div key={category} className={`${s.category} ${wide ? s.categoryWide : ''}`}>
                 <div className={s.catHead}>
+                    {(() => {
+                        const { patchUrl } = metaFor(category, null)
+                            return patchUrl ? <img className={s.catPatch} src={patchUrl} alt='' /> : null
+                    })()}
                     <h4>{CATEGORY_LABELS[category] ?? category}</h4>
                     <em>{filled} / {catSlots.length} filled</em>
                 </div>
@@ -370,7 +397,7 @@ export default function AttendanceBoard({
                             key={title}
                             title={title}
                             category={category}
-                            color={sectionColor(category)}
+                            {...metaFor(category, title)}
                             slots={secSlots}
                             members={data!.members}
                             nameOf={nameOf}

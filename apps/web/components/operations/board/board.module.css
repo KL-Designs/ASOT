@@ -428,6 +428,26 @@
 }
 .secDot { width: 6px; height: 6px; border-radius: 1px; flex-shrink: 0; }
 
+/*
+ * Unit patches. Small on a section header and slightly larger on a platoon's,
+ * matching the hierarchy the labels already state. `object-fit: contain` because
+ * patches are all shapes — a shield, a disc, a wedge — and cropping them to a
+ * square would cut the badge.
+ */
+.secPatch {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+.catPatch {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    flex-shrink: 0;
+    margin-right: 2px;
+}
+
 /* ── Slots ───────────────────────────────────────────────────────────────── */
 
 .slot {

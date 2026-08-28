@@ -137,6 +137,13 @@ Use a second account or a private window.
 - [ ] That menu keeps the operation's accent colour despite being portalled out
       of the board (hover a role — the highlight should be the op's theme colour).
 
+- [ ] Sections and platoons show their **ORBAT patch** where one is uploaded,
+      and their own colour as a rule under the section header.
+- [ ] A section with its own colour shows **its** colour, not its platoon's —
+      previously every section inherited the platoon's.
+- [ ] A section with no patch of its own falls back to its platoon's patch;
+      with neither, it shows a plain colour dot (or nothing).
+
 ## 4e. Rebuilding the board
 
 - [ ] Assigned Units shows a **Rebuild Attendance Board** button for staff only.

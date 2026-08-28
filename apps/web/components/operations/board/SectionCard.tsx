@@ -13,6 +13,8 @@ interface Props {
     /** ORBAT category, for scoping the add-role list. */
     category: string
     color?: string
+    /** The section's ORBAT patch, or its platoon's. */
+    patchUrl?: string
     slots: SlotView[]
     members: Record<string, BoardMember>
     nameOf: (userId: string) => string
@@ -36,7 +38,7 @@ interface Props {
  * a section leader actually wants.
  */
 export default function SectionCard({
-    title, category, color, slots, members, nameOf, myUserId, canManage, canClaim,
+    title, category, color, patchUrl, slots, members, nameOf, myUserId, canManage, canClaim,
     onClaim, onMenu, pinged, roles, busy, onAddRole,
 }: Props) {
     const { setNodeRef, isOver } = useDroppable({
@@ -52,8 +54,16 @@ export default function SectionCard({
 
     return (
         <div ref={setNodeRef} className={`${s.sec} ${isOver ? s.secOver : ''}`}>
-            <div className={s.secHead}>
-                {color && <i className={s.secDot} style={{ background: color }} />}
+            <div
+                className={s.secHead}
+                // The unit's own colour, as a rule under the header rather than
+                // anywhere on the rows: those carry attendance state, and a
+                // section colour running through them would compete with it.
+                style={color ? { boxShadow: `inset 0 -2px 0 ${color}` } : undefined}
+            >
+                {patchUrl
+                    ? <img className={s.secPatch} src={patchUrl} alt='' />
+                    : color ? <i className={s.secDot} style={{ background: color }} /> : null}
                 <b title={title}>{title}</b>
                 <span className={s.cnt}>{filled} / {slots.length}</span>
                 {canManage && (

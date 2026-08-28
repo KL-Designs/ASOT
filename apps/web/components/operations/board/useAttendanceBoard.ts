@@ -35,6 +35,15 @@ const COLLAB_WS_URL = process.env.NEXT_PUBLIC_COLLAB_WS_URL || 'ws://localhost:3
  * effects when it did.
  */
 
+/** ORBAT presentation for a platoon (`sectionTitle: null`) or one section. */
+export interface SectionMeta {
+    category: string
+    sectionTitle: string | null
+    color?: string
+    /** Stored patch filename; the image itself comes from /api/orbat/patch. */
+    patch?: string
+}
+
 export interface BoardMember {
     id: string
     displayName: string
@@ -55,7 +64,7 @@ export interface BoardData {
     rosterRev: number
     members: Record<string, BoardMember>
     stage: AttendanceStage
-    sectionMeta: { category: string; sectionTitle: string | null; color?: string }[]
+    sectionMeta: SectionMeta[]
     customUnits: { id: string; name: string; color?: string }[]
 }
 
@@ -80,7 +89,7 @@ interface AttendanceResponse {
         preferredRole?: string | null
         user: { id: string; displayName: string; avatarURL: string } | null
     }[]
-    sectionMeta?: { category: string; sectionTitle: string | null; color?: string }[]
+    sectionMeta?: SectionMeta[]
     customUnits?: { id: string; name: string; color?: string }[]
 }
 
