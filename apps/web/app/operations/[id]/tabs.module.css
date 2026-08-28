@@ -1,0 +1,147 @@
+/*
+ * The operation's view strip, shared by the editor header and the public
+ * orders bar. Colour comes entirely from the `.command` tokens plus the
+ * per-operation `--acc` its consumers inject.
+ */
+
+/*
+ * The strip does not scroll, deliberately.
+ *
+ * It used to (`overflow-x: auto`), and a scrolling box clips on *both* axes —
+ * which cut the Orders menu off at the header's edge the moment it opened. Four
+ * tabs of eight characters do not need a scroller: the strip holds its width
+ * and the operation title beside it ellipsizes instead, which it was already
+ * set up to do.
+ */
+.tabsRow {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    flex-shrink: 0;
+}
+
+/*
+ * One slot per tab, shrink-wrapped to it. It is what the Orders menu hangs
+ * from: `left: 0` on the menu is the tab's own left edge, so the two line up
+ * with nothing measured and nothing to drift when the font loads.
+ */
+.tabSlot {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    height: 100%;
+    flex-shrink: 0;
+}
+
+.tab {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 0 10px;
+    height: 100%;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.tab:hover { color: var(--ink-2); }
+.tabOn { color: var(--ink); border-bottom-color: var(--acc); }
+.tab:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
+
+/* The label half of the split: the caret takes over its right padding, so the
+   two read as one control rather than a tab with something stuck beside it. */
+.tabSplit { padding-right: 3px; }
+
+/*
+ * The caret that opens the Orders menu.
+ *
+ * It only exists on Orders and only while Orders is the active tab, so it can
+ * carry the accent underline unconditionally — that continues the tab's own
+ * underline across both halves instead of stopping short under the label.
+ */
+.caret {
+    display: inline-flex;
+    align-items: center;
+    background: none;
+    border: none;
+    border-bottom: 2px solid var(--acc);
+    color: var(--ink-3);
+    font-size: 8px;
+    line-height: 1;
+    padding: 0 8px 0 1px;
+    height: 100%;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color 120ms ease;
+}
+.caret:hover { color: var(--ink); }
+.caret:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
+.caretOn { color: var(--ink); }
+
+/*
+ * The menu itself. A real floating layer this time, so it gets a real border
+ * and shadow — the thing this replaced looked like a menu that had opened by
+ * accident precisely because it was drawn like one without being one.
+ *
+ * `min-width: 100%` keeps it at least as wide as the tab it hangs from, and
+ * `nowrap` lets it grow past that rather than wrapping two short words.
+ */
+.menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 40;
+    min-width: 100%;
+    margin-top: 2px;
+    padding: 3px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    background: var(--s2);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+}
+
+.item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px 5px 5px;
+    border-radius: 2px;
+    color: var(--ink-2);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 120ms ease, color 120ms ease;
+}
+.item:hover { background: var(--s3); color: var(--ink); }
+.item:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
+
+/* The mode you are already in. Marked rather than hidden: the menu is also how
+   you find out which of the two you are looking at. */
+.itemOn { color: var(--acc); }
+
+/* Fixed width so both labels start on the same column, ticked or not. */
+.tick {
+    display: inline-block;
+    width: 9px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 9px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .caret,
+    .item { transition: none; }
+}

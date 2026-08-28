@@ -175,6 +175,13 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `TURNOUT_PROFILES` / `TurnoutKey` (`quiet` | `medium` | `busy`, default `medium`) — how well the night goes. One fixed rate only ever showed one board; the two ends are what the layout has to survive, a quiet night being mostly gaps and a busy one filling nearly every position and overflowing the pool. Every profile leaves `holderAttends + holderDeclines` well under 1, so someone always fails to reply and `awaiting` stays generable. `isTurnoutKey()` is the route's validator.
 - It writes to a real roster, so it holds the board's invariants: nobody in two positions, nobody who declined left standing in one. It starts from the state a fresh snapshot leaves — holders pencilled into their own positions — because clearing the board first made `awaiting` impossible to generate, which is the state a generated board most needs to show.
 
+### lib/operations/board.ts
+- The pure model behind the public operations board — grouping and filtering, both testable without a database.
+- `groupOperations(ops, campaigns, missions)` — turns a flat list into campaign brackets and standalone rows. An operation joins a campaign by `campaignId` *or* by a `campaignMissionId` that resolves to one, and joins a numbered mission the same way; **anything left over is paired on its title**, so "Lost Army IV — SAT" and "— SUN" become one mission even with no mission record behind them. Most of seven years of archive predates campaign missions being modelled, and an archive that only understood the modern shape would show all of it as unrelated singletons.
+- `detectDaySlot` / `detectRoman` — the title parsing that makes the above work. Lifted out of the page component, where the same logic ran and was then thrown away at the end of the render.
+- `parseBoardFilter` / `isFiltered` / `escapeRegex` / `PAGE_SIZE` — the filter as a value both the query and the UI agree on. `escapeRegex` matters: without it a stray `(` in the search box is a driver-level syntax error and `.*` is a search that matches everything.
+- `monthKey` / `fillMonths` — the histogram's buckets. Empty months are filled in deliberately: a histogram drawn only from months that exist makes a six-month break look like one step, which is exactly the shape it exists to show.
+
 ### lib/operations/template-document.ts
 - `buildTemplateDocument()` / `applyTemplateDocument(ydoc)` — dev-only: a filled-in operation document (five-paragraph orders, a Zeus page, platoon orders, an AAR) written straight into the live `Y.Doc`. An empty document exercises none of the editor, and neither does typing “test test test” into one section.
 - **Client-side by necessity.** Writing it server-side means writing `yjsState`, which Hocuspocus reads only once — on the first connection — so the write lands under whatever is already in memory and is overwritten by the next save. Applying it to the shared document is the same path “+ Add Section” takes: it syncs to every viewer and persists normally.
@@ -184,6 +191,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/dev-tools.ts
 - `DEV_TOOLS_ENABLED` — one flag for every development-only surface (the attendance data generator, the editor's template document), read by both the UI that renders the control and the route that answers it, so "visible but refusing" and "hidden but answering" cannot happen.
 - `NODE_ENV` alone cannot express this for a build you intend to run: Next inlines `process.env.NODE_ENV` into the client bundle at build time and `next build` fixes it at `"production"`, so the controls are compiled out and no runtime variable brings them back; and `server.mjs` derives its own `dev` from `NODE_ENV`, so starting the built server with `NODE_ENV=development` starts the dev compiler rather than serving the build. `NEXT_PUBLIC_DEV_TOOLS=true` is the explicit opt-in, and must be set for the build as well as the start (`npm run build:devtools` / `start:devtools`, or the two "(dev tools)" items in the root menu).
+
+### lib/orbat/constants.ts — short platoon labels
+- `PLATOON_SHORT_LABELS` / `platoonShortLabel(category)` — the same categories under the names the unit says out loud ("1-0 HQ", "1-3"). `PLATOON_CATEGORIES` carries the formal titles, which are right for a heading and far too long for a chip. Kept beside the formal list rather than re-typed per call site, which is how "1-3 Support Platoon" and "Platoon 1-3 Support" became the same thing spelled two ways.
 
 ### lib/attendance/board-user.ts
 - `toBoardUser(user, fallbackId?)` — how the board names and pictures a member: rank + milpac name when there is one, then guild display name, global name, username, id. Shared because two endpoints build it — the board's GET for the whole member list and the roster route for the one member a write changed — and two copies would drift into the same row being labelled one way on load and another the instant somebody pressed a button.
@@ -761,7 +771,10 @@ component so the active-cell rule is unit-testable on its own.
 - Default export `FireEmbers()` — canvas particle system (rising ember glow effect), no props, self-contained animation loop.
 
 #### components/FullscreenPage.tsx
-- Default export `FullscreenPage()` — client-only side-effect component; toggles `document.body.classList.add('fullscreen-page')` on mount/unmount. Renders nothing.
+- Default export `FullscreenPage()` — client-only side-effect component; toggles `document.body.classList.add('fullscreen-page')` on mount/unmount. Renders nothing. Hides both the site navbar and the footer (rule in `styles/globals.css`).
+
+#### components/HideSiteNav.tsx
+- Default export `HideSiteNav()` — the narrower sibling of `FullscreenPage`: toggles `body.hide-site-nav`, which drops the site navbar and leaves the footer. For a page that brings its own top bar but is still an ordinary scrolling document — currently the operation orders page, which is topped by `OperationBar`. A body class rather than page-scoped CSS because the navbar lives in the root layout, outside anything a route can style.
 
 #### components/info-card.tsx
 - Default export `InfoCard({title, children, icon?, accentColor='var(--red)', accentRgb='219,0,29'})` — bordered card with icon+uppercase title header.

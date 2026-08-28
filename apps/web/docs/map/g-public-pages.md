@@ -659,40 +659,103 @@ a new row leaves them blank. This is the internal counterpart to the public read
 Sets page metadata ("Operations"); no auth gate (public board).
 
 #### app/operations/page.tsx
-Server page: determines `editAccess` via `PERMISSIONS.pages.operationsEdit`, renders header +
-`<SearchBar/>` + conditional `<CreateButton/>` + `<OperationsBoard editAccess/>` — all from
-`./list.tsx`. Public read; create/edit UI only shown to staff.
+Server page, deliberately thin: resolves `editAccess` via `PERMISSIONS.pages.operationsEdit` for
+the Mission Making link, then hands everything else to `<OperationsBoard/>`. The board's content
+is per-viewer (your RSVP, which operations you were on, whether the staff line shows) *and* paged,
+so it is resolved client-side rather than rendered here and contradicted a moment later.
 
-#### app/operations/list.tsx
-Large (1158-line) client module exporting the three board building blocks used by
-`operations/page.tsx`:
-- **`SearchBar`** — debounced live search hitting `/api/operations?search=`, dropdown results.
-- **`CreateButton`** — modal to create a new mission: single (`GET /api/operations/new` →
-  redirects to edit) or campaign-linked (existing campaign via `GET
-  /api/operations/campaign-missions?campaignId=` + `POST` to add a mission, or brand-new campaign
-  via `POST /api/operations/campaigns`). Roman-numeral mission naming (`toRoman`).
-- **`OperationsBoard`** (exported, used by the page) — 3-column layout: left
-  `ActiveMissionsPanel` (polls `/api/operations?status=Active,Upcoming` every 5s), centre
-  `MonthlyMissionsPanel` (fetches `/api/operations?year=&month=` + `/api/operations/campaigns` +
-  per-campaign `/api/operations/campaign-missions`, groups ops into campaign hierarchies with
-  Saturday/Sunday slot detection via title parsing), right `CalendarPicker` (year/month browser).
-  Also renders `CampaignsBand`/`CampaignEntry`/`MissionRow` sub-components with J2/Edit/Map/View
-  quick-links for staff (`hasAccess`).
+#### app/operations/board/ — the board itself
+Replaced the old three-column layout (a single upcoming card beside a flat month-at-a-time list
+beside twelve month buttons). Two halves with different jobs:
+
+- **`OperationsBoard.tsx`** — the shell: skeleton, error state, and the two sections below.
+- **`useBoard.ts`** — one request to `/api/operations/board` for the whole page. The filter lives
+  in the URL via `replaceState` (not `push`, so Back still leaves the page) so a filtered view can
+  be pasted into Discord — "every operation 1-3 was on" is a useful thing to be able to send.
+  Nothing fetches until the deep link has been read, so a shared link is one request, not two.
+- **`UpcomingBand.tsx`** — everything not yet run, as a wrapping grid rather than a featured card:
+  more than one operation upcoming is the normal case, and a layout that promotes the first is
+  wrong every time there are two. **One card per campaign *mission*, not per campaign** — a
+  mission's Saturday and Sunday are one decision and share a card, but a campaign with two
+  missions still to run is two cards. Carries the countdown, the units called, turnout so far and
+  the viewer's own RSVP. **Operations in development never appear**: nobody can answer one, so it
+  has no business on the page whose job is answering.
+- **`ArchiveFilters.tsx`** — search (debounced), facets that carry their own counts, the applied
+  filters as individually removable chips, and a month histogram you drag a range across. The
+  histogram replaces the old month picker and does a second job it could not: it shows where the
+  weight of the unit's history sits. Bars outside a selection dim rather than disappear.
+- **`Archive.tsx`** — the past, grouped by campaign. A campaign is a bracket, its numbered
+  missions are the rows, and each mission's two nights are two slots on that row. Straight halving
+  of the row count for a campaign, and the only view that can show a night that *didn't* run
+  (a dashed empty slot). Grouping runs over everything loaded so far, so a campaign straddling a
+  page boundary is still one bracket.
+- **`MissionMakingButton.tsx`** — the staff link, extracted when `list.tsx` was retired. Staff
+  quick-links (Edit · Map · View on every row) are gone with it: one dashed line under the band
+  carries the in-development count and a route to the J2 dashboard, and only with the permission.
 
 #### app/operations/[id]/layout.tsx
 Sets dynamic `<Metadata>`/`<Viewport>` (theme colour) from `Db.operations` for the given id.
 
 #### Operation URL structure
-The four editor views are **sibling paths under the operation**, not children of `/edit`:
-`/operations/[id]` (public orders) · `/operations/[id]/edit` (Brief) · `/map` · `/schedule` ·
-`/attendance`. They are four views of one operation, and nesting three of them a level below
-the fourth read as if Brief were the operation and the rest were sub-pages of the editor.
+The operation's four views are **sibling paths under it**: `/operations/[id]` (**Orders** — the
+page anybody can read) · `/map` · `/schedule` · `/attendance`. `/operations/[id]/edit` is
+deliberately **not** a fifth view: it is the editor opened *on* the Orders view, reached only from
+the Orders tab's own menu and only by people who can use it. `/edit` therefore lights the
+Orders tab — same view, opened for writing rather than reading.
 
-**Switching tabs never navigates.** `useEditorTab` (`edit/EditorShell.tsx`) rewrites the URL with
-`replaceState`, because a real navigation would tear down the Hocuspocus socket and force the
-Y.Doc to reconnect on every tab switch. The route files exist purely to answer a cold load or a
-refresh. The legacy `?tab=` form is still read, then normalised away into the path form so the
-two can never both linger in one URL.
+**Orders is a split tab for anyone who can edit**: the label opens the orders, and a caret beside it
+opens a two-item menu — **Read** and **Edit** — with the current one ticked and drawn in the accent.
+Two items rather than one because reading and writing are two modes of a single view, so the menu
+doubles as the answer to which of them you are in; it works the same in both directions, and the
+header does not change shape as you move between them. The caret only appears once Orders is the
+active tab (nothing to offer from Map) and only with `pages.operationsEdit`. It carries the accent
+underline itself so the tab's underline runs unbroken across both halves. The strip has no
+horizontal scrolling — a scrolling box clips on *both* axes and would cut the menu off at the
+header's edge — which four eight-character tabs did not need anyway; the operation title beside it
+ellipsizes instead.
+
+**The mode is sticky per session** (`readOrdersMode`/`rememberOrdersMode` in `tabs.ts`,
+`sessionStorage` keyed by operation id). Switch to Map mid-edit and back, and Orders returns you to
+the editor rather than dropping you on the read-only page — you never asked to stop editing, and the
+socket is still up. Whenever Orders *is* the active tab the URL is authoritative and the mode is
+re-recorded from it; everywhere else it is read back. It starts at `read`, which is what the server
+renders, so the remembered value only ever arrives after mount and only ever changes an href. The
+mode also decides whether a click stays in the shell: `OperationTabs` calls `onSwitch('orders')`
+only in edit mode, which is why `useEditorTab` can now handle Orders in-shell instead of always
+refusing it. `sessionStorage` and not a saved preference — a new tab should start you reading.
+
+**The mode switch is a pair of buttons in one corner.** The editor's "⊡ Preview" (bottom-right of
+the editor column, `EditorShell.tsx`) and the orders page's "✎ Edit" (`EditOrdersButton.tsx`,
+`isHQ` only) share `mode-switch.module.css` — same skin, same corner, so flipping between reading
+and writing is one place to click from either side. Preview *switches in place* rather than opening
+a second tab, which is what it used to do and which left people editing in one tab and reading a
+stale copy in another. The Orders menu still does the same job; the menu is where you choose a
+mode, these are the one-click flip for somebody going back and forth.
+
+The model lives in **`app/operations/[id]/tabs.ts`** (a plain module, so the public server page and
+the editor's client header can both read it) and the strip itself in **`OperationTabs.tsx`**, shared
+by both. The tab key is `orders`, not `brief`: "Brief" was the editor's name for its own first tab
+and nobody outside the editor used it. `?tab=brief` and `?tab=development` are aliased for the
+bookmarks already out there.
+
+**Who sees which tab:** Orders and Map are for everyone (both have public routes); Schedule and
+Attendance appear only with `pages.operationsEdit`, since their own pages redirect anyone else away
+and offering a door that closes in your face is worse than not offering it.
+
+**Switching between the in-shell tabs never navigates.** `useEditorTab` (`edit/EditorShell.tsx`)
+rewrites the URL with `replaceState`, because a real navigation would tear down the Hocuspocus
+socket and force the Y.Doc to reconnect. **Orders is the exception and navigates for real** — it
+leaves the editor for the operation's own page, and the socket goes with it. `onSwitch` returns
+whether it handled the change, which is how one strip serves both cases; the tabs are links rather
+than buttons so that middle-click and open-in-new-tab work, which the buttons had quietly removed.
+
+**`OperationBar.tsx`** is the slim bar over the public orders page: back link, title, status pill
+and the same strip. It *replaces* the site navbar rather than sitting under it — `<HideSiteNav/>`
+(`components/HideSiteNav.tsx`, a body class since the navbar lives in the root layout) drops it, and
+the bar's own "← Back" is the way out. Narrower than `FullscreenPage`, which also takes the footer:
+the orders page is still a document you scroll to the end of. Deliberately *not* the editor's
+header — no save state, no Publish, no delete menu. Those belong to somebody who has opened the editor, and putting them on a page every member
+can read would be showing controls that either do nothing or should not be there.
 
 `/operations/[id]/map` serves **both audiences from one path**: the editor's Map tab to anyone
 with `pages.operationsEdit`, and the read-only fullscreen viewer to everyone else. Splitting it
@@ -795,10 +858,14 @@ client-side auto-fire timers and manual stage buttons, persisted via `POST
 /api/operations/[id]/attendance/platoons`), acknowledgement summary, custom attendance units,
 delete confirmation, and embeds the TipTap collaborative `<OperationEditor
 documentId={opID}/>` (dynamic import of `@/components/editor/CollabEditor`) for the actual orders
-content. Also toggles a right-hand `<ActivityLog/>` panel and a live `<iframe>` preview pane.
+content. Also toggles a right-hand `<ActivityLog/>` panel. The `<iframe>` "Live Preview" drawer that
+used to sit beside it is **gone** — nothing had opened it since Preview became a link, and leaving a
+second, stale idea of "preview" next to the new one was worse than the feature was worth.
 
-Composed via `edit/EditorShell.tsx` as four tabs (Brief / Map / Schedule / Attendance — the
-last `isHQ`-only) plus a right-hand mission deck (`edit/deck/`: CountdownStrip, DetailsCard —
+Composed via `edit/EditorShell.tsx` as the operation's four views (Orders / Map / Schedule /
+Attendance — the last two `isHQ`-only), where Orders is the collaborative editor mounted on
+`/edit` and the tab itself points at the public page; see "Operation URL structure" above. Plus a
+right-hand mission deck (`edit/deck/`: CountdownStrip, DetailsCard —
 the latter no longer carries the lifecycle Status selector, see the Schedule tab below).
 **All attendance controls live in the Attendance tab** (`edit/tabs/AttendanceTab.tsx`):
 assigned units + custom units, the Discord ping toggle and its per-role targets, and the

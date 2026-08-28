@@ -1,71 +1,53 @@
 'use client'
 
 import { useEffect, useState, type ReactNode } from 'react'
+import Link from 'next/link'
 import { rgbTriplet } from '@/lib/colour'
 import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
 import styles from './shell.module.css'
+import modeSwitch from '../mode-switch.module.css'
 
-export type EditorTab = 'brief' | 'map' | 'schedule' | 'attendance'
+export type { OperationTab as EditorTab } from '../tabs'
+export { TABS, TAB_LABELS } from '../tabs'
 
-/** Also used by Header.tsx, which renders the tab links inline in the merged
- * header row — see that file for why the row owns them instead of this one. */
-export const TABS: readonly EditorTab[] = ['brief', 'map', 'schedule', 'attendance']
-
-export const TAB_LABELS: Record<EditorTab, string> = {
-    brief: 'Brief',
-    map: 'Map',
-    schedule: 'Schedule',
-    attendance: 'Attendance',
-}
-
-/** Tab values that used to be valid and still appear in saved links.
- * Without this an old `development` bookmark silently resolves to `brief`,
- * since an unrecognised value already falls back there. */
-const LEGACY_TAB_ALIASES: Record<string, EditorTab> = { development: 'schedule' }
-
-function resolveTab(raw: string): EditorTab | null {
-    if (raw in LEGACY_TAB_ALIASES) return LEGACY_TAB_ALIASES[raw]
-    return (TABS as readonly string[]).includes(raw) ? (raw as EditorTab) : null
-}
+import { resolveTab, tabFromSegment, tabHref, visibleTabs, type OperationTab } from '../tabs'
 
 /** The last path segment, which is what names the tab. */
 function currentSegment(): string {
     return window.location.pathname.replace(/\/+$/, '').split('/').pop() ?? ''
 }
 
-/**
- * Where a tab lives.
- *
- * The four tabs are siblings under the operation — `/operations/{id}/edit`,
- * `/map`, `/schedule`, `/attendance` — rather than children of `/edit`. They are
- * four views of one operation, and nesting three of them a level below the
- * fourth read as if Brief were the operation and the rest were sub-pages of the
- * editor.
- *
- * Brief keeps the bare `/edit` instead of `/brief`: it is where the editor
- * opens, and `/edit` already says what the page is.
- */
-function tabPath(tab: EditorTab): string {
-    const base = window.location.pathname
+/** The operation's own path, with any view segment stripped off the end. */
+function operationBase(): string {
+    return window.location.pathname
         .replace(/\/+$/, '')
         .replace(/\/(edit|brief|map|schedule|attendance)$/, '')
-    return `${base}/${tab === 'brief' ? 'edit' : tab}`
 }
 
-function tabFromLocation(): EditorTab {
-    if (typeof window === 'undefined') return 'brief'
+/**
+ * Where an *in-shell* tab lives.
+ *
+ * Orders maps to `/edit` rather than to `/operations/{id}`: reaching it from
+ * inside the shell means you are editing the orders, and the operation's own
+ * page is the *other* mode of that view — see `../tabs.ts` for why the orders
+ * are the operation's page rather than a tab of the editor, and `useEditorTab`
+ * below for which of the two a click resolves to.
+ */
+function tabPath(tab: OperationTab): string {
+    return tab === 'orders' ? `${operationBase()}/edit` : `${operationBase()}/${tab}`
+}
+
+function tabFromLocation(): OperationTab {
+    if (typeof window === 'undefined') return 'orders'
 
     // The path is authoritative.
-    const segment = decodeURIComponent(currentSegment())
-    if (segment === 'edit') return 'brief'
-    const fromPath = resolveTab(segment)
-    if (fromPath) return fromPath
+    const fromPath = tabFromSegment(decodeURIComponent(currentSegment()))
+    if (fromPath !== 'orders' || currentSegment() === 'edit') return fromPath
 
     // `?tab=` is the old shape and still turns up in bookmarks, Discord
     // messages and the E2E suite. It is read, then normalised away by the
     // effect below so the two forms never both linger in one URL.
-    const fromQuery = resolveTab(new URLSearchParams(window.location.search).get('tab') ?? '')
-    return fromQuery ?? 'brief'
+    return resolveTab(new URLSearchParams(window.location.search).get('tab') ?? '') ?? 'orders'
 }
 
 /**
@@ -86,8 +68,8 @@ function tabFromLocation(): EditorTab {
  * for a non-HQ user — EditorShell (which does know isHQ) is responsible for
  * falling back to `brief` when the resolved tab isn't actually visible.
  */
-export function useEditorTab(): [EditorTab, (t: EditorTab) => void] {
-    const [tab, setTab] = useState<EditorTab>('brief')
+export function useEditorTab(): [OperationTab, (t: OperationTab) => boolean] {
+    const [tab, setTab] = useState<OperationTab>('orders')
 
     // Read the deep link after mount — the server render has no location.
     useEffect(() => {
@@ -105,13 +87,26 @@ export function useEditorTab(): [EditorTab, (t: EditorTab) => void] {
         }
     }, [])
 
-    const change = (next: EditorTab) => {
+    /**
+     * Returns whether the switch was handled here — `false` means "let the link
+     * navigate", which is how Orders leaves the editor for the operation's own
+     * page. That genuinely is a navigation: the collab socket goes with it and
+     * comes back when the editor is reopened, unlike every other tab, where a
+     * real navigation would tear the socket down and rebuild the Y.Doc for
+     * nothing.
+     *
+     * Which of the two Orders means is not decided here. `OperationTabs` tracks
+     * the mode the orders were last open in and simply doesn't call this when
+     * it is `read`, so everything that reaches this function stays in the shell.
+     */
+    const change = (next: OperationTab): boolean => {
         setTab(next)
         const url = new URL(window.location.href)
         url.pathname = tabPath(next)
         url.searchParams.delete('tab')
         // replaceState, not router.push: no navigation, so the collab socket lives.
         window.history.replaceState(null, '', url)
+        return true
     }
 
     return [tab, change]
@@ -121,8 +116,8 @@ interface EditorShellProps {
     operationId: string
     themeColor: string
     isHQ: boolean
-    tab: EditorTab
-    onTabChange: (t: EditorTab) => void
+    tab: OperationTab
+    onTabChange: (t: OperationTab) => boolean
     header: ReactNode
     /** Optional for now — nothing populates it until the deck itself exists. */
     deck?: ReactNode
@@ -143,9 +138,9 @@ interface EditorShellProps {
      * an HQ user's role changing mid-session must not leave stale attendance
      * content selectable via a stale tab value. */
     attendance: ReactNode
-    /** Right-padding applied to the tab content area so a slide-over drawer
-     * (Activity/Preview, both fixed overlays rendered outside this shell)
-     * doesn't cover whichever tab is currently showing. */
+    /** Right-padding applied to the tab content area so the Activity drawer
+     * (a fixed overlay rendered outside this shell) doesn't cover whichever tab
+     * is currently showing. */
     contentPaddingRight?: string | number
 }
 
@@ -153,12 +148,12 @@ export default function EditorShell({
     operationId, themeColor, isHQ, tab, onTabChange, header, deck, statusBar,
     brief, map, schedule, attendance, contentPaddingRight,
 }: EditorShellProps) {
-    const visibleTabs = TABS.filter(t => t !== 'attendance' || isHQ)
+    const shown = visibleTabs(isHQ)
     // A tab that isn't in the visible set — a non-HQ user deep-linking
     // ?tab=attendance, or a stale value from before a role change — must not
     // be selected: that renders nothing (no placeholder, no content) with no
-    // way back except editing the URL. Fall back to brief instead.
-    const active = visibleTabs.includes(tab) ? tab : 'brief'
+    // way back except editing the URL. Fall back to Orders instead.
+    const active = shown.includes(tab) ? tab : 'orders'
 
     // Map mounts on first visit, then — like Brief — stays mounted forever
     // and is only ever hidden with `display: none` (see the `brief` prop doc).
@@ -217,7 +212,7 @@ export default function EditorShell({
                          * of relying on a hardcoded `calc(100vh - N)` that drifts every
                          * time the chrome above or below it changes height.
                          */}
-                        <div style={{ display: active === 'brief' ? undefined : 'none', height: '100%' }}>
+                        <div style={{ display: active === 'orders' ? undefined : 'none', height: '100%' }}>
                             {brief}
                         </div>
                         {mapVisited && (
@@ -233,24 +228,29 @@ export default function EditorShell({
                      * itself (.main is `position: relative`, set above), not the
                      * viewport, so it always sits just left of the mission deck
                      * (deck is .main's sibling in .body) at every width, deck
-                     * state included. Opens the public operation page in a new
-                     * tab — same behaviour the old header overflow-menu "⊡
-                     * Preview" item had; only its position moved.
+                     * state included.
                      *
-                     * Brief only. It opens the public orders page, which is the
-                     * rendered form of what Brief edits — there is nothing on
-                     * Map, Schedule or Attendance it is a preview *of*, so on
-                     * those tabs it was just a button that took you elsewhere.
+                     * It switches mode in place rather than opening a second
+                     * tab: the orders page is the same view read instead of
+                     * written, and the way back is the identical button in the
+                     * identical corner over there (`../EditOrdersButton.tsx`).
+                     * Two tabs of the same operation was the older answer, and
+                     * it left people editing in one and reading a stale copy in
+                     * the other.
+                     *
+                     * Orders only. It shows the rendered form of what Orders
+                     * edits — there is nothing on Map, Schedule or Attendance it
+                     * is a preview *of*, so on those tabs it was just a button
+                     * that took you elsewhere.
                      */}
-                    {operationId && active === 'brief' && (
-                        <button
-                            type='button'
-                            onClick={() => window.open(`/operations/${operationId}`, '_blank')}
-                            title='Preview operation'
-                            className={styles.previewBtn}
+                    {operationId && active === 'orders' && (
+                        <Link
+                            href={tabHref(operationId, 'orders')}
+                            title='Read the orders as the unit sees them'
+                            className={modeSwitch.btn}
                         >
                             ⊡ Preview
-                        </button>
+                        </Link>
                     )}
                 </div>
                 {/*

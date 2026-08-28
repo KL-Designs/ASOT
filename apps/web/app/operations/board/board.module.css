@@ -1,0 +1,686 @@
+/*
+ * The public operations board.
+ *
+ * Built on the shared command palette (styles/command.css). `.command` does not
+ * set `--acc` / `--acc-rgb` — every consumer injects them for whatever it is
+ * rendering — so OperationsBoard injects the unit's red on the root. The
+ * campaign blue is board-local because the palette has no blue, and a campaign
+ * needs to read as a different kind of thing from an operation's own status.
+ */
+.root {
+    --camp: #6496ed;
+    --camp-rgb: 100, 150, 237;
+    display: flex;
+    flex-direction: column;
+    gap: 34px;
+}
+
+/* ── Shared bits ────────────────────────────────────────────────────────── */
+
+.label {
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+.rule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.rule .label { flex-shrink: 0; }
+.rule hr {
+    flex: 1;
+    height: 1px;
+    border: none;
+    background: var(--line);
+    margin: 0;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 2px;
+    border: 1px solid;
+    white-space: nowrap;
+}
+.bUp   { color: var(--warn); border-color: rgba(212, 160, 58, 0.45); background: rgba(212, 160, 58, 0.1); }
+.bLive { color: var(--acc);  border-color: rgba(var(--acc-rgb), 0.5); background: rgba(var(--acc-rgb), 0.12); }
+.bDone { color: var(--ink-3); border-color: var(--line-2); }
+.bGood { color: var(--good); border-color: rgba(127, 174, 92, 0.45); background: rgba(127, 174, 92, 0.1); }
+.bOut  { color: var(--crit); border-color: rgba(192, 90, 72, 0.45); background: rgba(192, 90, 72, 0.1); }
+.bCamp { color: var(--camp); border-color: rgba(var(--camp-rgb), 0.42); background: rgba(var(--camp-rgb), 0.1); }
+
+.unit {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    border: 1px solid var(--line);
+    border-radius: 2px;
+    padding: 1px 5px;
+    white-space: nowrap;
+}
+
+/* ── The band ───────────────────────────────────────────────────────────── */
+
+.next {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 14px;
+}
+
+.card {
+    position: relative;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    background:
+        linear-gradient(180deg, rgba(13, 15, 17, 0.5) 0%, rgba(8, 9, 10, 0.94) 62%),
+        repeating-linear-gradient(115deg, #171a1f 0 2px, #101317 2px 5px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 214px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 140ms ease;
+}
+.card:hover { border-color: rgba(var(--acc-rgb), 0.4); }
+.card:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+/* The status stripe. Colour is the operation's state, never its theme. */
+.card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 2px;
+    background: var(--warn);
+}
+.cardLive::before { background: var(--acc); }
+
+.cardTop {
+    padding: 15px 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.count {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--warn);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.cardLive .count { color: var(--acc); }
+
+.cardBody { padding: 12px 16px 0; flex: 1; }
+.cardBody h3 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 0 0 5px;
+    line-height: 1.2;
+}
+.when {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    margin: 0 0 12px;
+}
+.units { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.cardFoot {
+    margin-top: 14px;
+    padding: 10px 16px;
+    border-top: 1px solid var(--line);
+    background: rgba(18, 21, 26, 0.75);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.turnout {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    min-width: 0;
+}
+.bar {
+    width: 62px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--s3);
+    overflow: hidden;
+    display: flex;
+    flex-shrink: 0;
+}
+.bar i { display: block; height: 100%; }
+
+.cta {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    border-radius: 2px;
+    border: 1px solid rgba(var(--acc-rgb), 0.55);
+    background: rgba(var(--acc-rgb), 0.12);
+    color: var(--acc);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.ctaIn  { border-color: rgba(127, 174, 92, 0.45); background: rgba(127, 174, 92, 0.1); color: var(--good); }
+.ctaOut { border-color: rgba(192, 90, 72, 0.45); background: rgba(192, 90, 72, 0.09); color: var(--crit); }
+
+/* A campaign mission's two nights, inside one card. */
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); }
+.leg { background: rgba(8, 9, 10, 0.5); padding: 10px 14px; min-width: 0; }
+.leg .label { display: block; margin-bottom: 3px; }
+.leg b {
+    display: block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+}
+.leg span {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--ink-3);
+    letter-spacing: 0.08em;
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.standby {
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r);
+    background: var(--s1);
+    padding: 30px 24px;
+    text-align: center;
+}
+.standby b {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    margin-bottom: 6px;
+}
+.standby span {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+}
+
+/* Staff only: a line, not a column. */
+.staff {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 9px 13px;
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r);
+    background: rgba(var(--acc-rgb), 0.04);
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+.staff b { color: var(--acc); }
+.staff a { margin-left: auto; color: var(--acc); text-decoration: none; }
+.staff a:hover, .staff a:focus-visible { text-decoration: underline; }
+
+/* ── Filter rig ─────────────────────────────────────────────────────────── */
+
+.filter {
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--s1);
+    margin-bottom: 18px;
+    overflow: visible;
+}
+.filterRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    flex-wrap: wrap;
+}
+.filterRow + .filterRow { border-top: 1px solid var(--line); }
+
+.search {
+    flex: 1;
+    min-width: 210px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: var(--s2);
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    padding: 7px 11px;
+}
+.search:focus-within { border-color: rgba(var(--acc-rgb), 0.5); }
+.search svg { flex-shrink: 0; }
+.search input {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+}
+.search input::placeholder { color: var(--ink-3); }
+
+.showing {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.showing b { color: var(--ink); }
+
+.facetWrap { position: relative; }
+.facet {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    background: var(--s2);
+    color: var(--ink-2);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.facet em { font-style: normal; color: var(--ink-3); font-size: 9px; }
+.facetOn { border-color: rgba(var(--acc-rgb), 0.5); color: var(--acc); background: rgba(var(--acc-rgb), 0.1); }
+.facetOn em { color: rgba(var(--acc-rgb), 0.75); }
+.facetMine { border-color: rgba(127, 174, 92, 0.45); color: var(--good); background: rgba(127, 174, 92, 0.09); }
+.facet:focus-visible, .chip:focus-visible, .clear:focus-visible,
+.more:focus-visible, .menu button:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+.menu {
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    z-index: 30;
+    min-width: 210px;
+    max-height: 300px;
+    overflow-y: auto;
+    padding: 4px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    background: #14171d;
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.75);
+}
+.menu button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    padding: 6px 9px;
+    border: none;
+    border-radius: 2px;
+    background: none;
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    color: var(--ink-2);
+}
+.menu button:hover { background: rgba(var(--acc-rgb), 0.14); color: var(--acc); }
+.menu button span { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.menu button[aria-pressed='true'] { color: var(--acc); }
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 5px 4px 9px;
+    border-radius: 2px;
+    border: 1px solid rgba(var(--acc-rgb), 0.45);
+    background: rgba(var(--acc-rgb), 0.1);
+    color: var(--acc);
+    cursor: pointer;
+}
+.chip i { font-style: normal; opacity: 0.7; padding: 0 2px; }
+.clear {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+}
+.clear:hover { color: var(--ink); }
+
+/* ── The histogram ──────────────────────────────────────────────────────── */
+
+.hist { padding: 4px 14px 14px; }
+.histHead {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.histHead .label { flex: 1; }
+.histHead b {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+}
+.bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 46px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+    width: 100%;
+    cursor: crosshair;
+}
+/*
+ * Three states, not two. At rest every month is included, and painting them all
+ * in the accent is a wall of red that says nothing; a plain readable grey does.
+ * The accent is reserved for a range somebody actually chose, which is the only
+ * time the distinction carries information.
+ */
+.bars button {
+    flex: 1;
+    min-width: 2px;
+    padding: 0;
+    border: none;
+    background: var(--ink-3);
+    border-radius: 1px 1px 0 0;
+    cursor: pointer;
+    transition: background 120ms ease;
+}
+.bars button[data-state='in']  { background: var(--acc); }
+.bars button[data-state='out'] { background: var(--line-2); }
+.bars button:hover { background: var(--ink); }
+.bars button:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+
+.years {
+    display: flex;
+    margin-top: 7px;
+    padding-top: 7px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--ink-3);
+}
+.years span { flex: 1; text-align: center; min-width: 0; overflow: hidden; }
+.yearOn { color: var(--acc); }
+
+/* Cover art on a band card. The scrim is what makes an arbitrary screenshot
+ * safe to put type on: two stops, one killing the top so the badges read and
+ * one taking the bottom to nearly solid for the title beneath it. */
+.cover {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-size: cover;
+    background-position: center;
+}
+.cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        180deg,
+        rgba(8, 9, 10, 0.72) 0%,
+        rgba(8, 9, 10, 0.55) 32%,
+        rgba(8, 9, 10, 0.93) 78%,
+        rgba(8, 9, 10, 0.97) 100%
+    );
+}
+/* Everything else on the card sits above the art. */
+.cardTop, .cardBody, .cardFoot { position: relative; z-index: 1; }
+.hasCover { min-height: 250px; }
+
+/* ── The archive ────────────────────────────────────────────────────────── */
+
+.month {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 22px 0 10px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+}
+.month::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.month em { font-style: normal; color: var(--ink-3); letter-spacing: 0.1em; }
+
+.campHead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: rgba(var(--camp-rgb), 0.07);
+    border: 1px solid rgba(var(--camp-rgb), 0.22);
+    border-bottom: none;
+    border-radius: var(--r) var(--r) 0 0;
+    flex-wrap: wrap;
+}
+.campHead b {
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--camp);
+}
+.campHead .label { margin-left: auto; }
+
+.missions {
+    border: 1px solid rgba(var(--camp-rgb), 0.22);
+    border-radius: 0 0 var(--r) var(--r);
+    background: var(--s1);
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+.mission {
+    display: grid;
+    grid-template-columns: 44px minmax(140px, 1.3fr) repeat(2, minmax(126px, 1fr)) auto;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+}
+.mission:last-child { border-bottom: none; }
+.seq {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--line-2);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+.missionName {
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.slot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--good);
+    border-radius: 2px;
+    background: var(--s2);
+    min-width: 0;
+    text-decoration: none;
+    transition: border-color 140ms ease;
+}
+.slot:hover { border-color: rgba(var(--acc-rgb), 0.5); border-left-color: var(--acc); }
+.slot:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+.slotEmpty {
+    border-left-color: var(--line-2);
+    border-style: dashed;
+    background: none;
+    opacity: 0.5;
+    cursor: default;
+}
+.slot b {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.09em;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.slot .turn {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+}
+.wasThere { color: var(--good); }
+
+.solo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 14px;
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--line-2);
+    border-radius: var(--r);
+    background: var(--s1);
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 140ms ease;
+}
+.solo:hover { border-color: rgba(var(--acc-rgb), 0.4); border-left-color: var(--acc); }
+.solo:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.solo b {
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--ink);
+}
+.solo .when { margin: 0; }
+.solo .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.more {
+    display: block;
+    width: 100%;
+    margin-top: 18px;
+    padding: 11px;
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r);
+    background: none;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    cursor: pointer;
+}
+.more:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-3); }
+.more:disabled { opacity: 0.5; cursor: default; }
+
+.empty {
+    padding: 46px 20px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+.empty b { display: block; color: var(--ink-2); margin-bottom: 6px; letter-spacing: 0.1em; }
+
+/* Skeleton, while the first page loads. */
+@keyframes shimmer { 0%, 100% { opacity: 0.35; } 50% { opacity: 0.7; } }
+.skel {
+    background: var(--s2);
+    border-radius: var(--r);
+    animation: shimmer 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skel { animation: none; }
+    .card, .slot, .solo, .bars button { transition: none; }
+}
+
+@media (max-width: 720px) {
+    .mission { grid-template-columns: 32px minmax(0, 1fr); }
+    .mission .slot { grid-column: 2; }
+}

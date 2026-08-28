@@ -19,6 +19,9 @@ import OperationStatusBar from '@/components/operations/OperationStatusBar'
 import OcapLinkPanel from './OcapLinkPanel'
 import OcapStatsPanel from './OcapStatsPanel'
 import DocAcknowledgeCard from './DocAcknowledgeCard'
+import OperationBar from './OperationBar'
+import HideSiteNav from '@/components/HideSiteNav'
+import EditOrdersButton from './EditOrdersButton'
 
 
 function hexToRgb(hex: string) {
@@ -108,6 +111,29 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             className='flex flex-col min-h-full'
             style={isOF ? { background: '#140f07' } : isSF ? { backgroundColor: '#01050a', backgroundImage: sfStars, backgroundAttachment: 'fixed' } : undefined}
         >
+            {/*
+                The operation's view strip. This page is the Orders view — the
+                one anybody can read — and the same four names appear here as in
+                the editor, so moving between them is one bar rather than two
+                different chromes. The slim bar deliberately carries none of the
+                editor's authoring controls; the Orders tab's menu is where you
+                pick a mode, and only people who can edit see it at all.
+
+                It replaces the site navbar rather than sitting under it — its
+                "← Back" link is the way out, and stacking the two would put two
+                rows of navigation over a page that is mostly a hero image. The
+                footer stays; this is still a document you scroll to the end of.
+            */}
+            <HideSiteNav />
+            <OperationBar
+                operationId={id}
+                title={operation.title}
+                status={operation.status}
+                themeColor={operation.themeColor}
+                active='orders'
+                canEdit={isHQ}
+                fromJ2={fromJ2}
+            />
 
             {/* ── Hero ─────────────────────────────────────────────────────── */}
             <div style={{ position: 'relative', overflow: 'hidden', paddingBottom: 1 }}>
@@ -893,6 +919,14 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                     />
                 </div>
             )}
+
+            {/*
+                The one-click way back into the editor, mirroring the editor's
+                own "Preview" button — same corner, same skin, so the pair reads
+                as one switch between reading and writing rather than two
+                shortcuts that happen to point at each other.
+            */}
+            {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} />}
 
         </div>
     )
