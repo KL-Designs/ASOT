@@ -60,7 +60,8 @@ export default function SlotRow({
         data: { userId: slot.occupantUserId, fromSlotId: slot.id },
     })
 
-    const tag = slotTag(slot, nameOf, !!slot.occupantUserId)
+    const occupied = !!slot.occupantUserId
+    const tag = slotTag(slot, nameOf, occupied)
 
     return (
         <div
@@ -96,7 +97,17 @@ export default function SlotRow({
                 )}
             </span>
 
-            {tag && <span className={`${s.tag} ${tag.className}`}>{tag.label}</span>}
+            {tag && (
+                <span
+                    className={`${s.tag} ${tag.className} ${occupied ? s.tagClip : ''}`}
+                    // Focusable only when clipped: it is the sole way to read the
+                    // full label without a pointer, and `title` alone is not
+                    // reachable by keyboard.
+                    tabIndex={occupied ? 0 : undefined}
+                    title={occupied ? tag.label : undefined}
+                    {...(occupied ? swallow : {})}
+                >{tag.label}</span>
+            )}
 
             {canClaim && !slot.occupantUserId && (
                 <button type='button' className={s.claim} onClick={onClaim} {...swallow}>Claim</button>

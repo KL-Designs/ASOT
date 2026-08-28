@@ -90,8 +90,16 @@ Use a second account or a private window.
 
 - [ ] Member names are **readable**, not truncated to "P..". The role label is
       what truncates now, and a truncated "SECTION COM…" is still meaningful.
+- [ ] Role labels are readable in full — "SECTION COMMANDER", "MEDIUM ANTI-TANK"
+      and "PLATOON SERGEANT" should not be truncated on a normal-width card.
 - [ ] Occupied rows show a short badge (`Ressy`, `Await`, `No reply`); empty rows
       show the full sentence with the name (`Declined · Okafor`).
+- [ ] **The badge only clips when the row is actually short of space.** On a wide
+      card with a short name it must show in full — it shrinks 100x faster than
+      the name, so it is the first thing to give and the last thing to be missed.
+- [ ] Hovering (or focusing) a clipped badge expands it back over the name.
+- [ ] The right-hand mission deck is **hidden on the Attendance tab** and present
+      on Brief, Map and Schedule.
 - [ ] **The whole row drags**, not just a grip.
 - [ ] The Claim button and the ⋯ menu still click without starting a drag, by
       pointer *and* by keyboard (Enter on Claim must not also pick the row up).

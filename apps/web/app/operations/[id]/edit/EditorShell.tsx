@@ -200,8 +200,15 @@ export default function EditorShell({
                  * outer box while the inner rail shrinks to 0, doubled
                  * border-left, mismatched width on resize), so `deck` is
                  * rendered directly and owns its own layout.
+                 *
+                 * Hidden on Attendance. The board is a wide, dense surface with
+                 * its own docked pool rail, and the deck's 340px of operation
+                 * metadata is neither relevant to placing people nor affordable
+                 * next to it. Every other tab keeps it. Unmounting is safe here
+                 * in a way it is not for Brief or Map: the deck holds no socket,
+                 * only props already lifted into page.tsx.
                  */}
-                {deck}
+                {tab !== 'attendance' && deck}
             </div>
 
             {statusBar}

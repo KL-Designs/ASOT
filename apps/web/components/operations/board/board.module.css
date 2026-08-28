@@ -262,7 +262,7 @@
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
     gap: 10px;
     align-items: start;
 }
@@ -320,19 +320,19 @@
 .slot:last-child { border-bottom: none; }
 
 /*
- * The role label is allowed to truncate; the member's name is not. It was a
- * fixed 88px, which together with a long status badge left ~50px for the name
- * and rendered every member as "P..". Narrower, and it shrinks before the name
- * does — a truncated "SECTION COM…" is still readable, "C.." is not.
+ * Both the role and the name have to be readable, which they cannot be while a
+ * status badge sits between them taking its full width. So the badge gives way
+ * instead (see .tagClip): the role gets a fixed, generous column that never
+ * shrinks — "MEDIUM ANTI-TANK", "SECTION COMMANDER" and "PLATOON SERGEANT" all
+ * fit — and the name takes what is left.
  */
 .role {
-    width: 62px;
-    min-width: 40px;
-    flex-shrink: 1;
+    flex: 0 1 110px;
+    min-width: 64px;
     padding-left: 8px;
     font-family: var(--mono);
     font-size: 9.5px;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
     color: var(--ink-3);
     white-space: nowrap;
@@ -403,6 +403,31 @@
 .open      { border-left-color: transparent; }
 
 .awaiting .name, .lapsed .name { color: var(--ink-2); }
+
+/*
+ * A row with somebody in it has three things competing for one line, and the
+ * badge is the one that can afford to lose: the left edge and the legend
+ * already carry the state, so the badge is a reminder rather than the only
+ * source. Clipped to a sliver with a fade so it reads as deliberately cut, it
+ * expands over the name on hover or focus when you actually want to read it.
+ *
+ * Only occupied rows get this. An empty row has no name to protect, so its
+ * badge stays full-width and says the whole thing ("Declined · Okafor").
+ */
+.tagClip {
+    /*
+     * Shrink priority, not a fixed cap. A cap clipped the badge to a sliver even
+     * on a wide card with a short name, which is just hiding information for no
+     * reason. Shrinking 100x faster than the name means the badge is full-width
+     * whenever there is room and is the first thing to give when there is not.
+     */
+    flex: 0 100 auto;
+    min-width: 28px;
+    overflow: hidden;
+    cursor: default;
+}
+/* Stop yielding: takes its natural width back and pushes over the name. */
+.tagClip:hover, .tagClip:focus-visible { flex-shrink: 0; }
 
 .tagGood { background: rgba(127, 174, 92, 0.16); color: var(--good); }
 .tagWarn { background: rgba(212, 160, 58, 0.13); color: var(--warn); }
