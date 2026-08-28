@@ -267,16 +267,16 @@
     padding: 30px clamp(16px, 4vw, 56px) 72px;
 }
 /*
- * Full width of its column — no measure cap.
+ * A reading measure, centred in its column.
  *
- * The usual argument against this is reading measure, and it does not apply
- * here: an OPORD is short paragraphs, phase lists and control-measure tables,
- * not flowing essay prose, and the people reading it are scanning for the line
- * that concerns them rather than reading start to finish. The column's own
- * padding is what keeps the text off the edges.
+ * Settled at 800px after trying it uncapped: on a wide monitor the orders ran
+ * the full width of the window and a paragraph became one very long line,
+ * which is exactly what a measure cap exists to prevent. An OPORD is scanned
+ * more than it is read, but it is still read.
  */
 .readerInner {
-    max-width: none;
+    max-width: 800px;
+    margin: 0 auto;
 }
 
 /* Document actions — export, the OCAP link. They belong with the document
