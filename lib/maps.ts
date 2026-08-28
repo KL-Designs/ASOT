@@ -59,7 +59,7 @@ export const QUAL_TO_BADGE: Record<string, TrainingBadge> = {
     'Basic Medical Course':                     'BM',
     'Advanced Medical Course':                  'AdvM',
     'Basic Indirect Fires Course':              'BIDF',
-    'Direct Fires Support Weapons Course':      'BCIDF',
+    // 'Direct Fires Support Weapons Course':      'BCIDF',
     'Basic Rotary Wing Assessment (Wings)':     'BR',
     'Advanced Rotary Wing Course':              'AdvR',
     'Basic CAS and RECON Course':               'BF',

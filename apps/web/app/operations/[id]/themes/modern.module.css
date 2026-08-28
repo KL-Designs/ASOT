@@ -274,7 +274,7 @@
  * it read as though the page had failed to load the other half.
  */
 .readerInner {
-    max-width: 920px;
+    max-width: 1280px;
     margin: 0 auto;
 }
 
