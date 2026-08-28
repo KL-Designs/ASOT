@@ -245,6 +245,9 @@ function AttendanceBoard({
     // Only a revision that arrived from another viewer produces the ping, and
     // only on the rows whose occupant actually changed.
 
+    const memberBarObserver = useRef<ResizeObserver | null>(null)
+    useEffect(() => () => memberBarObserver.current?.disconnect(), [])
+
     const prevOccupants = useRef<Map<string, string | null>>(new Map())
     useEffect(() => {
         if (!data) return
@@ -263,6 +266,32 @@ function AttendanceBoard({
         }
         prevOccupants.current = now
     }, [data, fromPeer, reduced])
+
+    /**
+     * Publish the member bar's height as `--member-bar-h` on the board root.
+     *
+     * The bar and the pool rail both stick to the top of the same scroller, so
+     * the rail has to start below the bar or its header disappears under it.
+     * Measured rather than guessed because the bar wraps to two rows at narrow
+     * widths — which is exactly where a wrong constant hurts most.
+     *
+     * A callback ref rather than an effect keyed on the data: the bar mounts
+     * and unmounts with `myUserId` and the roster reloads every 30 seconds, and
+     * an effect would tear the observer down and rebuild it on every poll.
+     */
+    const measureMemberBar = useCallback((el: HTMLDivElement | null) => {
+        memberBarObserver.current?.disconnect()
+        memberBarObserver.current = null
+        // The wrapper is a direct child of .root, which is where the rail reads it.
+        const root = el?.parentElement
+        if (!el || !root) return
+
+        const apply = () => root.style.setProperty('--member-bar-h', `${el.offsetHeight}px`)
+        apply()
+        const observer = new ResizeObserver(apply)
+        observer.observe(el)
+        memberBarObserver.current = observer
+    }, [])
 
     // ── Writing ───────────────────────────────────────────────────────────────
 
@@ -502,6 +531,7 @@ function AttendanceBoard({
                 )}
 
                 {myUserId && (
+                    <div ref={measureMemberBar} className={s.memberBarSticky}>
                     <MemberBar
                         me={data.members[myUserId]}
                         mySlot={mySlot}
@@ -511,6 +541,7 @@ function AttendanceBoard({
                         busy={busy}
                         run={run}
                     />
+                    </div>
                 )}
 
                 {frozen && (

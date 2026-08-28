@@ -219,6 +219,17 @@ Use a second account or a private window.
       an operation whose roster predates this, since the display derives the
       occupant and heals a stale roster without anyone rewriting it.
 
+## 4g-ter. The member bar follows you
+
+- [ ] Scroll well down the board. The Attending / Not attending bar **sticks to
+      the top** and stays usable from any section.
+- [ ] It stops at the board's own end rather than hanging over whatever is below
+      it on the page.
+- [ ] The reservist rail's own header (title and count) is **not** hidden under
+      it — the rail starts below the bar, at every width, including narrow ones
+      where the bar wraps onto two rows.
+- [ ] Content scrolling underneath is not visible through it.
+
 ## 4h. Performance
 
 The board is the heaviest thing the editor renders — roughly a hundred rows,

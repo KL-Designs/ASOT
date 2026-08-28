@@ -682,13 +682,20 @@
 
 /* ── Pool rail ───────────────────────────────────────────────────────────── */
 
+/*
+ * `--member-bar-h` is measured and written on .root by AttendanceBoard, because
+ * the bar wraps at narrow widths and a guessed constant would be wrong at
+ * exactly the sizes where the overlap is worst. Both stick to the top of the
+ * same scroller, so without the offset the bar would sit over the rail's own
+ * header — the pool's title and count.
+ */
 .rail {
     background: var(--s1);
     display: flex;
     flex-direction: column;
     position: sticky;
-    top: 0;
-    max-height: 100vh;
+    top: var(--member-bar-h, 0px);
+    max-height: calc(100vh - var(--member-bar-h, 0px));
 }
 .railHead { padding: 14px var(--board-gutter, 16px) 10px 14px; border-bottom: 1px solid var(--line); }
 .railTitle { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
@@ -987,6 +994,25 @@
 .legendKey b { color: var(--ink-2); font-weight: 500; }
 
 /* ── The viewer's own bar ─────────────────────────────────────────────────── */
+
+/*
+ * Follows you down the board.
+ *
+ * The board is several screens tall and the answer it wants is at the very top,
+ * so on any section far enough down to be worth looking at, the controls for
+ * doing something about it had scrolled away. Sticky rather than fixed: it
+ * belongs to the board, and it should stop at the board's own end rather than
+ * hanging over whatever comes after.
+ *
+ * The wrapper sticks and .memberBar keeps its own background and rule, so the
+ * component below is unchanged and its opaque background is what content scrolls
+ * under.
+ */
+.memberBarSticky {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
 
 /*
  * Given more room than the other bars on purpose. Answering the RSVP is the one
