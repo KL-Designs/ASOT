@@ -56,6 +56,8 @@ export interface BoardOperation {
     /** ORBAT categories assigned, e.g. `['platoon11', 'support']`. */
     units: string[]
     terrain?: string
+    /** Banner art, shown on the band's cards. Absent on plenty of older ops. */
+    coverImage?: string
     campaignId?: string
     campaignMissionId?: string
     daySlot?: 'saturday' | 'sunday'

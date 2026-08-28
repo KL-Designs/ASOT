@@ -252,11 +252,13 @@ function Histogram({ buckets, from, to, onSelect }: {
     const live = dragFrom !== null && dragTo !== null
         ? [Math.min(dragFrom, dragTo), Math.max(dragFrom, dragTo)]
         : null
-    const selected = (i: number) => {
-        if (live) return i >= live[0] && i <= live[1]
-        if (!from && !to) return true
+
+    /** `rest` — no range at all; `in`/`out` — inside or outside a chosen one. */
+    const stateOf = (i: number): 'rest' | 'in' | 'out' => {
+        if (live) return i >= live[0] && i <= live[1] ? 'in' : 'out'
+        if (!from && !to) return 'rest'
         const m = buckets[i].month
-        return (!from || m >= from) && (!to || m <= to)
+        return (!from || m >= from) && (!to || m <= to) ? 'in' : 'out'
     }
 
     const commit = () => {
@@ -293,7 +295,7 @@ function Histogram({ buckets, from, to, onSelect }: {
                     <button
                         key={b.month}
                         type='button'
-                        data-sel={selected(i)}
+                        data-state={stateOf(i)}
                         style={{ height: `${b.count === 0 ? 2 : Math.round((b.count / max) * 44)}px` }}
                         title={`${monthLabel(b.month)} · ${b.count} ${b.count === 1 ? 'operation' : 'operations'}`}
                         aria-label={`${monthLabel(b.month)}, ${b.count} operations`}

@@ -1,10 +1,24 @@
 'use client'
 
+import { rgbTriplet } from '@/lib/colour'
 import Archive from './Archive'
 import ArchiveFilters from './ArchiveFilters'
 import UpcomingBand from './UpcomingBand'
 import { useBoard } from './useBoard'
 import s from './board.module.css'
+
+/**
+ * The unit's own red.
+ *
+ * `.command` deliberately does not set `--acc` / `--acc-rgb` — every consumer
+ * injects them for the entity it renders, because on an operation page the
+ * accent is that operation's theme colour. This board is about all of them at
+ * once, so it uses the unit's, and it has to say so: without this every
+ * `rgba(var(--acc-rgb), …)` on the page is an invalid declaration that the
+ * browser drops, which is quiet and total — it took the histogram's bars down
+ * to the same near-black as its background.
+ */
+const ASOT_RED = '#db001d'
 
 /**
  * The public operations board.
@@ -26,7 +40,7 @@ export default function OperationsBoard() {
 
     if (error || !data) {
         return (
-            <div className={`command ${s.root}`}>
+            <div className={`command ${s.root}`} style={accent}>
                 <div className={s.empty}>
                     <b>Could not load the operations board</b>
                     <span>{error ?? 'Try again in a moment.'}</span>
@@ -36,7 +50,7 @@ export default function OperationsBoard() {
     }
 
     return (
-        <div className={`command ${s.root}`}>
+        <div className={`command ${s.root}`} style={accent}>
             <UpcomingBand
                 upcoming={data.upcoming}
                 campaigns={data.campaigns}
@@ -68,7 +82,7 @@ export default function OperationsBoard() {
  */
 function Skeleton() {
     return (
-        <div className={`command ${s.root}`} aria-busy='true' aria-label='Loading operations'>
+        <div className={`command ${s.root}`} style={accent} aria-busy='true' aria-label='Loading operations'>
             <section>
                 <div className={s.rule}><span className={s.label}>Turning out</span><hr /></div>
                 <div className={s.next}>
@@ -86,6 +100,11 @@ function Skeleton() {
         </div>
     )
 }
+
+const accent = {
+    ['--acc' as string]: ASOT_RED,
+    ['--acc-rgb' as string]: rgbTriplet(ASOT_RED),
+} as React.CSSProperties
 
 function firstMonth(key: string): string {
     const [y, m] = key.split('-').map(Number)

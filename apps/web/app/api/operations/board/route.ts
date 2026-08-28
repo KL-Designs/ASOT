@@ -220,6 +220,7 @@ export async function GET(req: NextRequest) {
             status: doc.status,
             units: doc.assignedPlatoons ?? [],
             terrain: doc.mapWorld || undefined,
+            coverImage: doc.coverImage || undefined,
             campaignId: doc.campaignId?.toString(),
             campaignMissionId: doc.campaignMissionId,
             daySlot: doc.daySlot,
@@ -298,7 +299,7 @@ export async function GET(req: NextRequest) {
  */
 const LIST_FIELDS = {
     title: 1, date: 1, status: 1, assignedPlatoons: 1, mapWorld: 1,
-    campaignId: 1, campaignMissionId: 1, daySlot: 1, themeColor: 1,
+    campaignId: 1, campaignMissionId: 1, daySlot: 1, themeColor: 1, coverImage: 1,
 } as const
 
 type WithId = {
@@ -308,6 +309,7 @@ type WithId = {
     status?: Operation['status']
     assignedPlatoons?: string[]
     mapWorld?: string
+    coverImage?: string
     campaignId?: ObjectId
     campaignMissionId?: string
     daySlot?: 'saturday' | 'sunday'

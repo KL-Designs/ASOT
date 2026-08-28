@@ -1,10 +1,11 @@
 /*
  * The public operations board.
  *
- * Built on the shared command palette (styles/command.css) — an ancestor
- * carries `.command`, and `--acc` / `--acc-rgb` come with it. The campaign blue
- * is board-local because the palette has no blue, and campaigns need to read as
- * a different kind of thing from an operation's own status.
+ * Built on the shared command palette (styles/command.css). `.command` does not
+ * set `--acc` / `--acc-rgb` — every consumer injects them for whatever it is
+ * rendering — so OperationsBoard injects the unit's red on the root. The
+ * campaign blue is board-local because the palette has no blue, and a campaign
+ * needs to read as a different kind of thing from an operation's own status.
  */
 .root {
     --camp: #6496ed;
@@ -438,18 +439,25 @@
     width: 100%;
     cursor: crosshair;
 }
+/*
+ * Three states, not two. At rest every month is included, and painting them all
+ * in the accent is a wall of red that says nothing; a plain readable grey does.
+ * The accent is reserved for a range somebody actually chose, which is the only
+ * time the distinction carries information.
+ */
 .bars button {
     flex: 1;
     min-width: 2px;
     padding: 0;
     border: none;
-    background: var(--line);
+    background: var(--ink-3);
     border-radius: 1px 1px 0 0;
     cursor: pointer;
     transition: background 120ms ease;
 }
-.bars button[data-sel='true'] { background: rgba(var(--acc-rgb), 0.75); }
-.bars button:hover { background: var(--acc); }
+.bars button[data-state='in']  { background: var(--acc); }
+.bars button[data-state='out'] { background: var(--line-2); }
+.bars button:hover { background: var(--ink); }
 .bars button:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
 
 .years {
@@ -464,6 +472,32 @@
 }
 .years span { flex: 1; text-align: center; min-width: 0; overflow: hidden; }
 .yearOn { color: var(--acc); }
+
+/* Cover art on a band card. The scrim is what makes an arbitrary screenshot
+ * safe to put type on: two stops, one killing the top so the badges read and
+ * one taking the bottom to nearly solid for the title beneath it. */
+.cover {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-size: cover;
+    background-position: center;
+}
+.cover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        180deg,
+        rgba(8, 9, 10, 0.72) 0%,
+        rgba(8, 9, 10, 0.55) 32%,
+        rgba(8, 9, 10, 0.93) 78%,
+        rgba(8, 9, 10, 0.97) 100%
+    );
+}
+/* Everything else on the card sits above the art. */
+.cardTop, .cardBody, .cardFoot { position: relative; z-index: 1; }
+.hasCover { min-height: 250px; }
 
 /* ── The archive ────────────────────────────────────────────────────────── */
 

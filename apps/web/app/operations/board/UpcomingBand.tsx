@@ -118,8 +118,11 @@ function Card({ card, signedIn }: { card: CardEntry; signedIn: boolean }) {
     const first = nights[0]
     const live = nights.some(n => n.status === 'Active')
 
+    const cover = nights.find(n => n.coverImage)?.coverImage
+
     return (
-        <article className={`${s.card} ${live ? s.cardLive : ''}`}>
+        <article className={`${s.card} ${live ? s.cardLive : ''} ${cover ? s.hasCover : ''}`}>
+            <Cover src={cover} />
             <div className={s.cardTop}>
                 {card.campaign && (
                     <span className={`${s.badge} ${s.bCamp}`}>{card.campaign} · {card.label}</span>
@@ -149,7 +152,8 @@ function Card({ card, signedIn }: { card: CardEntry; signedIn: boolean }) {
 function SoloCard({ op, signedIn, campaign }: { op: BoardOperation; signedIn: boolean; campaign?: string }) {
     const live = op.status === 'Active'
     return (
-        <article className={`${s.card} ${live ? s.cardLive : ''}`}>
+        <article className={`${s.card} ${live ? s.cardLive : ''} ${op.coverImage ? s.hasCover : ''}`}>
+            <Cover src={op.coverImage} />
             <div className={s.cardTop}>
                 {campaign && <span className={`${s.badge} ${s.bCamp}`}>{campaign}</span>}
                 <StateBadge op={op} signedIn={signedIn} />
@@ -170,6 +174,23 @@ function SoloCard({ op, signedIn, campaign }: { op: BoardOperation; signedIn: bo
             <Foot op={op} signedIn={signedIn} nights={[op]} />
         </article>
     )
+}
+
+/**
+ * The operation's banner, behind the card.
+ *
+ * A background rather than an `<img>`: it is the card's surface, not content —
+ * it has no caption, it carries nothing a screen reader wants, and an empty alt
+ * on a decorative image is the same statement with more markup. The scrim over
+ * it lives in CSS, because type has to stay readable over art nobody vetted.
+ *
+ * Cards without one keep the hatched placeholder they had; plenty of older
+ * operations have no cover, and a card that suddenly loses its background is
+ * worse than one that never had a photograph on it.
+ */
+function Cover({ src }: { src?: string }) {
+    if (!src) return null
+    return <div className={s.cover} style={{ backgroundImage: `url(${JSON.stringify(src)})` }} aria-hidden='true' />
 }
 
 function StateBadge({ op, signedIn }: { op: BoardOperation; signedIn: boolean }) {
