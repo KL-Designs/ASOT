@@ -236,8 +236,13 @@ export default function EditorShell({
                      * state included. Opens the public operation page in a new
                      * tab — same behaviour the old header overflow-menu "⊡
                      * Preview" item had; only its position moved.
+                     *
+                     * Brief only. It opens the public orders page, which is the
+                     * rendered form of what Brief edits — there is nothing on
+                     * Map, Schedule or Attendance it is a preview *of*, so on
+                     * those tabs it was just a button that took you elsewhere.
                      */}
-                    {operationId && (
+                    {operationId && active === 'brief' && (
                         <button
                             type='button'
                             onClick={() => window.open(`/operations/${operationId}`, '_blank')}
