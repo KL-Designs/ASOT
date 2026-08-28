@@ -50,7 +50,13 @@ function PoolCard({
                 isMe ? s.cardMine : '',
                 frozen ? s.cardLocked : '',
                 isDragging ? s.dragging : '',
+                draggable ? s.draggable : '',
             ].filter(Boolean).join(' ')}
+            // The whole card is the handle, matching the slot rows. A grip is a
+            // 12px target for the action this rail exists to make easy, and the
+            // card carries nothing clickable to conflict with the drag.
+            {...(draggable ? listeners : {})}
+            {...(draggable ? attributes : {})}
         >
             <div className={s.cardTop}>
                 <motion.span
@@ -65,9 +71,6 @@ function PoolCard({
                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                     }}>{member?.displayName ?? entry.userId}</span>
                 </motion.span>
-                {draggable && (
-                    <span className={s.grip} aria-label='Move member' {...listeners} {...attributes}>⣿</span>
-                )}
             </div>
 
             <div className={s.pref}>{preference}</div>

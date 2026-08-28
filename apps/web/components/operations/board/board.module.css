@@ -455,7 +455,7 @@
 .slot:hover .claim, .claim:focus-visible { opacity: 1; }
 .claim:hover { background: rgba(var(--acc-rgb), 0.14); }
 
-.draggable { cursor: grab; }
+.draggable { cursor: grab; touch-action: none; }
 .draggable:active { cursor: grabbing; }
 
 .rowMenu {
@@ -471,17 +471,6 @@
     border-radius: 2px;
 }
 .rowMenu:hover, .rowMenu:focus-visible { color: var(--ink); background: var(--s3); }
-
-.grip {
-    color: var(--ink-3);
-    font-size: 11px;
-    letter-spacing: -2px;
-    padding-left: 5px;
-    flex-shrink: 0;
-    cursor: grab;
-    touch-action: none;
-}
-.grip:active { cursor: grabbing; }
 
 .slotOver {
     background: rgba(var(--acc-rgb), 0.1);
