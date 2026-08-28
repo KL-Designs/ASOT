@@ -142,7 +142,6 @@ export default function EditorPage() {
     const [rsvpOpenOffsetMins, setRsvpOpenOffsetMins] = useState<number | null>(null)
     const [rsvpCloseOffsetMins, setRsvpCloseOffsetMins] = useState(90)
     const [attendanceSaving, setAttendanceSaving] = useState(false)
-    const [tickNow, setTickNow] = useState(() => new Date())
 
     const [attStage, setAttStage] = useState<AttendanceStage>('preparing')
     const [stageAdvancing, setStageAdvancing] = useState(false)
@@ -173,79 +172,91 @@ export default function EditorPage() {
     const rsvpOpenAtSaveTimer = useRef<ReturnType<typeof setTimeout>>()
     const rsvpCloseAtSaveTimer = useRef<ReturnType<typeof setTimeout>>()
 
-    useEffect(() => {
-        const id = setInterval(() => setTickNow(new Date()), 1000)
-        return () => clearInterval(id)
-    }, [])
-
     // Client-side auto-open/close/activate: fire the moment the scheduled time crosses zero
     // so we don't wait up to 5 minutes for the next cron tick.
     const autoOpenFiredRef       = useRef<string | null>(null)
     const autoCloseFiredRef      = useRef<string | null>(null)
     const autoActivateFiredRef   = useRef<string | null>(null)
     const autoConfirmFiredRef    = useRef<string | null>(null)
+
+    /**
+     * The one-second clock these checks need used to be `tickNow` state, which
+     * re-rendered this whole component — and therefore the Attendance tab's
+     * board, ~100 rows inside a motion LayoutGroup that re-measures on every
+     * commit — once a second, for a ~240ms task each time. Nothing renders the
+     * clock; only these checks read it. So it ticks a ref instead and the tree
+     * re-renders only when a transition actually fires.
+     */
+    const autoTransitions = useRef<() => void>(() => {})
     useEffect(() => {
-        if (!isHQ || !opID) return
+        autoTransitions.current = () => {
+            const tickNow = new Date()
+            if (!isHQ || !opID) return
 
-        // Auto-open (skip if still In Development). The instant is derived from
-        // the stored lead time rather than read directly, so moving the op date
-        // moves this with it without any second write.
-        const openAt = rsvpOpenOffsetMins !== null && date
-            ? new Date(date.toDate().getTime() - rsvpOpenOffsetMins * 60_000).toISOString()
-            : null
-        if (openAt && !rsvpOpen && status !== 'In Development') {
-            if (autoOpenFiredRef.current !== openAt && new Date(openAt) <= tickNow) {
-                autoOpenFiredRef.current = openAt
-                setRsvpOpen(true)
-                setAttStage('rsvp_open')
-                saveAttendanceSettings({ rsvpOpen: true, stage: 'rsvp_open' })
-                return
+            // Auto-open (skip if still In Development). The instant is derived from
+            // the stored lead time rather than read directly, so moving the op date
+            // moves this with it without any second write.
+            const openAt = rsvpOpenOffsetMins !== null && date
+                ? new Date(date.toDate().getTime() - rsvpOpenOffsetMins * 60_000).toISOString()
+                : null
+            if (openAt && !rsvpOpen && status !== 'In Development') {
+                if (autoOpenFiredRef.current !== openAt && new Date(openAt) <= tickNow) {
+                    autoOpenFiredRef.current = openAt
+                    setRsvpOpen(true)
+                    setAttStage('rsvp_open')
+                    saveAttendanceSettings({ rsvpOpen: true, stage: 'rsvp_open' })
+                    return
+                }
+            }
+
+            // Auto-close: fires when op date is known and close offset has been reached
+            if (rsvpOpen && date) {
+                const closeAt = new Date(date.toDate().getTime() - rsvpCloseOffsetMins * 60000)
+                const closeKey = closeAt.toISOString()
+                if (autoCloseFiredRef.current !== closeKey && tickNow >= closeAt) {
+                    autoCloseFiredRef.current = closeKey
+                    // Also stamp the open-ref so the auto-open can't immediately re-fire
+                    if (openAt) autoOpenFiredRef.current = openAt
+                    setRsvpOpen(false)
+                    setAttStage('rsvp_closed')
+                    saveAttendanceSettings({ rsvpOpen: false, stage: 'rsvp_closed' })
+                }
+            }
+
+            // Auto-activate: Upcoming → Active when op date is reached
+            if (status === 'Upcoming' && date) {
+                const activateAt = date.toDate()
+                const activateKey = activateAt.toISOString()
+                if (autoActivateFiredRef.current !== activateKey && tickNow >= activateAt) {
+                    autoActivateFiredRef.current = activateKey
+                    // The stage write carries the status with it now — the server
+                    // derives Active from op_running (statusForStage), so this no
+                    // longer needs its own gated `update?status=` call.
+                    setStatus('Active')
+                    setAttStage('op_running')
+                    saveAttendanceSettings({ stage: 'op_running' })
+                }
+            }
+
+            // Auto-open confirmation: fires when status is Completed and confirmation not yet open
+            if (status === 'Completed' && !confirmationOpen && !confirmationOpenedAt) {
+                const confirmKey = `confirm-${opID}`
+                if (autoConfirmFiredRef.current !== confirmKey) {
+                    autoConfirmFiredRef.current = confirmKey
+                    const now = new Date()
+                    setConfirmationOpen(true)
+                    setConfirmationOpenedAt(now)
+                    setAttStage('confirmations_open')
+                    saveAttendanceSettings({ confirmationOpen: true, stage: 'confirmations_open' })
+                }
             }
         }
+    })
 
-        // Auto-close: fires when op date is known and close offset has been reached
-        if (rsvpOpen && date) {
-            const closeAt = new Date(date.toDate().getTime() - rsvpCloseOffsetMins * 60000)
-            const closeKey = closeAt.toISOString()
-            if (autoCloseFiredRef.current !== closeKey && tickNow >= closeAt) {
-                autoCloseFiredRef.current = closeKey
-                // Also stamp the open-ref so the auto-open can't immediately re-fire
-                if (openAt) autoOpenFiredRef.current = openAt
-                setRsvpOpen(false)
-                setAttStage('rsvp_closed')
-                saveAttendanceSettings({ rsvpOpen: false, stage: 'rsvp_closed' })
-            }
-        }
-
-        // Auto-activate: Upcoming → Active when op date is reached
-        if (status === 'Upcoming' && date) {
-            const activateAt = date.toDate()
-            const activateKey = activateAt.toISOString()
-            if (autoActivateFiredRef.current !== activateKey && tickNow >= activateAt) {
-                autoActivateFiredRef.current = activateKey
-                // The stage write carries the status with it now — the server
-                // derives Active from op_running (statusForStage), so this no
-                // longer needs its own gated `update?status=` call.
-                setStatus('Active')
-                setAttStage('op_running')
-                saveAttendanceSettings({ stage: 'op_running' })
-            }
-        }
-
-        // Auto-open confirmation: fires when status is Completed and confirmation not yet open
-        if (status === 'Completed' && !confirmationOpen && !confirmationOpenedAt) {
-            const confirmKey = `confirm-${opID}`
-            if (autoConfirmFiredRef.current !== confirmKey) {
-                autoConfirmFiredRef.current = confirmKey
-                const now = new Date()
-                setConfirmationOpen(true)
-                setConfirmationOpenedAt(now)
-                setAttStage('confirmations_open')
-                saveAttendanceSettings({ confirmationOpen: true, stage: 'confirmations_open' })
-            }
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tickNow])
+    useEffect(() => {
+        const id = setInterval(() => autoTransitions.current(), 1000)
+        return () => clearInterval(id)
+    }, [])
 
     useEffect(() => {
         const id = routeId || ''

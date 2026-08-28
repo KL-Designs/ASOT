@@ -4,10 +4,16 @@ import { useCallback, useEffect, useState } from 'react'
 import { buildTimeline, type LiveStatus, type TimelineMoment } from '@/lib/operations/schedule'
 
 /**
- * Polls the same endpoint the public status bar uses, on the same 30s cadence,
- * and ticks a 1s clock so countdowns move without another network call.
+ * Polls the same endpoint the public status bar uses, on the same 30s cadence.
+ *
+ * `liveClock` ticks `now` every second so a countdown moves without another
+ * network call — **off by default**, because a caller that only wants
+ * `daysUntil` or `refresh` was paying a re-render of its whole subtree every
+ * second for a number that changes once a day. On the operations editor that
+ * subtree includes the attendance board, and the tick alone cost ~240ms of
+ * layout measurement per second.
  */
-export function useOperationStatus(operationId: string): {
+export function useOperationStatus(operationId: string, liveClock = false): {
     status: LiveStatus | null
     timeline: TimelineMoment[]
     now: Date
@@ -32,9 +38,10 @@ export function useOperationStatus(operationId: string): {
     }, [refresh])
 
     useEffect(() => {
+        if (!liveClock) return
         const id = setInterval(() => setNow(new Date()), 1_000)
         return () => clearInterval(id)
-    }, [])
+    }, [liveClock])
 
     const timeline = status ? buildTimeline(status) : []
 
