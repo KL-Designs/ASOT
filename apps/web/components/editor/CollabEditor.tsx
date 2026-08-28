@@ -4,11 +4,10 @@ import React, { useContext, useEffect, useLayoutEffect, useRef, useState, useCal
 import { createPortal } from 'react-dom'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
-import TextAlign from '@tiptap/extension-text-align'
-import Highlight from '@tiptap/extension-highlight'
+import { contentExtensions, FontSize } from './content-extensions'
+import { DEV_TOOLS_ENABLED } from '@/lib/dev-tools'
 import GlobalDragHandle from 'tiptap-extension-global-drag-handle'
 import Collaboration from '@tiptap/extension-collaboration'
 import { Extension } from '@tiptap/core'
@@ -16,9 +15,6 @@ import { yCursorPlugin, defaultSelectionBuilder } from '@tiptap/y-tiptap'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 
-import Link from '@tiptap/extension-link'
-import Underline from '@tiptap/extension-underline'
-import { TextStyle } from '@tiptap/extension-text-style'
 import PageSidebar from './PageSidebar'
 import IntelPackageEditor from './intel-package/IntelPackageEditor'
 import ImageLibraryModal from './ImageLibraryModal'
@@ -58,31 +54,6 @@ function hexToRgb(hex: string) {
         b: parseInt(h.substring(4, 6), 16),
     }
 }
-
-const FontSize = Extension.create({
-    name: 'fontSize',
-    addGlobalAttributes() {
-        return [{
-            types: ['textStyle'],
-            attributes: {
-                fontSize: {
-                    default: null,
-                    parseHTML: (el: HTMLElement) => el.style.fontSize || null,
-                    renderHTML: (attrs: Record<string, any>) =>
-                        attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
-                },
-            },
-        }]
-    },
-    addCommands() {
-        return {
-            setFontSize: (size: string) => ({ chain }: any) =>
-                chain().setMark('textStyle', { fontSize: size }).run(),
-            unsetFontSize: () => ({ chain }: any) =>
-                chain().setMark('textStyle', { fontSize: null }).removeEmptyTextStyle().run(),
-        } as any
-    },
-})
 
 interface PresenceUser {
     name: string
@@ -565,6 +536,33 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
         return () => { awareness.off('update', update) }
     }, [provider])
 
+    /**
+     * Dev only: fill this document with a real one.
+     *
+     * No prop gates this, deliberately — `onProviderReady` is on record as the
+     * only prop CollabEditor may gain, and the template is just as useful
+     * against a SOP or a workspace document as against an operation: all three
+     * are this same page/section model. Gated on DEV_TOOLS_ENABLED, which is
+     * `NODE_ENV` in the ordinary case and an explicit opt-in for a built site —
+     * see lib/dev-tools.ts. With it off the branch is dead code and the module
+     * behind it never enters anybody's bundle.
+     */
+    const isDev = DEV_TOOLS_ENABLED
+    const [templateNote, setTemplateNote] = useState<string | null>(null)
+
+    async function fillWithTemplate() {
+        setTemplateNote('Filling…')
+        try {
+            // Imported lazily so the content and the ProseMirror schema it
+            // builds stay out of the bundle everybody else downloads.
+            const { applyTemplateDocument } = await import('@/lib/operations/template-document')
+            const { pages, sections } = applyTemplateDocument(ydoc)
+            setTemplateNote(`+${sections} sections · +${pages} pages`)
+        } catch {
+            setTemplateNote('Could not apply the template')
+        }
+    }
+
     function addSection() {
         const id = Math.random().toString(36).slice(2, 10)
         const { orderKey, metaPrefix } = getPageKeys(activePage)
@@ -735,13 +733,32 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                                         />
                                     ))}
                                     {!readOnly && (
-                                        <button type='button' onClick={addSection}
-                                            style={{ alignSelf: 'flex-start', marginTop: 8, padding: '6px 2px', background: 'transparent', border: 'none', color: 'var(--ink-3)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color 0.15s' }}
-                                            onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
-                                            onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-3)' }}
-                                        >
-                                            + Add Section
-                                        </button>
+                                        <div style={{ alignSelf: 'flex-start', marginTop: 8, display: 'flex', alignItems: 'center', gap: 18 }}>
+                                            <button type='button' onClick={addSection}
+                                                style={{ padding: '6px 2px', background: 'transparent', border: 'none', color: 'var(--ink-3)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color 0.15s' }}
+                                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+                                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-3)' }}
+                                            >
+                                                + Add Section
+                                            </button>
+                                            {isDev && (
+                                                <>
+                                                    <button type='button' onClick={fillWithTemplate}
+                                                        title='Development only — appends a filled-in operation document: five-paragraph orders, a Zeus page, platoon orders and an AAR, using every mark the toolbar offers. It only ever adds.'
+                                                        style={{ padding: '5px 9px', background: 'transparent', border: '1px dashed var(--line-2)', borderRadius: 'var(--r, 3px)', color: 'var(--ink-3)', fontFamily: 'var(--mono)', fontSize: '0.6rem', letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', transition: 'color 0.15s' }}
+                                                        onMouseEnter={e => { e.currentTarget.style.color = 'var(--ink)' }}
+                                                        onMouseLeave={e => { e.currentTarget.style.color = 'var(--ink-3)' }}
+                                                    >
+                                                        ⚙ Template Document
+                                                    </button>
+                                                    {templateNote && (
+                                                        <span style={{ fontFamily: 'var(--mono)', fontSize: '0.6rem', color: 'var(--ink-3)' }}>
+                                                            {templateNote}
+                                                        </span>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             )}
@@ -1507,15 +1524,12 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
         onFocus: ({ editor: e }) => onFocusEditor?.(e),
         onBlur: ({ editor: e, event }) => onBlurEditor?.(e, event),
         extensions: [
-            StarterKit.configure({ undoRedo: false }),
-            TextAlign.configure({ types: ['heading', 'paragraph'] }),
-            Highlight.configure({ multicolor: false }),
-            Underline,
-            TextStyle,
-            FontSize,
+            // Everything schema-defining except the image lives in
+            // content-extensions.ts, so content generated elsewhere builds
+            // against this exact schema instead of a lookalike.
+            ...contentExtensions(),
             Placeholder.configure({ placeholder: 'Begin writing this section…' }),
             ResizableImage,
-            Link.configure({ openOnClick: false, HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' } }),
             GlobalDragHandle.configure({ dragHandleWidth: 20 }),
             Collaboration.configure({ document: ydoc, field: contentKey }),
             buildCursorExtension(provider, user),

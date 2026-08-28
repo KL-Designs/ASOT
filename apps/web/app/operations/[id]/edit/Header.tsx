@@ -26,7 +26,7 @@ interface HeaderProps {
     onPublishClick: () => void
     onPublishConfirm: () => void
     onPublishCancel: () => void
-    /** The section tabs (Brief/Map/Development/Attendance), rendered inline
+    /** The section tabs (Brief/Map/Schedule/Attendance), rendered inline
      * in this same row (spec §3) rather than in a separate bar underneath —
      * EditorShell still owns which tab's *content* is on screen (it needs
      * that regardless of where the buttons live), so this component mirrors

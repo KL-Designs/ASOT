@@ -173,11 +173,14 @@ test.describe('Mission deck collapse state', () => {
 // ── Editing the operation date in the timeline persists ────────────────────
 
 test.describe('Timeline op-date edit', () => {
-    test('changing the operation date via the Schedule card persists across a reload', async ({ pageAs }) => {
+    test('changing the operation date via the Schedule tab\'s RSVP window panel persists across a reload', async ({ pageAs }) => {
         const opId = await createOperation()
         const page = await pageAs('j4')
         await page.setViewportSize({ width: 1440, height: 900 })
-        await page.goto(`/operations/${opId}/edit`)
+        // The op-date picker lives in the Schedule tab's AnchorBar, inside the
+        // tab — not the default tab (Brief) — so the deep link is needed to
+        // land there directly instead of clicking the tab button first.
+        await page.goto(`/operations/${opId}/edit?tab=schedule`)
 
         const dateInput = page.getByTestId('schedule-op-date-input')
         await expect(dateInput).toBeVisible({ timeout: 30_000 })
@@ -236,5 +239,81 @@ test.describe('Attendance tab visibility', () => {
         await page.goto(`/operations/${opId}/edit`)
 
         await expect(editorTab(page, 'ATTENDANCE')).toBeVisible({ timeout: 30_000 })
+    })
+})
+
+// ── Legacy tab deep links still resolve ─────────────────────────────────────
+
+test.describe('Schedule tab deep links', () => {
+    test('a legacy ?tab=development link lands on Schedule, not Brief', async ({ pageAs }) => {
+        // The tab was renamed development → schedule. An unrecognised ?tab=
+        // value falls back to 'brief' (EditorShell.tsx tabFromLocation), so
+        // without the alias every saved link would silently open the wrong
+        // tab — a failure with no error message. This is that alias.
+        const opId = await createOperation()
+        const page = await pageAs('j4')
+        await page.goto(`/operations/${opId}/edit?tab=development`)
+
+        await expect(editorTab(page, 'SCHEDULE')).toHaveAttribute('aria-current', 'page', { timeout: 30_000 })
+    })
+
+    test('positive control: ?tab=schedule selects the same tab', async ({ pageAs }) => {
+        const opId = await createOperation()
+        const page = await pageAs('j4')
+        await page.goto(`/operations/${opId}/edit?tab=schedule`)
+
+        await expect(editorTab(page, 'SCHEDULE')).toHaveAttribute('aria-current', 'page', { timeout: 30_000 })
+    })
+
+    test('a legacy ?tab= link is rewritten into the path form', async ({ pageAs }) => {
+        // Both shapes must not linger in one URL: the path is authoritative, so
+        // a query that set the tab is normalised away once it has been read.
+        // Otherwise the next switch leaves ?tab= contradicting the path, and a
+        // copied link opens a different tab than the one on screen.
+        const opId = await createOperation()
+        const page = await pageAs('j4')
+        await page.goto(`/operations/${opId}/edit?tab=schedule`)
+
+        await expect(editorTab(page, 'SCHEDULE')).toHaveAttribute('aria-current', 'page', { timeout: 30_000 })
+        await expect(page).toHaveURL(new RegExp(`/operations/${opId}/schedule$`))
+    })
+})
+
+// ── Tabs are sibling paths under the operation ──────────────────────────────
+
+test.describe('Tab paths', () => {
+    for (const [path, label] of [['edit', 'BRIEF'], ['schedule', 'SCHEDULE'], ['attendance', 'ATTENDANCE']] as const) {
+        test(`/${path} opens the ${label} tab on a cold load`, async ({ pageAs }) => {
+            // Switching tabs never navigates — useEditorTab uses replaceState so
+            // the Hocuspocus socket survives — so these routes exist purely to
+            // answer a refresh or a pasted link. If one stops resolving, the tab
+            // still works in-app and only breaks for the person you sent it to.
+            const opId = await createOperation()
+            const page = await pageAs('j4')
+            await page.goto(`/operations/${opId}/${path}`)
+
+            await expect(editorTab(page, label)).toHaveAttribute('aria-current', 'page', { timeout: 30_000 })
+        })
+    }
+
+    test('switching tabs rewrites the path without reloading', async ({ pageAs }) => {
+        const opId = await createOperation()
+        const page = await pageAs('j4')
+        await page.goto(`/operations/${opId}/edit`)
+        await expect(editorTab(page, 'BRIEF')).toBeVisible({ timeout: 30_000 })
+
+        await editorTab(page, 'SCHEDULE').click()
+        await expect(page).toHaveURL(new RegExp(`/operations/${opId}/schedule$`))
+        await expect(editorTab(page, 'SCHEDULE')).toHaveAttribute('aria-current', 'page')
+    })
+
+    test('a member without edit rights is sent to the operation, not the list', async ({ pageAs }) => {
+        // They asked for *this* operation; the public page is the version of it
+        // they can actually see. Bouncing them to /operations would lose that.
+        const opId = await createOperation()
+        const page = await pageAs('plainMember')
+        await page.goto(`/operations/${opId}/schedule`)
+
+        await expect(page).toHaveURL(new RegExp(`/operations/${opId}$`), { timeout: 30_000 })
     })
 })

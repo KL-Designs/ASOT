@@ -278,6 +278,43 @@ export async function sendTaskAssignedDM(
 }
 
 /**
+ * Tell a member their position on an operation's attendance board was taken
+ * back by the person it belongs to.
+ *
+ * Worth a DM rather than only a site notification: they picked that position
+ * deliberately, they are no longer in it, and they will not find out until they
+ * next open the board — which might be after the operation has started.
+ */
+export async function sendPositionReclaimedDM(
+    userId: string,
+    operationName: string,
+    sectionTitle: string,
+    role: string,
+    actionUrl?: string,
+): Promise<void> {
+    const embed: DiscordEmbed = {
+        title: '⚠️ Your Operation Position Changed',
+        description: [
+            `**${operationName}**`,
+            `Your position — **${sectionTitle} · ${role}** — has been taken back by the member it belongs to,`
+            + ' who has since marked themselves as attending.',
+            '',
+            'You are back in the reservist pool. Pick another position, or set a preference and staff will place you.',
+        ].join('\n'),
+        color: 0xd4a03a,
+        footer: { text: 'ASOT Operations' },
+        timestamp: new Date().toISOString(),
+    }
+
+    if (actionUrl) {
+        const base = process.env.NEXT_PUBLIC_BASEURL ?? ''
+        embed.fields = [{ name: '​', value: `[Open the attendance board](${base}${actionUrl})`, inline: false }]
+    }
+
+    await sendDM(userId, { embeds: [embed] }, 'operation')
+}
+
+/**
  * Send a board-card-assigned DM.
  * Produces a consistently styled embed matching the site's branding.
  */

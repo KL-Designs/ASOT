@@ -4,7 +4,7 @@
  * answer both agree on.
  */
 import { describe, test, expect } from 'vitest'
-import { STAGE_ORDER, stageIndex, nextStage, stageLabel, stageProgress } from './stage'
+import { STAGE_ORDER, stageIndex, nextStage, stageLabel, stageProgress, statusForStage } from './stage'
 
 describe('STAGE_ORDER', () => {
     test('is the lifecycle in order', () => {
@@ -50,5 +50,25 @@ describe('stageProgress', () => {
     test('is a 1-based count for the six-segment bar', () => {
         expect(stageProgress('preparing')).toBe(1)
         expect(stageProgress('completed')).toBe(6)
+    })
+})
+
+describe('statusForStage', () => {
+    test('running the operation makes it Active', () => {
+        expect(statusForStage('op_running')).toBe('Active')
+    })
+
+    test('opening confirmations marks the operation Completed', () => {
+        expect(statusForStage('confirmations_open')).toBe('Completed')
+    })
+
+    test('every other stage leaves the status alone', () => {
+        for (const s of ['preparing', 'rsvp_open', 'rsvp_closed', 'completed'] as const) {
+            expect(statusForStage(s)).toBeNull()
+        }
+    })
+
+    test('an unrecognised stage changes nothing', () => {
+        expect(statusForStage('nonsense' as never)).toBeNull()
     })
 })

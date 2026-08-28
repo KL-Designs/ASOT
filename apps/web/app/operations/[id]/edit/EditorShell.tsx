@@ -5,23 +5,67 @@ import { rgbTriplet } from '@/lib/colour'
 import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
 import styles from './shell.module.css'
 
-export type EditorTab = 'brief' | 'map' | 'development' | 'attendance'
+export type EditorTab = 'brief' | 'map' | 'schedule' | 'attendance'
 
 /** Also used by Header.tsx, which renders the tab links inline in the merged
  * header row — see that file for why the row owns them instead of this one. */
-export const TABS: readonly EditorTab[] = ['brief', 'map', 'development', 'attendance']
+export const TABS: readonly EditorTab[] = ['brief', 'map', 'schedule', 'attendance']
 
 export const TAB_LABELS: Record<EditorTab, string> = {
     brief: 'Brief',
     map: 'Map',
-    development: 'Development',
+    schedule: 'Schedule',
     attendance: 'Attendance',
+}
+
+/** Tab values that used to be valid and still appear in saved links.
+ * Without this an old `development` bookmark silently resolves to `brief`,
+ * since an unrecognised value already falls back there. */
+const LEGACY_TAB_ALIASES: Record<string, EditorTab> = { development: 'schedule' }
+
+function resolveTab(raw: string): EditorTab | null {
+    if (raw in LEGACY_TAB_ALIASES) return LEGACY_TAB_ALIASES[raw]
+    return (TABS as readonly string[]).includes(raw) ? (raw as EditorTab) : null
+}
+
+/** The last path segment, which is what names the tab. */
+function currentSegment(): string {
+    return window.location.pathname.replace(/\/+$/, '').split('/').pop() ?? ''
+}
+
+/**
+ * Where a tab lives.
+ *
+ * The four tabs are siblings under the operation — `/operations/{id}/edit`,
+ * `/map`, `/schedule`, `/attendance` — rather than children of `/edit`. They are
+ * four views of one operation, and nesting three of them a level below the
+ * fourth read as if Brief were the operation and the rest were sub-pages of the
+ * editor.
+ *
+ * Brief keeps the bare `/edit` instead of `/brief`: it is where the editor
+ * opens, and `/edit` already says what the page is.
+ */
+function tabPath(tab: EditorTab): string {
+    const base = window.location.pathname
+        .replace(/\/+$/, '')
+        .replace(/\/(edit|brief|map|schedule|attendance)$/, '')
+    return `${base}/${tab === 'brief' ? 'edit' : tab}`
 }
 
 function tabFromLocation(): EditorTab {
     if (typeof window === 'undefined') return 'brief'
-    const t = new URLSearchParams(window.location.search).get('tab')
-    return (TABS as readonly string[]).includes(t ?? '') ? (t as EditorTab) : 'brief'
+
+    // The path is authoritative.
+    const segment = decodeURIComponent(currentSegment())
+    if (segment === 'edit') return 'brief'
+    const fromPath = resolveTab(segment)
+    if (fromPath) return fromPath
+
+    // `?tab=` is the old shape and still turns up in bookmarks, Discord
+    // messages and the E2E suite. It is read, then normalised away by the
+    // effect below so the two forms never both linger in one URL.
+    const fromQuery = resolveTab(new URLSearchParams(window.location.search).get('tab') ?? '')
+    return fromQuery ?? 'brief'
 }
 
 /**
@@ -31,20 +75,41 @@ function tabFromLocation(): EditorTab {
  * that a real navigation here would also tear down the Hocuspocus socket and
  * force the Y.Doc to reconnect on every tab switch.
  *
- * This hook doesn't know about `isHQ`, so it can resolve `?tab=attendance` for
- * a non-HQ user — EditorShell (which does know isHQ) is responsible for
+ * That is why the tab being a path segment changes nothing about how switching
+ * works: the sibling routes (`[id]/schedule`, `[id]/attendance`, and `[id]/map`,
+ * which serves the editor to anyone who can edit and the public viewer to
+ * everyone else) exist only so a cold load or a refresh resolves to a route.
+ * Every switch after that is still `replaceState`, so the socket lives even
+ * though the URL now crosses what Next considers different routes.
+ *
+ * This hook doesn't know about `isHQ`, so it can resolve an `attendance` path
+ * for a non-HQ user — EditorShell (which does know isHQ) is responsible for
  * falling back to `brief` when the resolved tab isn't actually visible.
  */
 export function useEditorTab(): [EditorTab, (t: EditorTab) => void] {
     const [tab, setTab] = useState<EditorTab>('brief')
 
     // Read the deep link after mount — the server render has no location.
-    useEffect(() => { setTab(tabFromLocation()) }, [])
+    useEffect(() => {
+        const resolved = tabFromLocation()
+        setTab(resolved)
+
+        // Rewrite a legacy `?tab=` link into the path form, so what the address
+        // bar shows is what a copied link will do, and the query does not sit
+        // there contradicting the path after the next switch.
+        const url = new URL(window.location.href)
+        if (url.searchParams.has('tab')) {
+            url.searchParams.delete('tab')
+            url.pathname = tabPath(resolved)
+            window.history.replaceState(null, '', url)
+        }
+    }, [])
 
     const change = (next: EditorTab) => {
         setTab(next)
         const url = new URL(window.location.href)
-        url.searchParams.set('tab', next)
+        url.pathname = tabPath(next)
+        url.searchParams.delete('tab')
         // replaceState, not router.push: no navigation, so the collab socket lives.
         window.history.replaceState(null, '', url)
     }
@@ -69,9 +134,9 @@ interface EditorShellProps {
      * unmount hazard as Brief — mounted on first visit, then kept mounted and
      * hidden with CSS like Brief, never unmounted again afterwards. */
     map: ReactNode
-    /** Mission development gates. Holds no socket — free to mount/unmount
+    /** Operation lifecycle: development gates, RSVP window, stage. Holds no socket — free to mount/unmount
      * with the tab switch. */
-    development: ReactNode
+    schedule: ReactNode
     /** Who attends, notifications, acknowledgements — `isHQ` only. Holds no
      * socket — free to mount/unmount with the tab switch. Gated by the caller
      * (page.tsx passes `null` for a non-HQ user) and, redundantly, here too:
@@ -86,7 +151,7 @@ interface EditorShellProps {
 
 export default function EditorShell({
     operationId, themeColor, isHQ, tab, onTabChange, header, deck, statusBar,
-    brief, map, development, attendance, contentPaddingRight,
+    brief, map, schedule, attendance, contentPaddingRight,
 }: EditorShellProps) {
     const visibleTabs = TABS.filter(t => t !== 'attendance' || isHQ)
     // A tab that isn't in the visible set — a non-HQ user deep-linking
@@ -160,7 +225,7 @@ export default function EditorShell({
                                 {map}
                             </div>
                         )}
-                        {active === 'development' && development}
+                        {active === 'schedule' && schedule}
                         {active === 'attendance' && isHQ && attendance}
                     </div>
                     {/*
@@ -171,8 +236,13 @@ export default function EditorShell({
                      * state included. Opens the public operation page in a new
                      * tab — same behaviour the old header overflow-menu "⊡
                      * Preview" item had; only its position moved.
+                     *
+                     * Brief only. It opens the public orders page, which is the
+                     * rendered form of what Brief edits — there is nothing on
+                     * Map, Schedule or Attendance it is a preview *of*, so on
+                     * those tabs it was just a button that took you elsewhere.
                      */}
-                    {operationId && (
+                    {operationId && active === 'brief' && (
                         <button
                             type='button'
                             onClick={() => window.open(`/operations/${operationId}`, '_blank')}
@@ -194,8 +264,15 @@ export default function EditorShell({
                  * outer box while the inner rail shrinks to 0, doubled
                  * border-left, mismatched width on resize), so `deck` is
                  * rendered directly and owns its own layout.
+                 *
+                 * Hidden on Attendance. The board is a wide, dense surface with
+                 * its own docked pool rail, and the deck's 340px of operation
+                 * metadata is neither relevant to placing people nor affordable
+                 * next to it. Every other tab keeps it. Unmounting is safe here
+                 * in a way it is not for Brief or Map: the deck holds no socket,
+                 * only props already lifted into page.tsx.
                  */}
-                {deck}
+                {tab !== 'attendance' && deck}
             </div>
 
             {statusBar}

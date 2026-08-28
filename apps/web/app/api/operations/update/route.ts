@@ -36,13 +36,52 @@ export async function GET(request: NextRequest) {
             || client.hasRoles(me, PERMISSIONS.members.editRestricted)
 
         if (title) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { title } })
-        if (date) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { date: new Date(date) } })
+        if (date) {
+            await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { date: new Date(date) } })
+
+            // The RSVP window is authored as two offsets back from this date,
+            // so moving the operation has to move the derived open instant with
+            // it. Without this the open end would stay where it was while the
+            // close end (computed live from the offset) moved — which is
+            // exactly how an operation ends up opening RSVP after it has run.
+            const att = await Db.operationAttendance.findOne(
+                { operationId: new ObjectId(id) },
+                { projection: { rsvpOpenOffsetMins: 1 } }
+            )
+            const offset = att?.rsvpOpenOffsetMins
+            if (typeof offset === 'number') {
+                await Db.operationAttendance.updateOne(
+                    { operationId: new ObjectId(id) },
+                    { $set: { rsvpOpenAt: new Date(new Date(date).getTime() - offset * 60_000) } }
+                )
+            }
+        }
         if (loreDate !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { loreDate } })
         if (department) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { department } })
         if (themeColor) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { themeColor } })
         if (pageTheme) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { pageTheme } })
         if (coverImage !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { coverImage } })
-        if (status) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { status: status as Operation['status'] } })
+        // Setting status by hand is an override, not an edit — see
+        // PERMISSIONS.operations.overrideLifecycle. Normal lifecycle
+        // progression no longer comes through here at all: the stage write
+        // derives it server-side (attendance/platoons + statusForStage), so
+        // gating this does not block anyone advancing a stage.
+        if (status) {
+            // Both halves are needed. `hasPermission` is the dynamic grant path
+            // and deliberately has no Discord-role fallback, so a brand-new key
+            // is false for everyone until someone grants it in the Roles
+            // Manager — including J4 admins, since the J4-Administration bypass
+            // lives in `client.hasRoles`, not here. The `hasRoles` arm keeps
+            // HQ Staff and the J2 Department Leader working from the moment
+            // this deploys; the `hasPermission` arm is how the key is meant to
+            // be granted going forward.
+            const canOverride = (await hasPermission(me, 'operations.overrideLifecycle'))
+                || client.hasRoles(me, PERMISSIONS.operations.overrideLifecycle)
+            if (!canOverride) {
+                return NextResponse.json({ error: 'Forbidden: lifecycle override required' }, { status: 403 })
+            }
+            await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { status: status as Operation['status'] } })
+        }
         if (mapWorld !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { mapWorld: mapWorld || undefined } })
         if (customTheme !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { customTheme } })
         if (isSingleMission !== null) await Db.operations.updateOne({ _id: new ObjectId(id) }, { $set: { isSingleMission: isSingleMission === 'true' } })

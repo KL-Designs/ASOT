@@ -232,6 +232,29 @@ const PERMISSIONS = {
          *  - `app/api/operations/route.ts` (sets `isHQ` flag to include in-dev ops)
          */
         viewInDevelopment: ['HQ Staff', 'J2 - Mission Making'],
+
+        /**
+         * Setting an operation's lifecycle status by hand — the override on the
+         * Schedule tab that can move an operation to any of In Development /
+         * Upcoming / Active / Completed regardless of where its schedule says
+         * it should be.
+         *
+         * Separate from `operations.write` because it is not an edit, it is an
+         * override: "In Development" suspends every automation (RSVP will not
+         * open or close, the operation will not activate), and "Completed"
+         * opens attendance confirmation and issues squad-leader tasks. Both are
+         * things a mission maker can legitimately need and neither should be a
+         * side effect of ordinary editing.
+         *
+         * Normal progression does not need this. The stage machine writes the
+         * stage, and the server derives the status from it — see
+         * `statusForStage` in `lib/operations/stage.ts`.
+         *
+         * Used by:
+         *  - `app/api/operations/update/route.ts` (the `status` parameter)
+         *  - `app/operations/[id]/edit/tabs/schedule/LifecycleOverride.tsx`
+         */
+        overrideLifecycle: ['HQ Staff', 'J2 - Department Leader'],
     },
 
     // ── Uploads ───────────────────────────────────────────────────────────────
@@ -487,6 +510,36 @@ const PERMISSIONS = {
          *  - `app/api/operations/[id]/attendance/type/route.ts` (`isAllStaff` flag)
          */
         confirm: ['All Staff', 'HQ Staff'],
+
+        /**
+         * Manage an operation's roster on the live attendance board: place
+         * members into positions, move and swap them between sections, add or
+         * remove positions, and auto-fill from the reservist pool.
+         *
+         * This is the permission the board's manage mode is gated on, and the
+         * one the write routes re-check server-side. Members can always move
+         * *themselves* while RSVP is open without holding it; once RSVP closes
+         * every member-originated move is rejected and only a holder of this
+         * key can change the board.
+         *
+         * Previously this power sat behind `admin.manageOrbat`, which is
+         * J4-Administration only — the ORBAT-*editing* permission borrowed for
+         * an attendance job. That is why nobody outside J4 could manage an
+         * operation's roster, and separating them is the point of this key.
+         *
+         * Checked two-armed — `await hasPermission(user, 'attendance.manage')`
+         * OR `client.hasRoles(user, PERMISSIONS.attendance.manage)` — because
+         * `hasPermission` has no Discord-role fallback and does not honour the
+         * J4-Administration bypass, so a brand-new key checked only the dynamic
+         * way is false for everybody, admins included.
+         *
+         * Used by:
+         *  - `app/api/operations/[id]/attendance/roster/route.ts`
+         *  - `app/api/operations/[id]/attendance/platoons/route.ts`
+         *  - `app/api/operations/[id]/attendance/manage/route.ts`
+         *  - `components/operations/board/AttendanceBoard.tsx` (`canManage` flag)
+         */
+        manage: ['HQ Staff', 'All Staff'],
     },
 
     // ── Auth / integrations ───────────────────────────────────────────────────

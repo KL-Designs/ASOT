@@ -78,17 +78,29 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     const [importing, setImporting]                   = useState(false)
 
     const PAGE_COLOR_PRESETS = ['', '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899']
-    const dragSrcRef = useRef<number>(-1)
+    /** The page being dragged, by id rather than by index: the list can be
+     * rewritten under a drag by another editor on the same document, and an
+     * index captured on dragstart would then move the wrong row. */
+    const [dragSrcId, setDragSrcId] = useState<string | null>(null)
     const renameInputRef = useRef<HTMLInputElement>(null)
     const defaultInitRef = useRef(false)
     const [hoveredRowId, setHoveredRowId] = useState<string | null>(null)
     const listFadeRef = useThinScrollFade<HTMLDivElement>()
 
-    // Restore system cursor over modals (globals.css sets cursor:none !important for custom cursor)
+    // Show the system cursor over this component's modals.
+    //
+    // `suppress-custom-cursor`, NOT `cursor-disabled`: the latter is the
+    // *user's own preference*, written to the body by components/cursor.tsx
+    // from localStorage. Toggling it here removed it whenever no modal was
+    // open — and since this rail is mounted on every page of the operations
+    // editor, a member who had turned the custom cursor off lost the class,
+    // got `cursor: none` back from globals.css, and had no cursor at all in
+    // the editor while it worked everywhere else on the site.
     useEffect(() => {
         const anyModalOpen = showTypeModal || !!colorPickerPageId
-        document.body.classList.toggle('cursor-disabled', anyModalOpen)
-        return () => document.body.classList.remove('cursor-disabled')
+        if (!anyModalOpen) return
+        document.body.classList.add('suppress-custom-cursor')
+        return () => document.body.classList.remove('suppress-custom-cursor')
     }, [showTypeModal, colorPickerPageId])
 
     // Auto-create default pages for brand-new empty documents once Hocuspocus confirms sync.
@@ -295,6 +307,107 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
     function unnestPage(pageId: string) {
         const pmeta = ydoc.getMap<string>('pmeta-' + pageId)
         ydoc.transact(() => { pmeta.delete('parentId') })
+    }
+
+    // ── Dragging a document to a new place ────────────────────────────────────
+    //
+    // Two things made this unusable, and both were about the *feedback* rather
+    // than the maths:
+    //
+    // 1. The insert line was a real element in the flow, so showing it pushed
+    //    the row under the cursor down by its own height. That moved the row
+    //    out from under the pointer, which recomputed the position, which
+    //    hid the line, which moved the row back — a loop that reads as the
+    //    indicator flickering between above and below and never settling.
+    //    It is absolutely positioned now and costs no layout.
+    //
+    // 2. `onDragLeave` on each row cleared the state, and a dragleave fires on
+    //    the row every time the pointer crosses into one of its own children
+    //    (the grip, the dot, the label). So the indicator blinked out several
+    //    times while crossing a single row. Only leaving the whole list clears
+    //    it now.
+    //
+    // The before/after split is a plain half-and-half; the middle band is the
+    // nest gesture and only exists on rows that can actually take a child.
+
+    function clearDrag() {
+        setDragSrcId(null)
+        setDragInsertIdx(null)
+        setDragNestTargetId(null)
+    }
+
+    function commitDrop() {
+        const srcId = dragSrcId
+        if (!srcId) { clearDrag(); return }
+
+        if (dragNestTargetId && dragNestTargetId !== srcId) {
+            nestPage(srcId, dragNestTargetId)
+        } else if (dragInsertIdx !== null) {
+            const from = pages.findIndex(p => p.id === srcId)
+            if (from !== -1) {
+                // The insert index counts positions in the list as it stands;
+                // movePage removes first, so everything after the source shifts
+                // up by one.
+                const to = from < dragInsertIdx ? dragInsertIdx - 1 : dragInsertIdx
+                // Dropping onto the top-level insert line is also how a nested
+                // page gets out again — the line is drawn at the top level, so
+                // that is where it lands. It was otherwise a one-way trip:
+                // nothing else in this rail ever called unnestPage.
+                if (pages[from].parentId) unnestPage(srcId)
+                movePage(from, Math.max(0, to))
+            }
+        }
+        clearDrag()
+    }
+
+    /** Drag handlers for one row. `canNest` is false for separators, which
+     * cannot own children. */
+    function dragPropsFor(idx: number, page: PageEntry, canNest: boolean) {
+        return {
+            draggable: true,
+            onDragStart: (e: React.DragEvent) => {
+                setDragSrcId(page.id)
+                e.dataTransfer.effectAllowed = 'move'
+                // Firefox will not start a drag at all without data on the transfer.
+                e.dataTransfer.setData('text/plain', page.id)
+            },
+            onDragOver: (e: React.DragEvent) => {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = 'move'
+                const rect = e.currentTarget.getBoundingClientRect()
+                const yRel = (e.clientY - rect.top) / rect.height
+                // One level of nesting only, which is all the rail renders: a
+                // row that is already a child cannot take one of its own.
+                const nestable = canNest && !!dragSrcId && dragSrcId !== page.id && !page.parentId
+                if (nestable && yRel > 0.35 && yRel < 0.65) {
+                    setDragNestTargetId(page.id)
+                    setDragInsertIdx(null)
+                } else {
+                    setDragNestTargetId(null)
+                    setDragInsertIdx(yRel < 0.5 ? idx : idx + 1)
+                }
+            },
+            onDrop: (e: React.DragEvent) => { e.preventDefault(); commitDrop() },
+            onDragEnd: clearDrag,
+        }
+    }
+
+    /** Whether to draw the insert line before position `idx`. A line at either
+     * end of the row being dragged means "stay exactly where you are", so it is
+     * left out rather than promising a move that will not happen. */
+    function showInsertAt(idx: number) {
+        if (dragInsertIdx !== idx) return false
+        const from = pages.findIndex(p => p.id === dragSrcId)
+        return from === -1 || (idx !== from && idx !== from + 1)
+    }
+
+    function insertLine(edge: 'top' | 'bottom') {
+        return (
+            <div style={{
+                position: 'absolute', left: 10, right: 10, height: 2, zIndex: 2,
+                [edge]: -1, background: 'var(--acc)', borderRadius: 1, pointerEvents: 'none',
+            }} />
+        )
     }
 
     // Sync section list when import source changes
@@ -537,7 +650,22 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 Documents
             </div>
 
-            <div ref={listFadeRef} className='thin-scroll' style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '6px 0' }}>
+            <div
+                ref={listFadeRef}
+                className='thin-scroll'
+                style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '6px 0' }}
+                onDragLeave={e => {
+                    // Only when the pointer leaves the list itself. A dragleave
+                    // also fires every time it crosses into a child element,
+                    // and clearing on those made the insert line blink out
+                    // repeatedly while crossing a single row.
+                    const to = e.relatedTarget as Node | null
+                    if (!to || !e.currentTarget.contains(to)) {
+                        setDragInsertIdx(null)
+                        setDragNestTargetId(null)
+                    }
+                }}
+            >
             {pages.map((page, idx) => {
                 const isActive = page.id === activePage
                 const isRenaming = renamingId === page.id
@@ -548,17 +676,17 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 // ── Separator ─────────────────────────────────────────────────
                 if (page.pageType === 'separator') {
                     return (
+                        <div key={page.id} style={{ position: 'relative' }}>
+                        {showInsertAt(idx) && insertLine('top')}
+                        {idx === pages.length - 1 && showInsertAt(pages.length) && insertLine('bottom')}
                         <div
-                            key={page.id}
-                            draggable
-                            onDragStart={() => { dragSrcRef.current = idx }}
-                            onDragOver={e => { e.preventDefault(); setDragInsertIdx(idx) }}
-                            onDragLeave={() => setDragInsertIdx(null)}
-                            onDrop={() => { let t = idx; if (dragSrcRef.current < t) t--; movePage(dragSrcRef.current, t); setDragInsertIdx(null) }}
-                            onDragEnd={() => setDragInsertIdx(null)}
+                            {...dragPropsFor(idx, page, false)}
                             onMouseEnter={() => setHoveredRowId(page.id)}
                             onMouseLeave={() => setHoveredRowId(null)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', cursor: 'default' }}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', cursor: 'default',
+                                opacity: dragSrcId === page.id ? 0.4 : 1,
+                            }}
                         >
                             <DragIndicator style={{ fontSize: 12, color: 'var(--ink-3)', opacity: isRowHovered ? 0.6 : 0, cursor: 'grab', flexShrink: 0, transition: 'opacity 0.12s' }} />
                             <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
@@ -606,6 +734,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 )
                             )}
                         </div>
+                        </div>
                     )
                 }
 
@@ -624,44 +753,17 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 return (
                     <div
                         key={page.id}
-                        style={page.parentId ? { paddingLeft: 14, marginLeft: 10, borderLeft: '1px solid var(--line)' } : undefined}
+                        style={{
+                            position: 'relative',
+                            ...(page.parentId ? { paddingLeft: 14, marginLeft: 10, borderLeft: '1px solid var(--line)' } : null),
+                        }}
                     >
-                    {/* Drag insert line before this item */}
-                    {dragInsertIdx === idx && dragSrcRef.current !== idx && (
-                        <div style={{ height: 2, background: 'var(--acc)', margin: '2px 10px', pointerEvents: 'none' }} />
-                    )}
+                    {/* Absolutely positioned, so drawing it never moves the row
+                        out from under the cursor - see the note by clearDrag. */}
+                    {showInsertAt(idx) && insertLine('top')}
+                    {idx === pages.length - 1 && showInsertAt(pages.length) && insertLine('bottom')}
                     <div
-                        draggable
-                        onDragStart={() => { dragSrcRef.current = idx }}
-                        onDragOver={e => {
-                            e.preventDefault()
-                            const rect = e.currentTarget.getBoundingClientRect()
-                            const yRel = (e.clientY - rect.top) / rect.height
-                            if (yRel < 0.35) {
-                                setDragInsertIdx(idx)
-                                setDragNestTargetId(null)
-                            } else if (yRel > 0.65) {
-                                setDragInsertIdx(idx + 1)
-                                setDragNestTargetId(null)
-                            } else {
-                                setDragNestTargetId(page.id)
-                                setDragInsertIdx(null)
-                            }
-                        }}
-                        onDragLeave={() => { setDragInsertIdx(null); setDragNestTargetId(null) }}
-                        onDrop={() => {
-                            if (dragNestTargetId === page.id) {
-                                const srcPage = pages[dragSrcRef.current]
-                                if (srcPage) nestPage(srcPage.id, page.id)
-                            } else if (dragInsertIdx !== null) {
-                                let toIdx = dragInsertIdx
-                                if (dragSrcRef.current < toIdx) toIdx--
-                                movePage(dragSrcRef.current, Math.max(0, toIdx))
-                            }
-                            setDragInsertIdx(null)
-                            setDragNestTargetId(null)
-                        }}
-                        onDragEnd={() => { setDragInsertIdx(null); setDragNestTargetId(null) }}
+                        {...dragPropsFor(idx, page, true)}
                         onClick={() => { if (!isRenaming) onSelectPage(page.id) }}
                         onMouseEnter={() => setHoveredRowId(page.id)}
                         onMouseLeave={() => setHoveredRowId(null)}
@@ -669,9 +771,10 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                             display: 'flex', alignItems: 'center', gap: 7,
                             padding: '8px 10px',
                             background: isNestTarget ? 'var(--s3)' : isActive ? 'var(--s2)' : 'transparent',
-                            borderLeft: isActive ? '2px solid var(--acc)' : '2px solid transparent',
+                            borderLeft: (isNestTarget || isActive) ? '2px solid var(--acc)' : '2px solid transparent',
+                            opacity: dragSrcId === page.id ? 0.4 : 1,
                             cursor: 'pointer',
-                            transition: 'background 0.1s',
+                            transition: 'background 0.1s, opacity 0.1s',
                         }}
                     >
                         <DragIndicator style={{ fontSize: 13, flexShrink: 0, color: 'var(--ink-3)', opacity: isRowHovered ? 0.5 : 0, cursor: 'grab', transition: 'opacity 0.12s' }} />
@@ -771,11 +874,6 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                     </div>
                 )
             })}
-
-            {/* Drag insert line after last item */}
-            {dragInsertIdx === pages.length && dragSrcRef.current !== pages.length - 1 && (
-                <div style={{ height: 2, background: 'var(--acc)', margin: '2px 10px', pointerEvents: 'none' }} />
-            )}
 
             <button type='button' onClick={() => { setShowTypeModal(true); setTypeModalStep('type') }}
                 style={{

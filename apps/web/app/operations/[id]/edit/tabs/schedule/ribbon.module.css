@@ -1,0 +1,303 @@
+/*
+ * The phase ribbon. Colour comes entirely from the `.command` tokens the
+ * editor shell already sets, plus the per-operation --acc/--acc-rgb injected
+ * inline by EditorShell — nothing here hardcodes a colour.
+ *
+ * A CSS module rather than the inline styles the other schedule panels use:
+ * a segment has five visual states (spent / current / selected / invalid /
+ * plain) that combine, and expressing that as nested ternaries in a style
+ * object was unreadable. Positions stay inline, because they are data.
+ */
+
+.ribbon {
+    position: relative;
+    height: 226px;
+    margin: 16px 24px 0;
+}
+
+/* ── boundaries — the transitions between phases, above the ribbon ────────── */
+
+.boundary {
+    position: absolute;
+    top: 0;
+    height: 100px;
+    width: 156px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    gap: 2px;
+    transform: translateX(-50%);
+    text-align: center;
+}
+/* The outermost two would overhang the panel, so they hang inward instead. */
+.boundary.first { transform: none; text-align: left; }
+.boundary.last { transform: translateX(-100%); text-align: right; }
+
+.bKey {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    line-height: 1.4;
+}
+.bDate {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.03em;
+    line-height: 1.5;
+}
+.boundary.anchor .bKey { color: var(--acc); font-size: 12px; }
+.boundary.anchor .bDate { color: var(--ink-2); }
+.boundary.overdue .bKey { color: var(--warn); }
+.boundary.invalid .bKey,
+.boundary.invalid .bDate { color: var(--crit); }
+
+.tick {
+    position: absolute;
+    top: 100px;
+    height: 14px;
+    width: 1px;
+    background: var(--line-2);
+}
+.tick.anchor { background: var(--acc); width: 2px; margin-left: -0.5px; }
+.tick.overdue { background: var(--warn); }
+.tick.invalid { background: var(--crit); width: 2px; margin-left: -0.5px; }
+
+/* ── the ribbon itself — one segment per phase ────────────────────────────── */
+
+.segment {
+    position: absolute;
+    top: 114px;
+    height: 28px;
+    border: 1px solid var(--line-2);
+    background: var(--s2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    overflow: hidden;
+    padding: 0 6px;
+    cursor: pointer;
+    margin: 0;
+    border-radius: 0;
+    color: inherit;
+    font: inherit;
+}
+.segment:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; z-index: 4; }
+
+.segName {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    white-space: nowrap;
+}
+.segDur {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+
+.segment.spent { background: var(--s1); border-color: var(--line); }
+.segment.spent .segName { color: var(--ink-3); }
+
+/* The phase `now` is inside. Deliberately quieter than .selected, so the two
+   can be true at once without competing for the same accent. */
+.segment.current { border-bottom: 2px solid var(--acc); }
+
+.segment.selected {
+    border-color: var(--acc);
+    background: rgba(var(--acc-rgb), 0.19);
+    box-shadow: 0 0 0 3px rgba(var(--acc-rgb), 0.11);
+    z-index: 3;
+}
+.segment.selected .segName { color: var(--ink); }
+.segment.selected .segDur { color: var(--ink-2); }
+
+/* A phase that ends before it starts. The hatch is the point: this is a shape
+   the ribbon cannot draw honestly, which is exactly what the error is. */
+.segment.invalid {
+    border-color: var(--crit);
+    z-index: 3;
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(192, 90, 72, 0.26) 0 6px,
+        rgba(192, 90, 72, 0.05) 6px 12px
+    );
+    box-shadow: 0 0 0 3px rgba(192, 90, 72, 0.12);
+}
+.segment.invalid .segName,
+.segment.invalid .segDur { color: var(--crit); }
+
+.backwards {
+    position: absolute;
+    top: 119px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--crit);
+    z-index: 4;
+    pointer-events: none;
+}
+
+/* ── milestones — things that happen inside a phase, below the ribbon ─────── */
+
+.milestone {
+    position: absolute;
+    top: 142px;
+    width: 112px;
+    transform: translateX(-50%);
+    text-align: center;
+}
+.mDot {
+    display: block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin: 0 auto 8px;
+    background: var(--bg);
+    border: 2px solid var(--line-2);
+}
+.mDot.overdue { background: var(--warn); border-color: var(--warn); }
+.mDot.done { background: var(--good); border-color: var(--good); }
+.mDot.ghost { border-style: dashed; }
+
+.mKey {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    line-height: 1.4;
+}
+.mDetail {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    line-height: 1.5;
+    margin-top: 1px;
+}
+.milestone.ghost .mKey { color: var(--ink-3); }
+
+/* ── now ──────────────────────────────────────────────────────────────────── */
+
+.now {
+    position: absolute;
+    top: 92px;
+    bottom: 4px;
+    width: 1px;
+    background: var(--acc);
+    pointer-events: none;
+}
+/* Lifted clear of the boundary labels rather than sitting among them: the
+   `now` line lands wherever the clock puts it, which is often right beside a
+   boundary tick, and at 8.5px mono the two captions ran into each other. */
+.nowFlag {
+    position: absolute;
+    top: -88px;
+    left: 6px;
+    white-space: nowrap;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    color: var(--acc);
+}
+
+/* ── phase selector strip ─────────────────────────────────────────────────── */
+
+.strip {
+    display: flex;
+    border-top: 1px solid var(--line);
+    margin-top: 14px;
+}
+.stripTab {
+    flex: 1 1 0;
+    padding: 9px 10px;
+    text-align: center;
+    border: none;
+    border-right: 1px solid var(--line);
+    background: none;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    cursor: pointer;
+}
+.stripTab:last-child { border-right: none; }
+.stripTab:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
+.stripTab.on {
+    color: var(--ink);
+    background: rgba(var(--acc-rgb), 0.10);
+    box-shadow: inset 0 -2px 0 var(--acc);
+}
+.stripTab.err { color: var(--crit); }
+.stripTab small {
+    display: block;
+    font-size: 10px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    color: var(--ink-3);
+    margin-top: 3px;
+    text-transform: none;
+}
+
+/* ── the anchor bar — the operation date, always on screen ────────────────── */
+
+.anchorBar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--s1);
+}
+.anchorLabel {
+    flex: 0 0 auto;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.17em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+}
+.anchorMeta {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-3);
+    letter-spacing: 0.03em;
+}
+.anchorMeta b { color: var(--acc); font-weight: 700; }
+.anchorNote {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-3);
+    letter-spacing: 0.1em;
+}
+
+/* ── narrow viewports ─────────────────────────────────────────────────────── */
+
+@media (max-width: 1100px) {
+    .ribbon { margin-left: 12px; margin-right: 12px; }
+    .boundary { width: 112px; }
+    .milestone { width: 84px; }
+    .bKey, .segName, .mKey, .stripTab { font-size: 9px; }
+    .bDate, .segDur, .mDetail, .stripTab small { font-size: 8.5px; }
+    .boundary.anchor .bKey { font-size: 10px; }
+    .anchorNote { display: none; }
+}

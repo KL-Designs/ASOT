@@ -7,6 +7,7 @@ import { getAvailableWorlds } from '@/lib/maps'
 import MapSection from '@/components/operations/map/MapSection'
 import FullscreenPage from '@/components/FullscreenPage'
 import Link from 'next/link'
+import EditorPage from '../edit/EditorPage'
 
 export default async function MapPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -20,6 +21,13 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
     const availableWorlds = getAvailableWorlds()
     const world = availableWorlds.find(w => w.name === (operation?.mapWorld ?? '')) ?? null
     const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
+
+    // One URL for "the map of this operation", serving whichever version the
+    // viewer is entitled to: the editor's Map tab for anyone who can edit, the
+    // read-only fullscreen viewer below for everyone else. Splitting it into two
+    // paths would mean the link people paste to each other only works for half
+    // of them.
+    if (isHQ) return <EditorPage />
     const themeColor = operation?.themeColor || '#db001d'
 
     return (

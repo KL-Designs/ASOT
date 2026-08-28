@@ -124,10 +124,13 @@ function ImageCropModal({ src, onConfirm, onCancel }: CropModalProps) {
     const dragging = useRef(false)
     const lastPos  = useRef({ x: 0, y: 0 })
 
-    // Restore system cursor (globals.css sets cursor:none !important for custom cursor)
+    // Show the system cursor while this is open. `suppress-custom-cursor`, not
+    // `cursor-disabled` — that one is the user's saved preference (see
+    // components/cursor.tsx), and removing it on unmount silently turned the
+    // custom cursor back on for someone who had turned it off.
     useEffect(() => {
-        document.body.classList.add('cursor-disabled')
-        return () => document.body.classList.remove('cursor-disabled')
+        document.body.classList.add('suppress-custom-cursor')
+        return () => document.body.classList.remove('suppress-custom-cursor')
     }, [])
 
     useEffect(() => {

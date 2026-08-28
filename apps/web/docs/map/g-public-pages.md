@@ -682,6 +682,24 @@ Large (1158-line) client module exporting the three board building blocks used b
 #### app/operations/[id]/layout.tsx
 Sets dynamic `<Metadata>`/`<Viewport>` (theme colour) from `Db.operations` for the given id.
 
+#### Operation URL structure
+The four editor views are **sibling paths under the operation**, not children of `/edit`:
+`/operations/[id]` (public orders) · `/operations/[id]/edit` (Brief) · `/map` · `/schedule` ·
+`/attendance`. They are four views of one operation, and nesting three of them a level below
+the fourth read as if Brief were the operation and the rest were sub-pages of the editor.
+
+**Switching tabs never navigates.** `useEditorTab` (`edit/EditorShell.tsx`) rewrites the URL with
+`replaceState`, because a real navigation would tear down the Hocuspocus socket and force the
+Y.Doc to reconnect on every tab switch. The route files exist purely to answer a cold load or a
+refresh. The legacy `?tab=` form is still read, then normalised away into the path form so the
+two can never both linger in one URL.
+
+`/operations/[id]/map` serves **both audiences from one path**: the editor's Map tab to anyone
+with `pages.operationsEdit`, and the read-only fullscreen viewer to everyone else. Splitting it
+would mean the link people paste to each other only works for half of them.
+`/schedule` and `/attendance` redirect a viewer without edit rights to `/operations/[id]` — they
+asked for *this* operation, and the public page is the version of it they can see.
+
 #### app/operations/[id]/page.tsx
 The main public operation-orders viewer (very large, themeable — `modern`/`oldfashioned`/`scifi`
 page themes). Server component: fetches the operation + current user, computes role flags
@@ -692,6 +710,11 @@ title, op/lore dates), section-nav or paged-view content (delegates to `<PagedVi
 `<DocBody/>`), an `<AttendanceDrawer/>` sidebar, Zeus Notes tab (J6-only), OCAP tab
 (`<OcapLinkPanel/>` for HQ to sync, `<OcapStatsPanel/>` for anyone logged in once synced), and
 `<DocAcknowledgeCard/>` read-receipt banner+footer when `isAllStaff && status === 'Upcoming'`.
+Below all of that, signed-in viewers get `<AttendanceBoard/>` full-width — the same component the
+editor's Attendance tab renders (one board, two modes; `canManageAttendance`, computed here
+three-armed off `attendance.manage`, is the only difference). It sits outside the document/sidebar
+row because ~70 positions plus a docked pool rail will not fit in the drawer, and is wrapped in
+`.command` with the operation's `--acc`/`--acc-rgb` injected.
 Hidden (`isPublic: false`) sections show a "Classified — Login to Access" banner to logged-out
 visitors. Public read; edit link shown to `isHQ`.
 
@@ -761,7 +784,7 @@ Server layout: redirects to `/operations` unless the user has `PERMISSIONS.pages
 Gates the entire edit subtree.
 
 #### app/operations/[id]/edit/page.tsx
-Very large (2400+ line) client operation-editor page — the main HQ/J2 authoring surface. Covers:
+Very large (~1,050 line) client operation-editor page — the main HQ/J2 authoring surface. Covers:
 meta fields (title/department/date/lore-date/theme colour/page theme/status), cover image
 upload, mission-development check tracker (5 or 6 milestone checks counting back from op/campaign
 date, completable by J2 leads via `POST /api/operations/[id]/mission-development`), "Orders Check
@@ -773,6 +796,37 @@ client-side auto-fire timers and manual stage buttons, persisted via `POST
 delete confirmation, and embeds the TipTap collaborative `<OperationEditor
 documentId={opID}/>` (dynamic import of `@/components/editor/CollabEditor`) for the actual orders
 content. Also toggles a right-hand `<ActivityLog/>` panel and a live `<iframe>` preview pane.
+
+Composed via `edit/EditorShell.tsx` as four tabs (Brief / Map / Schedule / Attendance — the
+last `isHQ`-only) plus a right-hand mission deck (`edit/deck/`: CountdownStrip, DetailsCard —
+the latter no longer carries the lifecycle Status selector, see the Schedule tab below).
+**All attendance controls live in the Attendance tab** (`edit/tabs/AttendanceTab.tsx`):
+assigned units + custom units, the Discord ping toggle and its per-role targets, and the
+acknowledgement summary. **The operation's lifecycle lives in the Schedule tab**
+(`edit/tabs/schedule/`), rebuilt as one horizontal *phase ribbon* covering the whole life of the
+operation — pre-production → lead-up → RSVP window → final hour → op & confirmation:
+
+- `ScheduleTab.tsx` — composes the ribbon panel and `LifecycleOverride`; owns the
+  selected-phase state and its own coarse 30s clock.
+- `AnchorBar.tsx` — the operation date, permanently visible above the ribbon and now its **only**
+  control (it was previously duplicated in the deck's Details card). Carries the
+  `schedule-op-date-input` testid the E2E date-edit spec selects.
+- `PhaseRibbon.tsx` + `ribbon.module.css` — the ribbon: boundaries (transitions) above, milestones
+  below, a `now` line, and an inverted-phase hatch for an out-of-order schedule.
+- `PhaseStrip.tsx` — the five-phase selector under the ribbon.
+- `PreProductionInspector.tsx` — development gates with their checklists visible inline, the
+  completion modal, and the Orders Check request/cancel/reminder block.
+- `RsvpWindowInspector.tsx` — both ends of the RSVP window edited together as one object, and both expressed the same way: minutes before the op date, preset select + `Custom…` picker. There is no Manual/Scheduled toggle — an unset open offset simply means no automatic open, and the lifecycle panel's Advance is the by-hand path.
+- `LifecycleOverride.tsx` — the two manual overrides on the automation, in one panel: operation
+  status + Complete Mission (moved out of the deck's Details card), and the six-step attendance
+  stage machine (the retired `StagePanel`). Gated in two halves — **Advance** is ordinary forward
+  progression and stays open to anyone who reaches the tab, while **status changes and clicking a
+  stage segment** (which can jump backwards) need `operations.overrideLifecycle`. Stage-change
+  confirms live in `page.tsx`'s `requestStageChange`, not here.
+- `controls.ts` — the shared button/pill/field/chip styles the inspectors use.
+
+All of it renders from `lib/operations/phases.ts` (pure, clock-injected). A legacy
+`?tab=development` deep link resolves to Schedule.
 
 #### app/operations/[id]/edit/activity-log.tsx
 Client `ActivityLog` panel: polls `GET /api/operations/activity?id=` every 30s, shows a

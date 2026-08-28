@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
+import { toBoardUser } from '@/lib/attendance/board-user'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const coveredUserIds = new Set<string>()
 
     let sectionRolesMap: Record<string, { role: string; userId: string | null }[]> = {}
-    let sectionMeta: Array<{ category: string; sectionTitle: string | null; color?: string }> = []
+    let sectionMeta: Array<{ category: string; sectionTitle: string | null; color?: string; patch?: string }> = []
 
     if (true) {
         const categoriesToFetch = [...new Set([
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const metaRecords = await Db.orbatSectionMeta.find(
             { category: { $in: categoriesToFetch } },
-            { projection: { category: 1, sectionTitle: 1, color: 1, discordRoleId: 1 } },
+            { projection: { category: 1, sectionTitle: 1, color: 1, patch: 1, discordRoleId: 1 } },
         ).toArray()
 
         // Resolve Discord role colors for entries that have no explicit color
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 const n = roleColorMap.get(m.discordRoleId)
                 if (n && n > 0) color = `#${n.toString(16).padStart(6, '0')}`
             }
-            return { category: m.category, sectionTitle: m.sectionTitle ?? null, color }
+            return { category: m.category, sectionTitle: m.sectionTitle ?? null, color, patch: m.patch }
         })
 
         const positions = await Db.orbatPositions
@@ -153,23 +154,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const recordsWithUsers = orderedRecords.map(record => {
         const u = userMap.get(record.userId)
         if (!u) return { ...record, user: null }
-
-        const rankAbbr = u.milpac?.currentRank
-        const memberName = u.name
-        const displayName = rankAbbr && memberName
-            ? `${rankAbbr} ${memberName}`
-            : u.guild?.displayName || u.globalName || u.username || record.userId
-
-        return {
-            ...record,
-            user: {
-                id: u.id,
-                displayName,
-                avatarURL: u.guild?.avatarURL || u.avatarURL || '',
-                isSkeletonAccount: u.isSkeletonAccount,
-                csvName: u.csvName,
-            },
-        }
+        return { ...record, user: toBoardUser(u, record.userId) }
     })
 
     if (!attendance) {
@@ -186,7 +171,31 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         })
     }
 
-    return NextResponse.json({ ...attendance, recordsWithUsers, sectionRolesMap, sectionMeta })
+    // The RSVP open end is authored as a lead time, but documents written before
+    // that change only carry the absolute `rsvpOpenAt`. Derive the equivalent
+    // offset here rather than in the editor, which would have to wait for the
+    // operation to load separately before it could do the subtraction.
+    //
+    // Nothing is migrated in place: an operation that never had an automatic
+    // open still reports none. Arming automation on operations someone had
+    // deliberately set to open by hand is not a side effect a read should have.
+    let rsvpOpenOffsetMins = (attendance as { rsvpOpenOffsetMins?: number }).rsvpOpenOffsetMins ?? null
+    if (rsvpOpenOffsetMins === null && attendance.rsvpOpenAt) {
+        const op = await Db.operations.findOne({ _id: operationId }, { projection: { date: 1 } })
+        if (op?.date) {
+            rsvpOpenOffsetMins = Math.round(
+                (new Date(op.date).getTime() - new Date(attendance.rsvpOpenAt).getTime()) / 60_000
+            )
+        }
+    }
+
+    return NextResponse.json({
+        ...attendance,
+        rsvpOpenOffsetMins,
+        recordsWithUsers,
+        sectionRolesMap,
+        sectionMeta,
+    })
 }
 
 // POST /api/operations/[id]/attendance — initialise an attendance doc for an operation

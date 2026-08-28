@@ -13,6 +13,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import AttendanceDrawer from '@/components/operations/AttendanceDrawer'
+import AttendanceBoard from '@/components/operations/board/AttendanceBoard'
 import ZeusNotesPanel from './ZeusNotesPanel'
 import OperationStatusBar from '@/components/operations/OperationStatusBar'
 import OcapLinkPanel from './OcapLinkPanel'
@@ -43,6 +44,14 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     const isLoggedIn = !!me
     const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
     const isAllStaff = me ? await hasPermission(me, 'attendance.confirm') : false
+    // See PERMISSIONS.attendance.manage — three-armed for the same reason the
+    // write route is: `hasPermission` has no Discord-role fallback and does not
+    // honour the J4 bypass, and the legacy ORBAT key must keep working.
+    const canManageAttendance = me
+        ? (await hasPermission(me, 'attendance.manage'))
+            || client.hasRoles(me, PERMISSIONS.attendance.manage)
+            || client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+        : false
     const isJ6 = me ? client.hasRoles(me, PERMISSIONS.departments.j6) : false
 
     // Check if the logged-in user is a section leader (isSenior on their ORBAT position)
@@ -847,6 +856,43 @@ export default async function Page({ params, searchParams }: { params: Promise<{
                     themeColor={operation.themeColor || '#db001d'}
                 />
             </div>
+
+            {/*
+                The live board, full width beneath the document. It is the same
+                component the editor's Attendance tab renders — one board, two
+                modes — because members and staff looking at different pictures
+                of the same roster is exactly the confusion it exists to remove.
+                What differs is `canManage`.
+
+                Full width rather than inside the sidebar above: seventy
+                positions plus a docked pool rail will not fit in a drawer.
+
+                `.command` carries the palette (imported globally in layout);
+                --acc is per-operation, so it is injected here the way the
+                editor's shell injects it.
+            */}
+            {isLoggedIn && (
+                <div
+                    className='command'
+                    style={{
+                        ['--acc' as string]: operation.themeColor || '#db001d',
+                        ['--acc-rgb' as string]: (() => {
+                            const { r, g, b } = hexToRgb(operation.themeColor || '#db001d')
+                            return `${r}, ${g}, ${b}`
+                        })(),
+                        borderTop: '1px solid var(--line)',
+                        background: 'var(--bg)',
+                    }}
+                >
+                    <AttendanceBoard
+                        operationId={id}
+                        operationName={operation.title ?? 'Operation'}
+                        operationWhen={operation.date ? dayjs(operation.date).format('ddd D MMM · HH:mm') : 'No date set'}
+                        myUserId={me?.id ?? null}
+                        canManage={canManageAttendance}
+                    />
+                </div>
+            )}
 
         </div>
     )
