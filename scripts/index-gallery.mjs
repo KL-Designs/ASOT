@@ -74,6 +74,25 @@ function splitOperation(folder) {
     return { label: folder.slice(match[0].length).trim() || folder.trim(), order: parseInt(match[1], 10) }
 }
 
+/**
+ * Reduce a folder label or an operation title to a comparable core.
+ *
+ * The two sides are structurally different, not merely formatted differently:
+ * operations are recorded per session day ("OPERATION Lost Army IV — Sun")
+ * while the gallery keeps one folder per weekend, abbreviated ("18. Op
+ * Atlantic Shield"). Exact matching finds nothing at all, which would date the
+ * entire legacy archive to 1 January.
+ */
+function matchKey(s) {
+    return String(s)
+        .toLowerCase()
+        .replace(/\s*[—–-]\s*(sat|sun|saturday|sunday)\s*$/i, '')
+        .replace(/\s*\([^)]*\)\s*$/, '')
+        .replace(/^(operation|op|ftx|tvt)\s+/i, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+}
+
 const SEED_TAGS = [
     'Funny', 'Cinematic', 'Cool', 'Rare moment', 'Teamwork', 'Close call',
     'Explosion', 'Aftermath', 'Night op', 'Air', 'Armour', 'Breach',
@@ -117,18 +136,41 @@ try {
         .find({ deletedAt: { $exists: false } }, { projection: { title: 1, date: 1 } })
         .toArray()
 
-    const byTitle = new Map()
+    /* Grouped by matchKey rather than the raw title, because operations are
+       recorded one per session day: "OPERATION Copper Ridge — Sat" and
+       "— Sun" both reduce to the same key. Where two collide, the earlier
+       date wins — the Saturday of the weekend — since that is the right date
+       for that weekend's photographs. Empty keys (a title matchKey reduces to
+       nothing) are skipped rather than clobbering every other empty-keyed op. */
+    const byKey = new Map()
     for (const op of operations) {
-        if (op.title) byTitle.set(String(op.title).trim().toLowerCase(), op)
+        if (!op.title) continue
+        const key = matchKey(op.title)
+        if (!key) continue
+        const existing = byKey.get(key)
+        if (!existing || new Date(op.date) < new Date(existing.date)) byKey.set(key, op)
     }
 
     // ── Walk ─────────────────────────────────────────────────────────────────
     let seen = 0, inserted = 0, skipped = 0, matched = 0
 
     for (const year of dirs(CONTENT)) {
+        /* Some year folders are a range ("2022 - 2023") rather than a bare
+           year — Number(year) on one of those is NaN, and Date.UTC with a
+           NaN silently produces an Invalid Date rather than throwing. Read
+           just the leading four digits instead, and treat a folder with none
+           as genuinely undated rather than guessing. */
+        const yearMatch = year.match(/^(\d{4})/)
+        const yearNum = yearMatch ? Number(yearMatch[1]) : null
+
         for (const operation of dirs(join(CONTENT, year))) {
             const { label } = splitOperation(operation)
-            const op = byTitle.get(label.toLowerCase())
+            const key = matchKey(label)
+            let op = key ? byKey.get(key) : undefined
+            // A same-named operation from a different year is worse than no
+            // match at all — only trust the match once the folder's own year
+            // is readable and agrees with it.
+            if (op && yearNum !== null && new Date(op.date).getUTCFullYear() !== yearNum) op = undefined
             if (op) matched++
 
             for (const mission of dirs(join(CONTENT, year, operation))) {
@@ -171,11 +213,18 @@ try {
                                 opLabel: label,
                                 mission,
                                 ...(op ? { operationId: op._id } : {}),
-                                /* 1 January of the folder's year rather than
-                                   null when nothing matched: the year is real
-                                   information, and a null would drop the whole
-                                   unmatched archive into the undated group. */
-                                takenAt: op?.date ? new Date(op.date) : new Date(Date.UTC(Number(year), 0, 1)),
+                                /* 1 January of the folder's year when nothing
+                                   matched but the year is readable: the year
+                                   is real information, and a null would drop
+                                   the whole unmatched archive into the undated
+                                   group. But when the folder name is a range
+                                   like "2022 - 2023" there is no year to fall
+                                   back to — null there, never an Invalid Date,
+                                   since the design already sorts undated media
+                                   into its own group. */
+                                takenAt: op?.date
+                                    ? new Date(op.date)
+                                    : (yearNum !== null ? new Date(Date.UTC(yearNum, 0, 1)) : null),
                                 tags: [],
                                 width,
                                 height,
