@@ -89,11 +89,18 @@
  * escape its own box. So the glow pools *upward* from the rule into the tab,
  * which is also what a lit rule physically does to the surface above it.
  */
-.tabOn,
-.caret { position: relative; }
-
-.tabOn::after,
-.caret::after {
+/*
+ * Drawn once, by the slot, rather than once per half.
+ *
+ * Orders is a split control — a label and a caret, two boxes sharing one
+ * underline — and giving each half its own glow meant the two had to meet
+ * exactly. Butted, sub-pixel rounding left a dark hairline; overlapped, two
+ * translucent gradients stacked to a *bright* one, which is the vertical rule
+ * that appeared between ORDERS and its caret. There is no third option at that
+ * seam, so the seam has to go: `.tabSlot` already wraps both halves, so one
+ * gradient across it has nothing to line up with.
+ */
+.tabSlotOn::after {
     content: '';
     position: absolute;
     left: 0;
@@ -103,11 +110,6 @@
     pointer-events: none;
     background: var(--tab-glow, transparent);
 }
-
-/* The label and caret halves of the Orders control are two boxes sharing one
-   underline, so their glows have to meet without a seam down the join. */
-.tabSplit::after { right: -3px; }
-.caret::after { left: -1px; }
 
 /* The label half of the split: the caret takes over its right padding, so the
    two read as one control rather than a tab with something stuck beside it. */
