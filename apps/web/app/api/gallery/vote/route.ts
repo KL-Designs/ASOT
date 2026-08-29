@@ -50,7 +50,29 @@ export async function PUT(request: NextRequest) {
     const next: VoteValue | null = value === null || value === previous ? null : (value as VoteValue)
 
     if (next !== null) {
-        await Db.galleryVotes.insertOne({ mediaId: _id, userId: me.id, value: next, at: new Date() } as GalleryVote)
+        try {
+            await Db.galleryVotes.insertOne({ mediaId: _id, userId: me.id, value: next, at: new Date() } as GalleryVote)
+        } catch (err: any) {
+            // Two requests racing to cast a member's first-ever vote on an item
+            // can both read `previous = null` from findOneAndDelete above —
+            // there was nothing to delete — and both then try to insert. The
+            // unique { mediaId, userId } index lets exactly one through; the
+            // other hits E11000 here. That is expected under an ordinary
+            // double-click, not a real failure, so it is not re-thrown: the
+            // loser skips the delta below (the winner already applied it) and
+            // reports the item's actual current state, read fresh, rather than
+            // rolling back to a value it never wrote in the first place.
+            if (err?.code === 11000) {
+                const doc = await Db.galleryMedia.findOne({ _id }, { projection: { up: 1, down: 1 } })
+                const mine = await Db.galleryVotes.findOne({ mediaId: _id, userId: me.id }, { projection: { value: 1 } })
+                return NextResponse.json({
+                    up: doc?.up ?? 0,
+                    down: doc?.down ?? 0,
+                    mine: (mine?.value ?? null) as VoteValue | null,
+                })
+            }
+            throw err
+        }
     }
 
     const delta = voteDelta(previous, next)
