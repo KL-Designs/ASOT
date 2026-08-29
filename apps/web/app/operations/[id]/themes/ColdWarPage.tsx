@@ -201,6 +201,66 @@ export default function ColdWarPage({
                                             </div>
                                         )}
                                         <div className={s.stamp}>Declassified</div>
+
+                                        {/*
+                                            The whole reference block sits in the header
+                                            beside the print, the way a file's cover
+                                            carries its particulars. Below the rule they
+                                            were three stacked bands the reader had to
+                                            get past before reaching paragraph one.
+                                        */}
+                                        <dl className={s.refs}>
+                                            {operation.date && (
+                                                <div className={s.ref}>
+                                                    <dt className={s.refKey}>Step off</dt>
+                                                    <dd className={s.refVal}>
+                                                        <LocalDate iso={new Date(operation.date).toISOString()} />
+                                                    </dd>
+                                                </div>
+                                            )}
+                                            {loreDate?.isValid() && (
+                                                <div className={s.ref}>
+                                                    <dt className={s.refKey}>In-game date</dt>
+                                                    <dd className={s.refVal}>{loreDate.format('DD MMM YYYY').toUpperCase()}</dd>
+                                                </div>
+                                            )}
+                                            {operation.mapWorld && (
+                                                <div className={s.ref}>
+                                                    <dt className={s.refKey}>Terrain</dt>
+                                                    <dd className={s.refVal}>{operation.mapWorld.toUpperCase()}</dd>
+                                                </div>
+                                            )}
+                                            {attendance.seats > 0 && (
+                                                <div className={s.ref}>
+                                                    <dt className={s.refKey}>Positions</dt>
+                                                    <dd className={s.refVal}>{attendance.filled} / {attendance.seats}</dd>
+                                                </div>
+                                            )}
+                                            <PaperRsvp operationId={id} rsvpOpen={attendance.rsvpOpen} />
+                                        </dl>
+
+                                        {(showAcknowledgeCard || isLoggedIn) && (
+                                            <div className={s.slip}>
+                                                {showAcknowledgeCard && (
+                                                    <a className={`${s.slipRow} ${s.slipOutstanding}`} href='#acknowledge'>
+                                                        <span className={s.slipMain}>
+                                                            <span className={s.slipKey}>Acknowledged by</span>
+                                                            <span className={s.slipVal}>Outstanding — not yet signed</span>
+                                                        </span>
+                                                        <span className={s.slipBtn}>Sign</span>
+                                                    </a>
+                                                )}
+                                                {isLoggedIn && (
+                                                    <Link className={s.slipRow} href={attendanceHref}>
+                                                        <span className={s.slipMain}>
+                                                            <span className={s.slipKey}>Detailed to</span>
+                                                            <span className={s.slipVal}>{postingLine(attendance)}</span>
+                                                        </span>
+                                                        <span className={s.slipBtn}>Board</span>
+                                                    </Link>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/*
@@ -219,59 +279,6 @@ export default function ColdWarPage({
                                     )}
                                 </div>
                             </header>
-
-                            <dl className={s.refs}>
-                                {operation.date && (
-                                    <div className={s.ref}>
-                                        <dt className={s.refKey}>Step off</dt>
-                                        <dd className={s.refVal}>
-                                            <LocalDate iso={new Date(operation.date).toISOString()} />
-                                        </dd>
-                                    </div>
-                                )}
-                                {loreDate?.isValid() && (
-                                    <div className={s.ref}>
-                                        <dt className={s.refKey}>In-game date</dt>
-                                        <dd className={s.refVal}>{loreDate.format('DD MMM YYYY').toUpperCase()}</dd>
-                                    </div>
-                                )}
-                                {operation.mapWorld && (
-                                    <div className={s.ref}>
-                                        <dt className={s.refKey}>Terrain</dt>
-                                        <dd className={s.refVal}>{operation.mapWorld.toUpperCase()}</dd>
-                                    </div>
-                                )}
-                                {attendance.seats > 0 && (
-                                    <div className={s.ref}>
-                                        <dt className={s.refKey}>Positions</dt>
-                                        <dd className={s.refVal}>{attendance.filled} / {attendance.seats}</dd>
-                                    </div>
-                                )}
-                                <PaperRsvp operationId={id} rsvpOpen={attendance.rsvpOpen} />
-                            </dl>
-
-                            {(showAcknowledgeCard || isLoggedIn) && (
-                                <div className={s.slip}>
-                                    {showAcknowledgeCard && (
-                                        <a className={`${s.slipRow} ${s.slipOutstanding}`} href='#acknowledge'>
-                                            <span className={s.slipMain}>
-                                                <span className={s.slipKey}>Acknowledged by</span>
-                                                <span className={s.slipVal}>Outstanding — not yet signed</span>
-                                            </span>
-                                            <span className={s.slipBtn}>Sign</span>
-                                        </a>
-                                    )}
-                                    {isLoggedIn && (
-                                        <Link className={s.slipRow} href={attendanceHref}>
-                                            <span className={s.slipMain}>
-                                                <span className={s.slipKey}>Detailed to</span>
-                                                <span className={s.slipVal}>{postingLine(attendance)}</span>
-                                            </span>
-                                            <span className={s.slipBtn}>Board</span>
-                                        </Link>
-                                    )}
-                                </div>
-                            )}
 
                             <div className={s.body}>
                                 {rawSections.length > 0 ? (

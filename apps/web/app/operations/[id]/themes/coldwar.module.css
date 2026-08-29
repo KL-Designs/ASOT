@@ -331,18 +331,25 @@
     pointer-events: none;
 }
 
+/*
+ * The particulars, as a ruled block inside the header rather than a band across
+ * the sheet. Gap-as-rules (1px of `--rule` showing between paper cells) instead
+ * of per-cell borders, because these now wrap onto two rows and a right-border
+ * scheme leaves the seams between rows undrawn.
+ */
 .refs {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    margin: 0;
-    padding-inline: calc(var(--margin) - 14px);
-    border-bottom: 1px solid var(--rule);
+    grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
+    gap: 1px;
+    margin: 22px 0 0;
+    padding: 0;
+    background: var(--rule);
+    border: 1px solid var(--rule);
 }
 .ref {
-    padding: 11px 14px;
-    border-right: 1px dotted var(--rule);
+    padding: 10px 13px;
+    background: var(--paper);
 }
-.ref:last-child { border-right: none; }
 .refKey {
     margin: 0 0 4px;
     font-size: 9.5px;
@@ -369,21 +376,21 @@
  */
 .slip {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    padding-inline: calc(var(--margin) - 16px);
-    border-bottom: 1px solid var(--rule);
-    background: rgba(0, 0, 0, 0.035);
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1px;
+    margin-top: -1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
 }
 .slipRow {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 13px 16px;
-    border-right: 1px dotted var(--rule);
+    padding: 11px 13px;
+    background: rgba(0, 0, 0, 0.035);
     text-decoration: none;
     color: inherit;
 }
-.slipRow:last-child { border-right: none; }
 .slipRow:focus-visible { outline: 2px solid var(--stamp); outline-offset: -2px; }
 .slipMain { min-width: 0; }
 .slipKey {
