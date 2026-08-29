@@ -3082,10 +3082,19 @@ async function twitchHelixThumbnail(media: GalleryMedia): Promise<Buffer | null>
     if (!id || !secret || !media.embedId) return null
 
     try {
-        const tokenRes = await fetch(
-            `https://id.twitch.tv/oauth2/token?client_id=${id}&client_secret=${secret}&grant_type=client_credentials`,
-            { method: 'POST' },
-        )
+        /* Credentials in the body, never the query string. A URL is logged by
+           the service receiving it, by any proxy in between and by APM tooling,
+           and TLS does not change that — which is why OAuth2 puts client
+           credentials in the body or an Authorization header. */
+        const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: id,
+                client_secret: secret,
+                grant_type: 'client_credentials',
+            }),
+        })
         if (!tokenRes.ok) return null
         const { access_token } = await tokenRes.json()
 
