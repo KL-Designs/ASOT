@@ -19,6 +19,7 @@ let client: MongoClient
 let db: Db
 let root: string
 let atlanticShieldOpId: ObjectId
+let winterStormOpId: ObjectId
 
 const SCRIPT = resolve(__dirname, '../../../../scripts/index-gallery.mjs')
 
@@ -37,12 +38,14 @@ beforeAll(async () => {
     db = client.db('galleryindextest')
 
     // A miniature archive: two years, two operations (one numbered, one not),
-    // two missions, four files — plus fixtures for the two fix-round findings:
+    // two missions, four files — plus fixtures for the fix-round findings:
     // a range-named year folder ("2022 - 2023", a real folder in production
     // storage), a year with no leading digits at all, an operation whose
     // title differs from its folder the way real data does (prefix, day
-    // suffix, parenthetical), and a same-named operation from the wrong year
-    // that the match must refuse.
+    // suffix, parenthetical), a same-named operation three years off that the
+    // match must still refuse, and a same-named operation one year off (a
+    // season folder's session spilling into the next calendar year) that the
+    // relaxed guard must accept.
     root = mkdtempSync(join(tmpdir(), 'asot-gallery-'))
     const content = join(root, 'storage', 'gallery', 'content')
     for (const dir of [
@@ -53,6 +56,7 @@ beforeAll(async () => {
         join(content, 'Undated', 'Op Something', 'I'),
         join(content, '2025', '18. Op Atlantic Shield (Test)', 'I'),
         join(content, '2025', '19. Op Ghost Town', 'I'),
+        join(content, '2021', '20. Op Winter Storm', 'I'),
     ]) mkdirSync(dir, { recursive: true })
 
     // A real 1x1 PNG, so the dimension probe has something to read.
@@ -68,6 +72,7 @@ beforeAll(async () => {
     writeFileSync(join(content, 'Undated', 'Op Something', 'I', 'g.png'), PNG)
     writeFileSync(join(content, '2025', '18. Op Atlantic Shield (Test)', 'I', 'h.png'), PNG)
     writeFileSync(join(content, '2025', '19. Op Ghost Town', 'I', 'i.png'), PNG)
+    writeFileSync(join(content, '2021', '20. Op Winter Storm', 'I', 'j.png'), PNG)
 
     // Real operations are recorded per session day, abbreviated differently
     // than the gallery folder, and sometimes carry parenthetical context the
@@ -77,12 +82,23 @@ beforeAll(async () => {
         date: new Date(Date.UTC(2025, 5, 14)),
     })).insertedId
 
-    // Same normalised key as the gallery's "19. Op Ghost Town" folder, but a
-    // different year — the match must refuse this rather than borrow its date.
+    // Same normalised key as the gallery's "19. Op Ghost Town" folder, but
+    // three years off — far enough that even the relaxed ±1 guard must
+    // refuse it rather than borrow its date. This is the actual collision the
+    // guard exists to catch: an unrelated operation reusing the same name.
     await db.collection('operations').insertOne({
         title: 'OPERATION Ghost Town — Sat',
-        date: new Date(Date.UTC(2024, 2, 1)),
+        date: new Date(Date.UTC(2022, 2, 1)),
     })
+
+    // Same normalised key as "20. Op Winter Storm", filed under the folder
+    // year 2021, but recorded one year later — the real pattern behind the
+    // fix: a season folder's own sessions spill past 1 January and the
+    // relaxed guard has to accept that rather than falling back.
+    winterStormOpId = (await db.collection('operations').insertOne({
+        title: 'OPERATION Winter Storm — Sat',
+        date: new Date(Date.UTC(2022, 0, 15)),
+    })).insertedId
 }, 120_000)
 
 afterAll(async () => {
@@ -94,12 +110,12 @@ afterAll(async () => {
 describe('index-gallery', () => {
     test('indexes every file exactly once', () => {
         run()
-        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(8)
+        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(9)
     })
 
     test('running it again changes nothing', () => {
         run()
-        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(8)
+        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(9)
     })
 
     test('a re-run does not clobber what a reviewer edited', async () => {
@@ -173,14 +189,26 @@ describe('index-gallery', () => {
     })
 
     // A normalised key can collide across years for two unrelated operations
-    // of the same name. Borrowing the wrong one's date would be worse than no
-    // match, so the match must be refused rather than accepted.
-    test('refuses a normalised match when the matched operation is from a different year', async () => {
+    // of the same name. Three years off is well past the ±1 the season-folder
+    // fix tolerates, so this is the real collision the guard exists to catch
+    // — borrowing this date would be worse than no match at all.
+    test('refuses a normalised match when the matched operation is three years off', async () => {
         const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/19. Op Ghost Town/I/i.png' })
         expect(doc?.operationId).toBeUndefined()
         // Falls back to the folder's own year, not the mismatched operation's.
         expect(new Date(doc!.takenAt).getUTCFullYear()).toBe(2025)
         expect(new Date(doc!.takenAt).getUTCMonth()).toBe(0)
+    })
+
+    // Fix round 2: the guard used to require exact year equality, which
+    // rejected the normal case — a year folder is a season, and "2021" holds
+    // real sessions that ran into January 2022. One year off must still be
+    // accepted, and it must still set operationId and take the operation's
+    // real date rather than the folder's January 1st placeholder.
+    test('accepts a normalised match one year off the folder\'s parsed year', async () => {
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2021/20. Op Winter Storm/I/j.png' })
+        expect(doc?.operationId?.toString()).toBe(winterStormOpId.toString())
+        expect(new Date(doc!.takenAt).toISOString()).toBe(new Date(Date.UTC(2022, 0, 15)).toISOString())
     })
 
     // Fix round 1, finding 2: Number(year) on a folder like "2022 - 2023" is

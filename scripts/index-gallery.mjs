@@ -138,17 +138,44 @@ try {
 
     /* Grouped by matchKey rather than the raw title, because operations are
        recorded one per session day: "OPERATION Copper Ridge — Sat" and
-       "— Sun" both reduce to the same key. Where two collide, the earlier
-       date wins — the Saturday of the weekend — since that is the right date
-       for that weekend's photographs. Empty keys (a title matchKey reduces to
-       nothing) are skipped rather than clobbering every other empty-keyed op. */
+       "— Sun" both reduce to the same key. Every operation sharing a key is
+       kept (not just the earliest) and sorted by date ascending, because a
+       year folder is a season rather than a calendar year — one is literally
+       named "2022 - 2023" — so which candidate is "the" match depends on the
+       folder's own year too; see pickOperation below. Empty keys (a title
+       matchKey reduces to nothing) are skipped rather than clobbering every
+       other empty-keyed op. */
     const byKey = new Map()
     for (const op of operations) {
         if (!op.title) continue
         const key = matchKey(op.title)
         if (!key) continue
-        const existing = byKey.get(key)
-        if (!existing || new Date(op.date) < new Date(existing.date)) byKey.set(key, op)
+        const list = byKey.get(key)
+        if (list) list.push(op)
+        else byKey.set(key, [op])
+    }
+    for (const list of byKey.values()) list.sort((a, b) => new Date(a.date) - new Date(b.date))
+
+    /**
+     * Pick the operation a folder's normalised key resolves to, preferring an
+     * exact year match and falling back to one adjacent year either side.
+     *
+     * A folder's parsed year is a season label, not a guarantee: "2021"
+     * holds sessions that actually ran into January 2022, and "2022 - 2023"
+     * spans two calendar years outright. Requiring exact equality punishes
+     * that normal case, so a session one year off is still accepted — but
+     * nothing further, since that is the real collision the guard exists to
+     * catch (the same codename reused for an unrelated operation years
+     * later). Candidates are pre-sorted ascending, so the first one to match
+     * either predicate is the earliest session in that bucket.
+     */
+    function pickOperation(key, yearNum) {
+        if (yearNum === null) return undefined
+        const candidates = byKey.get(key)
+        if (!candidates) return undefined
+        const exact = candidates.find(op => new Date(op.date).getUTCFullYear() === yearNum)
+        if (exact) return exact
+        return candidates.find(op => Math.abs(new Date(op.date).getUTCFullYear() - yearNum) === 1)
     }
 
     // ── Walk ─────────────────────────────────────────────────────────────────
@@ -166,11 +193,7 @@ try {
         for (const operation of dirs(join(CONTENT, year))) {
             const { label } = splitOperation(operation)
             const key = matchKey(label)
-            let op = key ? byKey.get(key) : undefined
-            // A same-named operation from a different year is worse than no
-            // match at all — only trust the match once the folder's own year
-            // is readable and agrees with it.
-            if (op && yearNum !== null && new Date(op.date).getUTCFullYear() !== yearNum) op = undefined
+            const op = key ? pickOperation(key, yearNum) : undefined
             if (op) matched++
 
             for (const mission of dirs(join(CONTENT, year, operation))) {
