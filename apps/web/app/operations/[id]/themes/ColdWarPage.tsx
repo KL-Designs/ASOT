@@ -226,7 +226,7 @@ export default function ColdWarPage({
                                             )}
                                             {operation.mapWorld && (
                                                 <div className={s.ref}>
-                                                    <dt className={s.refKey}>Terrain</dt>
+                                                    <dt className={s.refKey}>Map</dt>
                                                     <dd className={s.refVal}>{operation.mapWorld.toUpperCase()}</dd>
                                                 </div>
                                             )}

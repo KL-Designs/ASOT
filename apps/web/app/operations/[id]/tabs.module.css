@@ -22,6 +22,21 @@
 }
 
 /*
+ * Hand the bare spans back their inheritance.
+ *
+ * globals.css sets `color: var(--foreground)` on every unclassed `<span>`, and
+ * a declaration that *matches* an element always beats a value it would have
+ * inherited, whatever the selector's specificity. The strip's two glyphs — the
+ * Orders caret and the menu's tick — are bare spans, so neither ever saw the
+ * colour set on the control around it.
+ *
+ * Invisible on dark chrome, where the site foreground is near-white anyway, and
+ * white-on-white the moment a theme paints the bar light. Done for the strip
+ * rather than per glyph, so the next one added is not a third bug.
+ */
+.tabsRow :where(span) { color: inherit; }
+
+/*
  * One slot per tab, shrink-wrapped to it. It is what the Orders menu hangs
  * from: `left: 0` on the menu is the tab's own left edge, so the two line up
  * with nothing measured and nothing to drift when the font loads.
@@ -82,16 +97,6 @@
     flex-shrink: 0;
     transition: color 120ms ease;
 }
-/*
- * The glyph is a bare `<span>`, and globals.css sets `color: var(--foreground)`
- * on every bare span — a declaration that matches an element always beats a
- * value it would have inherited, whatever the selector's specificity. So the
- * caret never saw the colour set on its own button. Invisible on dark chrome,
- * where the foreground is near-white anyway; white-on-white the moment a theme
- * paints the bar light.
- */
-.caret > span { color: inherit; }
-
 .caret:hover { color: var(--ink); }
 .caret:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
 .caretOn { color: var(--ink); }

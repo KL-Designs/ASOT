@@ -161,7 +161,7 @@ export default function ModernPage({
                 )}
                 {operation.mapWorld && (
                     <div className={s.cell}>
-                        <dt className={s.cellKey}>Terrain</dt>
+                        <dt className={s.cellKey}>Map</dt>
                         <dd className={`${s.cellVal} ${s.cellValCaps}`}>{operation.mapWorld}</dd>
                     </div>
                 )}
