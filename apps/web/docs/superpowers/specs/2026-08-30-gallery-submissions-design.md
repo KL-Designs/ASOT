@@ -126,6 +126,10 @@ interface GalleryMedia {
     posterKey?: string
     /** Embeds only. The provider's own id — a video id, or a clip slug. */
     embedId?: string
+    /** Embeds only. A Twitch VOD and a Twitch clip embed through different
+     *  players, so the id alone is not enough to render one. Always 'video'
+     *  for YouTube. */
+    embedKind?: 'video' | 'clip'
     /** Embeds only. Canonical provider URL, for the "watch on" link. */
     embedUrl?: string
 
@@ -434,6 +438,18 @@ notification failure cannot break the review.
 
 **Tiles.** Video tiles show a poster, a duration badge and a play glyph; embeds
 show the provider mark. A compact score chip sits on the tile.
+
+**The NEW badge.** Media published within the last seven days carries a NEW
+badge on its tile. It keys on `publishedAt` rather than `takenAt`, because the
+question a visitor is asking is "what has appeared since I last looked", not
+"what was shot recently" — a photograph from a two-year-old operation that J5
+approved this morning is new to the gallery, and an item whose operation ran
+last week but which has been up for a month is not. Migrated legacy items have
+no `publishedAt` and never carry the badge, which is correct: the entire archive
+would otherwise light up on migration day.
+
+The cutoff is computed client-side from the item's `publishedAt`, so it decays
+correctly on a page left open and needs no scheduled job to clear it.
 
 **Lightbox.** `<video controls poster>` for uploaded video, a provider iframe
 for embeds, `<img>` as now. The metadata panel gains **Author**, **Caption** and
