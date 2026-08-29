@@ -20,12 +20,27 @@
     --paper-2:  #ddd5c1;
     --paper-3:  #cfc6ae;
     --carbon:   #23201a;
-    --carbon-2: #4f4a3f;
-    --carbon-3: #8b8477;
+    /*
+     * Measured against the paper, not eyeballed. The three inks are 12.6:1,
+     * 8.1:1 and 5.2:1 — `--carbon-3` began at #8b8477, which is 2.9:1 and fails
+     * AA outright, and it is the ink on every label in the reference block, the
+     * tab-group headers and the foot. Small uppercase Courier at wide tracking
+     * needs more contrast than the ratio alone implies, so the labels sit well
+     * above the 4.5:1 floor rather than on it.
+     */
+    --carbon-2: #443f36;
+    --carbon-3: #615b4e;
+    /* Hairlines and dotted rules only — never text. */
+    --rule:     #a39c8c;
     --stamp:    #8c2b1d;
     --desk:     #1b1a17;
 
     --type: "Courier New", Courier, monospace;
+
+    /* The sheet's own margin. Grows with the window, so the folder can fill the
+       desk without the typed column running the whole width of a monitor — a
+       page of that era was mostly margin, which is exactly what is wanted. */
+    --margin: clamp(20px, 7vw, 190px);
 
     display: flex;
     flex-direction: column;
@@ -39,23 +54,24 @@
 .desk {
     flex: 1;
     display: flex;
-    justify-content: center;
-    padding: 28px clamp(14px, 3vw, 40px) 56px;
+    /* No inset. The folder is the surface, not an object resting on one — it
+       runs to the glass on every side and the sheet's own `--margin` does all
+       the breathing. */
+    padding: 0;
     background:
         /* A faint blotter grain, so the sheet has something to sit on. */
         repeating-linear-gradient(56deg, rgba(255, 255, 255, 0.008) 0 2px, transparent 2px 5px),
         var(--desk);
 }
 
-/* Tabs and sheet centre together as one object. Centring the sheet alone would
-   open a gap between it and its own tabs, which is the one thing the folder
-   illusion cannot survive. */
+/* Tabs and sheet are one object and stay welded together — a gap between the
+   sheet and its own tabs is the one thing the folder illusion cannot survive.
+   The whole thing fills the desk; the sheet's own margins do the breathing. */
 .folder {
     display: grid;
-    grid-template-columns: 188px minmax(0, 900px);
+    grid-template-columns: 188px minmax(0, 1fr);
     align-items: start;
     width: 100%;
-    max-width: 1088px;
 }
 
 /* ── File tabs ────────────────────────────────────────────────────────── */
@@ -156,6 +172,26 @@
 .sheetWrap { min-width: 0; position: relative; z-index: 1; }
 
 .sheet {
+    /* Ink for the shared acknowledgement card, which is inline-styled for a dark
+       theme and cannot be reached by a stylesheet — see DocAcknowledgeCard. It
+       reads its colours from these, so on paper it comes out in carbon and
+       stamp red instead of the near-white it wears everywhere else. */
+    --ack-ink:       var(--carbon);
+    --ack-ink-2:     var(--carbon-2);
+    --ack-ink-3:     var(--carbon-3);
+    --ack-rule:      rgba(35, 32, 26, 0.2);
+    --ack-btn-bg:    rgba(0, 0, 0, 0.05);
+    --ack-btn-edge:  rgba(35, 32, 26, 0.3);
+    --ack-ok:        #386b33;
+    --ack-ok-edge:   rgba(56, 107, 51, 0.45);
+    --ack-ok-soft:   rgba(56, 107, 51, 0.08);
+    --ack-warn:      var(--stamp);
+    --ack-warn-dim:  rgba(140, 43, 29, 0.5);
+    --ack-warn-edge: rgba(140, 43, 29, 0.45);
+    --ack-warn-soft: rgba(140, 43, 29, 0.06);
+    --ack-bad:       var(--stamp);
+    --ack-bad-soft:  rgba(140, 43, 29, 0.05);
+
     width: 100%;
     background:
         /* Very faint ruling, the ghost of a typewriter's line spacing. */
@@ -182,7 +218,7 @@
 
 .head {
     position: relative;
-    padding: 28px clamp(20px, 4vw, 44px) 18px;
+    padding: 30px var(--margin) 20px;
     border-bottom: 2px solid var(--carbon);
 }
 .org {
@@ -218,7 +254,7 @@
 .stamp {
     position: absolute;
     top: 22px;
-    right: clamp(16px, 4vw, 40px);
+    right: var(--margin);
     padding: 6px 13px;
     transform: rotate(-9deg);
     border: 3px double var(--stamp);
@@ -236,11 +272,12 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     margin: 0;
-    border-bottom: 1px solid var(--carbon-3);
+    padding-inline: calc(var(--margin) - 14px);
+    border-bottom: 1px solid var(--rule);
 }
 .ref {
     padding: 11px 14px;
-    border-right: 1px dotted var(--carbon-3);
+    border-right: 1px dotted var(--rule);
 }
 .ref:last-child { border-right: none; }
 .refKey {
@@ -270,7 +307,8 @@
 .slip {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    border-bottom: 1px solid var(--carbon-3);
+    padding-inline: calc(var(--margin) - 16px);
+    border-bottom: 1px solid var(--rule);
     background: rgba(0, 0, 0, 0.035);
 }
 .slipRow {
@@ -278,7 +316,7 @@
     align-items: center;
     gap: 12px;
     padding: 13px 16px;
-    border-right: 1px dotted var(--carbon-3);
+    border-right: 1px dotted var(--rule);
     text-decoration: none;
     color: inherit;
 }
@@ -326,10 +364,10 @@
  * could, and keeps the operation's own art on the page.
  */
 .plate {
-    margin: 22px clamp(20px, 4vw, 44px);
+    margin: 22px var(--margin);
     padding: 9px 9px 0;
     background: var(--paper-2);
-    border: 1px solid var(--carbon-3);
+    border: 1px solid var(--rule);
     box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.12);
 }
 .plateImg {
@@ -350,7 +388,7 @@
 
 /* ── Body ─────────────────────────────────────────────────────────────── */
 
-.body { padding: 24px clamp(20px, 4vw, 44px) 40px; }
+.body { padding: 24px var(--margin) 40px; }
 
 .para { margin-bottom: 30px; scroll-margin-top: 20px; }
 .paraHead {
@@ -359,7 +397,7 @@
     gap: 11px;
     margin-bottom: 12px;
     padding-bottom: 6px;
-    border-bottom: 1px solid var(--carbon-3);
+    border-bottom: 1px solid var(--rule);
 }
 .paraNum {
     flex-shrink: 0;
@@ -426,8 +464,8 @@
 /* ── Foot ─────────────────────────────────────────────────────────────── */
 
 .foot {
-    padding: 14px clamp(20px, 4vw, 44px);
-    border-top: 1px solid var(--carbon-3);
+    padding: 14px var(--margin);
+    border-top: 1px solid var(--rule);
     display: flex;
     justify-content: space-between;
     gap: 14px;
@@ -437,7 +475,7 @@
     text-transform: uppercase;
     color: var(--carbon-3);
 }
-.footLink { color: var(--carbon-2); text-decoration: none; border-bottom: 1px dotted var(--carbon-3); }
+.footLink { color: var(--carbon-2); text-decoration: none; border-bottom: 1px dotted var(--rule); }
 .footLink:hover { color: var(--stamp); border-bottom-color: var(--stamp); }
 
 /* ── Panels on the bare desk ──────────────────────────────────────────── */
@@ -446,12 +484,14 @@
    chrome they wear everywhere else and simply sit on the desk beside the file. */
 .panel {
     max-width: 900px;
-    padding: 4px 0;
+    /* The sheet brings its own margins; the bare desk has none of its own, so
+       the panels carry the inset the desk used to give them. */
+    padding: 28px clamp(16px, 3vw, 40px) 56px;
 }
 
 @media (max-width: 900px) {
     .folder { grid-template-columns: minmax(0, 1fr); gap: 18px; }
-    .tabs { position: static; flex-direction: row; flex-wrap: wrap; padding-top: 0; }
+    .tabs { position: static; flex-direction: row; flex-wrap: wrap; padding: 14px 14px 0; }
     .tabGroup + .tabGroup { margin-top: 0; }
     .tab { border-radius: 3px; border-right: 1px solid rgba(0, 0, 0, 0.25); margin-right: 4px; }
     .tabOn { margin-right: 4px; }
@@ -460,7 +500,6 @@
 
 @media print {
     .tabs, .slip { display: none; }
-    .desk { padding: 0; }
     .folder { grid-template-columns: minmax(0, 1fr); max-width: none; }
     .sheet { box-shadow: none; }
 }
@@ -506,7 +545,7 @@
 .sheet :global(.op-doc h2) {
     margin: 1.4em 0 0.5em;
     padding-bottom: 3px;
-    border-bottom: 1px dotted var(--carbon-3);
+    border-bottom: 1px dotted var(--rule);
     font-family: var(--type);
     font-size: 0.85rem;
     font-weight: 700;
@@ -537,7 +576,7 @@
     color: var(--carbon-2);
     font-style: italic;
 }
-.sheet :global(.op-doc hr) { border: none; border-top: 1px solid var(--carbon-3); margin: 1.6em 0; }
+.sheet :global(.op-doc hr) { border: none; border-top: 1px solid var(--rule); margin: 1.6em 0; }
 .sheet :global(.op-doc mark) { background: rgba(200, 150, 40, 0.38); color: var(--carbon); }
 .sheet :global(.op-doc strong) { color: #14120e; font-weight: 700; }
 .sheet :global(.op-doc a) { color: var(--stamp); opacity: 1; text-decoration: underline; text-underline-offset: 2px; }
@@ -555,7 +594,7 @@
     overflow-x: auto;
 }
 .sheet :global(.op-doc img) {
-    border: 1px solid var(--carbon-3);
+    border: 1px solid var(--rule);
     filter: grayscale(0.7) sepia(0.2) contrast(1.1);
 }
 
