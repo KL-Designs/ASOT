@@ -66,25 +66,28 @@ export default function FacetRail({ photos, filters, onToggle }: {
     /* Counted with every filter applied *except* this facet's own — see
        `matches`. A count has to answer "how many would I get if I ticked
        this", which the facet's own selections would otherwise poison. */
-    const countBy = (facet: Facet, key: (p: Photo) => string) => {
+    const countBy = (facet: Facet, key: (p: Photo) => string | null) => {
         const counts = new Map<string, number>()
         for (const p of photos) {
             if (!matches(p, filters, facet)) continue
             const k = key(p)
+            if (k === null) continue
             counts.set(k, (counts.get(k) ?? 0) + 1)
         }
         return counts
     }
 
     const yearCounts = countBy('year', p => p.year)
-    const years: Option[] = [...new Set(photos.map(p => p.year))]
+    const years: Option[] = [...new Set(photos.map(p => p.year).filter((y): y is string => !!y))]
         .sort((a, b) => b.localeCompare(a))
         .map(y => ({ value: y, label: y, count: yearCounts.get(y) ?? 0 }))
 
     const opCounts = countBy('operation', p => p.operation)
-    const operations: Option[] = [...new Map(photos.map(p => [p.operation, p])).values()]
-        .sort((a, b) => a.opOrder - b.opOrder || a.opLabel.localeCompare(b.opLabel))
-        .map(p => ({ value: p.operation, label: p.opLabel, count: opCounts.get(p.operation) ?? 0 }))
+    const operations: Option[] = [...new Map(
+        photos.filter((p): p is Photo & { operation: string } => !!p.operation).map(p => [p.operation, p]),
+    ).values()]
+        .sort((a, b) => a.opOrder - b.opOrder || (a.opLabel ?? '').localeCompare(b.opLabel ?? ''))
+        .map(p => ({ value: p.operation, label: p.opLabel ?? p.operation, count: opCounts.get(p.operation) ?? 0 }))
 
     /*
        Mission only exists inside an operation.
@@ -97,7 +100,12 @@ export default function FacetRail({ photos, filters, onToggle }: {
     */
     const missionCounts = countBy('mission', p => p.mission)
     const missions: Option[] = filters.operation.size
-        ? [...new Set(photos.filter(p => filters.operation.has(p.operation)).map(p => p.mission))]
+        ? [...new Set(
+            photos
+                .filter(p => p.operation && filters.operation.has(p.operation))
+                .map(p => p.mission)
+                .filter((m): m is string => !!m),
+        )]
             .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
             .map(m => ({ value: m, label: m, count: missionCounts.get(m) ?? 0 }))
         : []

@@ -71,7 +71,7 @@ function Tile({ photo, onOpen, span, onRatio }: {
             className={s.tile}
             onClick={onOpen}
             style={span ? { gridRow: `span ${span}` } : undefined}
-            aria-label={`Open ${photo.opLabel}, ${photo.mission}`}
+            aria-label={`Open ${photo.opLabel ?? 'gallery item'}${photo.mission ? `, ${photo.mission}` : ''}`}
         >
             {/*
                 A plain <img>, not next/image. Two reasons and both are about
@@ -82,7 +82,7 @@ function Tile({ photo, onOpen, span, onRatio }: {
                 instead — the archive is far too large to fetch eagerly.
             */}
             <img
-                src={photo.src}
+                src={photo.src ?? undefined}
                 alt=''
                 loading='lazy'
                 decoding='async'
@@ -93,10 +93,10 @@ function Tile({ photo, onOpen, span, onRatio }: {
             />
             <span className={s.zoom}><ExpandIcon /></span>
             <span className={s.meta}>
-                <span className={s.metaT}>{photo.opLabel}</span>
+                <span className={s.metaT}>{photo.opLabel ?? 'Unknown operation'}</span>
                 <span className={s.metaS}>
-                    <b>{photo.mission}</b>
-                    <span>{photo.year}</span>
+                    {photo.mission && <b>{photo.mission}</b>}
+                    <span>{photo.year ?? ''}</span>
                 </span>
             </span>
         </button>
@@ -168,7 +168,10 @@ export default function PhotoGrid({ photos, view, shown, onShowMore, onOpen, onC
         return (
             <div>
                 {visible.map(group => {
-                    const missions = new Set(group.photos.map(p => p.mission)).size
+                    // Filtered before counting: a Set that let nulls through would
+                    // count every missionless item in the group as one shared
+                    // "mission", understating the real total by one.
+                    const missions = new Set(group.photos.map(p => p.mission).filter((m): m is string => !!m)).size
                     const hidden = group.photos.length - GROUP_PREVIEW
 
                     return (

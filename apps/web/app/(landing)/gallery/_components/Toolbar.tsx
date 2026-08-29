@@ -10,13 +10,17 @@ import type { Facet, Filters } from '../gallery-data'
 import s from '@/styles/gallery.module.css'
 
 export type GridView = 'masonry' | 'uniform' | 'grouped'
-export type SortKey = 'new' | 'old' | 'op'
+// 'top' is not yet in SORTS below — see the comment there. It has to join the
+// type regardless, because sortPhotos already has a branch for it.
+export type SortKey = 'new' | 'old' | 'op' | 'top'
 
 /*
-   No "most liked" and no "featured first": nothing counts likes, and featured
-   is a separate folder rather than a flag on an archive photograph, so neither
-   sort has anything to sort by. The three that remain are all derivable from
-   the storage tree.
+   No "featured first": featured is a separate folder rather than a flag on an
+   archive photograph, so there is nothing to sort by. Top rated is left out
+   too, deliberately — sortPhotos already has a 'top' branch and the type
+   admits it, but until voting ships there is no vote data behind it, so
+   offering it here would be a menu item that does nothing. It joins this list
+   in a later task.
 */
 const SORTS: { value: SortKey, label: string }[] = [
     { value: 'new', label: 'Newest first' },

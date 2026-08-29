@@ -10,7 +10,7 @@ import PhotoGrid from './_components/PhotoGrid'
 import Lightbox, { type LightboxItem } from './_components/Lightbox'
 
 import {
-    archiveStats, emptyFilters, flatten, matches, sortPhotos, splitOperation,
+    archiveStats, emptyFilters, matches, sortPhotos, splitOperation,
     type Facet, type Filters, type Photo,
 } from './gallery-data'
 
@@ -39,8 +39,36 @@ import s from '@/styles/gallery.module.css'
 */
 const PAGE_SIZE: Record<GridView, number> = { masonry: 48, uniform: 48, grouped: 8 }
 
+/* The lightbox's download attribute wants a real filename. GalleryItemAPI
+   carries none — that raw name lived only in the storage tree, not in the
+   index — but a legacy item's src is /api/gallery/fetch?...&img=<filename>,
+   so the original name can still be read back out of it for the photographs
+   the archive holds today. An item with no such query string (a future
+   upload) falls back to its id, which is the best a download picker can do
+   once there is no folder-derived name to reach for. */
+function downloadName(p: Photo): string {
+    if (!p.src) return p.id
+    const q = p.src.split('?')[1]
+    const img = q ? new URLSearchParams(q).get('img') : null
+    return img ?? p.id
+}
+
+function lightboxItemFor(p: Photo): LightboxItem {
+    const rows: [string, string][] = [['Operation', p.opLabel ?? 'Unknown operation']]
+    if (p.mission) rows.push(['Mission', p.mission])
+    if (p.year) rows.push(['Year', p.year])
+
+    return {
+        src: p.src ?? '',
+        kicker: p.mission ? `${p.opLabel ?? 'Unknown operation'} · Mission ${p.mission}` : p.opLabel,
+        title: p.opLabel ?? 'Gallery item',
+        rows,
+        file: downloadName(p),
+    }
+}
+
 export default function Page() {
-    const [years, setYears] = useState<GalleryAPI['years']>([])
+    const [items, setItems] = useState<GalleryItemAPI[]>([])
     const [featured, setFeatured] = useState<string[]>([])
     const [sotm, setSotm] = useState<ScreenshotOfMonth | null>(null)
 
@@ -56,7 +84,7 @@ export default function Page() {
         fetch('/api/gallery')
             .then(res => res.json())
             .then((json: GalleryAPI) => {
-                setYears(json.years ?? [])
+                setItems(json.items ?? [])
                 // Shuffled per visit: the strip is a sample of the archive, not
                 // a ranking, and a fixed order would show the same dozen photos
                 // to everyone forever.
@@ -72,12 +100,11 @@ export default function Page() {
             .catch(() => { })
     }, [])
 
-    const photos = useMemo(() => flatten(years), [years])
-    const stats = useMemo(() => archiveStats(years), [years])
+    const stats = useMemo(() => archiveStats(items), [items])
 
     const results = useMemo(
-        () => sortPhotos(photos.filter(p => matches(p, filters)), sort),
-        [photos, filters, sort],
+        () => sortPhotos(items.filter(p => matches(p, filters)), sort),
+        [items, filters, sort],
     )
 
     /* Any change to what is on screen resets the page window. Keeping a deep
@@ -90,6 +117,9 @@ export default function Page() {
                 year: new Set(prev.year),
                 operation: new Set(prev.operation),
                 mission: new Set(prev.mission),
+                tag: new Set(prev.tag),
+                author: new Set(prev.author),
+                media: prev.media,
             }
             change(next)
             return next
@@ -189,18 +219,7 @@ export default function Page() {
     }, [sotm])
 
     const current = lightbox?.list[lightbox.index]
-    const item: LightboxItem | null = singleImage ?? (current ? {
-        src: current.src,
-        kicker: `${current.opLabel} · Mission ${current.mission}`,
-        title: current.opLabel,
-        rows: [
-            ['Operation', current.opLabel],
-            ['Mission', current.mission],
-            ['Year', current.year],
-            ['File', current.file],
-        ],
-        file: current.file,
-    } : null)
+    const item: LightboxItem | null = singleImage ?? (current ? lightboxItemFor(current) : null)
 
     return (
         <div className={s.page}>
@@ -210,7 +229,7 @@ export default function Page() {
 
             <Toolbar
                 filters={filters}
-                total={photos.length}
+                total={items.length}
                 shown={results.length}
                 sort={sort}
                 view={view}
@@ -223,7 +242,7 @@ export default function Page() {
             />
 
             <div className={s.shell}>
-                <FacetRail photos={photos} filters={filters} onToggle={toggleFacet} />
+                <FacetRail photos={items} filters={filters} onToggle={toggleFacet} />
 
                 <main>
                     <PhotoGrid

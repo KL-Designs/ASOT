@@ -30,6 +30,32 @@ function HoverPreview({ src, rect }: { src: string; rect: DOMRect }) {
     )
 }
 
+/**
+ * The pre-Mongo folder-tree shape `/api/gallery` used to return, and what
+ * every add/delete/upload/reorder action on this tab is still built around —
+ * they all call the filesystem-backed `/api/gallery/admin/*` routes, not
+ * `gallery_media`.
+ *
+ * Kept local rather than read off the shared `GalleryAPI` type: that type now
+ * describes the flat, Mongo-backed shape `/api/gallery` actually returns
+ * (see apps/web/app/api/gallery/route.ts), so `refresh()` below no longer
+ * gets back a `.years` tree from that endpoint. This tab needs its own route
+ * serving the tree — or a rewrite onto `gallery_media` — before it works
+ * again; recorded here rather than silently left to bit-rot.
+ */
+type GalleryTree = {
+    info: string
+    updated: string
+    featured: string[]
+    years: {
+        year: string
+        operations: {
+            operation: string
+            stages: { stage: string, media: string[] }[]
+        }[]
+    }[]
+}
+
 type UploadTarget = { year: string; op: string; stage: string }
 
 type AddContext =
@@ -115,7 +141,7 @@ const ghostBtn = {
 }
 
 export default function GalleryOperationsTab() {
-    const [data, setData] = useState<GalleryAPI | null>(null)
+    const [data, setData] = useState<GalleryTree | null>(null)
     const [loading, setLoading] = useState(true)
     const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set())
     const [expandedOps, setExpandedOps] = useState<Set<string>>(new Set())
