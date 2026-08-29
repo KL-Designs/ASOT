@@ -81,17 +81,28 @@ function splitOperation(folder) {
  * operations are recorded per session day ("OPERATION Lost Army IV — Sun")
  * while the gallery keeps one folder per weekend, abbreviated ("18. Op
  * Atlantic Shield"). Exact matching finds nothing at all, which would date the
- * entire legacy archive to 1 January.
+ * entire legacy archive to 1 January. Does not touch a trailing parenthetical
+ * — that is fullKey/strippedKey's job below, since stripping it here
+ * unconditionally would let "Op Copper Ridge (Lanze Verde)" collide with a
+ * plain, unrelated "Op Copper Ridge" — a real pair of folders in the archive.
  */
-function matchKey(s) {
+function normalizeKey(s) {
     return String(s)
         .toLowerCase()
         .replace(/\s*[—–-]\s*(sat|sun|saturday|sunday)\s*$/i, '')
-        .replace(/\s*\([^)]*\)\s*$/, '')
         .replace(/^(operation|op|ftx|tvt)\s+/i, '')
         .replace(/[^a-z0-9]+/g, ' ')
         .trim()
 }
+
+/** The specific key: a trailing parenthetical is kept, so it only matches an
+ *  operation title that carries the same detail. Tried first. */
+const fullKey = s => normalizeKey(s)
+
+/** The fallback key: a trailing parenthetical is dropped, since an
+ *  operation's own title rarely repeats a gallery folder's parenthetical
+ *  verbatim. Tried only once the full key finds nothing. */
+const strippedKey = s => normalizeKey(String(s).replace(/\s*\([^)]*\)\s*$/, ''))
 
 const SEED_TAGS = [
     'Funny', 'Cinematic', 'Cool', 'Rare moment', 'Teamwork', 'Close call',
@@ -101,14 +112,35 @@ const SEED_TAGS = [
 
 const slugify = label => label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif'])
+// .jfif is plain JPEG under a different extension — three real photographs
+// in the archive are saved this way and were silently dropped before this.
+const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.jfif'])
 const extOf = name => {
     const dot = name.lastIndexOf('.')
     return dot < 0 ? '' : name.slice(dot).toLowerCase()
 }
 
-const dirs = path => readdirSync(path, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name)
-const files = path => readdirSync(path, { withFileTypes: true }).filter(e => e.isFile()).map(e => e.name)
+/* Both wrapped: an unreadable directory (permissions, a broken symlink, a
+   Windows path over 260 characters) must not kill a migration that may
+   already be most of the way through a five-year archive. Skipped and
+   counted (see `unreadable` below) rather than left to throw. */
+let unreadable = 0
+const dirs = path => {
+    try {
+        return readdirSync(path, { withFileTypes: true }).filter(e => e.isDirectory()).map(e => e.name)
+    } catch {
+        unreadable++
+        return []
+    }
+}
+const files = path => {
+    try {
+        return readdirSync(path, { withFileTypes: true }).filter(e => e.isFile()).map(e => e.name)
+    } catch {
+        unreadable++
+        return []
+    }
+}
 
 const client = new MongoClient(MONGO_URI)
 
@@ -136,50 +168,78 @@ try {
         .find({ deletedAt: { $exists: false } }, { projection: { title: 1, date: 1 } })
         .toArray()
 
-    /* Grouped by matchKey rather than the raw title, because operations are
-       recorded one per session day: "OPERATION Copper Ridge — Sat" and
-       "— Sun" both reduce to the same key. Every operation sharing a key is
-       kept (not just the earliest) and sorted by date ascending, because a
-       year folder is a season rather than a calendar year — one is literally
-       named "2022 - 2023" — so which candidate is "the" match depends on the
-       folder's own year too; see pickOperation below. Empty keys (a title
-       matchKey reduces to nothing) are skipped rather than clobbering every
-       other empty-keyed op. */
-    const byKey = new Map()
+    /* Grouped under both keys, because operations are recorded one per
+       session day: "OPERATION Copper Ridge — Sat" and "— Sun" both reduce to
+       the same key. Every operation sharing a key is kept (not just the
+       earliest) and sorted by date ascending, because a year folder is a
+       season rather than a calendar year — one is literally named
+       "2022 - 2023" — so which candidate is "the" match depends on the
+       folder's own year too; see pickOperation below. Empty keys are skipped
+       rather than clobbering every other empty-keyed op. */
+    const byFullKey = new Map()
+    const byStrippedKey = new Map()
+    const addTo = (map, key, op) => {
+        if (!key) return
+        const list = map.get(key)
+        if (list) list.push(op)
+        else map.set(key, [op])
+    }
     for (const op of operations) {
         if (!op.title) continue
-        const key = matchKey(op.title)
-        if (!key) continue
-        const list = byKey.get(key)
-        if (list) list.push(op)
-        else byKey.set(key, [op])
+        addTo(byFullKey, fullKey(op.title), op)
+        addTo(byStrippedKey, strippedKey(op.title), op)
     }
-    for (const list of byKey.values()) list.sort((a, b) => new Date(a.date) - new Date(b.date))
+    for (const list of byFullKey.values()) list.sort((a, b) => new Date(a.date) - new Date(b.date))
+    for (const list of byStrippedKey.values()) list.sort((a, b) => new Date(a.date) - new Date(b.date))
 
-    /**
-     * Pick the operation a folder's normalised key resolves to, preferring an
-     * exact year match and falling back to one adjacent year either side.
-     *
-     * A folder's parsed year is a season label, not a guarantee: "2021"
-     * holds sessions that actually ran into January 2022, and "2022 - 2023"
-     * spans two calendar years outright. Requiring exact equality punishes
-     * that normal case, so a session one year off is still accepted — but
-     * nothing further, since that is the real collision the guard exists to
-     * catch (the same codename reused for an unrelated operation years
-     * later). Candidates are pre-sorted ascending, so the first one to match
-     * either predicate is the earliest session in that bucket.
-     */
-    function pickOperation(key, yearNum) {
-        if (yearNum === null) return undefined
-        const candidates = byKey.get(key)
+    /** Within one key's candidates, prefer an exact year match and fall back
+     *  to one adjacent year either side — see pickOperation for why. */
+    function findInBucket(map, key, yearNum) {
+        const candidates = key ? map.get(key) : undefined
         if (!candidates) return undefined
         const exact = candidates.find(op => new Date(op.date).getUTCFullYear() === yearNum)
         if (exact) return exact
         return candidates.find(op => Math.abs(new Date(op.date).getUTCFullYear() - yearNum) === 1)
     }
 
+    /**
+     * Resolve a folder label to an operation: full key first, then the
+     * parenthetical-stripped fallback — each tried exact-year before
+     * ±1-year. The full key is tried first so "Op Copper Ridge (Lanze
+     * Verde)" cannot resolve to a plain, unrelated "Op Copper Ridge"; it
+     * only falls through to the stripped key once the specific one finds
+     * nothing, which is the common case since an operation's own title
+     * rarely repeats a gallery folder's parenthetical verbatim.
+     *
+     * The year tolerance exists because a folder's parsed year is a season
+     * label, not a guarantee: "2021" holds sessions that actually ran into
+     * January 2022, and "2022 - 2023" spans two calendar years outright.
+     * Requiring exact equality punishes that normal case, so a session one
+     * year off is still accepted — but nothing further, since that is the
+     * real collision the guard exists to catch (the same codename reused for
+     * an unrelated operation years later). Candidates within each bucket are
+     * pre-sorted ascending, so the first to match a predicate is the
+     * earliest session there.
+     */
+    function pickOperation(label, yearNum) {
+        if (yearNum === null) return undefined
+        return findInBucket(byFullKey, fullKey(label), yearNum)
+            ?? findInBucket(byStrippedKey, strippedKey(label), yearNum)
+    }
+
+    /* Prefetched once so a dry run can report how many files are actually
+       new vs. already indexed by querying the collection, rather than
+       deriving it from `inserted` — which in a dry run never leaves 0, since
+       nothing is written, and would print the entire archive as "already
+       indexed" otherwise. */
+    const existingKeys = new Set(
+        (await media.find({}, { projection: { storageKey: 1 } }).toArray())
+            .map(d => d.storageKey)
+            .filter(Boolean),
+    )
+
     // ── Walk ─────────────────────────────────────────────────────────────────
-    let seen = 0, inserted = 0, skipped = 0, matched = 0
+    let seen = 0, inserted = 0, skipped = 0, matched = 0, wouldInsert = 0, alreadyIndexed = 0
 
     for (const year of dirs(CONTENT)) {
         /* Some year folders are a range ("2022 - 2023") rather than a bare
@@ -192,8 +252,7 @@ try {
 
         for (const operation of dirs(join(CONTENT, year))) {
             const { label } = splitOperation(operation)
-            const key = matchKey(label)
-            const op = key ? pickOperation(key, yearNum) : undefined
+            const op = pickOperation(label, yearNum)
             if (op) matched++
 
             for (const mission of dirs(join(CONTENT, year, operation))) {
@@ -201,10 +260,25 @@ try {
 
                 for (const file of files(missionDir)) {
                     if (!IMAGE_EXT.has(extOf(file))) { skipped++; continue }
-                    seen++
 
                     const storageKey = `legacy:${year}/${operation}/${mission}/${file}`
                     const absolute = join(missionDir, file)
+
+                    let bytes
+                    try {
+                        bytes = statSync(absolute).size
+                    } catch {
+                        /* Gone between the readdir and the stat, a broken
+                           symlink, or a Windows path too long to open — the
+                           file is unreachable, not corrupt, so it is counted
+                           and skipped rather than aborting a migration that
+                           may already be most of the way through the
+                           archive. Distinct from a sharp failure below: this
+                           file was never read at all. */
+                        unreadable++
+                        continue
+                    }
+                    seen++
 
                     let width, height
                     if (sharp) {
@@ -220,6 +294,8 @@ try {
                     }
 
                     if (!APPLY) {
+                        if (existingKeys.has(storageKey)) alreadyIndexed++
+                        else wouldInsert++
                         console.log(`[dry-run] would index ${storageKey}`)
                         continue
                     }
@@ -251,7 +327,7 @@ try {
                                 tags: [],
                                 width,
                                 height,
-                                bytes: statSync(absolute).size,
+                                bytes,
                                 status: 'live',
                                 up: 0,
                                 down: 0,
@@ -279,7 +355,17 @@ try {
         console.log(`tag vocabulary already has ${tagCount} entries — left alone`)
     }
 
-    console.log(`\nfiles seen: ${seen}   inserted: ${inserted}   already indexed: ${seen - inserted}   non-image skipped: ${skipped}`)
+    /* Two different lines, not one derived from `inserted` in both modes:
+       in a dry run `inserted` never leaves 0 (nothing is written), so
+       `seen - inserted` would print the entire archive as "already indexed"
+       — the one line an operator reads before deciding to write, so it does
+       not get to lie. `wouldInsert`/`alreadyIndexed` come from the
+       `existingKeys` query above, not from subtraction. */
+    if (APPLY) {
+        console.log(`\nfiles seen: ${seen}   inserted: ${inserted}   already indexed: ${seen - inserted}   non-image skipped: ${skipped}   skipped (unreadable): ${unreadable}`)
+    } else {
+        console.log(`\nfiles seen: ${seen}   would insert: ${wouldInsert}   already indexed: ${alreadyIndexed}   non-image skipped: ${skipped}   skipped (unreadable): ${unreadable}`)
+    }
     console.log(`operation folders matched to a real operation: ${matched}`)
     if (!APPLY) console.log('\nDry run. Re-run with --apply to write.')
 } finally {

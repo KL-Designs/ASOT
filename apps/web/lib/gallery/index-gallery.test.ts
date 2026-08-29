@@ -20,6 +20,8 @@ let db: Db
 let root: string
 let atlanticShieldOpId: ObjectId
 let winterStormOpId: ObjectId
+let sablePeakNightOpId: ObjectId
+let sablePeakPlainOpId: ObjectId
 
 const SCRIPT = resolve(__dirname, '../../../../scripts/index-gallery.mjs')
 
@@ -57,6 +59,8 @@ beforeAll(async () => {
         join(content, '2025', '18. Op Atlantic Shield (Test)', 'I'),
         join(content, '2025', '19. Op Ghost Town', 'I'),
         join(content, '2021', '20. Op Winter Storm', 'I'),
+        join(content, '2025', '21. Op Sable Peak (Night Insert)', 'I'),
+        join(content, '2025', '22. Op Sable Peak', 'I'),
     ]) mkdirSync(dir, { recursive: true })
 
     // A real 1x1 PNG, so the dimension probe has something to read.
@@ -73,6 +77,12 @@ beforeAll(async () => {
     writeFileSync(join(content, '2025', '18. Op Atlantic Shield (Test)', 'I', 'h.png'), PNG)
     writeFileSync(join(content, '2025', '19. Op Ghost Town', 'I', 'i.png'), PNG)
     writeFileSync(join(content, '2021', '20. Op Winter Storm', 'I', 'j.png'), PNG)
+    writeFileSync(join(content, '2025', '21. Op Sable Peak (Night Insert)', 'I', 'k.png'), PNG)
+    writeFileSync(join(content, '2025', '22. Op Sable Peak', 'I', 'l.png'), PNG)
+    // .jfif is plain JPEG under a different extension — three real files in
+    // the archive are saved this way. Sharp reads the real bytes regardless
+    // of what the extension claims, so the fixture works with the same PNG.
+    writeFileSync(join(content, '2025', '1. Op Black Hill', 'I', 'm.jfif'), PNG)
 
     // Real operations are recorded per session day, abbreviated differently
     // than the gallery folder, and sometimes carry parenthetical context the
@@ -99,6 +109,20 @@ beforeAll(async () => {
         title: 'OPERATION Winter Storm — Sat',
         date: new Date(Date.UTC(2022, 0, 15)),
     })).insertedId
+
+    // Fix round 3, finding 2: an unconditional parenthetical strip would
+    // collapse "Op Sable Peak (Night Insert)" and "Op Sable Peak" onto the
+    // same key, and one of the two folders would resolve to the wrong
+    // operation. Two distinct real operations, same base name, one with the
+    // matching parenthetical and one without — each folder must take its own.
+    sablePeakNightOpId = (await db.collection('operations').insertOne({
+        title: 'OPERATION Sable Peak (Night Insert) — Sat',
+        date: new Date(Date.UTC(2025, 7, 2)),
+    })).insertedId
+    sablePeakPlainOpId = (await db.collection('operations').insertOne({
+        title: 'OPERATION Sable Peak — Sat',
+        date: new Date(Date.UTC(2025, 7, 9)),
+    })).insertedId
 }, 120_000)
 
 afterAll(async () => {
@@ -110,12 +134,12 @@ afterAll(async () => {
 describe('index-gallery', () => {
     test('indexes every file exactly once', () => {
         run()
-        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(9)
+        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(12)
     })
 
     test('running it again changes nothing', () => {
         run()
-        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(9)
+        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(12)
     })
 
     test('a re-run does not clobber what a reviewer edited', async () => {
@@ -231,5 +255,26 @@ describe('index-gallery', () => {
     test('leaves takenAt null when the year folder has no leading digits to read', async () => {
         const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:Undated/Op Something/I/g.png' })
         expect(doc?.takenAt).toBeNull()
+    })
+
+    // Fix round 3, finding 2: without the full-key pass, both folders would
+    // reduce to the same stripped key ("sable peak") and collide on
+    // whichever operation sorted earliest. Each must resolve to its own.
+    test('keeps a parenthetical folder and its plain namesake on separate operations', async () => {
+        const nightDoc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/21. Op Sable Peak (Night Insert)/I/k.png' })
+        const plainDoc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/22. Op Sable Peak/I/l.png' })
+        expect(nightDoc?.operationId?.toString()).toBe(sablePeakNightOpId.toString())
+        expect(plainDoc?.operationId?.toString()).toBe(sablePeakPlainOpId.toString())
+        expect(nightDoc?.operationId?.toString()).not.toBe(plainDoc?.operationId?.toString())
+    })
+
+    // Fix round 3, finding 4: three real photographs in the archive are
+    // saved as .jfif (plain JPEG under a different extension) and were being
+    // silently dropped as non-images before this.
+    test('indexes a .jfif file as an image', async () => {
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/1. Op Black Hill/I/m.jfif' })
+        expect(doc?.kind).toBe('image')
+        expect(doc?.width).toBe(1)
+        expect(doc?.height).toBe(1)
     })
 })
