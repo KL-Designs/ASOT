@@ -1,5 +1,5 @@
 import { ObjectId } from 'mongodb'
-import { existsSync, mkdirSync, renameSync, unlinkSync } from 'fs'
+import { existsSync, mkdirSync, unlinkSync } from 'fs'
 import path from 'path'
 
 import Db from '@/lib/mongo'
@@ -52,56 +52,79 @@ async function drain(): Promise<void> {
 
 async function processOne(id: string): Promise<void> {
     const _id = new ObjectId(id)
-    const doc = await Db.galleryMedia.findOne({ _id })
-    if (!doc || doc.status !== 'processing') return
 
-    const staged = path.join(STAGING_DIR, id)
-
-    if (!existsSync(staged)) {
-        await fail(_id, 'The uploaded file went missing before it could be processed.')
-        return
-    }
-
-    mkdirSync(MEDIA_DIR, { recursive: true })
-    const destNoExt = path.join(MEDIA_DIR, id)
-
+    // Everything below — including the initial read — is inside this try.
+    // Any of it can throw on a Mongo hiccup, and an error that escaped
+    // uncaught to drain()'s per-item .catch would only get logged, leaving
+    // the document at `processing` with nothing in the queue pointing at it
+    // until the next restart's sweepStranded(). Routing every failure through
+    // fail() instead is what keeps that promise: a failed transcode always
+    // reaches the review queue, not just a failed transcode after the read.
     try {
-        if (doc.kind === 'video') {
-            const out = await processVideo(staged, destNoExt)
-            await Db.galleryMedia.updateOne({ _id }, {
-                $set: {
-                    status: 'pending',
-                    storageKey: mediaKey(id, out.ext),
-                    posterKey: posterKey(id),
-                    width: out.width, height: out.height,
-                    durationSec: out.durationSec, bytes: out.bytes,
-                },
-                $unset: { processingError: '' },
-            })
-        } else {
-            const out = await processStill(staged, destNoExt)
-            await Db.galleryMedia.updateOne({ _id }, {
-                $set: {
-                    status: 'pending',
-                    storageKey: mediaKey(id, out.ext),
-                    width: out.width, height: out.height, bytes: out.bytes,
-                },
-                $unset: { processingError: '' },
-            })
+        const doc = await Db.galleryMedia.findOne({ _id })
+        if (!doc || doc.status !== 'processing') return
+
+        const staged = path.join(STAGING_DIR, id)
+
+        if (!existsSync(staged)) {
+            await fail(_id, 'The uploaded file went missing before it could be processed.')
+            return
+        }
+
+        mkdirSync(MEDIA_DIR, { recursive: true })
+        const destNoExt = path.join(MEDIA_DIR, id)
+
+        try {
+            if (doc.kind === 'video') {
+                const out = await processVideo(staged, destNoExt)
+                await Db.galleryMedia.updateOne({ _id }, {
+                    $set: {
+                        status: 'pending',
+                        storageKey: mediaKey(id, out.ext),
+                        posterKey: posterKey(id),
+                        width: out.width, height: out.height,
+                        durationSec: out.durationSec, bytes: out.bytes,
+                    },
+                    $unset: { processingError: '' },
+                })
+            } else {
+                const out = await processStill(staged, destNoExt)
+                await Db.galleryMedia.updateOne({ _id }, {
+                    $set: {
+                        status: 'pending',
+                        storageKey: mediaKey(id, out.ext),
+                        width: out.width, height: out.height, bytes: out.bytes,
+                    },
+                    $unset: { processingError: '' },
+                })
+            }
+        } finally {
+            // The staged original has served its purpose either way. Leaving it
+            // would grow the staging directory without bound.
+            try { unlinkSync(staged) } catch { /* already gone */ }
         }
     } catch (err) {
         await fail(_id, err instanceof Error ? err.message : 'Processing failed.')
-        return
-    } finally {
-        // The staged original has served its purpose either way. Leaving it
-        // would grow the staging directory without bound.
-        try { unlinkSync(staged) } catch { /* already gone */ }
     }
 }
 
-/** A failure still lands in the review queue, with its reason attached. */
+/**
+ * A failure still lands in the review queue, with its reason attached.
+ *
+ * This write is itself guarded: if Mongo is unavailable for both the read (or
+ * transcode) that got us here AND this write, the document is left stranded
+ * at `processing` between restarts. That double-fault is not handled
+ * in-process — no retry loop, no timer, just a log — because sweepStranded()
+ * at startup already exists to recover exactly this, and duplicating that
+ * machinery here for a rare double-fault would be new moving parts for a
+ * problem the startup sweep already covers.
+ */
 async function fail(_id: ObjectId, message: string): Promise<void> {
-    await Db.galleryMedia.updateOne({ _id }, { $set: { status: 'pending', processingError: message } })
+    try {
+        await Db.galleryMedia.updateOne({ _id }, { $set: { status: 'pending', processingError: message } })
+    } catch (err) {
+        console.error('[gallery/queue] failed to record a processing failure for', _id.toString(), err)
+    }
 }
 
 /**
