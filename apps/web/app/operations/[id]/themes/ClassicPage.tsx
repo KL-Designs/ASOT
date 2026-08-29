@@ -46,7 +46,7 @@ function hexToRgb(hex: string) {
  */
 export default function ClassicPage({
     id, operation, me, isLoggedIn, isHQ, isAllStaff, canManageAttendance,
-    isJ6, isSectionLeader, showAcknowledgeCard, activePageParam, fromJ2,
+    canZeus, isSectionLeader, showAcknowledgeCard, activePageParam, fromJ2,
 }: ThemePageProps) {
     const { r, g, b } = hexToRgb(operation.themeColor || '#db001d')
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
@@ -402,7 +402,7 @@ export default function ClassicPage({
             </div>
 
             {/* ── Section nav (single-page only, no zeus/ocap tabs available) ─── */}
-            {(!operation.pages || operation.pages.length <= 1) && !isJ6 && !operation.ocap && operation.sections && operation.sections.length > 1 && (
+            {(!operation.pages || operation.pages.length <= 1) && !canZeus && !operation.ocap && operation.sections && operation.sections.length > 1 && (
                 <SectionNav
                     className='print-hide'
                     themeColor={operation.themeColor || '#db001d'}
@@ -431,7 +431,7 @@ export default function ClassicPage({
                             return true
                         })
                         const isSinglePage = contentPages.length <= 1
-                        const hasZeus = isJ6
+                        const hasZeus = canZeus
                         const hasOcap = !!(isHQ || (isLoggedIn && operation.ocap))
                         const showPageNav = !isSinglePage || hasZeus || hasOcap
                         if (!showPageNav) return null
@@ -531,7 +531,7 @@ export default function ClassicPage({
                             themeColor={operation.themeColor || '#db001d'}
                             pageTheme={pageTheme}
                             isLoggedIn={isLoggedIn}
-                            isJ6={isJ6}
+                            isJ6={canZeus}
                             isHQ={isHQ}
                             isAllStaff={isAllStaff}
                             showAcknowledgeCard={showAcknowledgeCard}
@@ -549,7 +549,7 @@ export default function ClassicPage({
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
                             {/* Zeus Notes tab — J6 only */}
-                            {isJ6 && activePageParam === '__zeus__' && (
+                            {canZeus && activePageParam === '__zeus__' && (
                                 <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
                             )}
 

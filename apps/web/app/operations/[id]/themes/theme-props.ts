@@ -17,7 +17,12 @@ export interface ThemePageProps {
     /** `attendance.confirm` — everyone who takes a roll call. */
     isAllStaff: boolean
     canManageAttendance: boolean
-    isJ6: boolean
+    /**
+     * `operations.zeus` — may read and write Zeus Notes pages. Not "is on J6":
+     * the pages are gated on the permission, and the role array is only the
+     * legacy arm of that check.
+     */
+    canZeus: boolean
     isSectionLeader: boolean
     showAcknowledgeCard: boolean
     /** `?page=` — which document (or the Zeus / OCAP pseudo-pages) is open. */

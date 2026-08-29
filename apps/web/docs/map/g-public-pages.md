@@ -845,6 +845,23 @@ touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttenda
   `coldwar` was already a selectable era (`/api/admin/era-options`) with no rendering of its own,
   which is why choosing it used to give you Modern. **`wwii`, `vietnam` and `fantasy` still do** —
   they are offered in the picker and fall through to `ClassicPage`.
+**Zeus Notes pages are ordinary documents.** Same sections, same schema, same collaborative editor;
+the only thing that sets one apart is `operations.zeus`, checked two-armed in `page.tsx` (the grant,
+or the legacy `departments.j6` role) and passed to every theme as `canZeus`. Without it the page is
+filtered out of the document list, so there is nothing to click. In the editor the same permission
+drives `PageSidebar`'s `hiddenTypes` — the page is dropped from the rail rather than disabled, since
+a document you cannot read should not advertise that it exists, and `ActiveEditor` bounces off one if
+it somehow becomes active. **Not a security boundary on its own**: the content lives in the same
+Y.Doc as the rest of the operation, so anyone who can open the editor can still reach it over the
+wire. Modern and Cold War no longer render `<ZeusNotesPanel/>` at all — that panel edits
+`operation.zeusNotes`, a free-text field belonging to the J6 dashboard's own Zeus Notes tab, which
+had been mirrored onto the operation page and confused with the document of the same name.
+
+**The After Action Review document type is gone** — removed from `PageSidebar`'s type menu, its
+`addPage` union, its colour and label special-cases, and the dev template. AARs will arrive as a tab
+of their own. Existing `pageType: 'aar'` pages are left alone and render as ordinary documents;
+nothing deletes them.
+
 - **`OrdersSpine.tsx`** — one outline replacing two navigations. Documents are `?page=` links;
   the open one's sections nest beneath it as scroll-to buttons with an `IntersectionObserver`
   scroll-spy. The nesting is information, not decoration: "Situation" is *part of* CHQ Orders, not a
@@ -911,6 +928,10 @@ Client left-rail page/tab navigator for multi-page operations (updates the `?pag
 also renders special Zeus/OCAP tab entries with custom accent colours. Sticky sidebar, desktop only.
 
 #### app/operations/[id]/ZeusNotesPanel.tsx
+**Legacy on the operation page** — Modern and Cold War no longer render it, since it edits
+`operation.zeusNotes` (the J6 dashboard's free-text field) and was being confused with the Zeus Notes
+*document*, which is now an ordinary page gated on `operations.zeus`. Still reached by
+`PagedView`/`ClassicPage` for the `oldfashioned` and `scifi` themes.
 Client J6-only notes panel: view/edit free-text Zeus notes for the operation, `POST
 /api/operations/zeus-notes`.
 

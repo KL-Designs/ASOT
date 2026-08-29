@@ -40,7 +40,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             || client.hasRoles(me, PERMISSIONS.attendance.manage)
             || client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
         : false
-    const isJ6 = me ? client.hasRoles(me, PERMISSIONS.departments.j6) : false
+    /*
+     * Zeus Notes pages. Two-armed for the same reason the attendance check is:
+     * `hasPermission` has no Discord-role fallback, and the legacy J6 role has
+     * to keep working until the migration finishes.
+     */
+    const canZeus = me
+        ? (await hasPermission(me, 'operations.zeus'))
+            || client.hasRoles(me, PERMISSIONS.departments.j6)
+        : false
 
     // Check if the logged-in user is a section leader (isSenior on their ORBAT position)
     const isSectionLeader = me
@@ -57,7 +65,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
     const shared: ThemePageProps = {
         id, operation, me, isLoggedIn, isHQ, isAllStaff, canManageAttendance,
-        isJ6, isSectionLeader, showAcknowledgeCard, activePageParam, fromJ2,
+        canZeus, isSectionLeader, showAcknowledgeCard, activePageParam, fromJ2,
     }
 
     /*

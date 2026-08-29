@@ -10,7 +10,7 @@ interface PageEntry {
     id: string
     title: string
     isMain: boolean
-    pageType?: string  // 'intel' | 'orders' | 'zeus' | 'ocap' | 'staff_orders' | 'aar' | 'separator'
+    pageType?: string  // 'intel' | 'orders' | 'zeus' | 'ocap' | 'staff_orders' | 'separator'
     pageColor?: string
     parentId?: string
 }
@@ -36,6 +36,17 @@ interface Props {
     orientation?: 'sidebar' | 'top'
     synced?: boolean
     allowedTypes?: string[]
+    /**
+     * Page types this viewer may not open. Filtered out of the list entirely
+     * rather than disabled — a document you cannot read should not advertise
+     * that it exists, and Zeus Notes is the whole reason this prop exists.
+     *
+     * Not a security boundary on its own: the page's content lives in the same
+     * Y.Doc as everything else, so anyone who can open the editor can still
+     * reach it over the wire. This keeps it out of the way of staff who have no
+     * business in it; the real gate is `operations.zeus` on the read side.
+     */
+    hiddenTypes?: string[]
     readOnly?: boolean
     /** The local user and everyone else currently in the document — both
      * read off the same Hocuspocus awareness state the collaborative cursors
@@ -55,7 +66,7 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor, orientation = 'sidebar', synced = false, allowedTypes, readOnly = false, presenceUser, presencePeers = [] }: Props) {
+export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor, orientation = 'sidebar', synced = false, allowedTypes, hiddenTypes, readOnly = false, presenceUser, presencePeers = [] }: Props) {
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
 
@@ -180,11 +191,13 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
 
         function rebuild() {
             const ids = pageOrder.length > 0 ? pageOrder.toArray() : ['main']
-            setPages(ids.map(id => {
-                const pmeta = ydoc.getMap<string>('pmeta-' + id)
-                const fallback = id === 'main' ? 'Main' : 'Untitled'
-                return { id, title: pmeta.get('title') || fallback, isMain: id === 'main', pageType: pmeta.get('pageType') || 'orders', pageColor: pmeta.get('pageColor') || '', parentId: pmeta.get('parentId') || undefined }
-            }))
+            setPages(ids
+                .map(id => {
+                    const pmeta = ydoc.getMap<string>('pmeta-' + id)
+                    const fallback = id === 'main' ? 'Main' : 'Untitled'
+                    return { id, title: pmeta.get('title') || fallback, isMain: id === 'main', pageType: pmeta.get('pageType') || 'orders', pageColor: pmeta.get('pageColor') || '', parentId: pmeta.get('parentId') || undefined }
+                })
+                .filter(p => !hiddenTypes?.includes(p.pageType ?? 'orders')))
         }
 
         function observePageMeta(id: string) {
@@ -211,18 +224,19 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             pageOrder.unobserve(orderHandler)
             metaObservers.forEach(unsub => unsub())
         }
-    }, [ydoc])
+    // `hiddenTypes` arrives a beat after mount (its permission is fetched), so
+    // it has to be a dependency — otherwise the list is built once without it.
+    }, [ydoc, hiddenTypes])
 
     useEffect(() => {
         if (renamingId) renameInputRef.current?.focus()
     }, [renamingId])
 
-    function addPage(type: 'orders' | 'zeus' | 'staff_orders' | 'aar' | 'separator', title?: string) {
+    function addPage(type: 'orders' | 'zeus' | 'staff_orders' | 'separator', title?: string) {
         const id = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
         const defaultTitle = type === 'zeus' ? 'Zeus Notes'
             : type === 'separator' ? '──────────'
             : type === 'staff_orders' ? (title ?? 'Staff Orders')
-            : type === 'aar' ? 'After Action Review'
             : 'New Page'
         ydoc.transact(() => {
             const pageOrder = ydoc.getArray<string>('pageOrder')
@@ -745,7 +759,6 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 const dotColor = page.pageType === 'zeus' ? '#00c3ff'
                     : page.pageType === 'ocap' ? '#10b981'
                     : page.pageType === 'staff_orders' ? (page.pageColor || '#22c55e')
-                    : page.pageType === 'aar' ? '#6366f1'
                     : 'var(--acc)'
 
                 const isNestTarget = dragNestTargetId === page.id
@@ -813,7 +826,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                 }}
                                 onDoubleClick={e => { e.stopPropagation(); startRename(page.id, page.title) }}
-                                title={`${page.title}${page.pageType === 'intel' ? ' (Intel Package)' : page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : page.pageType === 'ocap' ? ' (OCAP)' : page.pageType === 'staff_orders' ? ' (Staff Orders)' : page.pageType === 'aar' ? ' (After Action Review)' : ''} (double-click to rename)`}
+                                title={`${page.title}${page.pageType === 'intel' ? ' (Intel Package)' : page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : page.pageType === 'ocap' ? ' (OCAP)' : page.pageType === 'staff_orders' ? ' (Staff Orders)' : ''} (double-click to rename)`}
                             >
                                 {page.title}
                             </span>
@@ -1044,14 +1057,6 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 >
                                     Zeus Notes Page
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(0,195,255,0.45)', marginTop: 3 }}>J6-only notes and gamemaster planning. Visible to J6 staff only.</div>
-                                </button>
-                                )}
-                                {allowed('aar') && (
-                                <button type='button' onClick={() => addPage('aar')}
-                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.3)', color: 'rgba(139,140,255,0.9)', cursor: 'pointer' }}
-                                >
-                                    After Action Review
-                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(99,102,241,0.45)', marginTop: 3 }}>Post-operation review and lessons learned. Added after the mission completes.</div>
                                 </button>
                                 )}
                                 {allowed('separator') && (

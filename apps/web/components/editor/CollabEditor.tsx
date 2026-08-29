@@ -38,6 +38,7 @@ interface Props {
     themeColor?: string
     readOnly?: boolean
     allowedTypes?: string[]
+    hiddenTypes?: string[]
     /** Fired once the Hocuspocus provider exists, so a caller (the status bar's
      * presence/connection state) can reach it without this component needing
      * to expose anything else. See task-12's ruling: this is the only prop
@@ -86,6 +87,7 @@ export default function CollabEditor({
     themeColor = '#db001d',
     readOnly = false,
     allowedTypes,
+    hiddenTypes,
     onProviderReady,
 }: Props) {
     const [ydoc] = useState(() => new Y.Doc())
@@ -207,6 +209,7 @@ export default function CollabEditor({
             readOnly={readOnly}
             synced={isSynced}
             allowedTypes={allowedTypes}
+            hiddenTypes={hiddenTypes}
         />
     )
 }
@@ -393,9 +396,10 @@ interface ActiveEditorProps {
     readOnly?: boolean
     synced?: boolean
     allowedTypes?: string[]
+    hiddenTypes?: string[]
 }
 
-function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSectionTitle, initialContent, onSaveStatusChange, themeColor = '#db001d', readOnly = false, synced = false, allowedTypes }: ActiveEditorProps) {
+function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSectionTitle, initialContent, onSaveStatusChange, themeColor = '#db001d', readOnly = false, synced = false, allowedTypes, hiddenTypes }: ActiveEditorProps) {
     const [activePage, setActivePage] = useState<string>('main')
     const [activePageType, setActivePageType] = useState<string>('orders')
     const [activePageTitle, setActivePageTitle] = useState<string>('')
@@ -446,7 +450,11 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
     useEffect(() => {
         const pmeta = ydoc.getMap<string>('pmeta-' + activePage)
         const read = () => {
-            setActivePageType(pmeta.get('pageType') || (activePage === 'main' ? 'orders' : 'orders'))
+            const type = pmeta.get('pageType') || 'orders'
+            // A page this viewer may not open is not in the rail either, so
+            // landing on one would strand them with no way back off it.
+            if (hiddenTypes?.includes(type)) { setActivePage('main'); return }
+            setActivePageType(type)
             // Section eyebrow (visual-fixes spec §2) — the document's own
             // title, read straight off the same pmeta map PageSidebar uses,
             // not a new field.
@@ -455,7 +463,7 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
         pmeta.observe(read)
         read()
         return () => pmeta.unobserve(read)
-    }, [ydoc, activePage])
+    }, [ydoc, activePage, hiddenTypes])
 
     useEffect(() => {
         const { orderKey } = getPageKeys(activePage)
@@ -598,6 +606,7 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                     orientation={isMobile ? 'top' : 'sidebar'}
                     synced={synced}
                     allowedTypes={allowedTypes}
+                    hiddenTypes={hiddenTypes}
                     readOnly={readOnly}
                     // The rail's own footer now carries the "EDITING" presence
                     // indicator (visual-fixes FIX 3) that used to float at the

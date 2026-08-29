@@ -255,6 +255,25 @@ const PERMISSIONS = {
          *  - `app/operations/[id]/edit/tabs/schedule/LifecycleOverride.tsx`
          */
         overrideLifecycle: ['HQ Staff', 'J2 - Department Leader'],
+
+        /**
+         * Reading and writing an operation's Zeus Notes pages.
+         *
+         * A Zeus Notes page is an ordinary document in every respect — sections,
+         * collaborative editing, the same schema as the orders themselves. The
+         * only thing that separates it is this key: without it the page is not
+         * listed and not reachable, in the editor or on the public page.
+         *
+         * A permission rather than the `departments.j6` role array because who
+         * gamemasters an operation is not the same question as who is on J6 —
+         * the array stays as the legacy arm of the check while the migration
+         * finishes.
+         *
+         * Used by:
+         *  - `app/operations/[id]/page.tsx` (`canZeus`, passed to every theme)
+         *  - `app/operations/[id]/edit/EditorPage.tsx` (hides the pages in the editor)
+         */
+        zeus: ['J6 - Game Master'],
     },
 
     // ── Uploads ───────────────────────────────────────────────────────────────

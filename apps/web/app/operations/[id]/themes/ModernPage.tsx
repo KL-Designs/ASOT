@@ -5,7 +5,6 @@ import { hexToRgb, rgbTriplet } from '@/lib/colour'
 import DocBody from '../doc-body'
 import LocalDate from '../local-date'
 import PrintButton from '../print-button'
-import ZeusNotesPanel from '../ZeusNotesPanel'
 import OcapLinkPanel from '../OcapLinkPanel'
 import OcapStatsPanel from '../OcapStatsPanel'
 import DocAcknowledgeCard from '../DocAcknowledgeCard'
@@ -18,7 +17,6 @@ import RsvpCell from './RsvpCell'
 import type { ModernPageProps } from './theme-props'
 import s from './modern.module.css'
 
-const ZEUS = '__zeus__'
 const OCAP = '__ocap__'
 
 /**
@@ -35,21 +33,28 @@ const OCAP = '__ocap__'
  * place is one call to action that says what you have and haven't done.
  */
 export default function ModernPage({
-    id, operation, isLoggedIn, isHQ, isJ6, showAcknowledgeCard,
+    id, operation, isLoggedIn, isHQ, canZeus, showAcknowledgeCard,
     activePageParam, fromJ2, attendance, lineage,
 }: ModernPageProps) {
     const accent = operation.themeColor || '#db001d'
     const rgb = hexToRgb(accent)
 
     /*
-     * Zeus and OCAP are appended as their own entries below, so they must not
-     * also come through as content pages. The id de-dupe guards against stale
-     * Yjs race-condition data in Mongo, which has produced duplicate pages
-     * before.
+     * Zeus Notes pages are ordinary documents — same sections, same schema, same
+     * editor — and the only thing that sets them apart is who may open one. A
+     * viewer without `operations.zeus` never sees the page listed, so there is
+     * nothing to click and nothing to 404 on.
+     *
+     * OCAP is still excluded here: it is a panel of match statistics appended
+     * below, not a document with sections.
+     *
+     * The id de-dupe guards against stale Yjs race-condition data in Mongo,
+     * which has produced duplicate pages before.
      */
     const seen = new Set<string>()
     const contentPages = (operation.pages ?? []).filter(pg => {
-        if (pg.pageType === 'zeus' || pg.pageType === 'ocap') return false
+        if (pg.pageType === 'ocap') return false
+        if (pg.pageType === 'zeus' && !canZeus) return false
         if (seen.has(pg.id)) return false
         seen.add(pg.id)
         return true
@@ -60,7 +65,6 @@ export default function ModernPage({
         : [{ id: contentPages[0]?.id ?? 'main', title: contentPages[0]?.title || 'Operation Orders', group: 'orders' as const }]
 
     const hasOcap = isHQ || (isLoggedIn && !!operation.ocap)
-    if (isJ6) documents.push({ id: ZEUS, title: 'Zeus Notes', group: 'aside' })
     if (hasOcap) documents.push({ id: OCAP, title: 'OCAP Replay', group: 'aside' })
 
     const validIds = documents.map(d => d.id)
@@ -68,7 +72,7 @@ export default function ModernPage({
         ? activePageParam
         : documents[0].id
 
-    const onContent = activeDocument !== ZEUS && activeDocument !== OCAP
+    const onContent = activeDocument !== OCAP
 
     // `main` is the operation's own sections; every other page keeps its
     // sections in `extraPageSections` under its id.
@@ -200,10 +204,6 @@ export default function ModernPage({
 
                 <main className={s.reader}>
                     <div className={s.readerInner}>
-                        {activeDocument === ZEUS && isJ6 && (
-                            <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
-                        )}
-
                         {activeDocument === OCAP && hasOcap && (
                             <>
                                 {isHQ && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}

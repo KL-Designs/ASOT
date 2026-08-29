@@ -57,6 +57,7 @@ export default function EditorPage() {
     const [availableWorlds, setAvailableWorlds] = useState<MapWorld[]>([])
     const [isHQ, setIsHQ] = useState(false)
     const [isJ2Lead, setIsJ2Lead] = useState(false)
+    const [canZeus, setCanZeus] = useState(false)
     // `operations.overrideLifecycle` — gates the Schedule tab's status
     // override. Deliberately not implied by operations.write: setting an
     // operation back to In Development suspends every automation.
@@ -269,6 +270,16 @@ export default function EditorPage() {
         fetch('/api/me/permission?key=departmentLeads.j2')
             .then(r => r.json())
             .then(json => { if (!json.error) setIsJ2Lead(json.access) })
+
+        // Two-armed like the lifecycle override below, and for the same reason:
+        // `hasPermission` has no Discord-role fallback, so the legacy J6 role
+        // has to be asked separately or gamemasters lose their own pages.
+        Promise.all([
+            fetch('/api/me/permission?key=operations.zeus').then(r => r.json()),
+            fetch(`/api/me/roles?has=${PERMISSIONS.departments.j6.join(',')}`).then(r => r.json()),
+        ]).then(([byGrant, byRole]) => {
+            setCanZeus(Boolean(byGrant?.access) || Boolean(byRole?.access))
+        }).catch(() => {})
 
         // Mirrors the server's two-armed check in /api/operations/update: the
         // dynamic grant, OR the legacy role array. Without the second fetch the
@@ -975,6 +986,7 @@ export default function EditorPage() {
                         metaHandleRef={metaHandleRef}
                         onSaveStatusChange={setSaveStatus}
                         onProviderReady={setProvider}
+                        canZeus={canZeus}
                     />
                 }
                 map={

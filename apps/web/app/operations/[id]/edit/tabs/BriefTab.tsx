@@ -19,6 +19,12 @@ interface Props {
     /** Wired to `usePresence`/`useDocStats` in page.tsx for the status bar —
      * see the ruling on CollabEditor's one permitted new prop. */
     onProviderReady: (provider: HocuspocusProvider) => void
+    /**
+     * `operations.zeus`. Without it the Zeus Notes pages are not listed in the
+     * rail and cannot be opened — they are ordinary documents in every other
+     * respect, and this is the only thing that separates them.
+     */
+    canZeus?: boolean
 }
 
 /**
@@ -42,7 +48,7 @@ interface Props {
  */
 export default function BriefTab({
     opID, initialContent, themeColor, title, department, date, loreDate,
-    onMetaChange, metaHandleRef, onSaveStatusChange, onProviderReady,
+    onMetaChange, metaHandleRef, onSaveStatusChange, onProviderReady, canZeus = false,
 }: Props) {
     return (
         <div style={{ width: '100%', height: '100%' }}>
@@ -57,6 +63,8 @@ export default function BriefTab({
                 metaHandleRef={metaHandleRef}
                 onSaveStatusChange={onSaveStatusChange}
                 onProviderReady={onProviderReady}
+                allowedTypes={canZeus ? undefined : ['orders', 'staff_orders', 'separator']}
+                hiddenTypes={canZeus ? undefined : ['zeus']}
             />
         </div>
     )

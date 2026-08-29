@@ -50,7 +50,7 @@ export interface TemplateSection {
 export interface TemplatePage {
     title: string
     /** `main` is the operation's own orders page and always exists already. */
-    pageType: 'orders' | 'zeus' | 'staff_orders' | 'aar'
+    pageType: 'orders' | 'zeus' | 'staff_orders'
     sections: TemplateSection[]
 }
 
@@ -259,32 +259,6 @@ export function buildTemplateDocument(): TemplatePage[] {
                             li('Bravo — follows, clears the buildings.'),
                             li('Charlie — cut-off on the eastern lip.'),
                         ),
-                    ),
-                },
-            ],
-        },
-        {
-            title: 'After Action Review',
-            pageType: 'aar',
-            sections: [
-                {
-                    title: 'Timeline',
-                    content: doc(
-                        pre(
-                            '1930  LD crossed on time\n'
-                            + '1948  Contact, southern face\n'
-                            + '2012  First casualty, CCP established\n'
-                            + '2054  Objective secure',
-                        ),
-                    ),
-                },
-                {
-                    title: 'Sustain / Improve',
-                    content: doc(
-                        h(3, 'Sustain'),
-                        ul(li('Movement to the line of departure was quiet and on time.')),
-                        h(3, 'Improve'),
-                        ul(li('Company net discipline collapsed during the assault.')),
                     ),
                 },
             ],

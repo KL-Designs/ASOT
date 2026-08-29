@@ -3,7 +3,6 @@ import Link from 'next/link'
 import type { Route } from 'next'
 import DocBody from '../doc-body'
 import LocalDate from '../local-date'
-import ZeusNotesPanel from '../ZeusNotesPanel'
 import OcapLinkPanel from '../OcapLinkPanel'
 import OcapStatsPanel from '../OcapStatsPanel'
 import DocAcknowledgeCard from '../DocAcknowledgeCard'
@@ -16,7 +15,6 @@ import type { SpineDocument } from './OrdersSpine'
 import type { ModernPageProps } from './theme-props'
 import s from './coldwar.module.css'
 
-const ZEUS = '__zeus__'
 const OCAP = '__ocap__'
 
 /**
@@ -97,12 +95,25 @@ const PAPER_CHROME: Record<string, string> = {
  *   detailed to. Live controls in the period's shape.
  */
 export default function ColdWarPage({
-    id, operation, isLoggedIn, isHQ, isJ6, showAcknowledgeCard,
+    id, operation, isLoggedIn, isHQ, canZeus, showAcknowledgeCard,
     activePageParam, fromJ2, attendance, lineage,
 }: ModernPageProps) {
+    /*
+     * Zeus Notes pages are ordinary documents — same sections, same schema, same
+     * editor — and the only thing that sets them apart is who may open one. A
+     * viewer without `operations.zeus` never sees the page listed, so there is
+     * nothing to click and nothing to 404 on.
+     *
+     * OCAP is still excluded here: it is a panel of match statistics appended
+     * below, not a document with sections.
+     *
+     * The id de-dupe guards against stale Yjs race-condition data in Mongo,
+     * which has produced duplicate pages before.
+     */
     const seen = new Set<string>()
     const contentPages = (operation.pages ?? []).filter(pg => {
-        if (pg.pageType === 'zeus' || pg.pageType === 'ocap') return false
+        if (pg.pageType === 'ocap') return false
+        if (pg.pageType === 'zeus' && !canZeus) return false
         if (seen.has(pg.id)) return false
         seen.add(pg.id)
         return true
@@ -113,14 +124,13 @@ export default function ColdWarPage({
         : [{ id: contentPages[0]?.id ?? 'main', title: contentPages[0]?.title || 'Operation Orders', group: 'orders' as const }]
 
     const hasOcap = isHQ || (isLoggedIn && !!operation.ocap)
-    if (isJ6) documents.push({ id: ZEUS, title: 'Zeus Notes', group: 'aside' })
     if (hasOcap) documents.push({ id: OCAP, title: 'OCAP Replay', group: 'aside' })
 
     const validIds = documents.map(d => d.id)
     const activeDocument = activePageParam && validIds.includes(activePageParam)
         ? activePageParam
         : documents[0].id
-    const onContent = activeDocument !== ZEUS && activeDocument !== OCAP
+    const onContent = activeDocument !== OCAP
 
     const rawSections = activeDocument === 'main'
         ? operation.sections ?? []
@@ -161,9 +171,6 @@ export default function ColdWarPage({
                         /* Staff instruments, not orders — they keep the dark chrome
                            they wear everywhere else and sit on the bare desk. */
                         <div className={s.panel}>
-                            {activeDocument === ZEUS && isJ6 && (
-                                <ZeusNotesPanel operationId={id} initialNotes={operation.zeusNotes ?? ''} />
-                            )}
                             {activeDocument === OCAP && hasOcap && (
                                 <>
                                     {isHQ && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}
