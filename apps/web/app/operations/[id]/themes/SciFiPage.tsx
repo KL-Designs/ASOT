@@ -70,10 +70,19 @@ const CONSOLE_CHROME: Record<string, string> = {
 
     /*
      * The one thing this theme adds to the tab strip: the active tab's
-     * underline emits. Offset downward with a negative spread so the light
-     * pools under the rule rather than haloing the whole tab.
+     * underline emits. It is the light the rule throws *up* onto the strip
+     * above it, painted as a background so it cannot escape the tab's own box
+     * — see the note in `tabs.module.css` for why that shape and not a
+     * box-shadow. Steep falloff, because phosphor is bright at the source and
+     * gone within a few millimetres of it.
      */
-    '--tab-glow': '0 3px 14px -4px var(--phos)',
+    '--tab-glow': [
+        'linear-gradient(0deg,',
+        'rgba(98, 232, 176, 0.40) 0%,',
+        'rgba(98, 232, 176, 0.16) 30%,',
+        'rgba(98, 232, 176, 0.04) 62%,',
+        'transparent 100%)',
+    ].join(' '),
 }
 
 /**

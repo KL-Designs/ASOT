@@ -431,12 +431,17 @@
     border: 1px solid var(--grid);
     background: rgba(0, 0, 0, 0.32);
 }
+/* Its two labels sit over the reading column rather than at the panel's far
+   edges — the strip is the document's own header, and a header that starts a
+   screen-width away from the text it heads has stopped being one. */
 .sheetTop {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 10px 22px;
+    max-width: 1300px;
+    margin-inline: auto;
+    padding: 10px 44px;
     border-bottom: 1px solid var(--grid-2);
     font-size: 9px;
     letter-spacing: 0.2em;
@@ -450,7 +455,21 @@
  * A console can be as wide as the desk; a paragraph cannot be, or it stops
  * being readable somewhere around 100 characters.
  */
-.sheetBody { padding: 30px 44px 38px; max-width: 980px; }
+/*
+ * The typed column stops before the panel does, and sits in the middle of what
+ * is left — the same split Cold War makes between its sheet and its measure.
+ * The panel is the screen and takes the whole width; the reading column is
+ * capped, because a paragraph that runs the width of a monitor stops being
+ * readable somewhere around 100 characters however much room there is.
+ *
+ * 1300px is the measure including the side padding, the way `--measure` is on
+ * Cold War, so the two themes mean the same thing by the same number.
+ */
+.sheetBody {
+    max-width: 1300px;
+    margin-inline: auto;
+    padding: 30px 44px 38px;
+}
 
 .para { margin-bottom: 40px; }
 .para:last-child { margin-bottom: 0; }

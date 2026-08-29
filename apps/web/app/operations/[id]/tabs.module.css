@@ -68,18 +68,46 @@
     flex-shrink: 0;
 }
 .tab:hover { color: var(--ink-2); }
-.tabOn { color: var(--ink); border-bottom-color: var(--acc); box-shadow: var(--tab-glow, none); }
+.tabOn { color: var(--ink); border-bottom-color: var(--acc); }
 .tab:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
 
 /*
- * `--tab-glow` is the strip's one themeable seam beyond `--acc`, and it
- * defaults to `none` so every theme that does not set it renders exactly as
- * before. It exists for the Sci-Fi console, where the underline is a phosphor
- * rule and has to emit rather than just be coloured — see `themes/SciFiPage`.
- * A theme passes it through `OperationBar`'s `palette`, which lands inline on
- * the bar; custom properties inherit, so it reaches here without this file
- * knowing anything about the theme.
+ * `--tab-glow` is the strip's one themeable seam beyond `--acc`: the light the
+ * active underline throws. It defaults to `transparent`, so every theme that
+ * does not set it renders exactly as before. It exists for the Sci-Fi console,
+ * where the underline is a phosphor rule and has to emit rather than just be
+ * coloured — see `themes/SciFiPage`. A theme passes it through
+ * `OperationBar`'s `palette`, which lands inline on the bar; custom properties
+ * inherit, so it reaches here without this file knowing anything about the
+ * theme.
+ *
+ * It is a *background* on a pseudo-element rather than a `box-shadow`, and that
+ * is the whole point of the shape. A box-shadow haloes all four sides — even
+ * with a negative spread and a downward offset, enough light escapes left and
+ * right to draw a hairline down each edge of the tab, which read as a stray
+ * vertical rule between Orders and the tab beside it. A background cannot
+ * escape its own box. So the glow pools *upward* from the rule into the tab,
+ * which is also what a lit rule physically does to the surface above it.
  */
+.tabOn,
+.caret { position: relative; }
+
+.tabOn::after,
+.caret::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 14px;
+    pointer-events: none;
+    background: var(--tab-glow, transparent);
+}
+
+/* The label and caret halves of the Orders control are two boxes sharing one
+   underline, so their glows have to meet without a seam down the join. */
+.tabSplit::after { right: -3px; }
+.caret::after { left: -1px; }
 
 /* The label half of the split: the caret takes over its right padding, so the
    two read as one control rather than a tab with something stuck beside it. */
@@ -98,7 +126,6 @@
     background: none;
     border: none;
     border-bottom: 2px solid var(--acc);
-    box-shadow: var(--tab-glow, none);
     color: var(--ink-3);
     font-size: 8px;
     line-height: 1;
