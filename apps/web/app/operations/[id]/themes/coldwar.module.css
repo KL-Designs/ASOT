@@ -49,6 +49,30 @@
     color: var(--paper-2);
 }
 
+/*
+ * Give the paper back its inheritance.
+ *
+ * `styles/globals.css` carries a base reset:
+ *
+ *     :where(h1, h2, h3, h4, h5, h6, p, b, span, label) { color: var(--foreground) }
+ *
+ * `:where()` contributes no specificity, but specificity is not what decides
+ * this: a declaration that *matches* an element always beats a value the
+ * element would have *inherited*, however weak the selector. So every bare
+ * `<span>` on the sheet took the site's near-white foreground directly and
+ * never saw the carbon set on its parent — invisible on a dark site, fatal on
+ * paper. It is why the `<h1>` title looked right (its own class rule matched
+ * it) while the `<span>`s beside it did not, and why a sentence wrapped in a
+ * `textStyle` mark went pale while the rest of its paragraph did not.
+ *
+ * Scoped to the two paper surfaces and placed before everything else here, so
+ * it only restores normal inheritance and every rule below still wins.
+ */
+.sheet :where(h1, h2, h3, h4, h5, h6, p, b, span, label, a, li, td, th),
+.tabs :where(h1, h2, h3, h4, h5, h6, p, b, span, label, a, li, td, th) {
+    color: inherit;
+}
+
 /* ── Desk ─────────────────────────────────────────────────────────────── */
 
 .desk {
