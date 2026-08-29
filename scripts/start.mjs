@@ -815,6 +815,11 @@ const MIGRATION_ITEMS = [
     // indexes the kit rating/copy routes upsert against; must run before this
     // feature ships.
     { label: '🗃️ Create indexes: kit ratings & copies', script: 'scripts/2026-08-19-kit-rating-indexes.mjs', cwd: ROOT },
+    // Dry-run first, then --apply, via runMigration's own flow. Writes one
+    // gallery_media document per file already in storage and seeds the tag
+    // vocabulary. Must run before the gallery starts reading Mongo, and it is
+    // safe to re-run afterwards — J5 keeps uploading through their own tab.
+    { label: '🗃️ Index: gallery media', script: 'scripts/index-gallery.mjs', cwd: ROOT },
     {
         label: '🗃️ Import: member history CSV',
         command: 'npm',
