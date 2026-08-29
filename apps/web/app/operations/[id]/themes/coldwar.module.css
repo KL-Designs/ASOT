@@ -236,6 +236,10 @@
     --ack-bad-soft:  rgba(140, 43, 29, 0.05);
 
     width: 100%;
+    /* A sheet is a fixed size; past this it stops being paper and starts being
+       a background. Left-aligned rather than centred — it has to stay welded to
+       its own tabs, and the desk takes up whatever is left. */
+    max-width: 1300px;
     background:
         /* Very faint ruling, the ghost of a typewriter's line spacing. */
         repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.014) 0 2px, transparent 2px 4px),
