@@ -719,9 +719,15 @@ httpServer.listen(port, '0.0.0.0', () => {
     // reviewer — see lib/gallery/queue.ts. Failure here is not fatal: it means
     // a handful of submissions wait for the next restart, not that the site is
     // down.
-    fetch(`http://127.0.0.1:${port}/api/gallery/internal/sweep`, { method: 'POST' })
-        .then(res => res.json())
-        .then(({ swept }) => { if (swept) console.log(`[gallery] swept ${swept} interrupted upload(s)`) })
+    fetch(`http://127.0.0.1:${port}/api/gallery/internal/sweep`, { method: 'POST', headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+        .then(res => {
+            if (!res.ok) {
+                console.error(`[gallery] sweep HTTP ${res.status} — check CRON_SECRET`)
+                return null
+            }
+            return res.json()
+        })
+        .then(data => { if (data?.swept) console.log(`[gallery] swept ${data.swept} interrupted upload(s)`) })
         .catch(err => console.warn('[gallery] startup sweep failed:', err.message))
 })
 
