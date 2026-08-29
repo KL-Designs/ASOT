@@ -7,6 +7,8 @@ import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import GalleryOperationsTab from '@/app/dashboard/j5/tabs/GalleryOperationsTab'
 import GalleryFeaturedTab from '@/app/dashboard/j5/tabs/GalleryFeaturedTab'
 import ScreenshotOfMonthTab from '@/app/dashboard/j5/tabs/ScreenshotOfMonthTab'
+import GallerySubmissionsTab from '@/app/dashboard/j5/tabs/GallerySubmissionsTab'
+import GalleryTagsTab from '@/app/dashboard/j5/tabs/GalleryTagsTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
@@ -21,14 +23,29 @@ export default function J5Panel({
     canManageMembers,
     canManageLinks,
     isJ4,
+    canReviewGallery,
+    canManageGalleryTags,
 }: {
     displayName: string
     userId: string
     canManageMembers: boolean
     canManageLinks: boolean
     isJ4: boolean
+    canReviewGallery: boolean
+    canManageGalleryTags: boolean
 }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
+
+    /* Positions, not constants. Both of these are permission-gated, and MUI
+       indexes tabs by their position among the ones actually rendered — so a
+       member holding gallery.tags but not gallery.review would otherwise land
+       on the wrong panel entirely. */
+    const extraTabs = ([
+        canReviewGallery && 'submissions',
+        canManageGalleryTags && 'tags',
+    ].filter(Boolean) as ('submissions' | 'tags')[])
+
+    const FIXED_TABS = 5   // Operations, Featured, SOTM, Meetings, Tickets
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -112,6 +129,18 @@ export default function J5Panel({
                             <Tab label={<PinTabLabel label='Screenshot of Month' pinLabel='J5 — SOTM'       href='/dashboard/j5' tabIndex={2} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Meetings'            pinLabel='J5 — Meetings'   href='/dashboard/j5' tabIndex={3} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Tickets'             pinLabel='J5 — Tickets'    href='/dashboard/j5' tabIndex={4} />} sx={tabSx} />
+                            {extraTabs.map((key, i) => (
+                                <Tab
+                                    key={key}
+                                    label={<PinTabLabel
+                                        label={key === 'submissions' ? 'Submissions' : 'Gallery Tags'}
+                                        pinLabel={key === 'submissions' ? 'J5 — Submissions' : 'J5 — Tags'}
+                                        href='/dashboard/j5'
+                                        tabIndex={FIXED_TABS + i}
+                                    />}
+                                    sx={tabSx}
+                                />
+                            ))}
                         </Tabs>
                     </div>
 
@@ -121,6 +150,8 @@ export default function J5Panel({
                         {tab === 2 && <ScreenshotOfMonthTab canManage={canManageMembers} />}
                         {tab === 3 && <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} />}
                         {tab === 4 && <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
+                        {tab >= FIXED_TABS && extraTabs[tab - FIXED_TABS] === 'submissions' && <GallerySubmissionsTab />}
+                        {tab >= FIXED_TABS && extraTabs[tab - FIXED_TABS] === 'tags' && <GalleryTagsTab />}
                     </div>
                 </>
             )}

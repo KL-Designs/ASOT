@@ -4,12 +4,14 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 
-/** The operation picker's list. Behind `gallery.submit` because it is only
- *  ever used by the submit form, and there is no reason to publish the
- *  operations table to anyone who wanders past. */
+/** The operation picker's list. Behind `gallery.submit` or `gallery.review` —
+ *  the submit form needs it to date a batch, and the J5 review queue needs it
+ *  to re-date a submission, and a reviewer does not necessarily hold
+ *  `gallery.submit` themselves. Either is enough; there is no reason to
+ *  publish the operations table to anyone who wanders past holding neither. */
 export async function GET() {
     const me = await client.fetchMe().catch(() => null)
-    if (!me || !await hasPermission(me, 'gallery.submit')) {
+    if (!me || !(await hasPermission(me, 'gallery.submit') || await hasPermission(me, 'gallery.review'))) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

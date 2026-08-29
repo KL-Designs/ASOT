@@ -18,6 +18,18 @@ export default async function Page() {
     const canManageMembers = await hasPermission(me, 'departmentLeads.j5')
     const canManageLinks = canManageMembers || await hasDepartmentPermission(me, 'j5', DEPT_LINKS_MANAGE_KEY)
     const isJ4 = client.hasRoles(me, PERMISSIONS.departments.j4)
+    const canReviewGallery = await hasPermission(me, 'gallery.review')
+    const canManageGalleryTags = await hasPermission(me, 'gallery.tags')
 
-    return <J5Panel displayName={displayName} userId={me.id} canManageMembers={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
+    return (
+        <J5Panel
+            displayName={displayName}
+            userId={me.id}
+            canManageMembers={canManageMembers}
+            canManageLinks={canManageLinks}
+            isJ4={isJ4}
+            canReviewGallery={canReviewGallery}
+            canManageGalleryTags={canManageGalleryTags}
+        />
+    )
 }
