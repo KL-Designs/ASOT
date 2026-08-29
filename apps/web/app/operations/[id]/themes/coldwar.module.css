@@ -91,6 +91,7 @@
 .desk {
     flex: 1;
     display: flex;
+    justify-content: center;
     /* No inset. The folder is the surface, not an object resting on one — it
        runs to the glass on every side and the sheet's own `--margin` does all
        the breathing. */
@@ -110,6 +111,10 @@
     grid-template-columns: 188px minmax(0, 1fr);
     align-items: start;
     width: 100%;
+    /* The rail plus a full sheet. Centring happens here rather than on the
+       sheet, so the tabs travel with it — a sheet centred on its own would
+       drift away from the tabs it is cut from. */
+    max-width: calc(188px + 1300px);
 }
 
 /* ── File tabs ────────────────────────────────────────────────────────── */
