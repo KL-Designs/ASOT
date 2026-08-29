@@ -146,18 +146,22 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         return NextResponse.json({ error: `Cannot reject something that is ${doc.status}.` }, { status: 409 })
     }
 
-    /* The bytes go; the record stays. Rejection is a decision worth being able
-       to look up later, and the file is the only expensive part of it. */
-    for (const key of [doc.storageKey, doc.posterKey]) {
-        if (!key) continue
-        const file = resolveStorageKey(key)
-        if (file) { try { unlinkSync(file) } catch { /* already gone */ } }
-    }
-
+    /* The document flips to rejected before the bytes go, not after. If the
+       delete ran first and the updateOne then threw, the item would sit
+       `pending` in the queue with its media already destroyed — visible but
+       unusable and unrejectable. Updating first means the only failure mode
+       left is an orphaned file on disk, which is harmless and recoverable;
+       the record, not the bytes, is the one thing that must never be wrong. */
     await Db.galleryMedia.updateOne({ _id: doc._id }, {
         $set: { status: 'rejected', rejectedAt: new Date(), rejectedBy: me.id, rejectedReason: trimmed.slice(0, 500) },
         $unset: { storageKey: '', posterKey: '' },
     })
+
+    for (const key of [doc.storageKey, doc.posterKey]) {
+        if (!key) continue
+        const file = resolveStorageKey(key)
+        if (file) { try { unlinkSync(file) } catch { /* already gone, or the update above already dropped the key — either way, nothing left to clean up */ } }
+    }
 
     if (doc.authorId) {
         await createNotification({

@@ -128,7 +128,7 @@ export default function GallerySubmissionsTab() {
     const [operations, setOperations] = useState<OperationOption[]>([])
     const [loading, setLoading]     = useState(true)
     const [busy, setBusy]           = useState<Record<string, boolean>>({})
-    const [saveState, setSaveState] = useState<Record<string, 'saving' | 'saved' | undefined>>({})
+    const [saveState, setSaveState] = useState<Record<string, 'saving' | 'saved' | 'error' | undefined>>({})
 
     const [rejectTarget, setRejectTarget] = useState<string | null>(null)
     const [rejectReason, setRejectReason] = useState('')
@@ -137,6 +137,12 @@ export default function GallerySubmissionsTab() {
     const itemsRef = useRef(items)
     useEffect(() => { itemsRef.current = items }, [items])
     const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+    // Ids with an edit that has not yet been confirmed saved — set the moment
+    // a field changes, cleared only once its PATCH actually succeeds. This is
+    // what a flush checks: the debounce timer alone is not enough to know
+    // whether there is unsaved work, because the timer id lingers in `timers`
+    // (harmlessly inert) after it has already fired.
+    const pendingSave = useRef<Set<string>>(new Set())
 
     useEffect(() => {
         Promise.all([
@@ -178,11 +184,17 @@ export default function GallerySubmissionsTab() {
     const removeItem = useCallback((id: string) => {
         setItems(prev => prev.filter(i => i.id !== id))
         if (timers.current[id]) { clearTimeout(timers.current[id]); delete timers.current[id] }
+        pendingSave.current.delete(id)
     }, [])
 
-    const saveItem = useCallback(async (id: string) => {
+    /** Returns whether the save succeeded. Left in `pendingSave` on failure —
+     *  and `saveState` left at 'error' rather than cleared — so a second
+     *  attempt (the reviewer editing again, or clicking Accept/Reject again)
+     *  finds there is still unsaved work rather than wrongly assuming the
+     *  first attempt's silence meant it went through. */
+    const saveItem = useCallback(async (id: string): Promise<boolean> => {
         const item = itemsRef.current.find(i => i.id === id)
-        if (!item) return
+        if (!item) { pendingSave.current.delete(id); return true }
         setSaveState(prev => ({ ...prev, [id]: 'saving' }))
         try {
             const res = await fetch(`/api/gallery/submissions/${id}`, {
@@ -190,16 +202,37 @@ export default function GallerySubmissionsTab() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ caption: item.caption, tags: item.tags, operationId: item.operationId ?? 'unknown' }),
             })
-            setSaveState(prev => ({ ...prev, [id]: res.ok ? 'saved' : undefined }))
+            if (res.ok) {
+                pendingSave.current.delete(id)
+                setSaveState(prev => ({ ...prev, [id]: 'saved' }))
+                return true
+            }
+            setSaveState(prev => ({ ...prev, [id]: 'error' }))
+            return false
         } catch {
-            setSaveState(prev => ({ ...prev, [id]: undefined }))
+            setSaveState(prev => ({ ...prev, [id]: 'error' }))
+            return false
         }
     }, [])
 
     const scheduleSave = useCallback((id: string) => {
         setSaveState(prev => ({ ...prev, [id]: undefined }))
+        pendingSave.current.add(id)
         if (timers.current[id]) clearTimeout(timers.current[id])
-        timers.current[id] = setTimeout(() => saveItem(id), SAVE_DEBOUNCE_MS)
+        timers.current[id] = setTimeout(() => { delete timers.current[id]; saveItem(id) }, SAVE_DEBOUNCE_MS)
+    }, [saveItem])
+
+    /** Accept and Reject both call this before doing anything else. A pending
+     *  debounced edit is cancelled and its PATCH is run and awaited right
+     *  now, rather than left to fire on its own timer — otherwise a reviewer
+     *  who edits and then accepts within the debounce window publishes the
+     *  *old* values with no error and no warning, which is the one thing
+     *  this tab exists to prevent. Returns false if there was unsaved work
+     *  and saving it just failed; callers must not proceed in that case. */
+    const flushSave = useCallback(async (id: string): Promise<boolean> => {
+        if (timers.current[id]) { clearTimeout(timers.current[id]); delete timers.current[id] }
+        if (!pendingSave.current.has(id)) return true
+        return saveItem(id)
     }, [saveItem])
 
     const updateCaption = useCallback((id: string, caption: string) => {
@@ -233,6 +266,9 @@ export default function GallerySubmissionsTab() {
     async function acceptItem(id: string) {
         setBusy(prev => ({ ...prev, [id]: true }))
         try {
+            // Flush first: publishing has to carry whatever the reviewer just
+            // typed, not whatever the last debounce cycle happened to save.
+            if (!await flushSave(id)) return
             const res = await fetch(`/api/gallery/submissions/${id}`, { method: 'POST' })
             if (res.ok) removeItem(id)
         } finally {
@@ -243,7 +279,11 @@ export default function GallerySubmissionsTab() {
     async function acceptBatch(batchId: string) {
         const ids = items.filter(i => i.batchId === batchId).map(i => i.id)
         setBusy(prev => { const n = { ...prev }; ids.forEach(id => { n[id] = true }); return n })
+        // Every item's edit is flushed before its own accept — not just the
+        // one the reviewer was last looking at — since a batch can carry
+        // several items with a debounce still in flight at once.
         await Promise.all(ids.map(async id => {
+            if (!await flushSave(id)) return
             const res = await fetch(`/api/gallery/submissions/${id}`, { method: 'POST' })
             if (res.ok) removeItem(id)
         }))
@@ -254,6 +294,10 @@ export default function GallerySubmissionsTab() {
         if (!rejectTarget || !rejectReason.trim()) return
         setRejecting(true)
         try {
+            // Same reasoning as acceptItem: the caption/tags stored on the
+            // rejected record are the audit trail, so they must be whatever
+            // the reviewer last typed, not whatever the debounce last sent.
+            if (!await flushSave(rejectTarget)) return
             const res = await fetch(`/api/gallery/submissions/${rejectTarget}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
@@ -365,8 +409,8 @@ export default function GallerySubmissionsTab() {
                                         />
 
                                         <div className='flex items-center gap-2 flex-wrap' style={{ marginTop: 2 }}>
-                                            <Typography fontSize='0.62rem' style={{ color: 'rgba(237,237,237,0.3)', fontFamily: 'monospace' }}>
-                                                {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved ✓' : ' '}
+                                            <Typography fontSize='0.62rem' style={{ color: state === 'error' ? 'rgba(255,120,120,0.9)' : 'rgba(237,237,237,0.3)', fontFamily: 'monospace' }}>
+                                                {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved ✓' : state === 'error' ? 'Save failed — try again' : ' '}
                                             </Typography>
 
                                             <Button
