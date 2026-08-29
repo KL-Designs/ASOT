@@ -17,7 +17,7 @@
 - **Unit tests:** `npm run test:unit` from `apps/web` (vitest). Include pattern is `lib/**/*.test.ts` and `app/**/*.test.ts` — a test outside those paths will never run. `fileParallelism: false` is deliberate; do not change it.
 - **Never run `npm run test:e2e` or `npx playwright test`.** The Playwright suite belongs to the repository owner.
 - **Typecheck:** `npx tsc --noEmit` from `apps/web`. **Lint:** `npm run lint` from `apps/web`.
-- **Do not run a production build after every task.** Build once, at the end (Task 21).
+- **Do not run a production build after every task.** Build once, at the end (Task 19).
 - **Path aliases:** `@/` is `apps/web/`, `@asot/lib` is the monorepo-root `lib/`. Both are mirrored in `vitest.config.ts`; anything new must resolve under both.
 - **Storage paths are relative to `apps/web`'s working directory** — existing gallery code uses `path.resolve('../../storage/gallery/...')`. Match that exactly; do not invent an env var.
 - **Permission keys, verbatim:** `gallery.submit`, `gallery.review`, `gallery.tags`. The pre-existing `gallery.manage` is not touched.
@@ -1744,10 +1744,16 @@ if (!MONGO_URI || !MONGO_DB) {
    one just for a dimension probe would be a second native binary to keep in
    step. Resolved from there explicitly; if it cannot be found the probe is
    skipped and masonry falls back to its 16:10 default, which is a cosmetic
-   loss rather than a failed migration. */
+   loss rather than a failed migration.
+
+   Resolved relative to THIS FILE, not to the working directory. The content
+   tree below is found via cwd — that is what lets the test point the script at
+   a fixture directory — and resolving sharp the same way would look for it
+   inside that fixture and never find it. This script always sits at
+   <repo>/scripts/, so apps/web is always its sibling. */
 let sharp = null
 try {
-    const require = createRequire(resolve(process.cwd(), 'apps/web/package.json'))
+    const require = createRequire(new URL('../apps/web/package.json', import.meta.url))
     sharp = require('sharp')
 } catch {
     console.warn('sharp not resolvable from apps/web — indexing without dimensions.')
@@ -4332,15 +4338,45 @@ Structure:
 - **Accept** → `POST`. **Reject** → open a small dialog demanding a reason, then `DELETE`. Remove accepted/rejected items from local state so the queue drains as it is worked.
 - Empty state: *"Nothing waiting for review."*
 
-In `J5Panel.tsx`, add the tabs after `Screenshot of Month` and before `Meetings`, keeping the existing `tabIndex` numbering consistent — **every later tab's index shifts by two**, so update `MeetingsTab` and `DeptTicketsTab`'s indices in both the `<Tab>` list and the `{tab === N && ...}` block:
+In `J5Panel.tsx`, **append** both tabs after `Tickets` — do not insert them in the middle.
+
+MUI's `Tabs` matches `value` against a child's position among the tabs it actually renders, and the body is a chain of `{tab === N && ...}` against hard-coded numbers. Inserting a *conditional* tab in the middle desynchronises the two the moment the condition is false: Meetings would sit at position 3 while its body still tested `tab === 5`, and a reviewer without `gallery.review` would click Meetings and get Tickets. J2Panel already avoids this by keeping its one conditional tab (`ERA Options`) last.
+
+Appending is necessary but not sufficient — two *independently* conditional tabs still shift against each other when the first is absent and the second is not. So derive the positions rather than hard-coding them:
 
 ```tsx
-{canReviewGallery && (
-    <Tab label={<PinTabLabel label='Submissions' pinLabel='J5 — Submissions' href='/dashboard/j5' tabIndex={3} />} sx={tabSx} />
-)}
-{canManageTags && (
-    <Tab label={<PinTabLabel label='Gallery Tags' pinLabel='J5 — Tags' href='/dashboard/j5' tabIndex={4} />} sx={tabSx} />
-)}
+/* Positions, not constants. Both of these are permission-gated, and MUI
+   indexes tabs by their position among the ones actually rendered — so a
+   member holding gallery.tags but not gallery.review would otherwise land on
+   the wrong panel entirely. */
+const extraTabs = ([
+    canReviewGallery && 'submissions',
+    canManageTags && 'tags',
+].filter(Boolean) as ('submissions' | 'tags')[])
+
+const FIXED_TABS = 5   // Operations, Featured, SOTM, Meetings, Tickets
+```
+
+```tsx
+{extraTabs.map((key, i) => (
+    <Tab
+        key={key}
+        label={<PinTabLabel
+            label={key === 'submissions' ? 'Submissions' : 'Gallery Tags'}
+            pinLabel={key === 'submissions' ? 'J5 — Submissions' : 'J5 — Tags'}
+            href='/dashboard/j5'
+            tabIndex={FIXED_TABS + i}
+        />}
+        sx={tabSx}
+    />
+))}
+```
+
+and in the body, after the five existing `{tab === N && ...}` lines, which stay exactly as they are:
+
+```tsx
+{tab >= FIXED_TABS && extraTabs[tab - FIXED_TABS] === 'submissions' && <GallerySubmissionsTab />}
+{tab >= FIXED_TABS && extraTabs[tab - FIXED_TABS] === 'tags' && <GalleryTagsTab />}
 ```
 
 `page.tsx` resolves `canReviewGallery` and `canManageTags` with `hasPermission` and passes them in, following how it already resolves `canManageMembers`.
