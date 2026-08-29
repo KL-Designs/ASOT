@@ -16,9 +16,16 @@
  */
 
 .page {
+    /*
+     * Three stocks, lightest last: the buff folder the file lives in, the
+     * manila of its tabs, and the typing paper of the sheet itself. The steps
+     * between them are small on purpose — 1.3:1 and 1.5:1 — because that is
+     * how far apart real folder card and typing paper actually are. The tabs'
+     * hairlines and the sheet's shadow do the rest of the separating.
+     */
     --paper:    #e8e2d2;
     --paper-2:  #ddd5c1;
-    --paper-3:  #cfc6ae;
+    --paper-3:  #d6cdb9;
     --carbon:   #23201a;
     /*
      * Measured against the paper, not eyeballed. The three inks are 12.6:1,
@@ -33,7 +40,12 @@
     /* Hairlines and dotted rules only — never text. */
     --rule:     #a39c8c;
     --stamp:    #8c2b1d;
-    --desk:     #1b1a17;
+    /*
+     * The desk is buff card, not a dark table. A near-black ground put the
+     * file on a screen; this puts it in a folder, and it also rescues the tab
+     * rail's labels, which are carbon ink and were sitting on near-black.
+     */
+    --desk:     #c2b9a3;
 
     --type: "Courier New", Courier, monospace;
 
@@ -46,7 +58,8 @@
     flex-direction: column;
     min-height: 100%;
     background: var(--desk);
-    color: var(--paper-2);
+    /* Ink, now that the desk is card rather than a dark table. */
+    color: var(--carbon-2);
 }
 
 /*
@@ -83,8 +96,9 @@
        the breathing. */
     padding: 0;
     background:
-        /* A faint blotter grain, so the sheet has something to sit on. */
-        repeating-linear-gradient(56deg, rgba(255, 255, 255, 0.008) 0 2px, transparent 2px 5px),
+        /* The card's own tooth. Dark on light now the desk is buff — the old
+           white grain was drawn for a near-black ground and would vanish. */
+        repeating-linear-gradient(56deg, rgba(70, 58, 38, 0.035) 0 2px, transparent 2px 5px),
         var(--desk);
 }
 
@@ -125,7 +139,9 @@
     font-weight: 700;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--carbon-3);
+    /* Carbon-2, not carbon-3: 9px uppercase at this tracking sits on the buff
+       desk rather than the sheet, where the lighter ink only reaches 3.5:1. */
+    color: var(--carbon-2);
 }
 
 .tab {
@@ -135,7 +151,7 @@
     padding: 9px 12px 9px 14px;
     background: var(--paper-3);
     color: var(--carbon-2);
-    border: 1px solid rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(70, 58, 38, 0.32);
     border-right: none;
     border-radius: 3px 0 0 3px;
     font-family: var(--type);
@@ -144,7 +160,7 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     text-decoration: none;
-    box-shadow: inset -6px 0 10px -6px rgba(0, 0, 0, 0.35);
+    box-shadow: inset -6px 0 10px -6px rgba(70, 58, 38, 0.3);
 }
 .tab:hover { background: var(--paper-2); color: var(--carbon); }
 .tab:focus-visible { outline: 2px solid var(--stamp); outline-offset: -2px; }
@@ -222,7 +238,12 @@
         repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.014) 0 2px, transparent 2px 4px),
         var(--paper);
     color: var(--carbon);
-    box-shadow: 0 20px 54px rgba(0, 0, 0, 0.62);
+    /* Paper lying on card, not a panel floating over a void: a short warm
+       shadow with a hairline edge, rather than the deep black one that read
+       correctly against a dark table and would look like soot on buff. */
+    box-shadow:
+        0 1px 0 rgba(70, 58, 38, 0.28),
+        0 10px 26px rgba(70, 58, 38, 0.24);
     font-family: var(--type);
 }
 
@@ -517,7 +538,7 @@
     .folder { grid-template-columns: minmax(0, 1fr); gap: 18px; }
     .tabs { position: static; flex-direction: row; flex-wrap: wrap; padding: 14px 14px 0; }
     .tabGroup + .tabGroup { margin-top: 0; }
-    .tab { border-radius: 3px; border-right: 1px solid rgba(0, 0, 0, 0.25); margin-right: 4px; }
+    .tab { border-radius: 3px; border-right: 1px solid rgba(70, 58, 38, 0.32); margin-right: 4px; }
     .tabOn { margin-right: 4px; }
     .tabSecs { display: none; }
 }
