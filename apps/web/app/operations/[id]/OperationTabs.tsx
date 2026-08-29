@@ -25,8 +25,17 @@ interface Props {
      * Schedule without also being given the editor.
      */
     canEdit: boolean
-    /** Which tabs this viewer gets, one capability each. */
-    access?: TabAccess
+    /**
+     * Which tabs this viewer gets, one capability each.
+     *
+     * **Required, deliberately.** It was optional, and the editor's header
+     * omitted it — so `visibleTabs({})` hid Schedule, Attendance and AAR from
+     * everybody inside the editor, silently, with nothing in the types to say
+     * so. An optional prop whose absence means "show almost nothing" is a
+     * loaded gun; a caller that genuinely wants the bare strip can pass `{}`
+     * and say so out loud.
+     */
+    access: TabAccess
     /** True on `/edit` — the menu then marks Edit as the current mode. */
     editing?: boolean
     /**

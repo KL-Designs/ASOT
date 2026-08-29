@@ -902,6 +902,9 @@ export default function EditorPage() {
                         status={status}
                         saveStatus={saveStatus}
                         isHQ={isHQ}
+                        /* Same flag the shell routes content from, so the links
+                           and the panels cannot disagree about which tabs exist. */
+                        canAar={aarOpen(attStage)}
                         onDelete={() => setConfirmDelete(true)}
                         activityOpen={activityOpen}
                         onToggleActivity={() => setActivityOpen(o => !o)}
