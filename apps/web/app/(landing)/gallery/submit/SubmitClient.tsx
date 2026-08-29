@@ -41,16 +41,40 @@ type ServerStatus = { status: GalleryStatus, processingError: string | null }
  * member nothing, and refusing it after 400MB has crossed their connection
  * costs them the upload. The frame is a bonus — it gives the card a thumbnail
  * without waiting for the server to make a poster.
+ *
+ * The blob URL this creates to probe the file is revoked as soon as it has
+ * done its job — the frame it hands back is a `data:` URI from the canvas, so
+ * nothing downstream needs the blob to stay alive, and leaving it registered
+ * pins the whole file (up to 500MB, up to twenty of them) in memory for the
+ * rest of the session.
+ *
+ * Also bounded by a timeout: a stalled read, or a container the browser
+ * neither loads nor errors on, would otherwise leave the promise pending
+ * forever — and `addFiles` awaits this in a sequential loop, so one stuck file
+ * would silently stop every file after it from being added. An unreadable
+ * duration is not a refusal here either; the server re-checks with ffprobe
+ * before it spends any CPU transcoding.
  */
 function readVideo(file: File): Promise<{ durationSec: number, thumb: string | null }> {
     return new Promise(resolve => {
         const video = document.createElement('video')
         video.preload = 'metadata'
         video.muted = true
-        video.src = URL.createObjectURL(file)
+        const objectUrl = URL.createObjectURL(file)
+        video.src = objectUrl
 
-        const bail = () => resolve({ durationSec: 0, thumb: null })
-        video.onerror = bail
+        let settled = false
+        const finish = (result: { durationSec: number, thumb: string | null }) => {
+            if (settled) return
+            settled = true
+            clearTimeout(timer)
+            URL.revokeObjectURL(objectUrl)
+            resolve(result)
+        }
+
+        const timer = setTimeout(() => finish({ durationSec: 0, thumb: null }), 4000)
+
+        video.onerror = () => finish({ durationSec: 0, thumb: null })
 
         video.onloadedmetadata = () => {
             const durationSec = Number.isFinite(video.duration) ? video.duration : 0
@@ -63,9 +87,9 @@ function readVideo(file: File): Promise<{ durationSec: number, thumb: string | n
                     canvas.width = video.videoWidth
                     canvas.height = video.videoHeight
                     canvas.getContext('2d')!.drawImage(video, 0, 0)
-                    resolve({ durationSec, thumb: canvas.toDataURL('image/jpeg', 0.6) })
+                    finish({ durationSec, thumb: canvas.toDataURL('image/jpeg', 0.6) })
                 } catch {
-                    resolve({ durationSec, thumb: null })
+                    finish({ durationSec, thumb: null })
                 }
             }
         }
@@ -77,6 +101,15 @@ function readVideo(file: File): Promise<{ durationSec: number, thumb: string | n
  *  back to the provider mark ItemCard draws when `thumb` is null. */
 function embedThumb(embed: ParsedEmbed): string | null {
     return embed.provider === 'youtube' ? `https://i.ytimg.com/vi/${embed.id}/hqdefault.jpg` : null
+}
+
+/** Only the photo path's thumb is a blob URL — a video's is a canvas `data:`
+ *  URI and an embed's is a provider URL, so revoking those would be a silent
+ *  no-op. Checked by prefix rather than by re-deriving "is this a photo" from
+ *  the draft's other fields, which would drift the moment either path changes
+ *  what it stores. */
+function revokeThumb(draft: Draft) {
+    if (draft.thumb?.startsWith('blob:')) URL.revokeObjectURL(draft.thumb)
 }
 
 /** Builds the request body for one draft. Shared between the initial submit
@@ -141,6 +174,9 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
     const [batchId, setBatchId] = useState<string | null>(null)
     const [uploadState, setUploadState] = useState<Record<string, UploadState>>({})
     const [serverStatus, setServerStatus] = useState<Record<string, ServerStatus>>({})
+    // Bumped by Retry to restart the poll effect below — see its own comment
+    // for why the timer can otherwise stop itself.
+    const [pollGen, setPollGen] = useState(0)
 
     const [dragOver, setDragOver] = useState(false)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -151,6 +187,15 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
     const serverIdByLocalId = useRef<Record<string, string>>({})
     const uploadStateRef = useRef(uploadState)
     useEffect(() => { uploadStateRef.current = uploadState }, [uploadState])
+
+    // For the unmount cleanup below, which needs whatever `drafts` holds at
+    // teardown time rather than whatever it held when the effect was set up.
+    const draftsRef = useRef(drafts)
+    useEffect(() => { draftsRef.current = drafts }, [drafts])
+
+    // Every blob URL this component hands out belongs to exactly one draft's
+    // thumbnail, and none of them survive the component itself.
+    useEffect(() => () => { draftsRef.current.forEach(revokeThumb) }, [])
 
     useEffect(() => {
         fetch('/api/gallery/operations')
@@ -179,7 +224,7 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
     useEffect(() => {
         if (phase !== 'uploading' || !batchId) return
         let cancelled = false
-        let timer: ReturnType<typeof setTimeout>
+        let timer: ReturnType<typeof setTimeout> | undefined
 
         async function poll() {
             try {
@@ -214,6 +259,18 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
                         setPhase('done')
                         return
                     }
+
+                    // Bounded, not unbounded. Once every draft has actually been
+                    // attempted and the server confirms nothing is still
+                    // transcoding, there is nothing left the server can tell this
+                    // tab that it doesn't already know — the only thing standing
+                    // between here and "done" is an unretried failure, which is
+                    // waiting on the member, not on a poll. Ticking every 2s
+                    // against that for as long as the tab stays open is exactly
+                    // the unbounded loop this guards against. `pollGen` (bumped by
+                    // Retry) re-runs this effect and starts a fresh cycle once
+                    // there is something new to learn.
+                    if (settled && !stillProcessing) return
                 }
             } catch { /* transient — the next tick tries again */ }
             if (!cancelled) timer = setTimeout(poll, 2000)
@@ -222,7 +279,7 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
         poll()
         return () => { cancelled = true; clearTimeout(timer) }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- drafts is fixed once uploading starts; re-running per keystroke would restart the poller.
-    }, [phase, batchId])
+    }, [phase, batchId, pollGen])
 
     /* ---------- composing ---------------------------------------------- */
 
@@ -282,8 +339,13 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
     }, [embedText, drafts.length, batchTags])
 
     const removeDraft = useCallback((localId: string) => {
+        // The blob URL is released the moment its card leaves — the <img>
+        // showing it is being removed in this same handler, so nothing is
+        // still displaying it once this runs.
+        const draft = drafts.find(d => d.localId === localId)
+        if (draft) revokeThumb(draft)
         setDrafts(prev => prev.filter(d => d.localId !== localId))
-    }, [])
+    }, [drafts])
 
     const updateDraft = useCallback((localId: string, change: Partial<Draft>) => {
         setDrafts(prev => prev.map(d => d.localId === localId ? { ...d, ...change } : d))
@@ -333,6 +395,12 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
         const draft = drafts.find(d => d.localId === localId)
         if (!draft || !batchId) return
 
+        // Bumped before the upload starts, not after: the poll effect may
+        // already have stopped its own timer while this item sat failed (see
+        // its comment), and it needs to be running again in time to catch
+        // this item once it reaches the server, not just once it lands.
+        setPollGen(g => g + 1)
+
         await runUploads({
             jobs: [buildJob(draft, batchId, batchOperationId ?? 'unknown')],
             concurrency: 1,
@@ -342,13 +410,17 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
     }, [drafts, batchId, batchOperationId, trackedSend])
 
     const submitMore = useCallback(() => {
+        // The cards stayed mounted with their thumbs right up to this reset —
+        // this is the first point where none of them are displayed any more,
+        // so it's where the remaining blob URLs get released.
+        drafts.forEach(revokeThumb)
         setDrafts([])
         setRejects([])
         setUploadState({})
         setServerStatus({})
         setBatchId(null)
         setPhase('compose')
-    }, [])
+    }, [drafts])
 
     /* ---------- render ------------------------------------------------- */
 
