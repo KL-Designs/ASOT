@@ -297,14 +297,29 @@
     color: var(--carbon-2);
 }
 
-/* Rubber stamp: rotated, double-ruled, and slightly transparent so the rule
-   under it shows through the way ink does. */
+/* The header's two halves: the typed block, and the print stuck beside it. */
+.headRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 26px 34px;
+    flex-wrap: wrap;
+}
+.headMain { flex: 1 1 320px; min-width: 0; }
+
+/*
+ * Rubber stamp: rotated, double-ruled, slightly transparent so the rule under
+ * it shows through the way ink does.
+ *
+ * In the flow rather than pinned to the header's top-right corner, which is
+ * where the status sits — the two were printing on top of each other. A
+ * transform does not affect layout, so it still reads as stamped *onto* the
+ * page rather than set into it.
+ */
 .stamp {
-    position: absolute;
-    top: 22px;
-    right: var(--margin);
+    display: inline-block;
+    margin-top: 16px;
     padding: 6px 13px;
-    transform: rotate(-9deg);
+    transform: rotate(-3.5deg);
     border: 3px double var(--stamp);
     border-radius: 2px;
     color: var(--stamp);
@@ -403,32 +418,56 @@
 }
 .slipRow:hover .slipBtn { background: var(--carbon); }
 
-/* ── Photographic plate ───────────────────────────────────────────────── */
+/* ── Photographic print ───────────────────────────────────────────────── */
 
 /*
- * The cover art, pasted in rather than bled to the edges. A full-width
- * photograph is the one thing a typed page in 1985 could not do; a reconnaissance
- * print stuck to the sheet with a typed caption under it is exactly what it
- * could, and keeps the operation's own art on the page.
+ * The cover art as a print taped into the header, not a figure set into the
+ * body. Full width and in the flow, it read as *part of* the orders — a
+ * photograph is the one thing a typed page could not contain, and a page that
+ * appears to contain one stops looking typed.
+ *
+ * Off-square by a degree and a half, on its own whiter stock, with tape over
+ * two corners: something a person put there afterwards.
  */
-.plate {
-    margin: 22px var(--margin);
+.photo {
+    position: relative;
+    flex: 0 1 clamp(220px, 30vw, 340px);
+    margin: 6px 6px 10px;
     padding: 9px 9px 0;
-    background: var(--paper-2);
-    border: 1px solid var(--rule);
-    box-shadow: 2px 3px 0 rgba(0, 0, 0, 0.12);
+    background: #f3efe4;
+    box-shadow:
+        0 1px 3px rgba(70, 58, 38, 0.3),
+        0 9px 20px rgba(70, 58, 38, 0.22);
+    transform: rotate(-1.5deg);
 }
-.plateImg {
+
+/* Masking tape: translucent, so the print and the sheet both show through, with
+   a lit edge on one side and a shadowed one on the other. */
+.photo::before,
+.photo::after {
+    content: '';
+    position: absolute;
+    width: 78px;
+    height: 23px;
+    background: linear-gradient(180deg, rgba(231, 219, 181, 0.62), rgba(214, 199, 156, 0.58));
+    border-left: 1px solid rgba(255, 255, 255, 0.4);
+    border-right: 1px solid rgba(120, 105, 78, 0.22);
+    box-shadow: 0 1px 3px rgba(70, 58, 38, 0.22);
+}
+.photo::before { top: -12px; left: -24px; transform: rotate(-34deg); }
+.photo::after { bottom: -10px; right: -22px; transform: rotate(-30deg); }
+
+.photoImg {
     display: block;
     width: 100%;
-    height: clamp(150px, 22vw, 260px);
+    height: clamp(120px, 15vw, 190px);
     object-fit: cover;
     /* Period print rather than a glossy web hero: desaturated and contrasty. */
     filter: grayscale(0.72) sepia(0.22) contrast(1.12) brightness(0.95);
 }
-.plateCap {
+.photoCap {
     padding: 7px 2px 8px;
-    font-size: 10.5px;
+    font-size: 9.5px;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--carbon-2);

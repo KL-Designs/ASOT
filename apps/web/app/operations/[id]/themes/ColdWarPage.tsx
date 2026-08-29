@@ -184,21 +184,40 @@ export default function ColdWarPage({
                             <div className={s.classification}>Secret — ASOT eyes only</div>
 
                             <header className={s.head}>
-                                <div className={s.org}>
-                                    <span>{[operation.department, documentTitle].filter(Boolean).join(' · ')}</span>
-                                    {operation.status && <span>{operation.status}</span>}
-                                </div>
-                                <h1 className={s.title}>{operation.title || 'Untitled Operation'}</h1>
-                                {(lineage || operation.daySlot) && (
-                                    <div className={s.lineage}>
-                                        {[
-                                            lineage?.campaign,
-                                            lineage?.sequence ? `Mission ${lineage.sequence}` : null,
-                                            operation.daySlot ? `${operation.daySlot} serial` : null,
-                                        ].filter(Boolean).join(' · ')}
+                                <div className={s.headRow}>
+                                    <div className={s.headMain}>
+                                        <div className={s.org}>
+                                            <span>{[operation.department, documentTitle].filter(Boolean).join(' · ')}</span>
+                                            {operation.status && <span>{operation.status}</span>}
+                                        </div>
+                                        <h1 className={s.title}>{operation.title || 'Untitled Operation'}</h1>
+                                        {(lineage || operation.daySlot) && (
+                                            <div className={s.lineage}>
+                                                {[
+                                                    lineage?.campaign,
+                                                    lineage?.sequence ? `Mission ${lineage.sequence}` : null,
+                                                    operation.daySlot ? `${operation.daySlot} serial` : null,
+                                                ].filter(Boolean).join(' · ')}
+                                            </div>
+                                        )}
+                                        <div className={s.stamp}>Declassified</div>
                                     </div>
-                                )}
-                                <div className={s.stamp}>Declassified</div>
+
+                                    {/*
+                                        Taped into the header rather than set into the body.
+                                        Down there it read as part of the orders, and a typed
+                                        page that appears to contain a photograph stops
+                                        looking typed.
+                                    */}
+                                    {operation.coverImage && (
+                                        <figure className={s.photo}>
+                                            <img className={s.photoImg} src={operation.coverImage} alt='' />
+                                            <figcaption className={s.photoCap}>
+                                                Fig. 1 — {operation.mapWorld ? `${operation.mapWorld}, ` : ''}area of operations
+                                            </figcaption>
+                                        </figure>
+                                    )}
+                                </div>
                             </header>
 
                             <dl className={s.refs}>
@@ -252,15 +271,6 @@ export default function ColdWarPage({
                                         </Link>
                                     )}
                                 </div>
-                            )}
-
-                            {operation.coverImage && (
-                                <figure className={s.plate}>
-                                    <img className={s.plateImg} src={operation.coverImage} alt='' />
-                                    <figcaption className={s.plateCap}>
-                                        Fig. 1 — {operation.mapWorld ? `${operation.mapWorld}, ` : ''}area of operations
-                                    </figcaption>
-                                </figure>
                             )}
 
                             <div className={s.body}>
