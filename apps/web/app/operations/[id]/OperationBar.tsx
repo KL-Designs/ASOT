@@ -70,8 +70,17 @@ export default function OperationBar({
                 ...palette,
                 display: 'flex', alignItems: 'center', gap: 16,
                 padding: '0 16px', height: 52, flexShrink: 0,
-                borderBottom: '1px solid var(--line)',
-                background: 'var(--s1)',
+                /*
+                 * Three seams a theme can take over. They have to be inline like
+                 * everything else here — `background` in particular is a
+                 * shorthand, so an inline one would blank out any
+                 * `background-image` a stylesheet tried to add. Defaulted to
+                 * what the bar has always been, so a theme that passes nothing
+                 * renders identically.
+                 */
+                borderBottom: 'var(--bar-edge, 1px solid var(--line))',
+                background: 'var(--bar-bg, var(--s1))',
+                boxShadow: 'var(--bar-shadow, none)',
                 fontFamily: 'var(--sans)',
                 // Not `overflow: hidden`: the Orders menu opens below this box.
                 position: 'relative', zIndex: 20,

@@ -46,6 +46,33 @@ const PAPER_CHROME: Record<string, string> = {
     '--good': '#2f5c2b',
     '--warn': '#6f4e0c',
     '--crit': 'var(--stamp)',
+
+    /*
+     * The bar as a piece of folder card rather than a painted strip.
+     *
+     * Two crossing fibre gratings at shallow angles give it a tooth — one
+     * grating alone reads as corduroy — over a top-to-bottom sheen, because
+     * card catches light unevenly across its face.
+     */
+    '--bar-bg': [
+        'repeating-linear-gradient(38deg, rgba(70, 58, 38, 0.05) 0 1px, transparent 1px 4px)',
+        'repeating-linear-gradient(-52deg, rgba(70, 58, 38, 0.035) 0 1px, transparent 1px 5px)',
+        'linear-gradient(180deg, #e4dcc9 0%, #d7ceb8 100%)',
+    ].join(', '),
+
+    /*
+     * And its thickness, in four layers: the lit top face, the cut edge falling
+     * into shadow at the bottom, the depth of the card itself, then the shadow
+     * it throws on the desk below.
+     */
+    '--bar-shadow': [
+        'inset 0 1px 0 rgba(255, 255, 255, 0.45)',
+        'inset 0 -4px 6px -4px rgba(70, 58, 38, 0.5)',
+        '0 2px 0 rgba(70, 58, 38, 0.2)',
+        '0 7px 16px rgba(70, 58, 38, 0.3)',
+    ].join(', '),
+
+    '--bar-edge': '1px solid rgba(70, 58, 38, 0.5)',
 }
 
 /**
