@@ -2,6 +2,7 @@
 
 import React from 'react'
 
+import Button from '@/components/ui/Button'
 import {
     SearchIcon, ChevronDown, CrossSmall,
     MasonryIcon, SheetIcon, GroupedIcon,
@@ -10,28 +11,27 @@ import type { Facet, Filters } from '../gallery-data'
 import s from '@/styles/gallery.module.css'
 
 export type GridView = 'masonry' | 'uniform' | 'grouped'
-// 'top' is not yet in SORTS below — see the comment there. It has to join the
-// type regardless, because sortPhotos already has a branch for it.
 export type SortKey = 'new' | 'old' | 'op' | 'top'
 
-/*
-   No "featured first": featured is a separate folder rather than a flag on an
-   archive photograph, so there is nothing to sort by. Top rated is left out
-   too, deliberately — sortPhotos already has a 'top' branch and the type
-   admits it, but until voting ships there is no vote data behind it, so
-   offering it here would be a menu item that does nothing. It joins this list
-   in a later task.
-*/
+/* No "featured first": featured is a separate folder rather than a flag on an
+   archive photograph, so there is nothing to sort by. */
 const SORTS: { value: SortKey, label: string }[] = [
     { value: 'new', label: 'Newest first' },
     { value: 'old', label: 'Oldest first' },
     { value: 'op', label: 'By operation' },
+    { value: 'top', label: 'Top rated' },
 ]
 
 const VIEWS: { value: GridView, label: string, Icon: (p: { className?: string }) => React.JSX.Element }[] = [
     { value: 'masonry', label: 'Masonry', Icon: MasonryIcon },
     { value: 'uniform', label: 'Contact sheet', Icon: SheetIcon },
     { value: 'grouped', label: 'By operation', Icon: GroupedIcon },
+]
+
+const MEDIA: { value: Filters['media'], label: string }[] = [
+    { value: 'all', label: 'All' },
+    { value: 'image', label: 'Photos' },
+    { value: 'video', label: 'Video' },
 ]
 
 /**
@@ -44,8 +44,8 @@ const VIEWS: { value: GridView, label: string, Icon: (p: { className?: string })
  */
 export default function Toolbar({
     filters, total, shown, sort, view,
-    onSearch, onSort, onView, onRemove, onClear,
-    labelFor,
+    onSearch, onSort, onView, onMedia, onRemove, onClear,
+    labelFor, canSubmit,
 }: {
     filters: Filters
     /** Everything in the archive. */
@@ -57,14 +57,19 @@ export default function Toolbar({
     onSearch: (q: string) => void
     onSort: (sort: SortKey) => void
     onView: (view: GridView) => void
+    onMedia: (media: Filters['media']) => void
     onRemove: (facet: Facet | 'q', value: string) => void
     onClear: () => void
-    /** Operations are stored with an ordering prefix nothing should print. */
+    /** Operations are stored with an ordering prefix nothing should print, and
+     *  tags are stored as slugs — everything else is already display text. */
     labelFor: (facet: Facet, value: string) => string
+    /** Whether the viewer holds `gallery.submit`. Nothing renders for a member
+     *  without it — a dead control is worse than an absent one. */
+    canSubmit: boolean
 }) {
     const pills: { facet: Facet | 'q', value: string, label: string }[] = []
     if (filters.q) pills.push({ facet: 'q', value: '', label: `“${filters.q}”` })
-    for (const facet of ['year', 'operation', 'mission'] as const) {
+    for (const facet of ['year', 'operation', 'mission', 'tag', 'author'] as const) {
         for (const value of filters[facet]) pills.push({ facet, value, label: labelFor(facet, value) })
     }
 
@@ -88,6 +93,20 @@ export default function Toolbar({
                 </span>
 
                 <div className={s.tbRight}>
+                    <div className={s.mediaseg}>
+                        {MEDIA.map(({ value, label }) => (
+                            <button
+                                key={value}
+                                type='button'
+                                className={filters.media === value ? s.on : ''}
+                                onClick={() => onMedia(value)}
+                                aria-pressed={filters.media === value}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+
                     {/* A native <select> under an invisible overlay: it keeps the
                         platform's own picker on touch devices, which no custom
                         dropdown does as well. */}
@@ -113,6 +132,10 @@ export default function Toolbar({
                             </button>
                         ))}
                     </div>
+
+                    {/* Nothing renders for a member without the key — see the
+                        prop's own comment. */}
+                    {canSubmit && <Button variant='red' size='sm' href='/gallery/submit'>Submit media</Button>}
                 </div>
             </div>
 

@@ -3,19 +3,26 @@
 import React, { useEffect, useState } from 'react'
 
 import Button from '@/components/ui/Button'
+import VoteBar from './VoteBar'
 import { ChevronLeft, ChevronRight, CloseIcon, DownloadIcon, LinkIcon } from './icons'
+import { embedIframeSrc } from '@/lib/gallery/embeds'
 import s from '@/styles/gallery.module.css'
 
 /**
- * One photograph, full size, with everything the archive knows about it.
+ * One piece of media, full size, with everything the archive knows about it.
  *
- * Deliberately generic over the three things this page can open — an archive
- * tile, a featured shot, the screenshot of the month. They carry different
- * metadata and only the archive has neighbours to step through, so the caller
- * builds the item and the lightbox renders whatever it was handed.
+ * Deliberately generic over the four things this page can open — an archive
+ * tile, a featured shot, the screenshot of the month, and (via `vote`) an
+ * archive item's own rating. Only the archive has neighbours to step through
+ * and a score to show, which is why `vote` is nullable and the other three
+ * fields default to values that make an image behave the way it always did:
+ * the featured strip and the screenshot of the month set `kind: 'image'` and
+ * `source: 'upload'` for exactly that reason.
  */
 export type LightboxItem = {
-    src: string
+    src: string | null
+    /** Video and embeds only — the frame shown before playback starts. */
+    poster: string | null
     /** Small red line above the title. Null when there is nothing to say. */
     kicker: string | null
     title: string
@@ -23,15 +30,38 @@ export type LightboxItem = {
     rows: [string, string][]
     /** Filename for the download attribute. */
     file: string
+
+    kind: 'image' | 'video'
+    source: 'upload' | 'youtube' | 'twitch'
+    /** Embeds only. */
+    embedId: string | null
+    embedKind: 'video' | 'clip' | null
+    /** Embeds only — the canonical provider URL. Copy Link falls back to this
+     *  when there is no local `src` to build a link from. */
+    embedUrl: string | null
+
+    caption: string | null
+    authorName: string | null
+    /** Resolved against the tag vocabulary, not raw slugs — the chip has to
+     *  show something a member wrote, not something J5 typed into a slug. */
+    tags: { slug: string, label: string }[]
+
+    /** Null for the featured strip and the screenshot of the month — neither
+     *  is an archive item, so neither carries a score. */
+    vote: { mediaId: string, up: number, down: number, mine: 1 | -1 | null, canVote: boolean } | null
 }
 
-export default function Lightbox({ item, index, count, onClose, onStep }: {
+export default function Lightbox({ item, index, count, onClose, onStep, onTagClick, onVote }: {
     item: LightboxItem
     /** 0-based, or null when the item has no neighbours. */
     index: number | null
     count: number
     onClose: () => void
     onStep: (delta: -1 | 1) => void
+    /** A tag chip applies that tag as a filter and closes the lightbox — there
+     *  is no "filter panel inside the lightbox" to update instead. */
+    onTagClick?: (slug: string) => void
+    onVote?: (mediaId: string, next: { up: number, down: number, mine: 1 | -1 | null }) => void
 }) {
     const [copied, setCopied] = useState(false)
 
@@ -57,9 +87,21 @@ export default function Lightbox({ item, index, count, onClose, onStep }: {
 
     const steppable = index !== null && count > 1
 
+    // Evaluated at render, not module scope: embedIframeSrc's `parentHost`
+    // contract is exactly `window.location.hostname`, and this file can still
+    // be evaluated during prerender, where `window` does not exist yet.
+    const parentHost = typeof window === 'undefined' ? '' : window.location.hostname
+
     async function copyLink() {
+        // A local file has a page-relative src to resolve against the origin;
+        // an embed has no src at all, only the provider's own canonical URL,
+        // which is already absolute.
+        const target = item.src ?? item.embedUrl
+        if (!target) return
+
         try {
-            await navigator.clipboard.writeText(new URL(item.src, window.location.origin).href)
+            const href = target.startsWith('http') ? target : new URL(target, window.location.origin).href
+            await navigator.clipboard.writeText(href)
             setCopied(true)
         } catch {
             // Clipboard access can simply be refused — an unchanged button is a
@@ -80,12 +122,34 @@ export default function Lightbox({ item, index, count, onClose, onStep }: {
                         className={`${s.lbNav} ${s.lbPrev}`}
                         onClick={() => onStep(-1)}
                         disabled={index === 0}
-                        aria-label='Previous photograph'
+                        aria-label='Previous item'
                     ><ChevronLeft /></button>
                 )}
 
                 <div className={s.lbImg}>
-                    <img key={item.src} src={item.src} alt={item.title} />
+                    {/* An uploaded video plays from local storage; a YouTube or
+                        Twitch item has no bytes of its own here, only a provider
+                        id, so it plays through that provider's own player. */}
+                    {item.kind === 'video' && item.source === 'upload' && (
+                        <video
+                            src={item.src ?? undefined}
+                            poster={item.poster ?? undefined}
+                            controls
+                            autoPlay
+                            playsInline
+                            className={s.lbVideo}
+                        />
+                    )}
+                    {item.kind === 'video' && item.source !== 'upload' && (
+                        <iframe
+                            className={s.lbEmbed}
+                            src={embedIframeSrc({ provider: item.source, kind: item.embedKind ?? 'video', id: item.embedId! }, parentHost)}
+                            allow='autoplay; fullscreen; picture-in-picture'
+                            allowFullScreen
+                            title={item.title}
+                        />
+                    )}
+                    {item.kind === 'image' && <img key={item.src} src={item.src ?? undefined} alt={item.title} />}
                 </div>
 
                 {steppable && (
@@ -94,7 +158,7 @@ export default function Lightbox({ item, index, count, onClose, onStep }: {
                         className={`${s.lbNav} ${s.lbNext}`}
                         onClick={() => onStep(1)}
                         disabled={index === count - 1}
-                        aria-label='Next photograph'
+                        aria-label='Next item'
                     ><ChevronRight /></button>
                 )}
 
@@ -105,16 +169,49 @@ export default function Lightbox({ item, index, count, onClose, onStep }: {
                 {item.kicker && <span className={s.lbK}>{item.kicker}</span>}
                 <h3 className={s.lbTitle}>{item.title}</h3>
 
+                {/* The caption is what a member actually wrote about this item —
+                    body text, not another label/value row. */}
+                {item.caption && <p className={s.lbCaption}>{item.caption}</p>}
+
                 <div className={s.lbRows}>
                     {item.rows.map(([label, value]) => (
                         <div key={label} className={s.r}><span>{label}</span><b>{value}</b></div>
                     ))}
+                    {item.authorName && <div className={s.r}><span>Author</span><b>{item.authorName}</b></div>}
                 </div>
 
+                {item.tags.length > 0 && (
+                    <div className={s.lbTags}>
+                        {item.tags.map(t => (
+                            <button key={t.slug} type='button' className={s.tagChip} onClick={() => onTagClick?.(t.slug)}>
+                                {t.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {item.vote && (
+                    <div className={s.lbVote}>
+                        <VoteBar
+                            mediaId={item.vote.mediaId}
+                            up={item.vote.up}
+                            down={item.vote.down}
+                            mine={item.vote.mine}
+                            canVote={item.vote.canVote}
+                            onChange={next => onVote?.(item.vote!.mediaId, next)}
+                        />
+                    </div>
+                )}
+
                 <div className={s.lbActs}>
-                    <Button variant='ghost' size='sm' href={item.src} download={item.file}>
-                        <DownloadIcon /> Download
-                    </Button>
+                    {/* An embed has nothing local to download — there is no
+                        `Download` action, and offering one over the provider's
+                        own bytes would be broken by design, not by omission. */}
+                    {item.source === 'upload' && (
+                        <Button variant='ghost' size='sm' href={item.src ?? ''} download={item.file}>
+                            <DownloadIcon /> Download
+                        </Button>
+                    )}
                     <Button variant='red' size='sm' onClick={copyLink}>
                         <LinkIcon /> {copied ? 'Copied' : 'Copy link'}
                     </Button>

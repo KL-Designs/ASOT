@@ -58,9 +58,14 @@ function FacetBlock({ facet, title, options, selected, onToggle, defaultOpen }: 
     )
 }
 
-export default function FacetRail({ photos, filters, onToggle }: {
+export default function FacetRail({ photos, filters, tags, onToggle }: {
     photos: Photo[]
     filters: Filters
+    /** The vocabulary, already ordered by `order` — this is what the Tags
+     *  block lists, not just whatever slugs happen to appear in `photos`, so a
+     *  tag nobody has used yet still has a row (dimmed, like every other
+     *  zero-count option). */
+    tags: { slug: string, label: string }[]
     onToggle: (facet: Facet, value: string, on: boolean) => void
 }) {
     /* Counted with every filter applied *except* this facet's own — see
@@ -110,11 +115,32 @@ export default function FacetRail({ photos, filters, onToggle }: {
             .map(m => ({ value: m, label: m, count: missionCounts.get(m) ?? 0 }))
         : []
 
+    /*
+       Tags are multi-valued — one photograph can carry several — so counting
+       them isn't `countBy`'s one-key-per-photo shape. The vocabulary supplies
+       the rows (and their order); this only supplies how many of `photos`
+       would match each one, under the same skip-this-facet's-own-selections
+       rule as everything else in the rail.
+    */
+    const tagCounts = new Map<string, number>()
+    for (const p of photos) {
+        if (!matches(p, filters, 'tag')) continue
+        for (const tag of p.tags) tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1)
+    }
+    const tagOptions: Option[] = tags.map(t => ({ value: t.slug, label: t.label, count: tagCounts.get(t.slug) ?? 0 }))
+
+    const authorCounts = countBy('author', p => p.authorName)
+    const authors: Option[] = [...new Set(photos.map(p => p.authorName).filter((a): a is string => !!a))]
+        .sort((a, b) => a.localeCompare(b))
+        .map(a => ({ value: a, label: a, count: authorCounts.get(a) ?? 0 }))
+
     return (
         <aside className={s.facetRail}>
             <FacetBlock facet='year' title='Year' options={years} selected={filters.year} onToggle={onToggle} defaultOpen />
             <FacetBlock facet='operation' title='Operation' options={operations} selected={filters.operation} onToggle={onToggle} defaultOpen />
             <FacetBlock facet='mission' title='Mission' options={missions} selected={filters.mission} onToggle={onToggle} defaultOpen />
+            <FacetBlock facet='tag' title='Tags' options={tagOptions} selected={filters.tag} onToggle={onToggle} defaultOpen={false} />
+            <FacetBlock facet='author' title='Author' options={authors} selected={filters.author} onToggle={onToggle} defaultOpen={false} />
         </aside>
     )
 }

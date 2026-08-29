@@ -178,5 +178,16 @@ export function archiveStats(items: Photo[]): ArchiveStats {
     return { photographs: items.length, operations: operations.size, missions: missions.size, earliest }
 }
 
+/* ---------- display helpers ------------------------------------------------ */
+
+/** `m:ss`, for a video tile's badge. Not `h:mm:ss` — nothing this archive
+ *  holds runs an hour, and the extra segment would only ever read `0:`. */
+export function formatDuration(totalSeconds: number): string {
+    const whole = Math.max(0, Math.round(totalSeconds))
+    const minutes = Math.floor(whole / 60)
+    const seconds = whole % 60
+    return `${minutes}:${String(seconds).padStart(2, '0')}`
+}
+
 export type { GridView, SortKey }
 export { splitOperation }

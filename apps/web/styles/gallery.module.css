@@ -488,6 +488,41 @@
     height: 16px;
 }
 
+/* All / Photos / Video. Text rather than icons — unlike the view segment,
+   there's no shape that reads as "photos only" at a glance, and three words
+   are no wider than three glyphs would have been. */
+.mediaseg {
+    display: flex;
+    border: 1px solid var(--line-1);
+    border-radius: 2px;
+    overflow: hidden;
+    height: 38px;
+}
+
+.mediaseg button {
+    padding: 0 12px;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+    background: none;
+    border: 0;
+    transition: background .16s, color .16s;
+    cursor: pointer;
+}
+
+.mediaseg button+button {
+    border-left: 1px solid var(--line-1);
+}
+
+.mediaseg button.on {
+    background: var(--red);
+    color: #fff;
+}
+
 /* ---------- active-filter pills ------------------------------------------- */
 
 .pills {
@@ -881,6 +916,66 @@
     height: 13px;
 }
 
+/*
+   Sits opposite `.zoom` — top-left rather than top-right — so a video's
+   duration and a freshly-published item's NEW marker never compete with the
+   expand icon for the same corner. A column rather than a row: an item that
+   is both a video and newly published stacks two badges instead of widening
+   past the tile's own edge.
+*/
+.badges {
+    position: absolute;
+    top: 9px;
+    left: 9px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+
+.badgeNew,
+.badgeVideo,
+.badgeScore {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.badgeNew {
+    background: var(--red);
+    color: #fff;
+}
+
+.badgeVideo {
+    background: rgba(6, 7, 9, .78);
+    border: 1px solid var(--line-2);
+    color: var(--txt-1);
+}
+
+.badgeVideo svg {
+    width: 9px;
+    height: 9px;
+    flex: none;
+}
+
+/* Only rendered once somebody has actually voted — see VoteBar's own
+   `total > 0` guard for why an unvoted item shows nothing at all here. */
+.badgeScore {
+    background: rgba(6, 7, 9, .78);
+    border: 1px solid var(--line-2);
+    color: var(--live);
+    font-variant-numeric: tabular-nums;
+}
+
 /* ---------- grouped by operation ------------------------------------------ */
 
 .opgroup {
@@ -1003,6 +1098,19 @@
     object-fit: contain;
 }
 
+/* Fixed to 16:9 rather than sized off the stage the way a photograph is —
+   neither a <video> nor a provider's own iframe reports intrinsic dimensions
+   the way an <img> does, so there is nothing here to size against. */
+.lbVideo,
+.lbEmbed {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 16 / 9;
+    border: 0;
+    background: #000;
+}
+
 .lbNav {
     position: absolute;
     top: 50%;
@@ -1110,6 +1218,15 @@
     overflow-wrap: anywhere;
 }
 
+/* Body text, not another label/value row — the caption is what a member
+   actually wrote about this item, not a fact the archive recorded. */
+.lbCaption {
+    margin: 18px 0 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--txt-2);
+}
+
 .lbRows {
     margin-top: 22px;
     border-top: 1px solid var(--line-1);
@@ -1133,6 +1250,19 @@
     font-weight: 500;
     text-align: right;
     overflow-wrap: anywhere;
+}
+
+/* Reuses .tagChip from the submit page's item cards rather than a lightbox-
+   specific chip — same control, same meaning: pick a tag, see more of it. */
+.lbTags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 16px;
+}
+
+.lbVote {
+    margin-top: 18px;
 }
 
 .lbActs {

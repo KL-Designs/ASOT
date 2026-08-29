@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import GalleryBanner from './_components/GalleryBanner'
 import FeaturedRail from './_components/FeaturedRail'
@@ -8,6 +8,7 @@ import Toolbar, { type GridView, type SortKey } from './_components/Toolbar'
 import FacetRail from './_components/FacetRail'
 import PhotoGrid from './_components/PhotoGrid'
 import Lightbox, { type LightboxItem } from './_components/Lightbox'
+import { useGalleryData } from './useGalleryData'
 
 import {
     archiveStats, emptyFilters, matches, sortPhotos, splitOperation,
@@ -34,6 +35,10 @@ import s from '@/styles/gallery.module.css'
    a score are exactly the things that tree had nowhere to put — they are not
    invented, they were just unrepresentable until there was a database under
    the page.
+
+   Fetching, votes and the lightbox-item shape all live in useGalleryData —
+   this file is left to arrange them: filters, paging, and which of the
+   several things that can open in a lightbox is currently open.
    ========================================================================== */
 
 /*
@@ -43,38 +48,8 @@ import s from '@/styles/gallery.module.css'
 */
 const PAGE_SIZE: Record<GridView, number> = { masonry: 48, uniform: 48, grouped: 8 }
 
-/* The lightbox's download attribute wants a real filename. GalleryItemAPI
-   carries none — that raw name lived only in the storage tree, not in the
-   index — but a legacy item's src is /api/gallery/fetch?...&img=<filename>,
-   so the original name can still be read back out of it for the photographs
-   the archive holds today. An item with no such query string (a future
-   upload) falls back to its id, which is the best a download picker can do
-   once there is no folder-derived name to reach for. */
-function downloadName(p: Photo): string {
-    if (!p.src) return p.id
-    const q = p.src.split('?')[1]
-    const img = q ? new URLSearchParams(q).get('img') : null
-    return img ?? p.id
-}
-
-function lightboxItemFor(p: Photo): LightboxItem {
-    const rows: [string, string][] = [['Operation', p.opLabel ?? 'Unknown operation']]
-    if (p.mission) rows.push(['Mission', p.mission])
-    if (p.year) rows.push(['Year', p.year])
-
-    return {
-        src: p.src ?? '',
-        kicker: p.mission ? `${p.opLabel ?? 'Unknown operation'} · Mission ${p.mission}` : p.opLabel,
-        title: p.opLabel ?? 'Gallery item',
-        rows,
-        file: downloadName(p),
-    }
-}
-
 export default function Page() {
-    const [items, setItems] = useState<GalleryItemAPI[]>([])
-    const [featured, setFeatured] = useState<string[]>([])
-    const [sotm, setSotm] = useState<ScreenshotOfMonth | null>(null)
+    const { items, featured, sotm, tags, canSubmit, applyVote, toLightboxItem } = useGalleryData()
 
     const [filters, setFilters] = useState<Filters>(emptyFilters)
     const [sort, setSort] = useState<SortKey>('new')
@@ -83,26 +58,6 @@ export default function Page() {
 
     const [lightbox, setLightbox] = useState<{ list: Photo[], index: number } | null>(null)
     const [singleImage, setSingleImage] = useState<LightboxItem | null>(null)
-
-    useEffect(() => {
-        fetch('/api/gallery')
-            .then(res => res.json())
-            .then((json: GalleryAPI) => {
-                setItems(json.items ?? [])
-                // Shuffled per visit: the strip is a sample of the archive, not
-                // a ranking, and a fixed order would show the same dozen photos
-                // to everyone forever.
-                setFeatured([...(json.featured ?? [])].sort(() => Math.random() - 0.5))
-            })
-            .catch(() => { })
-
-        // A month with no winner set is a normal state — the banner simply drops
-        // that column rather than showing an empty card.
-        fetch('/api/gallery/sotm')
-            .then(res => res.ok ? res.json() : null)
-            .then(json => setSotm(json?.filename ? json : null))
-            .catch(() => { })
-    }, [])
 
     const stats = useMemo(() => archiveStats(items), [items])
 
@@ -138,6 +93,10 @@ export default function Page() {
             // means anything while its operation is still selected.
             if (facet === 'operation' && draft.operation.size === 0) draft.mission.clear()
         })
+    }, [update])
+
+    const setMedia = useCallback((media: Filters['media']) => {
+        update(draft => { draft.media = media })
     }, [update])
 
     const removeFilter = useCallback((facet: Facet | 'q', value: string) => {
@@ -177,9 +136,14 @@ export default function Page() {
     }, [update, changeView])
 
     /* Operations are stored with an ordering prefix. The pills print the label,
-       but they hold the raw folder name, which is the key everything filters on. */
-    const labelFor = useCallback((facet: Facet, value: string) =>
-        facet === 'operation' ? splitOperation(value).label : value, [])
+       but they hold the raw folder name, which is the key everything filters on.
+       Tags are stored as slugs for the same reason — a slug is the filter key,
+       and the vocabulary is what turns it back into something readable. */
+    const labelFor = useCallback((facet: Facet, value: string) => {
+        if (facet === 'operation') return splitOperation(value).label
+        if (facet === 'tag') return tags.find(t => t.slug === value)?.label ?? value
+        return value
+    }, [tags])
 
     /* ---------- lightbox ---------- */
 
@@ -196,15 +160,41 @@ export default function Page() {
         })
     }, [])
 
+    const closeLightbox = useCallback(() => {
+        setSingleImage(null)
+        setLightbox(null)
+    }, [])
+
+    /* A tag chip inside the lightbox is a shortcut to "show me more like this",
+       not an addition to whatever was already selected — it replaces the tag
+       filter outright and drops straight into the filtered grid. */
+    const filterByTag = useCallback((slug: string) => {
+        update(draft => { draft.tag = new Set([slug]) })
+        closeLightbox()
+    }, [update, closeLightbox])
+
     const openFeatured = useCallback((index: number) => {
         const file = featured[index]
         if (!file) return
+        // The featured strip and SOTM are not archive items — kind/source are
+        // set to whatever makes the stage and the Download button behave like
+        // a plain photograph, which is what both actually are.
         setSingleImage({
             src: `/api/gallery/featured?img=${encodeURIComponent(file)}`,
+            poster: null,
             kicker: 'Featured',
             title: file.replace(/\.[^.]+$/, ''),
             rows: [],
             file,
+            kind: 'image',
+            source: 'upload',
+            embedId: null,
+            embedKind: null,
+            embedUrl: null,
+            caption: null,
+            authorName: null,
+            tags: [],
+            vote: null,
         })
     }, [featured])
 
@@ -212,6 +202,7 @@ export default function Page() {
         if (!sotm) return
         setSingleImage({
             src: '/api/gallery/sotm/image',
+            poster: null,
             kicker: 'Screenshot of the month',
             title: sotm.operationTitle || 'This month',
             rows: [
@@ -219,11 +210,20 @@ export default function Page() {
                 ['Taken', new Date(sotm.dateTaken).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })],
             ],
             file: sotm.filename,
+            kind: 'image',
+            source: 'upload',
+            embedId: null,
+            embedKind: null,
+            embedUrl: null,
+            caption: null,
+            authorName: null,
+            tags: [],
+            vote: null,
         })
     }, [sotm])
 
     const current = lightbox?.list[lightbox.index]
-    const item: LightboxItem | null = singleImage ?? (current ? lightboxItemFor(current) : null)
+    const item: LightboxItem | null = singleImage ?? (current ? toLightboxItem(current) : null)
 
     return (
         <div className={s.page}>
@@ -240,13 +240,15 @@ export default function Page() {
                 onSearch={q => update(draft => { draft.q = q })}
                 onSort={setSort}
                 onView={changeView}
+                onMedia={setMedia}
                 onRemove={removeFilter}
                 onClear={clearAll}
                 labelFor={labelFor}
+                canSubmit={canSubmit}
             />
 
             <div className={s.shell}>
-                <FacetRail photos={items} filters={filters} onToggle={toggleFacet} />
+                <FacetRail photos={items} filters={filters} tags={tags} onToggle={toggleFacet} />
 
                 <main>
                     <PhotoGrid
@@ -266,8 +268,10 @@ export default function Page() {
                     item={item}
                     index={singleImage ? null : lightbox!.index}
                     count={singleImage ? 1 : lightbox!.list.length}
-                    onClose={() => { setSingleImage(null); setLightbox(null) }}
+                    onClose={closeLightbox}
                     onStep={step}
+                    onTagClick={filterByTag}
+                    onVote={applyVote}
                 />
             )}
         </div>
