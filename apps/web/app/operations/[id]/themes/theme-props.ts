@@ -8,6 +8,7 @@
  * something they shouldn't.
  */
 import type { TabAccess } from '../tabs'
+import type { AttendanceStage } from '@/lib/operations/stage'
 
 export interface ThemePageProps {
     id: string
@@ -58,6 +59,15 @@ export interface ThemePageProps {
  * member what they owe.
  */
 export interface OrdersAttendance {
+    /**
+     * Where the operation is in its lifecycle.
+     *
+     * Read here rather than queried again because the AAR tab's visibility
+     * needs it: the tab appears once the operation has finished, which is a
+     * fact about the stage rather than about the viewer, and the permission
+     * alone cannot tell the two apart.
+     */
+    stage: AttendanceStage | null
     /** Null when RSVP has never opened — there is no roster to count yet. */
     rsvpOpen: boolean
     attending: number

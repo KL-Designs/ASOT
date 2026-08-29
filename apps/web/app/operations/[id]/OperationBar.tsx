@@ -11,8 +11,10 @@ interface Props {
     themeColor?: string
     active: OperationTab
     canEdit: boolean
-    /** Which tabs this viewer gets, one capability each. */
-    access?: TabAccess
+    /** Which tabs this viewer gets, one capability each. Required for the
+     *  reason `OperationTabs` gives: silently hiding tabs is worse than making
+     *  a caller state that it wants none. */
+    access: TabAccess
     /** True on the editor's own route — the Orders menu then ticks Edit. */
     editing?: boolean
     /** Came in from the J2 operations tab; the back link should go back there. */

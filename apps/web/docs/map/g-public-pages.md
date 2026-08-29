@@ -745,6 +745,26 @@ by both. The tab key is `orders`, not `brief`: "Brief" was the editor's name for
 and nobody outside the editor used it. `?tab=brief` and `?tab=development` are aliased for the
 bookmarks already out there.
 
+#### app/operations/[id]/aar/
+The **After Action Report** — the fifth tab, and the only one that does not exist for most of an
+operation's life. It appears at `confirmations_open` (see `aarOpen()`) and stays.
+
+Three things stacked in the order they get done, so a member who led nothing sees the short version:
+**how the night went** (three diverging 1–5 scales — server performance, combat, story — where 3 is
+a normal night, gated on `didAttend` because feedback is only worth having from people who were
+there), **your own write-up** (Sustain / Improve / Fix — three narrow boxes get answered where one
+wide one gets skipped), and, for a **1IC**, their section's roll call plus their members' write-ups.
+
+**The 1IC's authority is positional, not granted** — they are whoever was in the section's top filled
+slot on the night, resolved by `sectionLead()`. `aar.manage` is the separate, granted way in, for
+staff closing an operation out. Each card saves on its own request: a member who fills in feedback
+and closes the tab has saved their feedback.
+
+`POST /aar/attendance` is the roll call, and it **replaces the ORBAT-`isSenior` scoping** the old
+confirm route used. It also only counts a member into `billetCounts` on the transition into present —
+the route it supersedes incremented on every submission, so a 1IC correcting one status handed the
+whole section another night's credit.
+
 **Who sees which tab:** one capability each, via `lib/operations/permissions.ts` — `visibleTabs()`
 takes a `TabAccess` object rather than the `canEdit` boolean it used to, because that boolean was
 answering four questions at once and there was no way to give somebody the Schedule without also

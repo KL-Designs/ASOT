@@ -18,6 +18,24 @@ interface HeaderProps {
     /** The document save state — distinct from `status` above. */
     saveStatus: SaveStatus
     isHQ: boolean
+    /**
+     * Which tabs to offer, one capability each.
+     *
+     * **Each defaults to `isHQ`**, and that default is the point rather than a
+     * convenience: this component renders the tab *links* while `EditorShell`
+     * routes their content, so the two have to agree about which tabs exist. A
+     * caller that has not been taught the capabilities yet gets what the editor
+     * always did — one role, all four tabs — instead of a strip with holes in
+     * it. That is the failure this shipped with: `visibleTabs` moved from a
+     * `canEdit` boolean to a capability object, this file kept passing the
+     * boolean, and Schedule, Attendance and AAR silently vanished from the
+     * editor for everybody.
+     */
+    canSchedule?: boolean
+    canAttendance?: boolean
+    /** No `isHQ` default — the AAR tab does not exist until the operation has
+     *  finished, so defaulting it on would offer a door onto an empty room. */
+    canAar?: boolean
     onDelete: () => void
     activityOpen: boolean
     onToggleActivity: () => void
@@ -69,7 +87,7 @@ const menuItemStyle: CSSProperties = {
 }
 
 export default function Header({
-    operationId, fromJ2, title, status, saveStatus, isHQ,
+    operationId, fromJ2, title, status, saveStatus, isHQ, canSchedule, canAttendance, canAar,
     onDelete, activityOpen, onToggleActivity,
     publishConfirmOpen, publishSaving, onPublishClick, onPublishConfirm, onPublishCancel,
     tab, onTabChange, editing = false,
@@ -146,6 +164,11 @@ export default function Header({
                 operationId={operationId}
                 active={tab}
                 canEdit={isHQ}
+                access={{
+                    schedule: canSchedule ?? isHQ,
+                    attendance: canAttendance ?? isHQ,
+                    aar: canAar,
+                }}
                 editing={editing}
                 onSwitch={onTabChange}
             />

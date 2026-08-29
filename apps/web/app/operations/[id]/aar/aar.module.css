@@ -1,0 +1,421 @@
+/*
+ * The After Action Report tab.
+ *
+ * Three things stacked in the order they get done: how the night went, your own
+ * write-up, then — if you led a section — its roll call and its members' write-
+ * ups. A member who led nothing sees the first two and stops, which is most
+ * people and should be the short screen.
+ *
+ * Drawn entirely from `.command` tokens like the rest of the operation chrome,
+ * so it takes the operation's accent without knowing anything about it.
+ */
+
+.page {
+    flex: 1;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+}
+
+/* ── Masthead ─────────────────────────────────────────────────────────────── */
+
+.head { margin-bottom: 28px; }
+
+.eyebrow {
+    margin: 0 0 8px;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--acc);
+}
+
+.title {
+    margin: 0;
+    font-family: var(--disp, var(--sans));
+    font-size: clamp(1.6rem, 3.4vw, 2.2rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+}
+
+.lede {
+    margin: 10px 0 0;
+    max-width: 68ch;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: var(--ink-3);
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
+
+.card {
+    margin-bottom: 18px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--s1);
+    overflow: hidden;
+}
+
+.cardHead {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--s2);
+}
+
+.cardTitle {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink);
+}
+
+.cardNote {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+.cardBody { padding: 20px; }
+
+/* ── The rating scale ─────────────────────────────────────────────────────── */
+
+.aspect { margin-bottom: 22px; }
+.aspect:last-child { margin-bottom: 0; }
+
+.aspectLabel {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.aspectHint {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--ink-3);
+}
+
+/*
+ * Five equal segments with the middle marked, rather than five stars.
+ *
+ * The question is "how did this compare to a normal night", so the centre is
+ * the neutral answer and both ends are departures from it. Stars cannot say
+ * that — five reads as the goal and three as a disappointment, which would make
+ * a run of perfectly good ordinary operations look like a problem.
+ */
+.scale {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 4px 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--s2);
+    color: var(--ink-3);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+}
+.step:hover { border-color: var(--line-2); color: var(--ink-2); }
+.step:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+
+/* The bar above each label: short at the centre, tall at the extremes, so the
+   shape of the scale is legible before any of it is read. */
+.stepBar {
+    width: 100%;
+    border-radius: 1px;
+    background: currentColor;
+    opacity: 0.28;
+    transition: opacity 140ms ease;
+}
+.stepOn .stepBar { opacity: 1; }
+
+.stepOn {
+    color: var(--ink);
+    border-color: var(--acc);
+    background: rgba(var(--acc-rgb), 0.1);
+}
+/* The middle answer is not an achievement and is not drawn as one. */
+.stepNeutral.stepOn { border-color: var(--line-2); background: var(--s3); }
+
+.cleared {
+    margin-top: 10px;
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    cursor: pointer;
+}
+.cleared:hover { color: var(--ink-2); }
+
+/* ── Prose fields ─────────────────────────────────────────────────────────── */
+
+.field { margin-bottom: 16px; }
+.field:last-child { margin-bottom: 0; }
+
+.fieldLabel {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+}
+
+.fieldHint {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--ink-3);
+}
+
+.textarea {
+    display: block;
+    width: 100%;
+    min-height: 84px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--bg);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    resize: vertical;
+}
+.textarea:focus { outline: none; border-color: var(--acc); }
+.textarea::placeholder { color: var(--ink-3); opacity: 0.7; }
+
+/* ── Actions ──────────────────────────────────────────────────────────────── */
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.save {
+    padding: 9px 20px;
+    border: 1px solid var(--acc);
+    border-radius: var(--r);
+    background: rgba(var(--acc-rgb), 0.14);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 140ms ease;
+}
+.save:hover:not(:disabled) { background: rgba(var(--acc-rgb), 0.24); }
+.save:disabled { opacity: 0.45; cursor: default; }
+
+.state {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+.stateOk { color: var(--good, #4caf50); }
+.stateBad { color: var(--crit, #ff5252); }
+
+/* ── The roll call ────────────────────────────────────────────────────────── */
+
+.row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 150px 150px 90px;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--line);
+}
+.row:last-of-type { border-bottom: none; }
+
+.rowName { min-width: 0; }
+
+.name {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.role {
+    display: block;
+    margin-top: 1px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+/* What they said they would do, next to what they did. The roll call is a
+   comparison, and putting the two side by side is the whole job. */
+.rsvp {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+.select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--s2);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.select:focus { outline: none; border-color: var(--acc); }
+
+/* The chosen status, as a colour on its own left edge — legible down a column
+   of twelve without reading a word of it. */
+.statusDot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 7px;
+    vertical-align: 1px;
+}
+
+.writeup {
+    justify-self: end;
+    padding: 5px 12px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    background: none;
+    color: var(--ink-3);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color 140ms ease, border-color 140ms ease;
+}
+.writeup:hover { color: var(--ink); border-color: var(--acc); }
+.writeupOn { color: var(--acc); border-color: var(--acc); }
+
+/* A dot on the button when there is already something written, so a 1IC can
+   see at a glance who has filled theirs in. */
+.hasAar::after {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    margin-left: 6px;
+    border-radius: 50%;
+    background: var(--acc);
+    vertical-align: 2px;
+}
+
+.memberAar {
+    padding: 4px 20px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg);
+}
+
+.byline {
+    margin: 0 0 12px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+/* ── Empty and closed states ──────────────────────────────────────────────── */
+
+.notice {
+    max-width: 60ch;
+    margin: 80px auto;
+    padding: 32px;
+    border: 1px dashed var(--line-2);
+    border-radius: var(--r);
+    text-align: center;
+}
+
+.noticeTitle {
+    margin: 0 0 8px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+}
+
+.noticeBody {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: var(--ink-3);
+}
+
+.loading {
+    padding: 80px 0;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .step,
+    .stepBar,
+    .save,
+    .writeup { transition: none; }
+}
+
+@media (max-width: 720px) {
+    .row { grid-template-columns: minmax(0, 1fr) 1fr; row-gap: 8px; }
+    .scale { grid-template-columns: repeat(5, 1fr); gap: 2px; }
+    .step { font-size: 8.5px; letter-spacing: 0.02em; }
+}

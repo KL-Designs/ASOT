@@ -424,6 +424,57 @@ const PERMISSIONS = {
             override: ['HQ Staff', 'J2 - Department Leader'],
         },
 
+        aar: {
+            /**
+             * Reading an operation's After Action Report tab.
+             *
+             * The tab only exists once the operation has finished — see
+             * `aarOpen()` in `lib/operations/aar.ts` — so this is about who may
+             * read it, not when. Legacy arm: being signed in, the same baseline
+             * the attendance board has, since the two are the same audience.
+             *
+             * Used by:
+             *  - `app/operations/[id]/aar/page.tsx`
+             *  - `lib/operations/permissions.ts` (`'aar.view'`)
+             */
+            view: ['ASOT Member'],
+
+            /**
+             * Writing your own Fix / Sustain / Improve, and leaving feedback on
+             * the operation.
+             *
+             * Held by any member, and gated further by whether they were
+             * actually *on* the operation — a permission cannot answer that,
+             * only the roster can, so `didAttend()` does it per member.
+             *
+             * Used by:
+             *  - `app/api/operations/[id]/aar/route.ts`
+             *  - `lib/operations/permissions.ts` (`'aar.write'`)
+             */
+            write: ['ASOT Member'],
+
+            /**
+             * Writing up *other* people — confirming a section's attendance,
+             * setting statuses, and writing or editing its members' AARs.
+             *
+             * The unusual one. A section's 1IC gets this **positionally**: they
+             * led the section on the night, which is a fact about the roster
+             * rather than a grant, and `sectionLead()` in
+             * `lib/operations/aar.ts` is what resolves it. This key is the
+             * *other* way in — staff who need to close an operation out when a
+             * 1IC never filled theirs in, and who are not scoped to one
+             * section.
+             *
+             * Legacy arm: `attendance.manage`, which carried the roster-wide
+             * confirmation this replaces.
+             *
+             * Used by:
+             *  - `app/api/operations/[id]/aar/attendance/route.ts`
+             *  - `lib/operations/permissions.ts` (`'aar.manage'`)
+             */
+            manage: ['HQ Staff', 'All Staff'],
+        },
+
         ocap: {
             /**
              * Watching an operation's OCAP replay and reading its statistics.

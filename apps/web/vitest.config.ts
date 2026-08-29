@@ -1,13 +1,16 @@
 import { defineConfig } from 'vitest/config'
 import { resolve } from 'path'
 
-// Unit tests for lib/ only. The Playwright E2E suite lives in tests/ and is
-// run separately via `npm run test:e2e` — the include pattern below keeps the
-// two runners from ever picking up each other's files.
+// Unit tests for lib/, plus the handful of pure modules under app/ that are
+// shared by server and client components and have no imports of their own —
+// `app/operations/[id]/tabs.ts` is the one this was widened for. The Playwright
+// E2E suite lives in tests/ and is run separately via `npm run test:e2e`; the
+// include pattern below keeps the two runners from ever picking up each other's
+// files, which is why it names `*.test.ts` rather than a directory.
 export default defineConfig({
     test: {
         environment: 'node',
-        include: ['lib/**/*.test.ts'],
+        include: ['lib/**/*.test.ts', 'app/**/*.test.ts'],
         // mongodb-memory-server may download and always boots a real mongod.
         testTimeout: 60_000,
         hookTimeout: 120_000,
