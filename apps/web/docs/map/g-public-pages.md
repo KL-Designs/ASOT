@@ -862,11 +862,14 @@ touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttenda
   which is why choosing it used to give you Modern. **`wwii`, `vietnam` and `fantasy` still do** —
   they are offered in the picker and fall through to `ClassicPage`.
 - **`SciFiPage.tsx` + `scifi.module.css` + `ConsoleRail.tsx` + `ConsoleRsvp.tsx`** — the `scifi` era,
-  "**Bridge Console**". The orders as a piece of hardware: a brushed hull, a bezel with screws in it,
-  and behind the bezel a slab of dead-black glass with phosphor burning inside. The whole theme rests
-  on one rule — **the light never leaves the screen**. Glow lives on text and hairlines *inside* the
-  glass; the hull around it is unlit metal, which is the difference between a CRT and a filter laid
-  over a page. Palette **fixed, not the operation's `--acc`**, for Cold War's reason in a different
+  "**Bridge Console**". The orders as a slab of dead-black glass with phosphor burning inside, run to
+  all four edges of the window. The whole theme rests on one rule — **the light never leaves the
+  screen**: glow lives on text and hairlines, never on a frame or a ground, which is the difference
+  between a CRT and a filter laid over a page. It began inside a bezel — brushed hull, rounded
+  corners, screws in each corner — and the frame lost its argument the moment it was seen at size. A
+  bezel is a thing you look *at*; edge to edge the reader is looking *through*. The vignette and the
+  raster carry the tube on their own, and the hardware they were framing only cost the document its
+  width. Palette **fixed, not the operation's `--acc`**, for Cold War's reason in a different
   key: a phosphor tube emits one colour, and an operation themed deep red would leave the page
   glowing in a hue no hardware ever produced. Phosphor green is the tube, amber the second voice for
   times and headings, red appears exactly once — on an order you have not signed, and it is the only

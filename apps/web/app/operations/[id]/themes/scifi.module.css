@@ -1,12 +1,17 @@
 /*
  * The Sci-Fi orders page — "Bridge Console".
  *
- * The orders as a piece of hardware: a brushed hull, a bezel with screws in
- * it, and behind the bezel a slab of dead-black glass with phosphor burning
- * inside. The one rule the whole theme is built on is that **the light never
- * leaves the screen**. Glow lives on text and on hairlines *inside* the glass;
- * the hull around it is unlit metal. That is the difference between a CRT and
- * a filter laid over a page, and every decision below defers to it.
+ * The orders as a slab of dead-black glass with phosphor burning inside, run
+ * to all four edges of the window. The one rule the whole theme is built on is
+ * that **the light never leaves the screen**: glow lives on text and on
+ * hairlines, never on a frame or a ground. That is the difference between a
+ * CRT and a filter laid over a page, and every decision below defers to it.
+ *
+ * It began inside a bezel — brushed hull, rounded corners, screws in each
+ * corner — and the frame lost its argument the moment it was seen at size. A
+ * bezel is a thing you look *at*; edge to edge, the reader is looking
+ * *through*. The vignette and the raster carry the tube on their own, and the
+ * hardware they were framing only cost the document its width.
  *
  * Like Cold War, the palette is fixed rather than taking the operation's
  * `--acc`. A console does not change colour because the operation does — a
@@ -18,18 +23,9 @@
  */
 
 .page {
-    /*
-     * The hull: unlit metal, three steps. The bezel is the lit face, the deck
-     * behind it is the shadowed one, and `--hull-3` is what the bezel's own
-     * gradient falls to at its bottom edge.
-     */
-    --hull:    #14161a;
-    --hull-2:  #1c1f25;
-    --hull-3:  #0b0d10;
-    --seam:    #2a2f38;
-    --seam-2:  #3a414d;
-
-    /* The glass. Not pure black — a tube at rest still has a faint cast. */
+    /* The glass, and the only ground there is. Not pure black — a tube at rest
+       still has a faint cast, and a true #000 page reads as a hole rather than
+       as a screen that happens to be dark. */
     --glass:   #05070a;
     --glass-2: #080c11;
 
@@ -67,7 +63,7 @@
     display: flex;
     flex-direction: column;
     min-height: 100%;
-    background: var(--hull);
+    background: var(--glass);
     color: var(--ink-2);
     font-family: var(--type);
 }
@@ -98,62 +94,20 @@
     color: inherit;
 }
 
-/* ── Hull ─────────────────────────────────────────────────────────────── */
-
-.hull {
-    flex: 1;
-    padding: 16px;
-    /* A fine vertical brush over a top-lit body. Unlit, both of them: nothing
-       out here emits, it only catches the room. */
-    background:
-        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 3px),
-        linear-gradient(180deg, var(--hull-2) 0%, #101317 100%);
-}
-
-.bezel {
-    position: relative;
-    height: 100%;
-    padding: 11px;
-    border: 1px solid var(--seam-2);
-    border-radius: 7px;
-    background: linear-gradient(180deg, var(--hull-2), var(--hull-3));
-    /* The lit top edge, then the weight of the thing on the deck. */
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.06),
-        0 18px 44px rgba(0, 0, 0, 0.6);
-}
-
-/*
- * Four screws, one per corner. Small enough to be noticed rather than seen —
- * they are the cheapest thing on the page that says "this is an object", and
- * without them the bezel reads as a rounded div.
- */
-.screw {
-    position: absolute;
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 30%, #4a515c, #191c21);
-    box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.9);
-}
-.screwTL { top: 7px; left: 7px; }
-.screwTR { top: 7px; right: 7px; }
-.screwBL { bottom: 7px; left: 7px; }
-.screwBR { bottom: 7px; right: 7px; }
-
 /* ── Glass ────────────────────────────────────────────────────────────── */
 
 .glass {
     position: relative;
-    height: 100%;
-    border: 1px solid var(--seam);
-    border-radius: 3px;
+    /* Grows to the window even when the document is short, so the vignette has
+       corners to darken and the screen does not stop halfway down the page. */
+    flex: 1;
     overflow: hidden;
     background: radial-gradient(120% 100% at 50% 0%, var(--glass-2), var(--glass) 70%, #020304 100%);
-    /* Depth behind the glass, and the faintest phosphor bloom filling it. */
-    box-shadow:
-        inset 0 0 90px rgba(0, 0, 0, 0.9),
-        inset 0 0 160px rgba(56, 185, 138, 0.05);
+    /* The faintest phosphor bloom filling the tube. The 90px black inset that
+       used to sit under this went with the bezel — at full bleed it only
+       dirtied the edges of the reading area, which the vignette already
+       handles more honestly. */
+    box-shadow: inset 0 0 200px rgba(56, 185, 138, 0.05);
 }
 
 /*
@@ -202,7 +156,10 @@
 .screen {
     position: relative;
     z-index: 2;
-    padding: 32px 36px 36px;
+    /* Grows with the window now the frame is gone. A fixed 36px was right
+       inside a bezel that had already inset the screen; against the glass it
+       leaves the gauges reading as if they had fallen off the left edge. */
+    padding: 34px clamp(24px, 4vw, 72px) 44px;
 }
 
 /* ── Header ───────────────────────────────────────────────────────────── */

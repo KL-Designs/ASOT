@@ -59,7 +59,7 @@ const CONSOLE_CHROME: Record<string, string> = {
         'linear-gradient(180deg, rgba(23, 33, 32, 0.96) 0%, rgba(10, 15, 15, 0.98) 100%)',
     ].join(', '),
 
-    /* The hairline the strip sits on, then its shadow on the hull below. */
+    /* The hairline the strip sits on, then its shadow on the glass below. */
     '--bar-shadow': [
         'inset 0 1px 0 rgba(98, 232, 176, 0.10)',
         '0 1px 0 rgba(98, 232, 176, 0.18)',
@@ -79,10 +79,12 @@ const CONSOLE_CHROME: Record<string, string> = {
 /**
  * The Sci-Fi orders page — "Bridge Console".
  *
- * The orders as a piece of hardware: a brushed hull, a bezel with screws, and
- * behind it a slab of dead-black glass with phosphor burning inside. The whole
- * theme rests on one rule — **the light never leaves the screen** — which is
- * what separates a CRT from a filter laid over a page.
+ * The orders as a slab of dead-black glass with phosphor burning inside, run
+ * to all four edges of the window. The whole theme rests on one rule — **the
+ * light never leaves the screen** — which is what separates a CRT from a
+ * filter laid over a page. It wore a bezel until that was seen at size: a
+ * bezel is a thing you look *at*, and edge to edge the reader is looking
+ * *through*.
  *
  * It shares Modern's data exactly (`page.tsx` does all the fetching and every
  * permission check) and disagrees with it about what the page *is*. That is
@@ -169,182 +171,173 @@ export default function SciFiPage({
                 palette={CONSOLE_CHROME}
             />
 
-            <div className={s.hull}>
-                <div className={s.bezel}>
-                    <span className={`${s.screw} ${s.screwTL}`} aria-hidden />
-                    <span className={`${s.screw} ${s.screwTR}`} aria-hidden />
-                    <span className={`${s.screw} ${s.screwBL}`} aria-hidden />
-                    <span className={`${s.screw} ${s.screwBR}`} aria-hidden />
+            <div className={s.glass}>
+                <div className={s.sweep} aria-hidden />
 
-                    <div className={s.glass}>
-                        <div className={s.sweep} aria-hidden />
-
-                        <div className={s.screen}>
-                            <header className={operation.coverImage ? s.head : `${s.head} ${s.headSolo}`}>
-                                <div>
-                                    <p className={s.ref}>
-                                        {refLine ? <span className={s.refLit}>{refLine}</span> : null}
-                                        {refLine && operation.status ? ' // ' : ''}
-                                        {operation.status}
-                                    </p>
-                                    <h1 className={s.title}>{operation.title || 'Untitled Operation'}</h1>
-                                </div>
-
-                                {operation.coverImage && (
-                                    <figure className={s.feed}>
-                                        <img className={s.feedImg} src={operation.coverImage} alt='' />
-                                        <figcaption className={s.feedCap}>
-                                            <span>{'Feed 01 // '}{operation.mapWorld || 'AO'}</span>
-                                            <span className={s.feedRec}>● REC</span>
-                                        </figcaption>
-                                    </figure>
-                                )}
-                            </header>
-
-                            <dl className={s.gauges}>
-                                {operation.date && (
-                                    <div className={s.gauge}>
-                                        <dt className={s.gaugeKey}>Step off</dt>
-                                        <dd className={s.gaugeVal}><LocalDate iso={new Date(operation.date).toISOString()} /></dd>
-                                    </div>
-                                )}
-                                {loreDate?.isValid() && (
-                                    <div className={s.gauge}>
-                                        <dt className={s.gaugeKey}>In-game</dt>
-                                        <dd className={s.gaugeVal}>{loreDate.format('DD MMM YYYY').toUpperCase()}</dd>
-                                    </div>
-                                )}
-                                {operation.mapWorld && (
-                                    <div className={s.gauge}>
-                                        <dt className={s.gaugeKey}>Map</dt>
-                                        <dd className={s.gaugeVal}>{operation.mapWorld.toUpperCase()}</dd>
-                                    </div>
-                                )}
-                                {attendance.seats > 0 && (
-                                    <div className={s.gauge}>
-                                        <dt className={s.gaugeKey}>Positions</dt>
-                                        <dd className={s.gaugeVal}>{attendance.filled} / {attendance.seats}</dd>
-                                        <SeatBar filled={attendance.filled} seats={attendance.seats} />
-                                    </div>
-                                )}
-                                <ConsoleRsvp operationId={id} rsvpOpen={attendance.rsvpOpen} />
-                            </dl>
-
-                            {(showAcknowledgeCard || isLoggedIn) && (
-                                <div className={s.calls}>
-                                    {showAcknowledgeCard && (
-                                        <a className={s.alert} href='#acknowledge'>
-                                            <span>
-                                                <span className={s.alertKey}>Acknowledgement outstanding</span>
-                                                <span className={s.alertSub}>These orders are not yet signed</span>
-                                            </span>
-                                            <span className={s.btnRed}>Sign</span>
-                                        </a>
-                                    )}
-                                    {isLoggedIn && (
-                                        <Link className={s.muster} href={attendanceHref}>
-                                            <span>
-                                                <span className={s.musterKey}>{postingLine(attendance)}</span>
-                                                <span className={s.musterSub}>{seatLine(attendance)}</span>
-                                            </span>
-                                            <span className={s.btnGo}>Muster board →</span>
-                                        </Link>
-                                    )}
-                                </div>
-                            )}
-
-                            <div className={s.body}>
-                                <ConsoleRail
-                                    operationId={id}
-                                    documents={documents}
-                                    activeDocument={activeDocument}
-                                    sections={onContent ? readable.map(sec => ({ id: sec.id, title: sec.title })) : []}
-                                    fromJ2={fromJ2}
-                                />
-
-                                {!onContent ? (
-                                    /* Staff instruments, not orders. They keep the dark chrome they
-                                       wear everywhere else — the glass behind them is dark, so they
-                                       need nothing from this theme but room. */
-                                    <div className={s.panel}>
-                                        {activeDocument === OCAP && hasOcap && (
-                                            <>
-                                                {isHQ && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}
-                                                {isLoggedIn && !!operation.ocap?.playerStats?.length && (
-                                                    <OcapStatsPanel
-                                                        ocap={operation.ocap}
-                                                        themeColor={operation.themeColor || '#db001d'}
-                                                        r={219} g={0} b={29}
-                                                        pageTheme='modern'
-                                                        operationId={id}
-                                                    />
-                                                )}
-                                            </>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <article className={s.sheet}>
-                                        <div className={s.sheetTop}>
-                                            <span>{documentTitle}</span>
-                                            <span><span className={s.sheetTopLit}>Secret</span>{' // ASOT eyes only'}</span>
-                                        </div>
-
-                                        <div className={s.sheetBody}>
-                                            {rawSections.length > 0 ? (
-                                                rawSections.map((sec, i) => {
-                                                    const visible = isLoggedIn || sec.isPublic
-                                                    return (
-                                                        <section
-                                                            key={sec.id}
-                                                            id={visible ? `section-${sec.id}` : undefined}
-                                                            data-print-section={visible ? true : undefined}
-                                                            className={s.para}
-                                                        >
-                                                            <div className={s.paraHead}>
-                                                                <span className={s.paraNum}>{String(i + 1).padStart(2, '0')}</span>
-                                                                <h2 className={s.paraTitle}>{visible ? sec.title : 'Withheld'}</h2>
-                                                                {isLoggedIn && !sec.isPublic && (
-                                                                    <span className={s.paraTag}>Classified</span>
-                                                                )}
-                                                            </div>
-
-                                                            {visible
-                                                                ? <DocBody content={sec.content ?? null} themeColor={operation.themeColor || '#db001d'} />
-                                                                : <Encrypted />}
-                                                        </section>
-                                                    )
-                                                })
-                                            ) : operation.content ? (
-                                                <section className={s.para} data-print-section>
-                                                    <div className={s.paraHead}>
-                                                        <span className={s.paraNum}>01</span>
-                                                        <h2 className={s.paraTitle}>Operation Orders</h2>
-                                                    </div>
-                                                    <DocBody content={operation.content} themeColor={operation.themeColor || '#db001d'} />
-                                                </section>
-                                            ) : (
-                                                <p className={s.empty}>No orders have been written yet.</p>
-                                            )}
-
-                                            {showAcknowledgeCard && (
-                                                <div id='acknowledge'>
-                                                    <DocAcknowledgeCard operationId={id} pageId='main' />
-                                                </div>
-                                            )}
-                                        </div>
-                                    </article>
-                                )}
-                            </div>
-
-                            <div className={s.foot}>
-                                <span>{operation.department || 'ASOT'}{' // '}{documentTitle}</span>
-                                <span>
-                                    {isLoggedIn
-                                        ? `${attendance.attending} attending`
-                                        : <Link className={s.footLink} href={`/login?returnTo=/operations/${id}` as Route}>Log in to decrypt the withheld paragraphs</Link>}
-                                </span>
-                            </div>
+                <div className={s.screen}>
+                    <header className={operation.coverImage ? s.head : `${s.head} ${s.headSolo}`}>
+                        <div>
+                            <p className={s.ref}>
+                                {refLine ? <span className={s.refLit}>{refLine}</span> : null}
+                                {refLine && operation.status ? ' // ' : ''}
+                                {operation.status}
+                            </p>
+                            <h1 className={s.title}>{operation.title || 'Untitled Operation'}</h1>
                         </div>
+
+                        {operation.coverImage && (
+                            <figure className={s.feed}>
+                                <img className={s.feedImg} src={operation.coverImage} alt='' />
+                                <figcaption className={s.feedCap}>
+                                    <span>{'Feed 01 // '}{operation.mapWorld || 'AO'}</span>
+                                    <span className={s.feedRec}>● REC</span>
+                                </figcaption>
+                            </figure>
+                        )}
+                    </header>
+
+                    <dl className={s.gauges}>
+                        {operation.date && (
+                            <div className={s.gauge}>
+                                <dt className={s.gaugeKey}>Step off</dt>
+                                <dd className={s.gaugeVal}><LocalDate iso={new Date(operation.date).toISOString()} /></dd>
+                            </div>
+                        )}
+                        {loreDate?.isValid() && (
+                            <div className={s.gauge}>
+                                <dt className={s.gaugeKey}>In-game</dt>
+                                <dd className={s.gaugeVal}>{loreDate.format('DD MMM YYYY').toUpperCase()}</dd>
+                            </div>
+                        )}
+                        {operation.mapWorld && (
+                            <div className={s.gauge}>
+                                <dt className={s.gaugeKey}>Map</dt>
+                                <dd className={s.gaugeVal}>{operation.mapWorld.toUpperCase()}</dd>
+                            </div>
+                        )}
+                        {attendance.seats > 0 && (
+                            <div className={s.gauge}>
+                                <dt className={s.gaugeKey}>Positions</dt>
+                                <dd className={s.gaugeVal}>{attendance.filled} / {attendance.seats}</dd>
+                                <SeatBar filled={attendance.filled} seats={attendance.seats} />
+                            </div>
+                        )}
+                        <ConsoleRsvp operationId={id} rsvpOpen={attendance.rsvpOpen} />
+                    </dl>
+
+                    {(showAcknowledgeCard || isLoggedIn) && (
+                        <div className={s.calls}>
+                            {showAcknowledgeCard && (
+                                <a className={s.alert} href='#acknowledge'>
+                                    <span>
+                                        <span className={s.alertKey}>Acknowledgement outstanding</span>
+                                        <span className={s.alertSub}>These orders are not yet signed</span>
+                                    </span>
+                                    <span className={s.btnRed}>Sign</span>
+                                </a>
+                            )}
+                            {isLoggedIn && (
+                                <Link className={s.muster} href={attendanceHref}>
+                                    <span>
+                                        <span className={s.musterKey}>{postingLine(attendance)}</span>
+                                        <span className={s.musterSub}>{seatLine(attendance)}</span>
+                                    </span>
+                                    <span className={s.btnGo}>Muster board →</span>
+                                </Link>
+                            )}
+                        </div>
+                    )}
+
+                    <div className={s.body}>
+                        <ConsoleRail
+                            operationId={id}
+                            documents={documents}
+                            activeDocument={activeDocument}
+                            sections={onContent ? readable.map(sec => ({ id: sec.id, title: sec.title })) : []}
+                            fromJ2={fromJ2}
+                        />
+
+                        {!onContent ? (
+                            /* Staff instruments, not orders. They keep the dark chrome they
+                               wear everywhere else — the glass behind them is dark, so they
+                               need nothing from this theme but room. */
+                            <div className={s.panel}>
+                                {activeDocument === OCAP && hasOcap && (
+                                    <>
+                                        {isHQ && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}
+                                        {isLoggedIn && !!operation.ocap?.playerStats?.length && (
+                                            <OcapStatsPanel
+                                                ocap={operation.ocap}
+                                                themeColor={operation.themeColor || '#db001d'}
+                                                r={219} g={0} b={29}
+                                                pageTheme='modern'
+                                                operationId={id}
+                                            />
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        ) : (
+                            <article className={s.sheet}>
+                                <div className={s.sheetTop}>
+                                    <span>{documentTitle}</span>
+                                    <span><span className={s.sheetTopLit}>Secret</span>{' // ASOT eyes only'}</span>
+                                </div>
+
+                                <div className={s.sheetBody}>
+                                    {rawSections.length > 0 ? (
+                                        rawSections.map((sec, i) => {
+                                            const visible = isLoggedIn || sec.isPublic
+                                            return (
+                                                <section
+                                                    key={sec.id}
+                                                    id={visible ? `section-${sec.id}` : undefined}
+                                                    data-print-section={visible ? true : undefined}
+                                                    className={s.para}
+                                                >
+                                                    <div className={s.paraHead}>
+                                                        <span className={s.paraNum}>{String(i + 1).padStart(2, '0')}</span>
+                                                        <h2 className={s.paraTitle}>{visible ? sec.title : 'Withheld'}</h2>
+                                                        {isLoggedIn && !sec.isPublic && (
+                                                            <span className={s.paraTag}>Classified</span>
+                                                        )}
+                                                    </div>
+
+                                                    {visible
+                                                        ? <DocBody content={sec.content ?? null} themeColor={operation.themeColor || '#db001d'} />
+                                                        : <Encrypted />}
+                                                </section>
+                                            )
+                                        })
+                                    ) : operation.content ? (
+                                        <section className={s.para} data-print-section>
+                                            <div className={s.paraHead}>
+                                                <span className={s.paraNum}>01</span>
+                                                <h2 className={s.paraTitle}>Operation Orders</h2>
+                                            </div>
+                                            <DocBody content={operation.content} themeColor={operation.themeColor || '#db001d'} />
+                                        </section>
+                                    ) : (
+                                        <p className={s.empty}>No orders have been written yet.</p>
+                                    )}
+
+                                    {showAcknowledgeCard && (
+                                        <div id='acknowledge'>
+                                            <DocAcknowledgeCard operationId={id} pageId='main' />
+                                        </div>
+                                    )}
+                                </div>
+                            </article>
+                        )}
+                    </div>
+
+                    <div className={s.foot}>
+                        <span>{operation.department || 'ASOT'}{' // '}{documentTitle}</span>
+                        <span>
+                            {isLoggedIn
+                                ? `${attendance.attending} attending`
+                                : <Link className={s.footLink} href={`/login?returnTo=/operations/${id}` as Route}>Log in to decrypt the withheld paragraphs</Link>}
+                        </span>
                     </div>
                 </div>
             </div>
