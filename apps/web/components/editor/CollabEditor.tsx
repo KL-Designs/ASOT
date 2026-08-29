@@ -1216,6 +1216,18 @@ function PortalMenu({ open, onClose, triggerRef, align = 'left', minWidth, child
     return createPortal(
         <div
             ref={menuRef}
+            /*
+             * `.command` because this renders into `document.body`, outside the
+             * editor and therefore outside the element that declares the
+             * palette. Without it every `var(--s2)` / `var(--ink-2)` / `var(--r)`
+             * in here and in `children` resolves to nothing: the menu came out
+             * with no background at all and its options in the browser's default
+             * ink, over whatever the page happened to have behind it.
+             *
+             * The class carries nothing but custom properties, so wearing it is
+             * exactly the token scope and no styling of its own.
+             */
+            className='command'
             onMouseDown={e => e.stopPropagation()}
             style={{
                 position: 'fixed',

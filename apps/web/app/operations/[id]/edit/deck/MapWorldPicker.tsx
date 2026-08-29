@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 // ─── Popular Arma 3 maps (shown when not in maps system) ─────────────────────
 
@@ -24,6 +25,11 @@ const POPULAR_MAPS: { name: string; displayName: string }[] = [
     { name: 'desert_e', displayName: 'Desert (IRL)' },
 ]
 
+/** The menu's own box. Fixed rather than min-width because the placement maths
+ *  below has to know how wide it is before it is on screen. */
+const MENU_W = 260
+const MENU_MAX_H = 380
+
 // ─── Map World Picker ─────────────────────────────────────────────────────────
 // Extracted verbatim from page.tsx (Task 11) — same behaviour, same styling,
 // just its own file so DetailsCard can import it instead of page.tsx
@@ -45,7 +51,10 @@ export default function MapWorldPicker({
     const [customValue, setCustomValue] = useState('')
     const [showCustom, setShowCustom] = useState(false)
     const ref = useRef<HTMLDivElement>(null)
+    const triggerRef = useRef<HTMLButtonElement>(null)
+    const menuRef = useRef<HTMLDivElement>(null)
     const searchRef = useRef<HTMLInputElement>(null)
+    const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
     const selected = worlds.find(w => w.name === value)
         ?? POPULAR_MAPS.find(m => m.name === value)
@@ -58,9 +67,47 @@ export default function MapWorldPicker({
 
     useEffect(() => {
         if (!open) return
-        const close = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false) }
+        const close = (e: MouseEvent) => {
+            const t = e.target as Node
+            // The menu is portalled to <body>, so it is not inside `ref` any
+            // more and has to be asked separately or every click in it closes.
+            if (ref.current?.contains(t) || menuRef.current?.contains(t)) return
+            setOpen(false)
+        }
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
+    }, [open])
+
+    /*
+     * The menu is wider than its trigger and the trigger lives in a narrow
+     * scrolling rail, so opening it used to widen the deck and push the whole
+     * card left. It is portalled to <body> and positioned in viewport
+     * coordinates instead: nothing in the rail can clip it, and it opens
+     * *leftwards* — its right edge meets the trigger's — so the extra width
+     * falls over the page rather than off the side of the panel.
+     */
+    useEffect(() => {
+        if (!open) { setPos(null); return }
+
+        const place = () => {
+            const r = triggerRef.current?.getBoundingClientRect()
+            if (!r) return
+            const left = Math.max(8, Math.min(r.right - MENU_W, window.innerWidth - MENU_W - 8))
+            const below = r.bottom + 4
+            const top = below + MENU_MAX_H > window.innerHeight
+                ? Math.max(8, window.innerHeight - MENU_MAX_H - 8)
+                : below
+            setPos({ top, left })
+        }
+
+        place()
+        // `true` so it also fires for the rail's own scroller, not just the window.
+        window.addEventListener('scroll', place, true)
+        window.addEventListener('resize', place)
+        return () => {
+            window.removeEventListener('scroll', place, true)
+            window.removeEventListener('resize', place)
+        }
     }, [open])
 
     // Merge maps-system worlds with popular maps (deduplicate by name)
@@ -112,6 +159,7 @@ export default function MapWorldPicker({
     return (
         <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
             <button
+                ref={triggerRef}
                 type='button'
                 onClick={() => setOpen(v => !v)}
                 style={{
@@ -131,11 +179,15 @@ export default function MapWorldPicker({
                 <span style={{ fontSize: '0.6rem', opacity: 0.4 }}>▾</span>
             </button>
 
-            {open && (
-                <div style={{
-                    position: 'absolute', top: '100%', left: 0, marginTop: 4, zIndex: 400,
+            {open && createPortal(
+                <div ref={menuRef} style={{
+                    position: 'fixed',
+                    top: pos ? pos.top : -9999,
+                    left: pos ? pos.left : -9999,
+                    visibility: pos ? 'visible' : 'hidden',
+                    zIndex: 10000,
                     background: 'rgb(14,14,14)', border: '1px solid rgba(255,255,255,0.12)',
-                    minWidth: 260, maxHeight: 380,
+                    width: MENU_W, maxHeight: MENU_MAX_H,
                     boxShadow: '0 8px 24px rgba(0,0,0,0.7)',
                     display: 'flex', flexDirection: 'column',
                 }}>
@@ -209,7 +261,8 @@ export default function MapWorldPicker({
                             <div style={{ padding: '16px', textAlign: 'center', fontSize: '0.72rem', color: 'rgba(237,237,237,0.2)', fontStyle: 'italic' }}>No maps matching "{search}"</div>
                         )}
                     </div>
-                </div>
+                </div>,
+                document.body,
             )}
         </div>
     )
