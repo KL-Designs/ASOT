@@ -1148,6 +1148,455 @@
     min-width: 120px;
 }
 
+/* ---------- submit page ---------------------------------------------------- */
+
+/*
+   No banner here — the page this feeds isn't being browsed, it's a form, and
+   a 300px hero over a form reads as padding before the point. The kicker/h2/
+   lede trio from ui.module.css does the same job at a fifth of the height.
+*/
+.subPage {
+    background: var(--ink-0);
+    min-height: 100vh;
+    padding-bottom: 80px;
+}
+
+.subShell {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px var(--pad) 0;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.subHead {
+    margin-bottom: 4px;
+}
+
+.subHead h1 {
+    margin-top: 10px;
+}
+
+.subDefaults {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    padding: 18px 20px;
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+}
+
+.subField {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 200px;
+}
+
+.subField:last-child {
+    flex: 1;
+}
+
+.subFieldLabel {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+/* ---------- dropzone -------------------------------------------------- */
+
+.dropzone {
+    border: 1px dashed var(--line-2);
+    background: var(--ink-1);
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .16s, background .16s;
+}
+
+.dropzone:hover,
+.dropzoneOver {
+    border-color: var(--red-dim);
+    background: rgba(224, 35, 60, .06);
+}
+
+.dropzoneText {
+    font-family: var(--font-disp);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+}
+
+.dropzoneSub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.embedRow {
+    display: flex;
+    gap: 10px;
+}
+
+.embedInput {
+    flex: 1;
+    height: 40px;
+    padding: 0 14px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    border-radius: 2px;
+    font-size: 13.5px;
+    font-family: var(--font-ui);
+    color: var(--txt-1);
+    outline: none;
+    transition: border-color .16s, background .16s;
+}
+
+.embedInput::placeholder {
+    color: var(--txt-3);
+}
+
+.embedInput:focus {
+    border-color: var(--red);
+    background: var(--ink-3);
+}
+
+.embedError {
+    margin: -12px 0 0;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    color: var(--red-hi);
+}
+
+/* ---------- rejected files ---------------------------------------------- */
+
+.rejects {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--line-1);
+    border: 1px solid var(--line-1);
+}
+
+.rejectRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--ink-1);
+}
+
+.rejectName {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--txt-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.rejectReason {
+    flex: 1;
+    font-size: 12.5px;
+    color: var(--red-hi);
+}
+
+.rejectRow button {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: none;
+    border: 0;
+    color: var(--txt-3);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    transition: color .14s;
+}
+
+.rejectRow button:hover {
+    color: var(--red);
+}
+
+/* ---------- item cards --------------------------------------------------- */
+
+.itemsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.itemCard {
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    display: flex;
+    flex-direction: column;
+}
+
+.itemThumb {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: var(--ink-2);
+    overflow: hidden;
+}
+
+.itemThumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.itemThumbMark {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.itemDuration {
+    position: absolute;
+    right: 7px;
+    bottom: 7px;
+    padding: 2px 6px;
+    background: rgba(6, 7, 9, .82);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .08em;
+    color: var(--txt-1);
+    border-radius: 2px;
+}
+
+.itemRemove {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    background: rgba(6, 7, 9, .78);
+    border: 1px solid var(--line-2);
+    color: var(--txt-2);
+    font-size: 15px;
+    line-height: 1;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: color .14s, border-color .14s;
+}
+
+.itemRemove:hover {
+    color: #fff;
+    border-color: var(--red);
+}
+
+.itemBody {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.itemCaption {
+    resize: none;
+    height: 52px;
+    padding: 8px 10px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    border-radius: 2px;
+    font-size: 12.5px;
+    font-family: var(--font-ui);
+    color: var(--txt-1);
+    outline: none;
+    transition: border-color .16s;
+}
+
+.itemCaption::placeholder {
+    color: var(--txt-3);
+}
+
+.itemCaption:focus {
+    border-color: var(--red);
+}
+
+.itemCaptionRo {
+    font-size: 12.5px;
+    color: var(--txt-2);
+    line-height: 1.4;
+    min-height: 18px;
+}
+
+.itemTags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tagChip {
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 2px;
+    border: 1px solid var(--line-2);
+    background: var(--ink-2);
+    color: var(--txt-3);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    transition: border-color .14s, color .14s, background .14s;
+    cursor: pointer;
+}
+
+.tagChip:hover {
+    color: var(--txt-1);
+}
+
+.tagChipOn {
+    background: rgba(224, 35, 60, .1);
+    border-color: var(--red-dim);
+    color: var(--red-hi);
+}
+
+.itemOpSelect {
+    height: 34px;
+    padding: 0 10px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+    outline: none;
+    cursor: pointer;
+}
+
+/* ---------- upload progress ----------------------------------------------- */
+
+.bar {
+    height: 4px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    overflow: hidden;
+}
+
+.barFill {
+    height: 100%;
+    background: var(--red);
+    transition: width .2s var(--nav-ease);
+}
+
+.rowState {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.rowStateProgress {
+    color: var(--txt-2);
+}
+
+.rowStateOk {
+    color: var(--live);
+}
+
+.rowStateWarn {
+    color: var(--amber);
+}
+
+.rowStateError {
+    color: var(--red-hi);
+}
+
+.retryBtn {
+    padding: 3px 9px;
+    border: 1px solid var(--red-dim);
+    background: rgba(224, 35, 60, .1);
+    color: var(--red-hi);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background .14s;
+}
+
+.retryBtn:hover {
+    background: rgba(224, 35, 60, .2);
+}
+
+/* ---------- submit bar / done -------------------------------------------- */
+
+.submitBar {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 20px;
+    background: rgba(8, 9, 10, .94);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--line-1);
+}
+
+.submitCount {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    color: var(--txt-2);
+    text-transform: uppercase;
+}
+
+.doneCard {
+    border: 1px solid var(--line-2);
+    border-top: 2px solid var(--live);
+    background: var(--ink-1);
+    padding: 40px 36px;
+    text-align: center;
+}
+
+.doneText {
+    color: var(--txt-2);
+    font-size: 14.5px;
+    margin: 14px 0 26px;
+}
+
+.doneActions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 /* ---------- responsive ---------------------------------------------------- */
 
 @media (max-width: 1240px) {
