@@ -41,11 +41,23 @@ async function twitchHelixThumbnail(media: GalleryMedia): Promise<Buffer | null>
     if (!id || !secret || !media.embedId) return null
 
     try {
-        const tokenRes = await fetch(
-            `https://id.twitch.tv/oauth2/token?client_id=${id}&client_secret=${secret}&grant_type=client_credentials`,
-            { method: 'POST' },
-        )
-        if (!tokenRes.ok) return null
+        /* Credentials in the body, never the query string. A URL is logged by the
+           service receiving it, by any proxy in between and by APM tooling, and TLS
+           does not change that — which is why OAuth2 puts client credentials in the
+           body or an Authorization header. */
+        const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: id,
+                client_secret: secret,
+                grant_type: 'client_credentials',
+            }),
+        })
+        if (!tokenRes.ok) {
+            console.warn(`[gallery/poster] Twitch token request failed: ${tokenRes.status}`)
+            return null
+        }
         const { access_token } = await tokenRes.json()
 
         const endpoint = media.embedKind === 'clip'
@@ -53,14 +65,18 @@ async function twitchHelixThumbnail(media: GalleryMedia): Promise<Buffer | null>
             : `https://api.twitch.tv/helix/videos?id=${media.embedId}`
 
         const res = await fetch(endpoint, { headers: { 'Client-Id': id, Authorization: `Bearer ${access_token}` } })
-        if (!res.ok) return null
+        if (!res.ok) {
+            console.warn(`[gallery/poster] Twitch Helix request failed: ${res.status}`)
+            return null
+        }
 
         const url: string | undefined = (await res.json()).data?.[0]?.thumbnail_url
         if (!url) return null
 
         // Helix returns a template with %{width} placeholders on videos.
         return await firstOk([url.replace('%{width}', '1280').replace('%{height}', '720')])
-    } catch {
+    } catch (err) {
+        console.warn('[gallery/poster] Twitch thumbnail fetch threw:', err)
         return null
     }
 }
