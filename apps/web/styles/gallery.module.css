@@ -1597,6 +1597,113 @@
     flex-wrap: wrap;
 }
 
+/* ---------- vote ------------------------------------------------------------ */
+
+/*
+   Two buttons and a proportion bar, not a single score — "63% liked this"
+   only means something alongside how many votes that is, so the count stays
+   on the buttons rather than being folded into one number.
+
+   Buttons carry no class of their own when at rest, so their base look comes
+   from the `.vote button` descendant selector rather than a class every button
+   would otherwise need. `.voteOn` is the button's *only* class when pressed
+   (VoteBar swaps rather than appends), so `.vote button.voteOn` — not a bare
+   `.voteOn` — is what it takes to outrank `.vote button` on the properties
+   both set; a bare class selector loses to that combination regardless of
+   which rule comes later in the file.
+*/
+.vote {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.vote button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    background: none;
+    color: var(--txt-3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .14s, color .14s, background .14s;
+    cursor: pointer;
+}
+
+.vote button svg {
+    width: 12px;
+    height: 12px;
+    flex: none;
+}
+
+.vote button:hover {
+    color: var(--txt-1);
+    border-color: var(--txt-3);
+}
+
+.vote button.voteOn {
+    border-color: var(--red);
+    color: var(--red-hi);
+    background: rgba(224, 35, 60, .1);
+}
+
+/* The share of up to (up + down). An item nobody has voted on renders none of
+   this — see VoteBar's `total > 0` guard — because an empty track reads as
+   "0% liked" rather than as "no votes yet", and those are different claims. */
+.voteBar {
+    width: 46px;
+    height: 4px;
+    flex: none;
+    border: 1px solid var(--line-1);
+    background: var(--ink-2);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.voteBarFill {
+    height: 100%;
+    background: var(--live);
+    transition: width .2s var(--nav-ease);
+}
+
+.voteN {
+    color: var(--txt-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.voteHint {
+    color: var(--red-hi);
+    white-space: nowrap;
+}
+
+/* The same control shrunk to sit on a tile overlay, where there's no room for
+   26px buttons. Sizing only — the pressed/hover rules above still apply. */
+.voteCompact {
+    gap: 5px;
+}
+
+.voteCompact button {
+    height: 20px;
+    padding: 0 6px;
+    font-size: 10px;
+}
+
+.voteCompact button svg {
+    width: 10px;
+    height: 10px;
+}
+
+.voteCompact .voteBar {
+    width: 30px;
+}
+
 /* ---------- responsive ---------------------------------------------------- */
 
 @media (max-width: 1240px) {
