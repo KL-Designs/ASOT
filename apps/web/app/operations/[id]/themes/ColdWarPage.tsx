@@ -102,7 +102,7 @@ const PAPER_CHROME: Record<string, string> = {
  *   detailed to. Live controls in the period's shape.
  */
 export default function ColdWarPage({
-    id, operation, isLoggedIn, isHQ, canZeus, showAcknowledgeCard,
+    id, operation, isLoggedIn, isHQ, canZeus, canOcapManage, access, showAcknowledgeCard,
     activePageParam, fromJ2, attendance, lineage,
 }: ModernPageProps) {
     /*
@@ -169,7 +169,7 @@ export default function ColdWarPage({
                 themeColor={operation.themeColor}
                 active='orders'
                 canEdit={isHQ}
-                signedIn={isLoggedIn}
+                access={access}
                 fromJ2={fromJ2}
                 palette={PAPER_CHROME}
             />
@@ -191,7 +191,7 @@ export default function ColdWarPage({
                         <div className={s.panel}>
                             {activeDocument === OCAP && hasOcap && (
                                 <>
-                                    {isHQ && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}
+                                    {canOcapManage && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}
                                     {isLoggedIn && !!operation.ocap?.playerStats?.length && (
                                         <OcapStatsPanel
                                             ocap={operation.ocap}

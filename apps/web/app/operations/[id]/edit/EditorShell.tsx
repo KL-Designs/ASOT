@@ -115,7 +115,13 @@ export function useEditorTab(): [OperationTab, (t: OperationTab) => boolean] {
 interface EditorShellProps {
     operationId: string
     themeColor: string
+    /** `operations.orders.view` — inside the editor this is always true; it
+     *  still gates the Attendance panel's *content*, see below. */
     isHQ: boolean
+    /** `operations.schedule.view` — whether the Schedule tab is offered. */
+    canSchedule?: boolean
+    /** `attendance.view` — whether the Attendance tab is offered. */
+    canAttendance?: boolean
     tab: OperationTab
     onTabChange: (t: OperationTab) => boolean
     header: ReactNode
@@ -145,10 +151,19 @@ interface EditorShellProps {
 }
 
 export default function EditorShell({
-    operationId, themeColor, isHQ, tab, onTabChange, header, deck, statusBar,
-    brief, map, schedule, attendance, contentPaddingRight,
+    operationId, themeColor, isHQ, canSchedule, canAttendance, tab, onTabChange,
+    header, deck, statusBar, brief, map, schedule, attendance, contentPaddingRight,
 }: EditorShellProps) {
-    const shown = visibleTabs(isHQ)
+    /* Inside the editor, so `orders.view` is already established. The other
+       two are asked for separately — a reviewer who can open the orders does
+       not automatically get the Schedule. */
+    const shown = visibleTabs({
+        // Defaulted to `isHQ` so a caller that has not been taught the new
+        // capabilities yet behaves exactly as it did — the editor was gated on
+        // one role, and everyone inside it had all four tabs.
+        schedule: canSchedule ?? isHQ,
+        attendance: canAttendance ?? isHQ,
+    })
     // A tab that isn't in the visible set — a non-HQ user deep-linking
     // ?tab=attendance, or a stale value from before a role change — must not
     // be selected: that renders nothing (no placeholder, no content) with no

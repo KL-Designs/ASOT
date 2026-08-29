@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { rgbTriplet } from '@/lib/colour'
 import OperationTabs from './OperationTabs'
-import type { OperationTab } from './tabs'
+import type { OperationTab, TabAccess } from './tabs'
 
 interface Props {
     operationId: string
@@ -11,8 +11,8 @@ interface Props {
     themeColor?: string
     active: OperationTab
     canEdit: boolean
-    /** Signed in at all — enough for the Attendance tab, not for the rest. */
-    signedIn?: boolean
+    /** Which tabs this viewer gets, one capability each. */
+    access?: TabAccess
     /** True on the editor's own route — the Orders menu then ticks Edit. */
     editing?: boolean
     /** Came in from the J2 operations tab; the back link should go back there. */
@@ -54,7 +54,7 @@ const STATUS_COLOR: Record<string, string> = {
  * two lists that drift.
  */
 export default function OperationBar({
-    operationId, title, status, themeColor, active, canEdit, signedIn = false, editing = false, fromJ2 = false,
+    operationId, title, status, themeColor, active, canEdit, access, editing = false, fromJ2 = false,
     palette,
 }: Props) {
     const accent = themeColor || '#db001d'
@@ -129,7 +129,7 @@ export default function OperationBar({
                 operationId={operationId}
                 active={active}
                 canEdit={canEdit}
-                signedIn={signedIn}
+                access={access}
                 editing={editing}
             />
 

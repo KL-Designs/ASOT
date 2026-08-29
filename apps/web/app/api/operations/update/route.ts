@@ -5,6 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { logAction } from '@/lib/logs'
+import { can } from '@/lib/operations/permissions'
 
 
 export async function GET(request: NextRequest) {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     try {
         const me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.operations.write)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+        if (!(await can(me, 'orders.details'))) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
         const isJ2LeadOrJ4 = (await hasPermission(me, 'departmentLeads.j2'))
             || client.hasRoles(me, PERMISSIONS.members.editRestricted)
@@ -75,8 +76,7 @@ export async function GET(request: NextRequest) {
             // HQ Staff and the J2 Department Leader working from the moment
             // this deploys; the `hasPermission` arm is how the key is meant to
             // be granted going forward.
-            const canOverride = (await hasPermission(me, 'operations.overrideLifecycle'))
-                || client.hasRoles(me, PERMISSIONS.operations.overrideLifecycle)
+            const canOverride = await can(me, 'schedule.override')
             if (!canOverride) {
                 return NextResponse.json({ error: 'Forbidden: lifecycle override required' }, { status: 403 })
             }

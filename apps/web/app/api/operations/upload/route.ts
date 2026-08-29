@@ -5,6 +5,7 @@ import crypto from 'crypto'
 import fs from 'fs'
 
 import { OPERATION_PRESET, normaliseImage } from '@/lib/uploads/image'
+import { can } from '@/lib/operations/permissions'
 
 const ALLOWED_EXT = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp'])
 
@@ -22,7 +23,7 @@ function isAllowedImage(buffer: Buffer): boolean {
 export async function POST(req: Request) {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!client.hasRoles(me, PERMISSIONS.operations.write)) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    if (!(await can(me, 'orders.details'))) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
 
     const formData = await req.formData()
     const file = formData.get('file') as File | null

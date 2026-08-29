@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { hasPermission } from '@/lib/orbat/hasPermission'
+import { can } from '@/lib/operations/permissions'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await client.updateRoles()
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Verify caller is a section leader, HQ, or All Staff
     const orbatPos = await Db.orbatPositions.findOne({ userId: me.id })
     const isHQ = client.hasRoles(me, ['HQ Staff'])
-    const isAllStaff = await hasPermission(me, 'attendance.confirm')
+    const isAllStaff = await can(me, 'attendance.confirm')
     if (!orbatPos?.isSenior && !isAllStaff) {
         return NextResponse.json({ error: 'Only section leaders or staff can confirm attendance' }, { status: 403 })
     }

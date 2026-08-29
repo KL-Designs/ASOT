@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { decodeMissionName, formatDuration } from '@/lib/ocap'
+import { can } from '@/lib/operations/permissions'
 
 export interface OcapRecording {
     id: number
@@ -20,7 +21,7 @@ export interface OcapRecording {
 export async function GET() {
     try {
         const me = await client.fetchMe()
-        const isHQ = await client.hasRoles(me, PERMISSIONS.pages.operationsEdit)
+        const isHQ = await can(me, 'ocap.manage')
         if (!isHQ) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     } catch {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

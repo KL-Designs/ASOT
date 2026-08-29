@@ -111,7 +111,7 @@ async function flushActivity(documentName, document) {
 // We don't call server.listen() — connections are fed in via the upgrade hook.
 
 const collab = new Hocuspocus({
-    async onAuthenticate({ token, documentName }) {
+    async onAuthenticate({ token, documentName, connection }) {
         // Auth callback hits our own Next.js API over loopback; pass documentName so
         // the route can apply different permission checks (e.g. sop-* docs allow all members)
         const res = await fetch(`http://localhost:${port}/api/auth/collab?doc=${encodeURIComponent(documentName ?? '')}`, {
@@ -122,7 +122,17 @@ const collab = new Hocuspocus({
             console.log(`[collab] AUTH DENIED  token=${token?.slice(0, 8)}…`)
             throw new Error('Unauthorized')
         }
-        console.log(`[collab] AUTH OK      token=${token?.slice(0, 8)}…  user=${json.userName}`)
+        /*
+         * Read access and write access are two answers, and the route gives
+         * both. Somebody holding `operations.orders.view` without
+         * `operations.orders.write` connects, loads the document and sees other
+         * people's edits arrive — and anything they type is dropped here rather
+         * than politely hidden in their browser. The socket is the boundary; a
+         * disabled toolbar is a courtesy.
+         */
+        if (json.readOnly) connection.readOnly = true
+
+        console.log(`[collab] AUTH OK      token=${token?.slice(0, 8)}…  user=${json.userName}${json.readOnly ? '  (read-only)' : ''}`)
         return { userId: json.userId, userName: json.userName, userAvatar: json.userAvatar }
     },
 

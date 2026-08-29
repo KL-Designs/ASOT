@@ -7,6 +7,7 @@ import { chain } from 'stream-chain'
 import { parser } from 'stream-json'
 import pick from 'stream-json/filters/pick.js'
 import streamArray from 'stream-json/streamers/stream-array.js'
+import { can } from '@/lib/operations/permissions'
 
 export const maxDuration = 120
 
@@ -15,7 +16,7 @@ export const maxDuration = 120
 export async function GET(req: NextRequest) {
     try {
         const me = await client.fetchMe()
-        const isHQ = await client.hasRoles(me, PERMISSIONS.pages.operationsEdit)
+        const isHQ = await can(me, 'ocap.manage')
         if (!isHQ) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     } catch {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

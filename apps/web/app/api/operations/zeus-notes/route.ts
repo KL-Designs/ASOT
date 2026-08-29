@@ -3,12 +3,13 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { can } from '@/lib/operations/permissions'
 
 /** GET — return recent operations (title, date, status, zeusNotes) for the J6 notes tab */
 export async function GET(request: NextRequest) {
     try {
         const me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.departments.j6))
+        if (!(await can(me, 'zeus')))
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     } catch {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.departments.j6)) {
+    if (!(await can(me, 'zeus'))) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

@@ -5,6 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { createNotification } from '@/lib/notifications'
+import { can } from '@/lib/operations/permissions'
 
 /** POST /api/operations/[id]/remind — notify All Staff who haven't yet acknowledged orders */
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +14,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     let me: Awaited<ReturnType<typeof client.fetchMe>>
     try {
         me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.operations.write) &&
+        if (!(await can(me, 'schedule.manage')) &&
             !(await hasPermission(me, 'departmentLeads.j2'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }

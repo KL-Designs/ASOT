@@ -5,6 +5,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { createNotificationForRole } from '@/lib/notifications'
 import { logAction } from '@/lib/logAction'
+import { can } from '@/lib/operations/permissions'
 
 /** POST /api/operations/[id]/publish — transition status In Development → Upcoming, notify All Staff */
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +14,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     let me: Awaited<ReturnType<typeof client.fetchMe>>
     try {
         me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.operations.write)) {
+        if (!(await can(me, 'orders.write'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     } catch {

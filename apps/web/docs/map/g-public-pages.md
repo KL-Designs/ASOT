@@ -745,10 +745,13 @@ by both. The tab key is `orders`, not `brief`: "Brief" was the editor's name for
 and nobody outside the editor used it. `?tab=brief` and `?tab=development` are aliased for the
 bookmarks already out there.
 
-**Who sees which tab:** Orders and Map are for everyone (both have public routes). Schedule needs
-`pages.operationsEdit`, since its own page redirects anyone else away and offering a door that
-closes in your face is worse than not offering it. **Attendance opens for any signed-in member** —
-`visibleTabs(canEdit, signedIn)` — because the board is how they RSVP and claim a position, and the
+**Who sees which tab:** one capability each, via `lib/operations/permissions.ts` — `visibleTabs()`
+takes a `TabAccess` object rather than the `canEdit` boolean it used to, because that boolean was
+answering four questions at once and there was no way to give somebody the Schedule without also
+giving them the editor. Orders and Map are for everyone (both have public routes and `map.view` is
+a public capability). Schedule needs `operations.schedule.view`, since its own page redirects anyone
+else away and offering a door that closes in your face is worse than not offering it. **Attendance
+opens for any signed-in member** — `attendance.view` has a `'member'` baseline — because the board is how they RSVP and claim a position, and the
 Modern rebuild moved it off the orders page and put a button here in its place. `/attendance` serves
 both audiences from one path: staff get `<EditorPage/>`, a member gets `attendance/MemberBoard.tsx`
 (the same board in read-and-claim mode under the same `OperationBar`, `canManage={false}` by
@@ -869,14 +872,15 @@ touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttenda
   "**Bridge Console**". The orders as a slab of dead-black glass with phosphor burning inside, run to
   all four edges of the window. The whole theme rests on one rule — **the light never leaves the
   screen**: glow lives on text and hairlines, never on a frame or a ground, which is the difference
-  between a CRT and a filter laid over a page. **Two colours, and only one of them is the
-  operation's:** phosphor green is the *tube* — body copy, hairlines, the bloom, the rail — and is
-  fixed, because a tube emits one colour and that is what makes it a tube; the operation's accent is
-  the *signal in it* — the title, every heading, the live gauge, the muster call, the tab underline,
-  the document's `h1` band. Green is the surface, the accent is what is written on it, and red is
-  neither and appears exactly once. The accent arrives normalised to **7:1** on the glass
-  (`readableOn`), not 4.5, because the raster lays a line of black over one row in three and the
-  small tracked labels need the headroom. It began inside a bezel — brushed hull, rounded
+  between a CRT and a filter laid over a page. **The tube is the operation's colour, and so is
+  everything in it.** A monochrome screen: one hue, from the cast in the glass to the hairlines to
+  the body copy, separated by *saturation and brightness* rather than by hue — saturated means "this
+  means something" (title, headings, live gauge, muster call, tab underline, the document's `h1`
+  band), desaturated means "this is text". Built by `lib/operations/console-palette.ts`, which runs
+  every step through `readableOn` against the ground it will sit on; floors sit above AA (tube 7:1,
+  body 7:1, labels 4.5:1) because the raster lays a line of black over one row in three. One lamp is
+  *not* the tube — the alarm on an unsigned order — and it rotates to the operation's complement
+  when red would sit too close to the screen to read as a different thing at all. It began inside a bezel — brushed hull, rounded
   corners, screws in each corner — and the frame lost its argument the moment it was seen at size. A
   bezel is a thing you look *at*; edge to edge the reader is looking *through*. The vignette and the
   raster carry the tube on their own, and the hardware they were framing only cost the document its
