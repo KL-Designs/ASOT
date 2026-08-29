@@ -26,10 +26,14 @@ import s from '@/styles/gallery.module.css'
    no result count anywhere, so you could never tell whether a filter had done
    anything.
 
-   Everything on this page is derived from what storage actually holds. The
-   archive is a tree of years, operations, missions and files and nothing more,
-   so there is no photographer facet, no tags and no likes — the mockup carried
-   all three, and every one of them would have had to be invented.
+   Everything on this page is still derived from what is actually stored and
+   still invents nothing — that hasn't changed. What changed is what "stored"
+   means: the gallery used to be a read of the folder tree on disk, which
+   could hold years, operations, missions and files and nothing else. It now
+   reads the gallery_media index instead, and an author, a caption, tags and
+   a score are exactly the things that tree had nowhere to put — they are not
+   invented, they were just unrepresentable until there was a database under
+   the page.
    ========================================================================== */
 
 /*

@@ -90,11 +90,24 @@ export function sortPhotos(list: Photo[], sort: SortKey): Photo[] {
     const byOp = (a: Photo, b: Photo) =>
         a.opOrder - b.opOrder || (a.opLabel ?? '').localeCompare(b.opLabel ?? '')
 
+    /* Every item in one operation shares a takenAt and an opOrder/opLabel, so
+       byDate and byOp both tie within it — the old tree-walk sort's tiebreak
+       was the filename, which no longer exists on this type. Falling through
+       with nothing after that would leave ordering to Array.sort's stability
+       over whatever order Mongo happened to return documents in: not visibly
+       wrong today, but undefined, and this task's whole claim is that nothing
+       visible changed. `id` restores a deterministic order. It is not a
+       reconstruction of the old filename order — it only happens to land
+       close to it for migrated items, because the migration inserts in the
+       directory-read order the old sort used and ObjectIds are monotonic — so
+       treat it as "stable", not "identical to before". */
+    const byId = (a: Photo, b: Photo) => a.id.localeCompare(b.id)
+
     const out = list.slice()
-    if (sort === 'new') out.sort((a, b) => byDate(a, b, 1) || byOp(a, b))
-    if (sort === 'old') out.sort((a, b) => byDate(a, b, -1) || byOp(a, b))
-    if (sort === 'op') out.sort((a, b) => byOp(a, b) || byDate(a, b, 1))
-    if (sort === 'top') out.sort((a, b) => b.score - a.score || (b.up - b.down) - (a.up - a.down) || byDate(a, b, 1))
+    if (sort === 'new') out.sort((a, b) => byDate(a, b, 1) || byOp(a, b) || byId(a, b))
+    if (sort === 'old') out.sort((a, b) => byDate(a, b, -1) || byOp(a, b) || byId(a, b))
+    if (sort === 'op') out.sort((a, b) => byOp(a, b) || byDate(a, b, 1) || byId(a, b))
+    if (sort === 'top') out.sort((a, b) => b.score - a.score || (b.up - b.down) - (a.up - a.down) || byDate(a, b, 1) || byId(a, b))
     return out
 }
 
