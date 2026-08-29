@@ -771,6 +771,20 @@ the orders page is still a document you scroll to the end of. Deliberately *not*
 header — no save state, no Publish, no delete menu. Those belong to somebody who has opened the editor, and putting them on a page every member
 can read would be showing controls that either do nothing or should not be there.
 
+**The bar has four themeable seams**, all defaulted to what it has always looked like so a theme
+that passes nothing renders identically. `palette` (a `Record<string, string>` of custom-property
+overrides) arrives as *inline* styles because `.command` sits on the bar element itself — an
+ancestor cannot repaint it, it would only be outranked by the class's own declarations. Three are
+consumed by the bar (`--bar-bg`, `--bar-shadow`, `--bar-edge`; `background` is a shorthand, so an
+inline one would blank out any `background-image` a stylesheet tried to add, which is why it is a
+token and not a prop). The fourth, **`--tab-glow`**, is read by `tabs.module.css` on `.tabOn` and
+`.caret` and defaults to `none` — custom properties inherit, so it reaches the strip without that
+file knowing anything about the theme. Sci-Fi is what it exists for: there the active tab's
+underline is a phosphor rule and has to *emit*, not just be coloured. Themes should pass `var(--...)`
+references rather than literals wherever they already have a token, so the theme's own stylesheet
+stays the one place its palette is written down — see `themes/ColdWarPage.tsx` and
+`themes/SciFiPage.tsx`.
+
 `/operations/[id]/map` serves **both audiences from one path**: the editor's Map tab to anyone
 with `pages.operationsEdit`, and the read-only fullscreen viewer to everyone else. Splitting it
 would mean the link people paste to each other only works for half of them.
@@ -799,13 +813,15 @@ touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttenda
 `ModernPageProps`); themes are pure renderers with no `await`, no `Db`, no `fetchMe`.
 
 - **`ClassicPage.tsx`** — the page as it always looked, lifted out unchanged, now serving
-  `oldfashioned` and `scifi` only. Hero banner, `<SectionNav/>`, `<PageNavClient/>`,
+  `oldfashioned` and anything unrecognised (`wwii`, `vietnam`, `fantasy`) only — `scifi` moved to a
+  page of its own. Hero banner, `<SectionNav/>`, `<PageNavClient/>`,
   `<OperationStatusBar/>`, `<PagedView/>` when `operation.pages.length > 1`, framed sections via
   `<DocBody/>`, `<AttendanceDrawer/>` sidebar, the full-width `<AttendanceBoard/>` beneath, Zeus and
   OCAP tabs. Its `isModern` branches are dead (the dispatch never sends Modern here) and are left in
   place on purpose: pruning them by hand through that many nested ternaries is exactly the edit that
-  silently breaks two themes nobody asked to change. Splitting it into `OldFashionedPage` and
-  `SciFiPage` is the next step, and lets the dead branches fall out on their own.
+  silently breaks two themes nobody asked to change. Its `isSF` branches are now dead the same way —
+  `SciFiPage` took that era over — and stay for the same reason, since this file is also the fallback
+  for any era with no page of its own. `OldFashionedPage` is the last split left to do.
 - **`ModernPage.tsx` + `modern.module.css`** — the rebuild, "**Warning Order**". The reordering *is*
   the design: what a member owes comes above the document rather than beside or below it. A
   `clamp(300px, 38vh, 430px)` cover **band** (not a screen) carrying the operation's lineage —
@@ -845,6 +861,31 @@ touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttenda
   `coldwar` was already a selectable era (`/api/admin/era-options`) with no rendering of its own,
   which is why choosing it used to give you Modern. **`wwii`, `vietnam` and `fantasy` still do** —
   they are offered in the picker and fall through to `ClassicPage`.
+- **`SciFiPage.tsx` + `scifi.module.css` + `ConsoleRail.tsx` + `ConsoleRsvp.tsx`** — the `scifi` era,
+  "**Bridge Console**". The orders as a piece of hardware: a brushed hull, a bezel with screws in it,
+  and behind the bezel a slab of dead-black glass with phosphor burning inside. The whole theme rests
+  on one rule — **the light never leaves the screen**. Glow lives on text and hairlines *inside* the
+  glass; the hull around it is unlit metal, which is the difference between a CRT and a filter laid
+  over a page. Palette **fixed, not the operation's `--acc`**, for Cold War's reason in a different
+  key: a phosphor tube emits one colour, and an operation themed deep red would leave the page
+  glowing in a hue no hardware ever produced. Phosphor green is the tube, amber the second voice for
+  times and headings, red appears exactly once — on an order you have not signed, and it is the only
+  thing that pulses.
+  Two things it does that Modern does not: **the console outlives the document** (title, gauges and
+  the two calls sit on the *screen*, not the open page, so they stay put when you switch documents in
+  the rail — a console's readout does not change because you changed channel), and **encryption
+  instead of a locked banner** (withheld paragraphs render as signal that arrives and fails to
+  resolve, in place — the same call Cold War's strikeouts make, so a reader can see how much is held
+  back and where). `ConsoleRail.tsx` is `OrdersSpine`'s model drawn as an instrument index; the open
+  document is *filled* rather than outlined, because an outline would read as a focus ring and the
+  page already uses one. `ConsoleRsvp.tsx` is the single amber gauge in a green row. Seats also get a
+  ten-segment bar, which answers "nearly full?" at a glance in a way `28 / 34` beside it does not.
+  Motion is one 9s raster sweep and the alarm's pulse, both `display: none` / `animation: none` under
+  `prefers-reduced-motion`, and neither carries meaning the words do not.
+  Inks are **measured against the glass, not eyeballed** — 17.8:1 / 11.1:1 / 6.1:1, with the phosphor
+  at 13.1:1 and amber at 11.0:1. `--ink-3` (every gauge label and rail header, all small uppercase
+  mono at wide tracking) began at #4d6b60, which is 3.4:1 and fails AA outright. The headroom is
+  deliberate: the raster lays a 1-in-3 line of black over everything on the screen.
 **Zeus Notes pages are ordinary documents.** Same sections, same schema, same collaborative editor;
 the only thing that sets one apart is `operations.zeus`, checked two-armed in `page.tsx` (the grant,
 or the legacy `departments.j6` role) and passed to every theme as `canZeus`. Without it the page is
@@ -866,10 +907,10 @@ nothing deletes them.
   the open one's sections nest beneath it as scroll-to buttons with an `IntersectionObserver`
   scroll-spy. The nesting is information, not decoration: "Situation" is *part of* CHQ Orders, not a
   sibling of it, which the old flat document-rail-plus-section-strip pair said otherwise.
-- **`RsvpCell.tsx`** / **`PaperRsvp.tsx`** — the same live cell, drawn by Modern and Cold War
-  respectively. The rules are in **`useRsvpCountdown.ts`**, shared: it polls `live-status` (30s) and
-  ticks its own clock every second in between, and lives in one place so two themes cannot end up
-  disagreeing about the same operation. The old page gave the single most time-critical fact on the
+- **`RsvpCell.tsx`** / **`PaperRsvp.tsx`** / **`ConsoleRsvp.tsx`** — the same live cell, drawn by
+  Modern, Cold War and Sci-Fi respectively. The rules are in **`useRsvpCountdown.ts`**, shared: it
+  polls `live-status` (30s) and ticks its own clock every second in between, and lives in one place
+  so three themes cannot end up disagreeing about the same operation. The old page gave the single most time-critical fact on the
   screen a wide strip at the same weight as everything around it; here it is one cell, and the only
   one carrying the accent.
 
@@ -884,10 +925,16 @@ visitors in both. Public read; `<EditOrdersButton/>` shown to `isHQ`.
 
 #### app/operations/[id]/doc-body.tsx
 Client: renders TipTap ProseMirror JSON as themed HTML (`.op-doc` CSS varies per `pageTheme` —
-`modern` / `oldfashioned` / `scifi` / `coldwar`, the last being **the only light palette on the
-site**, fixed rather than derived from the operation's accent) via `generateHTML` from
-`@tiptap/core`. Used by the single-page view, `PagedView`/`StaffView` and the
-Modern theme.
+`modern` / `oldfashioned` / `scifi`) via `generateHTML` from `@tiptap/core`. Used by the single-page
+view, `PagedView`/`StaffView` and every theme.
+
+**Themes with a page of their own do not use the `pageTheme` prop** — Cold War and Sci-Fi both pass
+nothing (taking the `modern` base) and restate the document's look from their own module with
+`.sheet :global(.op-doc)`. That is not a preference: rules injected from *this* file land at
+`.op-doc`, the same specificity as the base rule in globals.css, so they only win on source order and
+they do not. Invisible while every theme was dark; glaring the moment one was light. The `scifi`
+branch below is consequently dead — `SciFiPage` took that era over — and is kept because this file's
+themes track `ClassicPage`'s, which is still the fallback for any era with no page.
 
 **Its schema is `contentExtensions()` — the editor's own** (`components/editor/content-extensions.ts`),
 and that is not tidiness. This file used to keep a hand-written lookalike beside it, missing

@@ -68,8 +68,18 @@
     flex-shrink: 0;
 }
 .tab:hover { color: var(--ink-2); }
-.tabOn { color: var(--ink); border-bottom-color: var(--acc); }
+.tabOn { color: var(--ink); border-bottom-color: var(--acc); box-shadow: var(--tab-glow, none); }
 .tab:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
+
+/*
+ * `--tab-glow` is the strip's one themeable seam beyond `--acc`, and it
+ * defaults to `none` so every theme that does not set it renders exactly as
+ * before. It exists for the Sci-Fi console, where the underline is a phosphor
+ * rule and has to emit rather than just be coloured — see `themes/SciFiPage`.
+ * A theme passes it through `OperationBar`'s `palette`, which lands inline on
+ * the bar; custom properties inherit, so it reaches here without this file
+ * knowing anything about the theme.
+ */
 
 /* The label half of the split: the caret takes over its right padding, so the
    two read as one control rather than a tab with something stuck beside it. */
@@ -88,6 +98,7 @@
     background: none;
     border: none;
     border-bottom: 2px solid var(--acc);
+    box-shadow: var(--tab-glow, none);
     color: var(--ink-3);
     font-size: 8px;
     line-height: 1;

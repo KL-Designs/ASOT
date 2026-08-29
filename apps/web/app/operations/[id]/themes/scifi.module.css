@@ -1,0 +1,715 @@
+/*
+ * The Sci-Fi orders page — "Bridge Console".
+ *
+ * The orders as a piece of hardware: a brushed hull, a bezel with screws in
+ * it, and behind the bezel a slab of dead-black glass with phosphor burning
+ * inside. The one rule the whole theme is built on is that **the light never
+ * leaves the screen**. Glow lives on text and on hairlines *inside* the glass;
+ * the hull around it is unlit metal. That is the difference between a CRT and
+ * a filter laid over a page, and every decision below defers to it.
+ *
+ * Like Cold War, the palette is fixed rather than taking the operation's
+ * `--acc`. A console does not change colour because the operation does — a
+ * phosphor tube emits one colour, that is what makes it a phosphor tube — and
+ * an operation themed deep red would leave this page glowing in a hue no
+ * hardware ever produced. Phosphor green is the tube, amber is the second
+ * voice for times and headings, and red appears exactly once, on an order you
+ * have not signed.
+ */
+
+.page {
+    /*
+     * The hull: unlit metal, three steps. The bezel is the lit face, the deck
+     * behind it is the shadowed one, and `--hull-3` is what the bezel's own
+     * gradient falls to at its bottom edge.
+     */
+    --hull:    #14161a;
+    --hull-2:  #1c1f25;
+    --hull-3:  #0b0d10;
+    --seam:    #2a2f38;
+    --seam-2:  #3a414d;
+
+    /* The glass. Not pure black — a tube at rest still has a faint cast. */
+    --glass:   #05070a;
+    --glass-2: #080c11;
+
+    /*
+     * Phosphor, amber, alarm. Measured against `--glass`, not eyeballed:
+     * 13.1:1, 11.0:1 and 6.4:1. Generous, and deliberately so — the raster
+     * below lays a 1-in-3 line of black over everything on the screen, which
+     * costs a few percent of luminance that a ratio sitting on the 4.5:1 floor
+     * could not afford to give up.
+     */
+    --phos:    #62e8b0;
+    --phos-2:  #38b98a;
+    --amber:   #ffb020;
+    --alarm:   #ff5252;
+
+    /*
+     * Three inks, same measurement: 17.8:1, 11.1:1 and 6.1:1. `--ink-3` is the
+     * one that matters — it is every gauge label and rail header on the page,
+     * all of it small uppercase mono at wide tracking, which needs more
+     * contrast than its ratio implies. It started at #4d6b60 (3.4:1) and
+     * failed AA outright.
+     */
+    --ink:     #d9f7e8;
+    --ink-2:   #9fc9b6;
+    --ink-3:   #6f9788;
+
+    /* Hairlines inside the glass. Phosphor at low alpha, so the screen's own
+       divisions look emitted rather than drawn on top of it. */
+    --grid:    rgba(98, 232, 176, 0.18);
+    --grid-2:  rgba(98, 232, 176, 0.09);
+
+    --type:    var(--font-mono);
+    --display: var(--font-disp);
+
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    background: var(--hull);
+    color: var(--ink-2);
+    font-family: var(--type);
+}
+
+/*
+ * Give the screen back its inheritance.
+ *
+ * `styles/globals.css` carries a base reset:
+ *
+ *     :where(h1, h2, h3, h4, h5, h6, p, b, span, label) { color: var(--foreground) }
+ *
+ * `:where()` contributes no specificity, but specificity is not what decides
+ * this: a declaration that *matches* an element always beats a value the
+ * element would have *inherited*, however weak the selector. So every bare
+ * `<span>` on this page takes the site's near-white foreground directly and
+ * never sees the phosphor set on its parent.
+ *
+ * On a dark theme that does not go white-on-white the way it did on Cold War's
+ * paper — it does something quieter and just as wrong. The ink hierarchy
+ * collapses: `--ink-3` labels meant to sit back come forward to full
+ * brightness, the amber and phosphor accents turn plain white, and the screen
+ * stops looking like a tube emitting one colour, which is the entire theme.
+ *
+ * Scoped to the glass and placed before everything else here, so it only
+ * restores normal inheritance and every rule below still wins.
+ */
+.screen :where(h1, h2, h3, h4, h5, h6, p, b, span, label, a, li, td, th) {
+    color: inherit;
+}
+
+/* ── Hull ─────────────────────────────────────────────────────────────── */
+
+.hull {
+    flex: 1;
+    padding: 16px;
+    /* A fine vertical brush over a top-lit body. Unlit, both of them: nothing
+       out here emits, it only catches the room. */
+    background:
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 3px),
+        linear-gradient(180deg, var(--hull-2) 0%, #101317 100%);
+}
+
+.bezel {
+    position: relative;
+    height: 100%;
+    padding: 11px;
+    border: 1px solid var(--seam-2);
+    border-radius: 7px;
+    background: linear-gradient(180deg, var(--hull-2), var(--hull-3));
+    /* The lit top edge, then the weight of the thing on the deck. */
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 18px 44px rgba(0, 0, 0, 0.6);
+}
+
+/*
+ * Four screws, one per corner. Small enough to be noticed rather than seen —
+ * they are the cheapest thing on the page that says "this is an object", and
+ * without them the bezel reads as a rounded div.
+ */
+.screw {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #4a515c, #191c21);
+    box-shadow: inset 0 0 2px rgba(0, 0, 0, 0.9);
+}
+.screwTL { top: 7px; left: 7px; }
+.screwTR { top: 7px; right: 7px; }
+.screwBL { bottom: 7px; left: 7px; }
+.screwBR { bottom: 7px; right: 7px; }
+
+/* ── Glass ────────────────────────────────────────────────────────────── */
+
+.glass {
+    position: relative;
+    height: 100%;
+    border: 1px solid var(--seam);
+    border-radius: 3px;
+    overflow: hidden;
+    background: radial-gradient(120% 100% at 50% 0%, var(--glass-2), var(--glass) 70%, #020304 100%);
+    /* Depth behind the glass, and the faintest phosphor bloom filling it. */
+    box-shadow:
+        inset 0 0 90px rgba(0, 0, 0, 0.9),
+        inset 0 0 160px rgba(56, 185, 138, 0.05);
+}
+
+/*
+ * The raster, and the tube's curvature.
+ *
+ * One line of black in every three, at low alpha — enough to break the surface
+ * into scanlines, not enough to cost the text its contrast (the inks above are
+ * measured with this on). The vignette is what actually sells the curve: a
+ * flat screen with scanlines still looks flat.
+ */
+.glass::before,
+.glass::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+}
+.glass::before {
+    background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.26) 0 1px, transparent 1px 3px);
+    opacity: 0.5;
+}
+.glass::after {
+    z-index: 4;
+    background: radial-gradient(112% 106% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.62) 100%);
+}
+
+/* The refresh, crossing once every nine seconds. Slow on purpose: this is a
+   page somebody reads for ten minutes, and anything quicker competes with the
+   text instead of sitting behind it. */
+.sweep {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    z-index: 3;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent, rgba(98, 232, 176, 0.14), transparent);
+    animation: sweep 9s linear infinite;
+}
+@keyframes sweep {
+    0%   { top: -3px; }
+    100% { top: 100%; }
+}
+
+.screen {
+    position: relative;
+    z-index: 2;
+    padding: 32px 36px 36px;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+
+.head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 36px;
+    /* The title sits on the feed's bottom edge rather than floating above it.
+       An operation has no summary line in the data model, so there is nothing
+       to fill the column beside a 176px print and `start` left a hole. */
+    align-items: end;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--grid);
+}
+/* No print, no column to reserve for one. */
+.headSolo { grid-template-columns: minmax(0, 1fr); }
+
+.ref {
+    margin: 0 0 15px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+.refLit { color: var(--phos-2); }
+
+.title {
+    margin: 0;
+    font-family: var(--display);
+    font-size: clamp(2.1rem, 4.4vw, 3.3rem);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-wrap: balance;
+    color: var(--phos);
+    /* Two radii: the tight one is the phosphor itself, the wide one is the
+       bloom in the glass in front of it. */
+    text-shadow: 0 0 10px rgba(98, 232, 176, 0.55), 0 0 34px rgba(56, 185, 138, 0.35);
+}
+
+/*
+ * The cover image, as the AO feed.
+ *
+ * In the header rather than in the document, the same call Cold War made with
+ * its taped print and for the same reason: set into the body it reads as part
+ * of the orders, and a screen that appears to contain a photograph stops
+ * looking like a screen. Pushed hard towards the tube's own green so it looks
+ * received rather than pasted in.
+ */
+.feed {
+    margin: 0;
+    border: 1px solid var(--grid);
+    background: rgba(0, 0, 0, 0.5);
+}
+.feedImg {
+    display: block;
+    width: 100%;
+    height: 176px;
+    object-fit: cover;
+    opacity: 0.7;
+    filter: grayscale(1) contrast(1.3) brightness(0.6) sepia(0.4) hue-rotate(90deg);
+}
+.feedCap {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 7px 11px;
+    border-top: 1px solid var(--grid-2);
+    font-size: 9px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+.feedRec { color: var(--alarm); }
+
+/* ── Gauges ───────────────────────────────────────────────────────────── */
+
+.gauges {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    margin: 22px 0 0;
+}
+.gauge {
+    padding: 12px 14px 13px;
+    border: 1px solid var(--grid-2);
+    background: rgba(98, 232, 176, 0.03);
+}
+.gaugeKey {
+    margin: 0 0 6px;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+.gaugeVal {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    color: var(--ink);
+}
+
+/* The one live gauge. The single amber cell on a green screen is what makes
+   the deadline read first — the same job Modern's accent cell does. */
+.gaugeHot { border-color: rgba(255, 176, 32, 0.4); background: rgba(255, 176, 32, 0.05); }
+.gaugeHot .gaugeVal { color: var(--amber); text-shadow: 0 0 12px rgba(255, 176, 32, 0.55); }
+
+/* Seats, as a segmented bar. Ten segments because a console reads in segments,
+   and because it answers "nearly full?" at a glance in a way "28 / 34" does not. */
+.bars { display: flex; gap: 2px; margin-top: 7px; }
+.barSeg { flex: 1; height: 5px; background: rgba(98, 232, 176, 0.14); }
+.barOn { background: var(--phos-2); box-shadow: 0 0 7px rgba(56, 185, 138, 0.7); }
+
+/* ── The two things you might owe ─────────────────────────────────────── */
+
+.calls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.alert, .muster {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    text-decoration: none;
+}
+
+/*
+ * The only red on the page, and the only thing that pulses. Both are the
+ * point: an unsigned order is the one state the page is actually asking you to
+ * change, and if anything else were alarming this would stop being.
+ */
+.alert {
+    border: 1px solid rgba(255, 82, 82, 0.4);
+    background: rgba(255, 82, 82, 0.07);
+    animation: alert 3.2s ease-in-out infinite;
+}
+@keyframes alert {
+    0%, 100% { box-shadow: inset 0 0 0 rgba(255, 82, 82, 0); }
+    50%      { box-shadow: inset 0 0 30px rgba(255, 82, 82, 0.16); }
+}
+.alertKey { display: block; font-size: 0.95rem; font-weight: 600; letter-spacing: 0.03em; color: #ffc2c2; }
+.alertSub { display: block; margin-top: 3px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255, 150, 150, 0.75); }
+.btnRed {
+    flex: none;
+    padding: 9px 18px;
+    border: 1px solid var(--alarm);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #fff;
+    background: rgba(255, 82, 82, 0.18);
+}
+
+.muster { border: 1px solid rgba(98, 232, 176, 0.35); background: rgba(98, 232, 176, 0.06); }
+.musterKey { display: block; font-size: 1.02rem; font-weight: 600; letter-spacing: 0.03em; color: var(--ink); }
+.musterSub { display: block; margin-top: 3px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); }
+.btnGo {
+    flex: none;
+    padding: 12px 24px;
+    border: 1px solid var(--phos);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #04120c;
+    background: var(--phos);
+    box-shadow: 0 0 22px rgba(98, 232, 176, 0.45);
+    transition: box-shadow 140ms ease;
+}
+.muster:hover .btnGo { box-shadow: 0 0 34px rgba(98, 232, 176, 0.7); }
+
+/* ── Body ─────────────────────────────────────────────────────────────── */
+
+.body {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    gap: 24px;
+    margin-top: 24px;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .body { grid-template-columns: minmax(0, 1fr); }
+    .head { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── The rail ─────────────────────────────────────────────────────────── */
+
+.rail {
+    position: sticky;
+    top: 16px;
+    border: 1px solid var(--grid);
+    background: rgba(0, 0, 0, 0.35);
+}
+.railHead {
+    display: block;
+    padding: 9px 13px;
+    border-bottom: 1px solid var(--grid);
+    background: rgba(98, 232, 176, 0.04);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+.railHeadLater { border-top: 1px solid var(--grid); }
+
+.doc {
+    display: block;
+    padding: 9px 13px;
+    border-bottom: 1px solid var(--grid-2);
+    font-size: 0.78rem;
+    letter-spacing: 0.05em;
+    text-decoration: none;
+    color: var(--ink-2);
+    transition: background 140ms ease, color 140ms ease;
+}
+.doc:hover { background: rgba(98, 232, 176, 0.05); color: var(--ink); }
+
+/*
+ * The open document is filled, not outlined. A console selects by lighting a
+ * whole cell — an outline would read as a focus ring, which is a different
+ * thing and one this page also uses.
+ */
+.docOn {
+    font-weight: 600;
+    color: #04120c;
+    background: var(--phos-2);
+}
+.docOn:hover { background: var(--phos); color: #04120c; }
+.docNum { opacity: 0.6; margin-right: 8px; }
+
+.secs {
+    padding: 4px 0 6px;
+    border-bottom: 1px solid var(--grid-2);
+    background: rgba(98, 232, 176, 0.03);
+}
+.sec {
+    display: block;
+    width: 100%;
+    padding: 5px 13px 5px 30px;
+    border: none;
+    background: none;
+    font-family: var(--type);
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    text-align: left;
+    cursor: pointer;
+    color: var(--ink-3);
+    transition: color 140ms ease;
+}
+.sec:hover { color: var(--ink-2); }
+.secOn { color: var(--phos); }
+.secN { display: inline-block; width: 15px; margin-left: -17px; }
+
+/* ── The document ─────────────────────────────────────────────────────── */
+
+.sheet {
+    border: 1px solid var(--grid);
+    background: rgba(0, 0, 0, 0.32);
+}
+.sheetTop {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 22px;
+    border-bottom: 1px solid var(--grid-2);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+.sheetTopLit { color: var(--phos-2); }
+
+/*
+ * The typed column stops before the panel does, the same way Cold War's does.
+ * A console can be as wide as the desk; a paragraph cannot be, or it stops
+ * being readable somewhere around 100 characters.
+ */
+.sheetBody { padding: 30px 44px 38px; max-width: 980px; }
+
+.para { margin-bottom: 40px; }
+.para:last-child { margin-bottom: 0; }
+
+.paraHead {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--grid);
+}
+.paraNum { flex: none; font-size: 0.78rem; color: var(--amber); }
+.paraTitle {
+    margin: 0;
+    font-family: var(--display);
+    font-size: 1.3rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--phos);
+    text-shadow: 0 0 9px rgba(98, 232, 176, 0.4);
+}
+.paraTag {
+    margin-left: auto;
+    flex: none;
+    padding: 2px 8px;
+    border: 1px solid rgba(255, 82, 82, 0.4);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--alarm);
+}
+
+.empty {
+    padding: 60px 0;
+    text-align: center;
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+/*
+ * A paragraph this reader is not cleared for.
+ *
+ * Cold War strikes the text out; a console has no ink to strike, so it shows
+ * the signal arriving and failing to resolve. Same purpose either way, and it
+ * is the reason both themes do this rather than dropping a banner at the
+ * bottom: you can see how much is withheld and where it sits.
+ */
+.encrypted { padding: 4px 0 8px; }
+.encBar {
+    height: 9px;
+    margin-bottom: 7px;
+    background:
+        repeating-linear-gradient(90deg,
+            rgba(98, 232, 176, 0.22) 0 3px,
+            rgba(98, 232, 176, 0.06) 3px 7px,
+            rgba(98, 232, 176, 0.14) 7px 11px,
+            transparent 11px 16px);
+}
+.encNote {
+    margin: 10px 0 0;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+/* ── Foot ─────────────────────────────────────────────────────────────── */
+
+.foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 22px;
+    padding-top: 13px;
+    border-top: 1px solid var(--grid);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+.footLink { color: var(--phos-2); text-decoration: underline; text-underline-offset: 3px; }
+.footLink:hover { color: var(--phos); }
+
+/* Staff instruments — OCAP and the like. They keep the dark chrome they wear
+   everywhere else, and the glass behind them is dark, so they need nothing
+   from this theme but room. */
+.panel { padding: 30px 36px; }
+
+/* ── The stored document ──────────────────────────────────────────────── */
+
+/*
+ * Overridden from here rather than injected by `DocBody`, which is the seam
+ * Cold War discovered the hard way: rules injected from that file land at
+ * `.op-doc`, tie with the base rule in globals.css and lose on source order.
+ * `.sheet :global(.op-doc)` outranks it outright.
+ *
+ * Fixed inks again, not the operation's `--acc` — see the note at the top.
+ */
+.sheet :global(.op-doc) {
+    padding: 0;
+    font-family: var(--type);
+    font-size: 0.9rem;
+    line-height: 1.78;
+    color: var(--ink-2);
+}
+.sheet :global(.op-doc p),
+.sheet :global(.op-doc li),
+.sheet :global(.op-doc td) { color: var(--ink-2); }
+
+.sheet :global(.op-doc h1) {
+    margin: 1.5em 0 0.7em;
+    padding: 8px 14px;
+    border: none;
+    border-left: 2px solid var(--phos);
+    background: rgba(98, 232, 176, 0.07);
+    box-shadow: inset 0 0 26px rgba(98, 232, 176, 0.05);
+    font-family: var(--display);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--phos);
+    text-shadow: 0 0 10px rgba(98, 232, 176, 0.5);
+}
+.sheet :global(.op-doc h2) {
+    margin: 1.4em 0 0.5em;
+    font-family: var(--display);
+    font-size: 0.86rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--amber);
+    text-shadow: 0 0 8px rgba(255, 176, 32, 0.35);
+}
+/* Modern's `// ` prefix; this theme uses a prompt instead. */
+.sheet :global(.op-doc h2)::before { content: '> '; color: rgba(255, 176, 32, 0.5); }
+.sheet :global(.op-doc h3) {
+    margin: 1.1em 0 0.35em;
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+}
+
+.sheet :global(.op-doc li)::marker { color: var(--phos-2); }
+.sheet :global(.op-doc li) { font-size: inherit; }
+
+.sheet :global(.op-doc blockquote) {
+    margin: 1em 0;
+    padding: 11px 16px;
+    border: 1px solid rgba(255, 176, 32, 0.3);
+    background: rgba(255, 176, 32, 0.05);
+    color: var(--ink);
+    font-style: normal;
+}
+.sheet :global(.op-doc hr) {
+    border: none;
+    border-top: 1px solid var(--grid);
+    box-shadow: 0 0 6px rgba(98, 232, 176, 0.2);
+    margin: 1.6em 0;
+}
+.sheet :global(.op-doc mark) { background: rgba(98, 232, 176, 0.22); color: var(--ink); padding: 1px 4px; }
+.sheet :global(.op-doc strong) { color: var(--ink); font-weight: 700; }
+.sheet :global(.op-doc a) {
+    color: var(--phos);
+    opacity: 1;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-shadow: 0 0 6px rgba(98, 232, 176, 0.4);
+}
+.sheet :global(.op-doc a):hover { color: var(--ink); }
+.sheet :global(.op-doc code) {
+    padding: 1px 5px;
+    border: 1px solid var(--grid);
+    background: rgba(98, 232, 176, 0.08);
+    color: var(--phos);
+    font-family: var(--type);
+}
+.sheet :global(.op-doc pre) {
+    padding: 11px 14px;
+    border: 1px solid var(--grid);
+    background: rgba(0, 0, 0, 0.45);
+    overflow-x: auto;
+}
+.sheet :global(.op-doc th) {
+    color: var(--amber);
+    border-bottom: 1px solid rgba(255, 176, 32, 0.3);
+    font-size: 9px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+.sheet :global(.op-doc td) { border-bottom: 1px solid var(--grid-2); }
+/* Received on the same tube as the feed above, so it belongs to the screen
+   rather than sitting on it. */
+.sheet :global(.op-doc img) {
+    max-width: 100%;
+    border: 1px solid var(--grid);
+    box-shadow: 0 0 14px rgba(98, 232, 176, 0.12);
+}
+
+/* ── Motion ───────────────────────────────────────────────────────────── */
+
+/*
+ * The sweep and the alarm are atmosphere; nothing on the page depends on
+ * either to be understood. The alarm's job is done by its colour and its
+ * words, so taking the pulse away costs a reader nothing.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .sweep { display: none; }
+    .alert { animation: none; }
+    .doc,
+    .sec,
+    .btnGo { transition: none; }
+}
