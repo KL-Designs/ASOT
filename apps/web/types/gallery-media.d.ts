@@ -1,0 +1,118 @@
+import type { ObjectId } from "mongodb"
+import type { GalleryStatus } from "@/lib/gallery/status"
+import type { EmbedProvider, EmbedKind } from "@/lib/gallery/embeds"
+
+export { }
+
+declare global {
+
+    /**
+     * One piece of gallery media — the index the gallery reads from.
+     *
+     * Before this existed the gallery was a window onto a folder tree and
+     * `GET /api/gallery` walked it with readdirSync, which is why the page
+     * carried no author, no tags and no likes: there was nowhere to put them.
+     * Every file in the archive has a document here, written by
+     * `scripts/index-gallery.mjs`; the bytes did not move.
+     */
+    interface GalleryMedia {
+        _id: ObjectId
+
+        kind: 'image' | 'video'
+        /** Where the bytes are. An embed has none of its own. */
+        source: 'upload' | EmbedProvider
+
+        /**
+         * Uploads and migrated legacy files.
+         *   'media:{_id}.{ext}'                    -> storage/gallery/media/...
+         *   'legacy:{year}/{op}/{mission}/{file}'  -> storage/gallery/content/...
+         * The prefix is what tells the serving layer which tree to look in.
+         */
+        storageKey?: string
+        /** 'media:{_id}_poster.jpg'. Uploaded video and embeds; stills have none. */
+        posterKey?: string
+
+        /** Embeds only — the provider's own video id or clip slug. */
+        embedId?: string
+        /** Embeds only. A Twitch VOD and a Twitch clip embed through different
+         *  players, so the id alone cannot render one. */
+        embedKind?: EmbedKind
+        /** Embeds only — the canonical provider URL, for the "watch on" link. */
+        embedUrl?: string
+
+        /**
+         * The folder-tree facets. All present on a migrated item; derived from
+         * the chosen operation on a new one, and all absent together when the
+         * submitter chose Unknown. `mission` only ever comes from the tree —
+         * new submissions have no mission.
+         */
+        year?: string
+        operation?: string
+        opLabel?: string
+        mission?: string
+        operationId?: ObjectId
+
+        /** The operation's date — what the gallery sorts and groups on. Null
+         *  when the operation was Unknown and no reviewer has set one. */
+        takenAt: Date | null
+
+        /** Absent on migrated files: nothing on disk records who shot what. */
+        authorId?: string
+        authorName?: string
+
+        caption?: string
+        /** `gallery_tags` slugs. */
+        tags: string[]
+
+        width?: number
+        height?: number
+        durationSec?: number
+        bytes?: number
+
+        status: GalleryStatus
+        /** Why processing failed. Carried into the review queue rather than
+         *  hidden, so a reviewer sees it instead of the item vanishing. */
+        processingError?: string
+        /** Groups one member's items from one visit to the submit page. */
+        batchId?: string
+
+        up: number
+        down: number
+
+        createdAt: Date
+        publishedAt?: Date
+        publishedBy?: string
+        rejectedAt?: Date
+        rejectedBy?: string
+        rejectedReason?: string
+    }
+
+    /**
+     * One member's vote on one piece of media.
+     *
+     * The unique index on { mediaId, userId } is what enforces one vote per
+     * member. The route does not, and must not be what this relies on.
+     */
+    interface GalleryVote {
+        _id: ObjectId
+        mediaId: ObjectId
+        userId: string
+        value: 1 | -1
+        at: Date
+    }
+
+    /**
+     * The tag vocabulary, managed by J5.
+     *
+     * Retired rather than deleted, so a rename never has to cascade across
+     * every document carrying the slug.
+     */
+    interface GalleryTag {
+        _id: ObjectId
+        slug: string
+        label: string
+        order: number
+        retired: boolean
+    }
+
+}

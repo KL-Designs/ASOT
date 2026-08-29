@@ -733,6 +733,46 @@ const PERMISSIONS = {
          *  - `app/api/gallery/sotm/route.ts` (Shot of the Month — uses departmentLeads.j5)
          */
         manage: ['J5 - Media'],
+
+        /**
+         * Submit media to the gallery — the Submit button, `/gallery/submit`,
+         * and the submission API routes.
+         *
+         * Gated with `await hasPermission(user, 'gallery.submit')` and nothing
+         * else. Deliberately no Discord-role fallback and no legacy arm, which
+         * means this is false for everybody — staff included — until it is
+         * granted in the Roles Manager. Grant it on whichever role every member
+         * holds.
+         *
+         * Used by:
+         *  - `app/(landing)/gallery/submit/page.tsx` (page gate)
+         *  - `app/(landing)/gallery/page.tsx` (shows or hides the Submit button)
+         *  - `app/api/gallery/submissions/route.ts`
+         */
+        submit: [],
+
+        /**
+         * Review submitted media — accept, reject, or correct its caption,
+         * tags and operation before publishing.
+         *
+         * Same story as `submit`: no legacy arm, so grant it on the J5 base
+         * department role before this feature is any use.
+         *
+         * Used by:
+         *  - `app/dashboard/j5/tabs/GallerySubmissionsTab.tsx`
+         *  - `app/api/gallery/submissions/[id]/route.ts`
+         *  - `app/api/gallery/media/[id]/route.ts` (seeing pending media)
+         */
+        review: [],
+
+        /**
+         * Manage the gallery's tag vocabulary — add, rename, reorder, retire.
+         *
+         * Used by:
+         *  - `app/dashboard/j5/tabs/GalleryTagsTab.tsx`
+         *  - `app/api/gallery/tags/route.ts` (POST/PATCH — GET is public)
+         */
+        tags: [],
     },
 
     // ── Attendance ────────────────────────────────────────────────────────────
