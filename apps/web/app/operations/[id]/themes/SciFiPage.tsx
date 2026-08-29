@@ -9,7 +9,8 @@ import DocAcknowledgeCard from '../DocAcknowledgeCard'
 import OperationBar from '../OperationBar'
 import EditOrdersButton from '../EditOrdersButton'
 import HideSiteNav from '@/components/HideSiteNav'
-import { readableOn, rgbTriplet } from '@/lib/colour'
+import { rgbTriplet } from '@/lib/colour'
+import { consolePalette } from '@/lib/operations/console-palette'
 import ConsoleRail from './ConsoleRail'
 import ConsoleRsvp from './ConsoleRsvp'
 import type { SpineDocument } from './OrdersSpine'
@@ -21,77 +22,79 @@ const OCAP = '__ocap__'
 /** Ten segments, because a console reads in segments. */
 const SEATS_SEGMENTS = 10
 
-/** The glass, as `scifi.module.css` sets it — the ground the accent has to be
- *  legible against, and the one place that number is written down twice. */
-const GLASS = '#05070a'
 
 /**
  * The operation bar, repainted as the console's own strip.
  *
  * Same contract Cold War established: the bar and its tab strip draw entirely
  * from `.command` tokens, and that class sits on the bar itself — so these have
- * to arrive as inline styles to outrank it. They are `var()` references rather
- * than literals wherever the theme already has a token for it, so
- * `scifi.module.css` stays the one place this palette is written down.
+ * to arrive as inline styles to outrank it.
+ *
+ * A plain constant, because every value it needs is a `var()` reference: the
+ * bar is a child of `.page`, which carries the whole ramp inline, and custom
+ * properties inherit. `scifi.module.css` therefore stays the one place this
+ * palette is *written down* even though `consolePalette` decides what the
+ * values are — the alternative was threading eight colours through a function
+ * and restating each of them here.
  *
  * The bar is the one lit thing outside the glass, and it is lit the way a
- * backlit panel is rather than the way the tube is: a dark strip with a
- * phosphor hairline under it.
- *
- * Takes the accent rather than closing over one, because the tab underline and
- * the status dot are the operation's colour here, not the tube's.
+ * backlit panel is rather than the way the tube is: a dark strip with the
+ * phosphor showing as a hairline under it.
  */
-function consoleChrome(acc: string, accRgb: string): Record<string, string> {
-    return {
-        '--s1': '#101519',
-        '--s2': '#161d21',
-        '--s3': '#1d2529',
-        '--line': 'var(--grid)',
-        '--line-2': 'rgba(98, 232, 176, 0.28)',
-        '--ink': 'var(--ink)',
-        '--ink-2': 'var(--ink-2)',
-        '--ink-3': 'var(--ink-3)',
-        '--acc': acc,
-        '--acc-rgb': accRgb,
-        /* The status dot. Upcoming takes the operation's own colour — the same
-           rule the live gauge follows, and the stock green would be
-           indistinguishable from the phosphor the rest of the bar is drawn in. */
-        '--good': 'var(--phos-2)',
-        '--warn': acc,
-        '--crit': 'var(--alarm)',
+const CONSOLE_CHROME: Record<string, string> = {
+    '--s1': '#101519',
+    '--s2': '#161d21',
+    '--s3': '#1d2529',
+    '--line': 'var(--grid)',
+    '--line-2': 'rgba(var(--tube-rgb), 0.28)',
+    '--ink': 'var(--ink)',
+    '--ink-2': 'var(--ink-2)',
+    '--ink-3': 'var(--ink-3)',
+    '--acc': 'var(--acc)',
+    '--acc-rgb': 'var(--acc-rgb)',
+    /*
+     * The status dots. Three states that used to be green / amber / red, which
+     * is hue carrying meaning — and this screen has given hue up. They are the
+     * tube at three brightnesses instead, and the words beside them ("Upcoming",
+     * "In Development") are what actually say which is which. The alarm keeps
+     * its own lamp for `In Development`, since that is the one state a reader
+     * should not mistake for ready.
+     */
+    '--good': 'var(--phos)',
+    '--warn': 'var(--phos-2)',
+    '--crit': 'var(--alarm)',
 
-        /* Backlit glass rather than painted metal: a faint phosphor cast rising
-           through a dark strip, with the tube's own fibre showing in it. */
-        '--bar-bg': [
-            'repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0 1px, transparent 1px 3px)',
-            'linear-gradient(180deg, rgba(23, 33, 32, 0.96) 0%, rgba(10, 15, 15, 0.98) 100%)',
-        ].join(', '),
+    /* Backlit glass rather than painted metal: a faint cast rising through a
+       dark strip, with the tube's own fibre showing in it. */
+    '--bar-bg': [
+        'repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0 1px, transparent 1px 3px)',
+        'linear-gradient(180deg, rgba(var(--tube-rgb), 0.05) 0%, rgba(0, 0, 0, 0.55) 100%), var(--glass-2)',
+    ].join(', '),
 
-        /* The hairline the strip sits on, then its shadow on the glass below. */
-        '--bar-shadow': [
-            'inset 0 1px 0 rgba(98, 232, 176, 0.10)',
-            '0 1px 0 rgba(98, 232, 176, 0.18)',
-            '0 10px 30px rgba(0, 0, 0, 0.6)',
-        ].join(', '),
+    /* The hairline the strip sits on, then its shadow on the glass below. */
+    '--bar-shadow': [
+        'inset 0 1px 0 rgba(var(--tube-rgb), 0.10)',
+        '0 1px 0 rgba(var(--tube-rgb), 0.18)',
+        '0 10px 30px rgba(0, 0, 0, 0.6)',
+    ].join(', '),
 
-        '--bar-edge': '1px solid rgba(98, 232, 176, 0.22)',
+    '--bar-edge': '1px solid rgba(var(--tube-rgb), 0.22)',
 
-        /*
-         * The one thing this theme adds to the tab strip: the active tab's
-         * underline emits, in the operation's colour. It is the light the rule
-         * throws *up* onto the strip above it, painted as a background so it
-         * cannot escape the tab's own box — see the note in `tabs.module.css`
-         * for why that shape and not a box-shadow. Steep falloff, because
-         * phosphor is bright at the source and gone within a few millimetres.
-         */
-        '--tab-glow': [
-            'linear-gradient(0deg,',
-            `rgba(${accRgb}, 0.40) 0%,`,
-            `rgba(${accRgb}, 0.16) 30%,`,
-            `rgba(${accRgb}, 0.04) 62%,`,
-            'transparent 100%)',
-        ].join(' '),
-    }
+    /*
+     * The one thing this theme adds to the tab strip: the active tab's
+     * underline emits. It is the light the rule throws *up* onto the strip
+     * above it, painted as a background so it cannot escape the tab's own box
+     * — see the note in `tabs.module.css` for why that shape and not a
+     * box-shadow. Steep falloff, because phosphor is bright at the source and
+     * gone within a few millimetres of it.
+     */
+    '--tab-glow': [
+        'linear-gradient(0deg,',
+        'rgba(var(--acc-rgb), 0.40) 0%,',
+        'rgba(var(--acc-rgb), 0.16) 30%,',
+        'rgba(var(--acc-rgb), 0.04) 62%,',
+        'transparent 100%)',
+    ].join(' '),
 }
 
 /**
@@ -167,20 +170,23 @@ export default function SciFiPage({
     const loreDate = operation.loreDate ? dayjs(operation.loreDate) : null
     const attendanceHref = `/operations/${id}/attendance` as Route
 
-    /*
-     * The signal in the tube.
-     *
-     * Normalised to 7:1 on the glass rather than used raw: the theme colour
-     * comes from a picker with no opinion about legibility, and it is *ink*
-     * here — the title, every heading, the live gauge, the muster button.
-     * ASOT red lands at 3.87:1 untouched, which fails AA. `readableOn` holds
-     * the hue and moves only the lightness, so the operation still reads as its
-     * own colour; 7 rather than 4.5 because the raster lays a line of black
-     * over one row in three and the small tracked labels need the headroom.
-     */
-    const accent = readableOn(operation.themeColor || '#db001d', GLASS, 7)
-    const accentRgb = rgbTriplet(accent)
-    const chrome = consoleChrome(accent, accentRgb)
+    /* The whole screen, from the operation's own hue. */
+    const pal = consolePalette(operation.themeColor || '#db001d')
+    const tokens: Record<string, string> = {
+        '--glass': pal.glass,
+        '--glass-2': pal.glass2,
+        '--glass-3': pal.glass3,
+        '--glass-on': pal.glassOn,
+        '--phos': pal.phos,
+        '--phos-2': pal.phos2,
+        '--tube-rgb': rgbTriplet(pal.phos),
+        '--acc': pal.phos,
+        '--acc-rgb': rgbTriplet(pal.phos),
+        '--ink': pal.ink,
+        '--ink-2': pal.ink2,
+        '--ink-3': pal.ink3,
+        '--alarm': pal.alarm,
+    }
 
     const refLine = [
         operation.department,
@@ -192,7 +198,7 @@ export default function SciFiPage({
     return (
         <div
             className={s.page}
-            style={{ ['--acc' as string]: accent, ['--acc-rgb' as string]: accentRgb }}
+            style={tokens as React.CSSProperties}
         >
             <HideSiteNav />
             <OperationBar
@@ -204,7 +210,7 @@ export default function SciFiPage({
                 canEdit={isHQ}
                 signedIn={isLoggedIn}
                 fromJ2={fromJ2}
-                palette={chrome}
+                palette={CONSOLE_CHROME}
             />
 
             <div className={s.glass}>
@@ -379,7 +385,7 @@ export default function SciFiPage({
             </div>
 
             {/* Same repaint as the bar — otherwise it is one red chip on a green screen. */}
-            {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} palette={chrome} />}
+            {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} palette={CONSOLE_CHROME} />}
         </div>
     )
 }

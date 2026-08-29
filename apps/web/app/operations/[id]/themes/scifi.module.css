@@ -13,62 +13,85 @@
  * *through*. The vignette and the raster carry the tube on their own, and the
  * hardware they were framing only cost the document its width.
  *
- * **Two colours, and only one of them is the operation's.** Phosphor green is
- * the *tube* — body copy, hairlines, the bloom, the rail — and it is fixed,
- * because a tube emits one colour and that is what makes it a tube. The
- * operation's accent is the *signal in it*: the title, every heading, the live
- * gauge, the muster call, the tab underline. Green is the surface; the accent
- * is what is written on it. Red is neither, and appears exactly once — on an
- * order you have not signed.
+ * **The tube is the operation's colour, and so is everything in it.** This is
+ * a monochrome screen: one hue — the operation's — from the cast in the glass
+ * to the hairlines to the body copy, separated by *saturation and brightness*
+ * rather than by hue. Saturated means "this means something" (the title, every
+ * heading, the live gauge, the muster call, the tab underline); desaturated
+ * means "this is text". That is how a single-phosphor tube actually works, and
+ * it is the only way to hand a whole page over to an arbitrary colour without
+ * it becoming a clash.
  *
- * The accent arrives already normalised. `readableOn()` holds its hue and moves
- * its lightness until it clears 7:1 on the glass, because the picker that
- * chose it has no opinion about legibility: ASOT red lands at 3.87:1 here and
- * fails AA outright. Hue is what people recognise, so the operation still
- * reads as its own colour — see `SciFiPage.tsx` and `lib/colour.ts`.
+ * One lamp is not the tube: the alarm on an order you have not signed. It is
+ * red, or the operation's complement when red would sit too close to the tube
+ * to read as a different thing at all.
+ *
+ * Nothing here is used raw. The picker that chose the colour has no opinion
+ * about legibility — ASOT red is 3.87:1 on this glass and fails AA outright —
+ * so every step of the ramp is run through `readableOn` against the ground it
+ * will sit on. Hue is held throughout, because hue is what people recognise:
+ * the operation still reads as its own colour. See `consolePalette` in
+ * `SciFiPage.tsx` and `lib/colour.ts`.
  */
 
 .page {
+    /*
+     * Every colour below is a fallback. `SciFiPage` overrides the lot inline
+     * with a ramp built from the operation's own hue — see `consolePalette`
+     * there — and these are what the stylesheet means on its own: the phosphor
+     * green the theme was designed in.
+     */
+
     /* The glass, and the only ground there is. Not pure black — a tube at rest
        still has a faint cast, and a true #000 page reads as a hole rather than
-       as a screen that happens to be dark. */
-    --glass:   #05070a;
-    --glass-2: #080c11;
+       as a screen that happens to be dark. It is tinted with the hue too: a
+       neutral black behind a coloured tube looks like a coloured tube sitting
+       on a page, which is the one thing this theme cannot look like. */
+    --glass:    #05070a;
+    --glass-2:  #080c11;
+    --glass-3:  #020304;
+    /* What sits *on* a filled block of tube colour — the muster button, the
+       open document in the rail. Near-black and tinted, so an inverted chip
+       does not punch a neutral hole in a coloured screen. */
+    --glass-on: #04120c;
 
     /*
-     * The tube and the alarm. Measured against `--glass`, not eyeballed:
-     * 13.1:1 and 6.4:1. Generous, and deliberately so — the raster below lays a
-     * 1-in-3 line of black over everything on the screen, which costs a few
-     * percent of luminance that a ratio sitting on the 4.5:1 floor could not
-     * afford to give up. `--acc` and `--acc-rgb` are the operation's, injected
-     * by `SciFiPage` at 7:1 for the same reason.
+     * The tube, in two brightnesses, plus the triplet every tint on this page
+     * is mixed from. Ratios are guaranteed rather than eyeballed —
+     * `consolePalette` runs each step through `readableOn` against the glass it
+     * will sit on, and generously, because the raster lays a 1-in-3 line of
+     * black over everything on the screen and a ratio sitting on the 4.5:1
+     * floor could not afford to give that up.
      */
-    --phos:    #62e8b0;
-    --phos-2:  #38b98a;
-    --alarm:   #ff5252;
+    --phos:     #62e8b0;
+    --phos-2:   #38b98a;
+    --tube-rgb: 98, 232, 176;
 
-    /* Fallbacks. `SciFiPage` overrides both inline with the operation's own,
-       already normalised; these are what the stylesheet means on its own, and
-       without them every `rgba(var(--acc-rgb), …)` below would be invalid and
-       resolve to transparent. */
-    --acc:     var(--phos);
-    --acc-rgb: 98, 232, 176;
+    /* The signal: the tube's hue at full saturation. On a monochrome screen
+       that is the only distinction there is — saturated means "this means
+       something", desaturated means "this is text". */
+    --acc:      var(--phos);
+    --acc-rgb:  var(--tube-rgb);
+
+    /* The one lamp that is not the tube. */
+    --alarm:    #ff5252;
 
     /*
-     * Three inks, same measurement: 17.8:1, 11.1:1 and 6.1:1. `--ink-3` is the
-     * one that matters — it is every gauge label and rail header on the page,
-     * all of it small uppercase mono at wide tracking, which needs more
-     * contrast than its ratio implies. It started at #4d6b60 (3.4:1) and
-     * failed AA outright.
+     * Three inks — the tube's hue at low saturation, so text reads as light
+     * *from* this screen rather than as neutral grey laid over it, while
+     * staying clear of the saturated signal. `--ink-3` is the one that matters:
+     * it is every gauge label and rail header, all small uppercase mono at wide
+     * tracking, which needs more contrast than its ratio implies. It started at
+     * #4d6b60 (3.4:1) and failed AA outright.
      */
-    --ink:     #d9f7e8;
-    --ink-2:   #9fc9b6;
-    --ink-3:   #6f9788;
+    --ink:      #d9f7e8;
+    --ink-2:    #9fc9b6;
+    --ink-3:    #6f9788;
 
-    /* Hairlines inside the glass. Phosphor at low alpha, so the screen's own
+    /* Hairlines inside the glass. The tube at low alpha, so the screen's own
        divisions look emitted rather than drawn on top of it. */
-    --grid:    rgba(98, 232, 176, 0.18);
-    --grid-2:  rgba(98, 232, 176, 0.09);
+    --grid:     rgba(var(--tube-rgb), 0.18);
+    --grid-2:   rgba(var(--tube-rgb), 0.09);
 
     --type:    var(--font-mono);
     --display: var(--font-disp);
@@ -115,12 +138,12 @@
        corners to darken and the screen does not stop halfway down the page. */
     flex: 1;
     overflow: hidden;
-    background: radial-gradient(120% 100% at 50% 0%, var(--glass-2), var(--glass) 70%, #020304 100%);
+    background: radial-gradient(120% 100% at 50% 0%, var(--glass-2), var(--glass) 70%, var(--glass-3) 100%);
     /* The faintest phosphor bloom filling the tube. The 90px black inset that
        used to sit under this went with the bezel — at full bleed it only
        dirtied the edges of the reading area, which the vignette already
        handles more honestly. */
-    box-shadow: inset 0 0 200px rgba(56, 185, 138, 0.05);
+    box-shadow: inset 0 0 200px rgba(var(--tube-rgb), 0.05);
 }
 
 /*
@@ -158,7 +181,7 @@
     height: 3px;
     z-index: 3;
     pointer-events: none;
-    background: linear-gradient(180deg, transparent, rgba(98, 232, 176, 0.14), transparent);
+    background: linear-gradient(180deg, transparent, rgba(var(--tube-rgb), 0.14), transparent);
     animation: sweep 9s linear infinite;
 }
 @keyframes sweep {
@@ -263,7 +286,7 @@
 .gauge {
     padding: 12px 14px 13px;
     border: 1px solid var(--grid-2);
-    background: rgba(98, 232, 176, 0.03);
+    background: rgba(var(--tube-rgb), 0.03);
 }
 .gaugeKey {
     margin: 0 0 6px;
@@ -290,8 +313,8 @@
 /* Seats, as a segmented bar. Ten segments because a console reads in segments,
    and because it answers "nearly full?" at a glance in a way "28 / 34" does not. */
 .bars { display: flex; gap: 2px; margin-top: 7px; }
-.barSeg { flex: 1; height: 5px; background: rgba(98, 232, 176, 0.14); }
-.barOn { background: var(--phos-2); box-shadow: 0 0 7px rgba(56, 185, 138, 0.7); }
+.barSeg { flex: 1; height: 5px; background: rgba(var(--tube-rgb), 0.14); }
+.barOn { background: var(--phos-2); box-shadow: 0 0 7px rgba(var(--tube-rgb), 0.7); }
 
 /* ── The two things you might owe ─────────────────────────────────────── */
 
@@ -352,7 +375,7 @@
     text-transform: uppercase;
     /* The accent is normalised to 7:1 against near-black, so near-black on it
        is the same guarantee read the other way round. */
-    color: #04120c;
+    color: var(--glass-on);
     background: var(--acc);
     box-shadow: 0 0 22px rgba(var(--acc-rgb), 0.45);
     transition: box-shadow 140ms ease;
@@ -385,7 +408,7 @@
     display: block;
     padding: 9px 13px;
     border-bottom: 1px solid var(--grid);
-    background: rgba(98, 232, 176, 0.04);
+    background: rgba(var(--tube-rgb), 0.04);
     font-size: 9px;
     font-weight: 500;
     letter-spacing: 0.2em;
@@ -404,7 +427,7 @@
     color: var(--ink-2);
     transition: background 140ms ease, color 140ms ease;
 }
-.doc:hover { background: rgba(98, 232, 176, 0.05); color: var(--ink); }
+.doc:hover { background: rgba(var(--tube-rgb), 0.05); color: var(--ink); }
 
 /*
  * The open document is filled, not outlined. A console selects by lighting a
@@ -413,16 +436,16 @@
  */
 .docOn {
     font-weight: 600;
-    color: #04120c;
+    color: var(--glass-on);
     background: var(--phos-2);
 }
-.docOn:hover { background: var(--phos); color: #04120c; }
+.docOn:hover { background: var(--phos); color: var(--glass-on); }
 .docNum { opacity: 0.6; margin-right: 8px; }
 
 .secs {
     padding: 4px 0 6px;
     border-bottom: 1px solid var(--grid-2);
-    background: rgba(98, 232, 176, 0.03);
+    background: rgba(var(--tube-rgb), 0.03);
 }
 .sec {
     display: block;
@@ -544,9 +567,9 @@
     margin-bottom: 7px;
     background:
         repeating-linear-gradient(90deg,
-            rgba(98, 232, 176, 0.22) 0 3px,
-            rgba(98, 232, 176, 0.06) 3px 7px,
-            rgba(98, 232, 176, 0.14) 7px 11px,
+            rgba(var(--tube-rgb), 0.22) 0 3px,
+            rgba(var(--tube-rgb), 0.06) 3px 7px,
+            rgba(var(--tube-rgb), 0.14) 7px 11px,
             transparent 11px 16px);
 }
 .encNote {
@@ -650,23 +673,23 @@
 .sheet :global(.op-doc hr) {
     border: none;
     border-top: 1px solid var(--grid);
-    box-shadow: 0 0 6px rgba(98, 232, 176, 0.2);
+    box-shadow: 0 0 6px rgba(var(--tube-rgb), 0.2);
     margin: 1.6em 0;
 }
-.sheet :global(.op-doc mark) { background: rgba(98, 232, 176, 0.22); color: var(--ink); padding: 1px 4px; }
+.sheet :global(.op-doc mark) { background: rgba(var(--tube-rgb), 0.22); color: var(--ink); padding: 1px 4px; }
 .sheet :global(.op-doc strong) { color: var(--ink); font-weight: 700; }
 .sheet :global(.op-doc a) {
     color: var(--phos);
     opacity: 1;
     text-decoration: underline;
     text-underline-offset: 2px;
-    text-shadow: 0 0 6px rgba(98, 232, 176, 0.4);
+    text-shadow: 0 0 6px rgba(var(--tube-rgb), 0.4);
 }
 .sheet :global(.op-doc a):hover { color: var(--ink); }
 .sheet :global(.op-doc code) {
     padding: 1px 5px;
     border: 1px solid var(--grid);
-    background: rgba(98, 232, 176, 0.08);
+    background: rgba(var(--tube-rgb), 0.08);
     color: var(--phos);
     font-family: var(--type);
 }
@@ -689,7 +712,7 @@
 .sheet :global(.op-doc img) {
     max-width: 100%;
     border: 1px solid var(--grid);
-    box-shadow: 0 0 14px rgba(98, 232, 176, 0.12);
+    box-shadow: 0 0 14px rgba(var(--tube-rgb), 0.12);
 }
 
 /* ── Motion ───────────────────────────────────────────────────────────── */
