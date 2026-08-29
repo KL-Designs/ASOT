@@ -9,6 +9,7 @@ import DocAcknowledgeCard from '../DocAcknowledgeCard'
 import OperationBar from '../OperationBar'
 import EditOrdersButton from '../EditOrdersButton'
 import HideSiteNav from '@/components/HideSiteNav'
+import { readableOn, rgbTriplet } from '@/lib/colour'
 import FileTabs from './FileTabs'
 import PaperRsvp from './PaperRsvp'
 import type { SpineDocument } from './OrdersSpine'
@@ -16,6 +17,10 @@ import type { ModernPageProps } from './theme-props'
 import s from './coldwar.module.css'
 
 const OCAP = '__ocap__'
+
+/** The typing paper, as `coldwar.module.css` sets it — the ground the ribbon
+ *  has to print legibly on. */
+const PAPER = '#e8e2d2'
 
 /**
  * The operation bar, repainted as the folder's label strip.
@@ -26,9 +31,11 @@ const OCAP = '__ocap__'
  * theme's own tokens are already in scope on `.page`: `coldwar.module.css`
  * stays the single place this palette is written down.
  *
- * Measured on `--paper-2`: the title reads 11.1:1, tab labels 7.2:1, the
- * accent 5.8:1. The three status inks are darkened for the same reason — the
- * stock green and amber are tuned for a near-black bar and wash out on manila.
+ * Measured on `--paper-2`: the title reads 11.1:1 and tab labels 7.2:1. The
+ * accent is the operation's own and cannot be measured here — `ColdWarPage`
+ * darkens it to clear 4.5:1 on the paper before it ever reaches this file. The
+ * three status inks are darkened for the same reason the ribbon is: the stock
+ * green and amber are tuned for a near-black bar and wash out on manila.
  */
 const PAPER_CHROME: Record<string, string> = {
     '--s1': 'var(--paper-2)',
@@ -40,7 +47,7 @@ const PAPER_CHROME: Record<string, string> = {
     '--ink-2': 'var(--carbon-2)',
     '--ink-3': 'var(--carbon-3)',
     '--acc': 'var(--stamp)',
-    '--acc-rgb': '140, 43, 29',
+    '--acc-rgb': 'var(--stamp-rgb)',
     '--good': '#2f5c2b',
     '--warn': '#6f4e0c',
     '--crit': 'var(--stamp)',
@@ -141,8 +148,19 @@ export default function ColdWarPage({
     const loreDate = operation.loreDate ? dayjs(operation.loreDate) : null
     const attendanceHref = `/operations/${id}/attendance` as Route
 
+    /*
+     * The ribbon. Darkened to print rather than used raw — a theme colour
+     * chosen to glow on a dark site is routinely too pale for buff paper, and
+     * this one carries the stamp, the section rules, the marginal tabs and
+     * every heading in the document.
+     */
+    const stamp = readableOn(operation.themeColor || '#8c2b1d', PAPER, 4.5)
+
     return (
-        <div className={s.page}>
+        <div
+            className={s.page}
+            style={{ ['--stamp' as string]: stamp, ['--stamp-rgb' as string]: rgbTriplet(stamp) }}
+        >
             <HideSiteNav />
             <OperationBar
                 operationId={id}

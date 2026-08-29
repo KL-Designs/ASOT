@@ -34,6 +34,12 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/buildNickname.ts
 - `buildNickname(rank, name, departments=[], isChaplain?)` — builds standard Discord nickname `RANK NAME [DEPT]... [✞]`; departments sorted+uppercased, chaplain cross appended last.
 
+### lib/colour.ts
+- `hexToRgb(hex)` / `rgbTriplet(hex)` — one home for hex → rgb, and the `"219,0,29"` form CSS custom properties want for `rgba()` tinting. Previously redefined in three files, two of which had drifted on what to do with a malformed value; falls back to ASOT red.
+- `relativeLuminance(rgb)` / `contrastRatio(a, b)` — WCAG, 1 to 21, order-independent.
+- `hexToHsl(hex)` / `hslToHex(hsl)` — round-trips; greys come back with `s: 0` rather than a meaningless hue.
+- **`readableOn(hex, ground, minRatio=4.5, minSaturation=0.45)`** — the operation's theme colour, moved until it is legible on a stated ground. **Why it exists:** the colour comes from a picker with no opinion about legibility, and two page themes use it as *ink*. ASOT red is 3.87:1 on the Sci-Fi console's glass and fails AA outright; the same orange that reads 5.99:1 there reads **2.61:1** on Cold War's paper. It holds the **hue** — hue is what people recognise, so the operation still reads as its own colour — and walks lightness outward from the ground in 1% steps until the ratio clears. A search rather than a formula because luminance is not linear in HSL lightness and a closed form is more machinery than 100 iterations of the real thing. Saturation is **floored, not preserved**: a near-grey accent walked towards white just becomes white and the operation stops being recognisable, so it is only ever raised. A colour that already clears is returned **untouched** — nudging one that was fine is how "keep the operation's accent" quietly becomes "keep its hue". Returns the best it managed if the ratio is unreachable, since some hues cannot hit 7:1 on a mid grey at any lightness and a slightly-low accent beats a black one. Unit-tested in `colour.test.ts`, including a sweep proving every hue clears AA on both grounds.
+
 ### lib/discord/color.ts
 - Default export `convertColorToHex(color: number): string` — decimal → `#rrggbb`.
 - `ensureVisible(hex, minLuminance=0.25)` — WCAG-luminance-based brightener; near-black → grey fallback, otherwise scales channels up to meet threshold. Used by `resolveMilpacProfile` for accent colors.

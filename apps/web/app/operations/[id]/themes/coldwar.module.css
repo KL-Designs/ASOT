@@ -10,9 +10,18 @@
  * sheet is paper; the desk around it stays dark, which is what lets the
  * operation bar and the Zeus/OCAP panels stay as they are everywhere else.
  *
- * The palette is fixed rather than taking the operation's `--acc`. A typed
- * document does not change colour per operation, and an operation themed pale
- * blue would print invisibly on paper. Stamp red is the ribbon.
+ * The paper and the carbon are fixed — a typed document does not change stock
+ * per operation — but **the ribbon is the operation's own colour**. That was
+ * the one thing worth making variable here: a file's paper is a constant and
+ * its typing is a constant, while what somebody chose to stamp across it is
+ * not.
+ *
+ * It cannot be used raw. A theme colour picked to glow on a dark site is
+ * routinely too pale to print, and an operation themed pale blue would stamp
+ * invisibly on buff paper. `readableOn` holds the hue and walks the lightness
+ * down until it clears 4.5:1 on the paper — hue is what people recognise, so
+ * the operation still reads as its own colour. See `ColdWarPage.tsx` and
+ * `lib/colour.ts`.
  */
 
 .page {
@@ -39,7 +48,16 @@
     --carbon-3: #615b4e;
     /* Hairlines and dotted rules only — never text. */
     --rule:     #a39c8c;
-    --stamp:    #8c2b1d;
+    /*
+     * The ribbon in the typewriter — and the operation's own colour, not a
+     * fixed red. It arrives from `ColdWarPage` already darkened: `readableOn`
+     * holds the accent's hue and walks its lightness down until it clears
+     * 4.5:1 on the paper, because a theme colour picked to glow on a dark site
+     * is routinely too pale to print. These are the fallbacks, and they are the
+     * red this theme shipped with.
+     */
+    --stamp:     #8c2b1d;
+    --stamp-rgb: 140, 43, 29;
     /*
      * The desk is buff card, not a dark table. A near-black ground put the
      * file on a screen; this puts it in a folder, and it also rescues the tab
@@ -195,7 +213,7 @@
     margin: 0 0 8px;
     padding: 6px 0 6px 16px;
     background: var(--paper);
-    border-left: 4px solid rgba(140, 43, 29, 0.35);
+    border-left: 4px solid rgba(var(--stamp-rgb), 0.35);
 }
 .tabSec {
     display: flex;
@@ -237,11 +255,11 @@
     --ack-ok-edge:   rgba(56, 107, 51, 0.45);
     --ack-ok-soft:   rgba(56, 107, 51, 0.08);
     --ack-warn:      var(--stamp);
-    --ack-warn-dim:  rgba(140, 43, 29, 0.5);
-    --ack-warn-edge: rgba(140, 43, 29, 0.45);
-    --ack-warn-soft: rgba(140, 43, 29, 0.06);
+    --ack-warn-dim:  rgba(var(--stamp-rgb), 0.5);
+    --ack-warn-edge: rgba(var(--stamp-rgb), 0.45);
+    --ack-warn-soft: rgba(var(--stamp-rgb), 0.06);
     --ack-bad:       var(--stamp);
-    --ack-bad-soft:  rgba(140, 43, 29, 0.05);
+    --ack-bad-soft:  rgba(var(--stamp-rgb), 0.05);
 
     width: 100%;
     background:
@@ -624,9 +642,8 @@
  * while `strong` — one step more specific — goes black. That was this theme's
  * first bug.
  *
- * Every colour here is a fixed ink rather than the operation's `--acc`. A typed
- * page does not change colour per operation, and one themed pale blue would
- * print invisibly.
+ * The inks are fixed carbon; the ribbon (`--stamp`) is the operation's own
+ * colour, darkened to print. See the note at the top of this file.
  */
 .sheet :global(.op-doc) {
     padding: 0;
@@ -645,7 +662,7 @@
     padding: 7px 13px;
     border: none;
     border-left: 4px solid var(--stamp);
-    background: rgba(140, 43, 29, 0.06);
+    background: rgba(var(--stamp-rgb), 0.06);
     font-family: var(--type);
     font-size: 0.95rem;
     font-weight: 700;
@@ -683,7 +700,7 @@
     padding: 10px 15px;
     border: none;
     border-left: 4px solid var(--stamp);
-    background: rgba(140, 43, 29, 0.05);
+    background: rgba(var(--stamp-rgb), 0.05);
     color: var(--carbon-2);
     font-style: italic;
 }

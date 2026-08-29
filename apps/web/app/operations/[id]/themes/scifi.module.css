@@ -13,13 +13,19 @@
  * *through*. The vignette and the raster carry the tube on their own, and the
  * hardware they were framing only cost the document its width.
  *
- * Like Cold War, the palette is fixed rather than taking the operation's
- * `--acc`. A console does not change colour because the operation does — a
- * phosphor tube emits one colour, that is what makes it a phosphor tube — and
- * an operation themed deep red would leave this page glowing in a hue no
- * hardware ever produced. Phosphor green is the tube, amber is the second
- * voice for times and headings, and red appears exactly once, on an order you
- * have not signed.
+ * **Two colours, and only one of them is the operation's.** Phosphor green is
+ * the *tube* — body copy, hairlines, the bloom, the rail — and it is fixed,
+ * because a tube emits one colour and that is what makes it a tube. The
+ * operation's accent is the *signal in it*: the title, every heading, the live
+ * gauge, the muster call, the tab underline. Green is the surface; the accent
+ * is what is written on it. Red is neither, and appears exactly once — on an
+ * order you have not signed.
+ *
+ * The accent arrives already normalised. `readableOn()` holds its hue and moves
+ * its lightness until it clears 7:1 on the glass, because the picker that
+ * chose it has no opinion about legibility: ASOT red lands at 3.87:1 here and
+ * fails AA outright. Hue is what people recognise, so the operation still
+ * reads as its own colour — see `SciFiPage.tsx` and `lib/colour.ts`.
  */
 
 .page {
@@ -30,16 +36,23 @@
     --glass-2: #080c11;
 
     /*
-     * Phosphor, amber, alarm. Measured against `--glass`, not eyeballed:
-     * 13.1:1, 11.0:1 and 6.4:1. Generous, and deliberately so — the raster
-     * below lays a 1-in-3 line of black over everything on the screen, which
-     * costs a few percent of luminance that a ratio sitting on the 4.5:1 floor
-     * could not afford to give up.
+     * The tube and the alarm. Measured against `--glass`, not eyeballed:
+     * 13.1:1 and 6.4:1. Generous, and deliberately so — the raster below lays a
+     * 1-in-3 line of black over everything on the screen, which costs a few
+     * percent of luminance that a ratio sitting on the 4.5:1 floor could not
+     * afford to give up. `--acc` and `--acc-rgb` are the operation's, injected
+     * by `SciFiPage` at 7:1 for the same reason.
      */
     --phos:    #62e8b0;
     --phos-2:  #38b98a;
-    --amber:   #ffb020;
     --alarm:   #ff5252;
+
+    /* Fallbacks. `SciFiPage` overrides both inline with the operation's own,
+       already normalised; these are what the stylesheet means on its own, and
+       without them every `rgba(var(--acc-rgb), …)` below would be invalid and
+       resolve to transparent. */
+    --acc:     var(--phos);
+    --acc-rgb: 98, 232, 176;
 
     /*
      * Three inks, same measurement: 17.8:1, 11.1:1 and 6.1:1. `--ink-3` is the
@@ -84,7 +97,7 @@
  * On a dark theme that does not go white-on-white the way it did on Cold War's
  * paper — it does something quieter and just as wrong. The ink hierarchy
  * collapses: `--ink-3` labels meant to sit back come forward to full
- * brightness, the amber and phosphor accents turn plain white, and the screen
+ * brightness, the accent and phosphor turn plain white, and the screen
  * stops looking like a tube emitting one colour, which is the entire theme.
  *
  * Scoped to the glass and placed before everything else here, so it only
@@ -197,10 +210,11 @@
     letter-spacing: 0.05em;
     text-transform: uppercase;
     text-wrap: balance;
-    color: var(--phos);
-    /* Two radii: the tight one is the phosphor itself, the wide one is the
-       bloom in the glass in front of it. */
-    text-shadow: 0 0 10px rgba(98, 232, 176, 0.55), 0 0 34px rgba(56, 185, 138, 0.35);
+    /* The operation's own colour, and the single largest piece of it on the
+       page. Two radii: the tight one is the phosphor itself, the wide one is
+       the bloom in the glass in front of it. */
+    color: var(--acc);
+    text-shadow: 0 0 10px rgba(var(--acc-rgb), 0.55), 0 0 34px rgba(var(--acc-rgb), 0.3);
 }
 
 /*
@@ -267,10 +281,11 @@
     color: var(--ink);
 }
 
-/* The one live gauge. The single amber cell on a green screen is what makes
-   the deadline read first — the same job Modern's accent cell does. */
-.gaugeHot { border-color: rgba(255, 176, 32, 0.4); background: rgba(255, 176, 32, 0.05); }
-.gaugeHot .gaugeVal { color: var(--amber); text-shadow: 0 0 12px rgba(255, 176, 32, 0.55); }
+/* The one live gauge. A single cell in the operation's own colour on an
+   otherwise green screen is what makes the deadline read first — the same job
+   Modern's accent cell does, and the same reason only one cell gets it. */
+.gaugeHot { border-color: rgba(var(--acc-rgb), 0.45); background: rgba(var(--acc-rgb), 0.06); }
+.gaugeHot .gaugeVal { color: var(--acc); text-shadow: 0 0 12px rgba(var(--acc-rgb), 0.55); }
 
 /* Seats, as a segmented bar. Ten segments because a console reads in segments,
    and because it answers "nearly full?" at a glance in a way "28 / 34" does not. */
@@ -324,23 +339,25 @@
     background: rgba(255, 82, 82, 0.18);
 }
 
-.muster { border: 1px solid rgba(98, 232, 176, 0.35); background: rgba(98, 232, 176, 0.06); }
+.muster { border: 1px solid rgba(var(--acc-rgb), 0.4); background: rgba(var(--acc-rgb), 0.07); }
 .musterKey { display: block; font-size: 1.02rem; font-weight: 600; letter-spacing: 0.03em; color: var(--ink); }
 .musterSub { display: block; margin-top: 3px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-2); }
 .btnGo {
     flex: none;
     padding: 12px 24px;
-    border: 1px solid var(--phos);
+    border: 1px solid var(--acc);
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.18em;
     text-transform: uppercase;
+    /* The accent is normalised to 7:1 against near-black, so near-black on it
+       is the same guarantee read the other way round. */
     color: #04120c;
-    background: var(--phos);
-    box-shadow: 0 0 22px rgba(98, 232, 176, 0.45);
+    background: var(--acc);
+    box-shadow: 0 0 22px rgba(var(--acc-rgb), 0.45);
     transition: box-shadow 140ms ease;
 }
-.muster:hover .btnGo { box-shadow: 0 0 34px rgba(98, 232, 176, 0.7); }
+.muster:hover .btnGo { box-shadow: 0 0 34px rgba(var(--acc-rgb), 0.7); }
 
 /* ── Body ─────────────────────────────────────────────────────────────── */
 
@@ -482,7 +499,7 @@
     padding-bottom: 10px;
     border-bottom: 1px solid var(--grid);
 }
-.paraNum { flex: none; font-size: 0.78rem; color: var(--amber); }
+.paraNum { flex: none; font-size: 0.78rem; color: var(--acc); }
 .paraTitle {
     margin: 0;
     font-family: var(--display);
@@ -490,8 +507,8 @@
     font-weight: 600;
     letter-spacing: 0.09em;
     text-transform: uppercase;
-    color: var(--phos);
-    text-shadow: 0 0 9px rgba(98, 232, 176, 0.4);
+    color: var(--acc);
+    text-shadow: 0 0 9px rgba(var(--acc-rgb), 0.4);
 }
 .paraTag {
     margin-left: auto;
@@ -587,16 +604,16 @@
     margin: 1.5em 0 0.7em;
     padding: 8px 14px;
     border: none;
-    border-left: 2px solid var(--phos);
-    background: rgba(98, 232, 176, 0.07);
-    box-shadow: inset 0 0 26px rgba(98, 232, 176, 0.05);
+    border-left: 2px solid var(--acc);
+    background: rgba(var(--acc-rgb), 0.07);
+    box-shadow: inset 0 0 26px rgba(var(--acc-rgb), 0.05);
     font-family: var(--display);
     font-size: 1rem;
     font-weight: 600;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--phos);
-    text-shadow: 0 0 10px rgba(98, 232, 176, 0.5);
+    color: var(--acc);
+    text-shadow: 0 0 10px rgba(var(--acc-rgb), 0.5);
 }
 .sheet :global(.op-doc h2) {
     margin: 1.4em 0 0.5em;
@@ -605,11 +622,11 @@
     font-weight: 600;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--amber);
-    text-shadow: 0 0 8px rgba(255, 176, 32, 0.35);
+    color: var(--acc);
+    text-shadow: 0 0 8px rgba(var(--acc-rgb), 0.35);
 }
 /* Modern's `// ` prefix; this theme uses a prompt instead. */
-.sheet :global(.op-doc h2)::before { content: '> '; color: rgba(255, 176, 32, 0.5); }
+.sheet :global(.op-doc h2)::before { content: '> '; color: rgba(var(--acc-rgb), 0.55); }
 .sheet :global(.op-doc h3) {
     margin: 1.1em 0 0.35em;
     font-size: 0.76rem;
@@ -625,8 +642,8 @@
 .sheet :global(.op-doc blockquote) {
     margin: 1em 0;
     padding: 11px 16px;
-    border: 1px solid rgba(255, 176, 32, 0.3);
-    background: rgba(255, 176, 32, 0.05);
+    border: 1px solid rgba(var(--acc-rgb), 0.32);
+    background: rgba(var(--acc-rgb), 0.06);
     color: var(--ink);
     font-style: normal;
 }
@@ -660,8 +677,8 @@
     overflow-x: auto;
 }
 .sheet :global(.op-doc th) {
-    color: var(--amber);
-    border-bottom: 1px solid rgba(255, 176, 32, 0.3);
+    color: var(--acc);
+    border-bottom: 1px solid rgba(var(--acc-rgb), 0.32);
     font-size: 9px;
     letter-spacing: 0.16em;
     text-transform: uppercase;

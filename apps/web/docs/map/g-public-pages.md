@@ -855,9 +855,13 @@ touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttenda
   **routing slip** (the acknowledgement and attendance call as the form a real file carries — a line
   to sign, a line saying what you are detailed to). `FileTabs.tsx` is the navigation: a sheet of
   paper has no sidebar, so the documents become tabs cut into the folder's edge, the open one cut
-  from the sheet's own stock and reaching across the seam. Its palette is **fixed, not the
-  operation's `--acc`**: a typed page does not change colour per operation, and one themed pale blue
-  would print invisibly on paper.
+  from the sheet's own stock and reaching across the seam. **The paper and the carbon are fixed
+  and the ribbon is not**: stock and typing are constants of a file, but what somebody chose to stamp
+  across it is the operation's own colour. It cannot be used raw — a theme colour picked to glow on a
+  dark site is routinely too pale to print, and the one live example measures **2.61:1** on this
+  paper — so `readableOn(themeColor, paper, 4.5)` walks its lightness down until it prints, holding
+  the hue. `--stamp` / `--stamp-rgb` land inline on `.page`, which is also how the bar's `palette`
+  picks them up.
   `coldwar` was already a selectable era (`/api/admin/era-options`) with no rendering of its own,
   which is why choosing it used to give you Modern. **`wwii`, `vietnam` and `fantasy` still do** —
   they are offered in the picker and fall through to `ClassicPage`.
@@ -865,15 +869,19 @@ touch. `theme-props.ts` carries the shared `ThemePageProps` (plus `OrdersAttenda
   "**Bridge Console**". The orders as a slab of dead-black glass with phosphor burning inside, run to
   all four edges of the window. The whole theme rests on one rule — **the light never leaves the
   screen**: glow lives on text and hairlines, never on a frame or a ground, which is the difference
-  between a CRT and a filter laid over a page. It began inside a bezel — brushed hull, rounded
+  between a CRT and a filter laid over a page. **Two colours, and only one of them is the
+  operation's:** phosphor green is the *tube* — body copy, hairlines, the bloom, the rail — and is
+  fixed, because a tube emits one colour and that is what makes it a tube; the operation's accent is
+  the *signal in it* — the title, every heading, the live gauge, the muster call, the tab underline,
+  the document's `h1` band. Green is the surface, the accent is what is written on it, and red is
+  neither and appears exactly once. The accent arrives normalised to **7:1** on the glass
+  (`readableOn`), not 4.5, because the raster lays a line of black over one row in three and the
+  small tracked labels need the headroom. It began inside a bezel — brushed hull, rounded
   corners, screws in each corner — and the frame lost its argument the moment it was seen at size. A
   bezel is a thing you look *at*; edge to edge the reader is looking *through*. The vignette and the
   raster carry the tube on their own, and the hardware they were framing only cost the document its
-  width. Palette **fixed, not the operation's `--acc`**, for Cold War's reason in a different
-  key: a phosphor tube emits one colour, and an operation themed deep red would leave the page
-  glowing in a hue no hardware ever produced. Phosphor green is the tube, amber the second voice for
-  times and headings, red appears exactly once — on an order you have not signed, and it is the only
-  thing that pulses.
+  width. Red appears exactly once — on an order you have not signed — and it is
+  the only thing that pulses.
   Two things it does that Modern does not: **the console outlives the document** (title, gauges and
   the two calls sit on the *screen*, not the open page, so they stay put when you switch documents in
   the rail — a console's readout does not change because you changed channel), and **encryption
