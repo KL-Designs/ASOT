@@ -16,10 +16,16 @@ import s from './mode-switch.module.css'
  * resolves the palette — the accent is the operation's own theme colour.
  */
 export default function EditOrdersButton({
-    operationId, themeColor,
+    operationId, themeColor, palette,
 }: {
     operationId: string
     themeColor?: string
+    /**
+     * Custom-property overrides, for themes whose chrome is not dark — same
+     * contract as `OperationBar`'s. `.command` sits on this element, so an
+     * ancestor cannot repaint it; these arrive inline and outrank it.
+     */
+    palette?: Record<string, string>
 }) {
     const accent = themeColor || '#db001d'
 
@@ -30,6 +36,7 @@ export default function EditOrdersButton({
             style={{
                 ['--acc' as string]: accent,
                 ['--acc-rgb' as string]: rgbTriplet(accent),
+                ...palette,
             }}
             title='Open the orders in the editor'
         >

@@ -20,6 +20,35 @@ const ZEUS = '__zeus__'
 const OCAP = '__ocap__'
 
 /**
+ * The operation bar, repainted as the folder's label strip.
+ *
+ * The bar and its tab strip draw entirely from `.command` tokens, and that
+ * class sits on the bar itself — so these have to arrive as inline styles to
+ * outrank it. They are `var()` references rather than literals, because the
+ * theme's own tokens are already in scope on `.page`: `coldwar.module.css`
+ * stays the single place this palette is written down.
+ *
+ * Measured on `--paper-2`: the title reads 11.1:1, tab labels 7.2:1, the
+ * accent 5.8:1. The three status inks are darkened for the same reason — the
+ * stock green and amber are tuned for a near-black bar and wash out on manila.
+ */
+const PAPER_CHROME: Record<string, string> = {
+    '--s1': 'var(--paper-2)',
+    '--s2': 'var(--paper-3)',
+    '--s3': 'var(--paper)',
+    '--line': 'var(--rule)',
+    '--line-2': 'rgba(70, 58, 38, 0.45)',
+    '--ink': 'var(--carbon)',
+    '--ink-2': 'var(--carbon-2)',
+    '--ink-3': 'var(--carbon-3)',
+    '--acc': 'var(--stamp)',
+    '--acc-rgb': '140, 43, 29',
+    '--good': '#2f5c2b',
+    '--warn': '#6f4e0c',
+    '--crit': 'var(--stamp)',
+}
+
+/**
  * The Cold War orders page — "Declassified".
  *
  * The orders as a released file: a typed sheet on a dark desk, classification
@@ -87,6 +116,7 @@ export default function ColdWarPage({
                 canEdit={isHQ}
                 signedIn={isLoggedIn}
                 fromJ2={fromJ2}
+                palette={PAPER_CHROME}
             />
 
             <div className={s.desk}>
@@ -266,7 +296,8 @@ export default function ColdWarPage({
               </div>
             </div>
 
-            {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} />}
+            {/* Same repaint as the bar — otherwise it is one dark chip on a buff desk. */}
+            {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} palette={PAPER_CHROME} />}
         </div>
     )
 }

@@ -17,6 +17,19 @@ interface Props {
     editing?: boolean
     /** Came in from the J2 operations tab; the back link should go back there. */
     fromJ2?: boolean
+    /**
+     * Custom-property overrides for themes whose chrome is not dark.
+     *
+     * The bar and its tab strip are drawn entirely from `.command` tokens, and
+     * that class sits on this element — so an ancestor cannot repaint them, it
+     * would only be outranked by the class's own declarations. These land as
+     * inline styles, which beat any stylesheet at any specificity.
+     *
+     * Pass `var(--...)` references rather than literals where you can: a theme's
+     * own tokens are already in scope here, so the theme's stylesheet stays the
+     * one place its palette is written down. See `themes/ColdWarPage.tsx`.
+     */
+    palette?: Record<string, string>
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -42,6 +55,7 @@ const STATUS_COLOR: Record<string, string> = {
  */
 export default function OperationBar({
     operationId, title, status, themeColor, active, canEdit, signedIn = false, editing = false, fromJ2 = false,
+    palette,
 }: Props) {
     const accent = themeColor || '#db001d'
     const statusColor = (status && STATUS_COLOR[status]) || 'var(--ink-3)'
@@ -52,6 +66,8 @@ export default function OperationBar({
             style={{
                 ['--acc' as string]: accent,
                 ['--acc-rgb' as string]: rgbTriplet(accent),
+                // After the accent, so a theme can repaint that too.
+                ...palette,
                 display: 'flex', alignItems: 'center', gap: 16,
                 padding: '0 16px', height: 52, flexShrink: 0,
                 borderBottom: '1px solid var(--line)',
