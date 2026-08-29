@@ -7,6 +7,7 @@ import { hasPermission } from '@/lib/orbat/hasPermission'
 import ClassicPage from './themes/ClassicPage'
 import ModernPage from './themes/ModernPage'
 import ColdWarPage from './themes/ColdWarPage'
+import SciFiPage from './themes/SciFiPage'
 import type { OrdersAttendance, OrdersLineage, ThemePageProps } from './themes/theme-props'
 
 /**
@@ -72,17 +73,24 @@ export default async function Page({ params, searchParams }: { params: Promise<{
      * Themes that have their own page get one; everything else falls back to
      * the page as it always looked. `coldwar` was already a selectable era with
      * no rendering of its own, which is why choosing it used to give you Modern.
+     *
+     * `scifi` is the other direction: it *did* render, as ClassicPage's `isSF`
+     * variant, and now has a page of its own instead. ClassicPage keeps that
+     * branch — it is the fallback for anything unrecognised, and deleting a
+     * working code path to tidy up is how a fallback stops being one — but
+     * nothing routes to it any more.
      */
     const pageTheme = operation.pageTheme || 'modern'
-    if (pageTheme !== 'modern' && pageTheme !== 'coldwar') return <ClassicPage {...shared} />
+    const OWN_PAGE = { modern: ModernPage, coldwar: ColdWarPage, scifi: SciFiPage } as const
+    const Themed = OWN_PAGE[pageTheme as keyof typeof OWN_PAGE]
+    if (!Themed) return <ClassicPage {...shared} />
 
     const [attendance, lineage] = await Promise.all([
         readAttendance(id, me?.id ?? null),
         readLineage(operation),
     ])
 
-    const themed = { ...shared, attendance, lineage }
-    return pageTheme === 'coldwar' ? <ColdWarPage {...themed} /> : <ModernPage {...themed} />
+    return <Themed {...shared} attendance={attendance} lineage={lineage} />
 }
 
 /**

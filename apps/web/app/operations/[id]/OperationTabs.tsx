@@ -139,7 +139,11 @@ export default function OperationTabs({ operationId, active, canEdit, signedIn =
                      * that browsers unnest on you — and because clicking the label
                      * itself should still just open the orders.
                      */
-                    <span key={t} className={s.tabSlot} ref={hasMenu ? slotRef : undefined}>
+                    <span
+                        key={t}
+                        className={`${s.tabSlot} ${t === active ? s.tabSlotOn : ''}`}
+                        ref={hasMenu ? slotRef : undefined}
+                    >
                         <Link
                             href={t === 'orders' ? ordersHref : tabHref(operationId, t)}
                             aria-current={t === active ? 'page' : undefined}
