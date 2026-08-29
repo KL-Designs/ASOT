@@ -3,6 +3,7 @@ import { connection } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import { canEach } from '@/lib/operations/permissions'
+import { aarOpen } from '@/lib/operations/aar'
 import ClassicPage from './themes/ClassicPage'
 import ModernPage from './themes/ModernPage'
 import ColdWarPage from './themes/ColdWarPage'
@@ -43,7 +44,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
      * powers hide behind one `pages.operationsEdit` check for as long as they did.
      */
     const caps = await canEach(me, [
-        'orders.view', 'schedule.view', 'attendance.view',
+        'orders.view', 'schedule.view', 'attendance.view', 'aar.view',
         'attendance.manage', 'attendance.confirm', 'zeus', 'ocap.manage',
     ] as const)
 
@@ -51,7 +52,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     const isAllStaff = caps['attendance.confirm']
     const canManageAttendance = caps['attendance.manage']
     const canZeus = caps['zeus']
-    const access = { schedule: caps['schedule.view'], attendance: caps['attendance.view'] }
 
     // Check if the logged-in user is a section leader (isSenior on their ORBAT position)
     const isSectionLeader = me
@@ -65,6 +65,28 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             Operation not found
         </div>
     )
+
+    /*
+     * Read before the theme dispatch rather than after it, which it used to be.
+     *
+     * The AAR tab appears once the operation has *finished*, and that is a fact
+     * about the stage rather than about the viewer — `aar.view` says who may
+     * read a report, not whether one exists yet. Since the tab strip is built
+     * from `access` and `access` goes into `shared`, the stage has to be in
+     * hand before either. ClassicPage pays for two queries it does not read as
+     * a result, which is the cheaper of the two prices: the alternative was a
+     * second projected query for the stage alone on every operation page.
+     */
+    const [attendance, lineage] = await Promise.all([
+        readAttendance(id, me?.id ?? null),
+        readLineage(operation),
+    ])
+
+    const access = {
+        schedule: caps['schedule.view'],
+        attendance: caps['attendance.view'],
+        aar: caps['aar.view'] && aarOpen(attendance.stage),
+    }
 
     const shared: ThemePageProps = {
         id, operation, me, isLoggedIn, isHQ, isAllStaff, canManageAttendance,
@@ -87,11 +109,6 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     const OWN_PAGE = { modern: ModernPage, coldwar: ColdWarPage, scifi: SciFiPage } as const
     const Themed = OWN_PAGE[pageTheme as keyof typeof OWN_PAGE]
     if (!Themed) return <ClassicPage {...shared} />
-
-    const [attendance, lineage] = await Promise.all([
-        readAttendance(id, me?.id ?? null),
-        readLineage(operation),
-    ])
 
     return <Themed {...shared} attendance={attendance} lineage={lineage} />
 }
@@ -143,7 +160,7 @@ async function readLineage(operation: Operation): Promise<OrdersLineage | null> 
 async function readAttendance(id: string, myUserId: string | null): Promise<OrdersAttendance> {
     const att = await Db.operationAttendance.findOne(
         { operationId: new ObjectId(id) },
-        { projection: { records: 1, roster: 1, rsvpOpen: 1 } },
+        { projection: { records: 1, roster: 1, rsvpOpen: 1, stage: 1 } },
     ).catch(() => null)
 
     const roster = att?.roster ?? []
@@ -151,6 +168,7 @@ async function readAttendance(id: string, myUserId: string | null): Promise<Orde
     const mySlot = myUserId ? roster.find(slot => slot.occupantUserId === myUserId) : undefined
 
     return {
+        stage: att?.stage ?? null,
         rsvpOpen: att?.rsvpOpen ?? false,
         attending: att?.records?.filter(rec => rec.rsvp === 'attending').length ?? 0,
         seats: roster.length,

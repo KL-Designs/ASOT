@@ -100,6 +100,19 @@ export function useEditorTab(): [OperationTab, (t: OperationTab) => boolean] {
      * it is `read`, so everything that reaches this function stays in the shell.
      */
     const change = (next: OperationTab): boolean => {
+        /*
+         * The AAR leaves the editor, the way Orders does.
+         *
+         * The shell has no content slot for it — the report is its own route
+         * with its own page — so handling the switch here would rewrite the URL
+         * and then render nothing, which is the blank-tab failure this
+         * function's return value exists to prevent. Returning false lets the
+         * link navigate for real; the collab socket goes with it and comes back
+         * when the editor is reopened, which is the correct trade for a tab
+         * nobody switches to mid-edit.
+         */
+        if (next === 'aar') return false
+
         setTab(next)
         const url = new URL(window.location.href)
         url.pathname = tabPath(next)
@@ -122,6 +135,15 @@ interface EditorShellProps {
     canSchedule?: boolean
     /** `attendance.view` — whether the Attendance tab is offered. */
     canAttendance?: boolean
+    /**
+     * `operations.aar.view` **and** the operation having finished.
+     *
+     * Defaults to false rather than to `isHQ` like the other two: the AAR tab
+     * does not exist for most of an operation's life, and defaulting it on
+     * would offer staff a door onto an empty room for every operation that has
+     * not run yet.
+     */
+    canAar?: boolean
     tab: OperationTab
     onTabChange: (t: OperationTab) => boolean
     header: ReactNode
@@ -151,7 +173,7 @@ interface EditorShellProps {
 }
 
 export default function EditorShell({
-    operationId, themeColor, isHQ, canSchedule, canAttendance, tab, onTabChange,
+    operationId, themeColor, isHQ, canSchedule, canAttendance, canAar, tab, onTabChange,
     header, deck, statusBar, brief, map, schedule, attendance, contentPaddingRight,
 }: EditorShellProps) {
     /* Inside the editor, so `orders.view` is already established. The other
@@ -163,6 +185,7 @@ export default function EditorShell({
         // one role, and everyone inside it had all four tabs.
         schedule: canSchedule ?? isHQ,
         attendance: canAttendance ?? isHQ,
+        aar: canAar,
     })
     // A tab that isn't in the visible set — a non-HQ user deep-linking
     // ?tab=attendance, or a stale value from before a role change — must not

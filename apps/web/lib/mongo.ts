@@ -35,6 +35,12 @@ const DbInterface = {
     departmentLinks: db.collection('department_links') as MongoCollection<DepartmentLink>,
     operationAttendance: db.collection('operation_attendance') as MongoCollection<OperationAttendance>,
     operationDocAcks: db.collection('operation_doc_acknowledgements') as MongoCollection<DocAcknowledgement>,
+    /** One member's Fix/Sustain/Improve for one operation. See lib/operations/aar.ts. */
+    operationAars: db.collection('operation_aars') as MongoCollection<OperationAarEntry>,
+    /** One member's read on how the night went. Separate from the AAR because
+     *  they answer to different people — the section's commander, and the
+     *  mission maker. */
+    operationFeedback: db.collection('operation_feedback') as MongoCollection<OperationFeedback>,
     j1Applications: db.collection('j1_applications') as MongoCollection<J1Application>,
     tickets: db.collection('tickets') as MongoCollection<Ticket>,
     calendarEvents: db.collection('calendar_events') as MongoCollection<CalendarEvent>,

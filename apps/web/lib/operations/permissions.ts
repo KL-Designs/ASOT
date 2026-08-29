@@ -49,6 +49,9 @@ export type OperationCapability =
     | 'attendance.confirm'
     | 'ocap.view'
     | 'ocap.manage'
+    | 'aar.view'
+    | 'aar.write'
+    | 'aar.manage'
 
 interface Rule {
     /** The dot-path key in `PERMISSIONS` this capability really is. */
@@ -188,6 +191,30 @@ const RULES: Record<OperationCapability, Rule> = {
         key: 'operations.ocap.manage',
         legacyKeys: ['pages.operationsEdit'],
         legacyRoles: [PERMISSIONS.pages.operationsEdit],
+    },
+
+    /* The AAR is the same audience as the attendance board — everybody who was
+       there — so reading and writing your own both sit on the member baseline. */
+    'aar.view': {
+        key: 'operations.aar.view',
+        baseline: 'member',
+    },
+
+    'aar.write': {
+        key: 'operations.aar.write',
+        baseline: 'member',
+    },
+
+    /*
+     * Writing up other people. Note what is *not* here: a section's 1IC. That
+     * authority is positional — they led the section on the night — and lives
+     * in `sectionLead()` rather than in any grant, because no permission was
+     * given for it and none could be. This is the staff override beside it.
+     */
+    'aar.manage': {
+        key: 'operations.aar.manage',
+        legacyKeys: ['attendance.manage'],
+        legacyRoles: [PERMISSIONS.attendance.manage, PERMISSIONS.admin.manageOrbat],
     },
 }
 

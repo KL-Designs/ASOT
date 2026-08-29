@@ -10,6 +10,7 @@ import { hexToRgb } from '@/lib/colour'
 import ActivityLog from './activity-log'
 import FullscreenPage from '@/components/FullscreenPage'
 import EditorShell, { useEditorTab } from './EditorShell'
+import { aarOpen } from '@/lib/operations/aar'
 import Header from './Header'
 import StatusBar from './StatusBar'
 import { useOperationStatus } from './hooks/useOperationStatus'
@@ -888,6 +889,9 @@ export default function EditorPage() {
                 operationId={opID}
                 themeColor={themeColor}
                 isHQ={isHQ}
+                /* The AAR tab only exists once the operation has finished, so
+                   the stage decides it rather than a permission. */
+                canAar={aarOpen(attStage)}
                 tab={tab}
                 onTabChange={setTab}
                 header={

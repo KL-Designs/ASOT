@@ -1,5 +1,5 @@
 /**
- * The operation's four views, and where each one lives.
+ * The operation's five views, and where each one lives.
  *
  * Plain module, deliberately: both the editor's header (a client component) and
  * the public orders page (a server one) render this same strip, and a shared
@@ -20,15 +20,24 @@
  */
 import type { Route } from 'next'
 
-export type OperationTab = 'orders' | 'map' | 'schedule' | 'attendance'
+export type OperationTab = 'orders' | 'map' | 'schedule' | 'attendance' | 'aar'
 
-export const TABS: readonly OperationTab[] = ['orders', 'map', 'schedule', 'attendance']
+/**
+ * In the order an operation is lived: read the orders, look at the ground, know
+ * when it runs, take a position, say how it went. The AAR is last because it is
+ * the only one that does not exist yet when the others do.
+ */
+export const TABS: readonly OperationTab[] = ['orders', 'map', 'schedule', 'attendance', 'aar']
 
 export const TAB_LABELS: Record<OperationTab, string> = {
     orders: 'Orders',
     map: 'Map',
     schedule: 'Schedule',
     attendance: 'Attendance',
+    /* Abbreviated deliberately. "After Action Report" is twice the width of the
+       widest other tab and would set the strip's height on a narrow window; the
+       unit says AAR out loud anyway. */
+    aar: 'AAR',
 }
 
 /**
@@ -88,6 +97,15 @@ export interface TabAccess {
     attendance?: boolean
     /** `operations.map.view` — public, so this defaults to shown. */
     map?: boolean
+    /**
+     * `operations.aar.view`, **and** the operation having actually finished.
+     *
+     * Two conditions rather than one, and the caller resolves both: an AAR tab
+     * on an operation that has not run yet is a door onto an empty room, and
+     * the permission alone cannot tell you which of those you are looking at.
+     * See `aarOpen()` in `lib/operations/aar.ts`.
+     */
+    aar?: boolean
 }
 
 /**
@@ -110,6 +128,7 @@ export function visibleTabs(access: TabAccess = {}): OperationTab[] {
     return TABS.filter(t => {
         if (t === 'schedule') return !!access.schedule
         if (t === 'attendance') return !!access.attendance
+        if (t === 'aar') return !!access.aar
         if (t === 'map') return access.map !== false
         return true
     })
