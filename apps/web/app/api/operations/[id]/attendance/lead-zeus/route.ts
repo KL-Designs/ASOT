@@ -4,6 +4,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { sendLeadZeusDM } from '@/lib/discord/bot'
+import { can } from '@/lib/operations/permissions'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -18,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     let me: User
     try {
         me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) {
+        if (!(await can(me, 'attendance.roles'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     } catch {

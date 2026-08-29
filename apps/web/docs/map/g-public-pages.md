@@ -745,10 +745,13 @@ by both. The tab key is `orders`, not `brief`: "Brief" was the editor's name for
 and nobody outside the editor used it. `?tab=brief` and `?tab=development` are aliased for the
 bookmarks already out there.
 
-**Who sees which tab:** Orders and Map are for everyone (both have public routes). Schedule needs
-`pages.operationsEdit`, since its own page redirects anyone else away and offering a door that
-closes in your face is worse than not offering it. **Attendance opens for any signed-in member** —
-`visibleTabs(canEdit, signedIn)` — because the board is how they RSVP and claim a position, and the
+**Who sees which tab:** one capability each, via `lib/operations/permissions.ts` — `visibleTabs()`
+takes a `TabAccess` object rather than the `canEdit` boolean it used to, because that boolean was
+answering four questions at once and there was no way to give somebody the Schedule without also
+giving them the editor. Orders and Map are for everyone (both have public routes and `map.view` is
+a public capability). Schedule needs `operations.schedule.view`, since its own page redirects anyone
+else away and offering a door that closes in your face is worse than not offering it. **Attendance
+opens for any signed-in member** — `attendance.view` has a `'member'` baseline — because the board is how they RSVP and claim a position, and the
 Modern rebuild moved it off the orders page and put a button here in its place. `/attendance` serves
 both audiences from one path: staff get `<EditorPage/>`, a member gets `attendance/MemberBoard.tsx`
 (the same board in read-and-claim mode under the same `OperationBar`, `canManage={false}` by

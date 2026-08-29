@@ -274,6 +274,181 @@ const PERMISSIONS = {
          *  - `app/operations/[id]/edit/EditorPage.tsx` (hides the pages in the editor)
          */
         zeus: ['J6 - Game Master'],
+
+        /**
+         * Reading an operation's page beyond what a visitor sees.
+         *
+         * The public page stays public: anybody, signed in or not, reads the
+         * sections marked `isPublic`. This key is the layer above that — the
+         * sections that are not public, and operations that are not on the
+         * board yet. It is what a role is granted so an operation *appears* for
+         * somebody, rather than a gate that takes the page away from anyone.
+         *
+         * Legacy arm: being signed in at all, which is what gated non-public
+         * sections before this key existed.
+         *
+         * Used by:
+         *  - `lib/operations/permissions.ts` (`'view'`)
+         */
+        view: ['ASOT Member'],
+
+        orders: {
+            /**
+             * Opening the orders editor at all — the shell, the document rail,
+             * and the read-only view of what is written.
+             *
+             * Separate from `orders.write` because reviewing an operation and
+             * authoring one are different jobs: a department lead who checks
+             * orders before they publish needs the editor and should not need
+             * the ability to change them.
+             *
+             * Legacy arm: `pages.operationsEdit`, the single Discord-role check
+             * the whole editor used to hang from.
+             *
+             * Used by:
+             *  - `app/operations/[id]/edit/layout.tsx`
+             *  - `lib/operations/permissions.ts` (`'orders.view'`)
+             */
+            view: ['HQ Staff', 'J2 - Mission Making'],
+
+            /**
+             * Writing an operation's orders — the document body, its sections
+             * and pages, and publishing them.
+             *
+             * Legacy arms: `operations.write` and `pages.operationsEdit`.
+             *
+             * Used by:
+             *  - `app/api/operations/content/route.ts`
+             *  - `app/api/operations/[id]/publish/route.ts`
+             *  - `app/api/auth/collab/route.ts` (write access to the Y.Doc)
+             *  - `lib/operations/permissions.ts` (`'orders.write'`)
+             */
+            write: ['HQ Staff', 'J2 - Mission Making'],
+
+            /**
+             * Changing the operation's own particulars — the mission deck down
+             * the right of the editor: title, department, dates, map, theme,
+             * cover image, campaign linkage.
+             *
+             * Separate from `orders.write` because the two are different kinds
+             * of authority. Writing paragraph three of the Execution is a
+             * mission-maker's job; changing which night the operation runs on,
+             * or which campaign it belongs to, is a scheduling one — and the
+             * people who should do each are not the same people.
+             *
+             * Legacy arm: `operations.write`.
+             *
+             * Used by:
+             *  - `app/api/operations/update/route.ts`
+             *  - `app/api/operations/upload/route.ts` + `image/route.ts`
+             *  - `app/operations/[id]/edit/deck/DetailsCard.tsx`
+             *  - `lib/operations/permissions.ts` (`'orders.details'`)
+             */
+            details: ['HQ Staff', 'J2 - Mission Making'],
+        },
+
+        map: {
+            /**
+             * The Map tab, and the fullscreen map viewer.
+             *
+             * Public, like the orders page: `/operations/{id}/map` serves the
+             * read-only viewer to everybody, because the link people paste to
+             * each other has to work for all of them. The key is the grant
+             * vehicle for seeing the map on an operation that is not otherwise
+             * visible.
+             *
+             * Used by:
+             *  - `app/operations/[id]/map/page.tsx`
+             *  - `lib/operations/permissions.ts` (`'map.view'`)
+             */
+            view: ['ASOT Member'],
+
+            /**
+             * Editing the map: the drawing tools, markers, measurements and
+             * anything else that writes to the operation's map layer.
+             *
+             * Legacy arm: `pages.operationsEdit`.
+             *
+             * Used by:
+             *  - `app/operations/[id]/edit/tabs/MapTab.tsx`
+             *  - `lib/operations/permissions.ts` (`'map.edit'`)
+             */
+            edit: ['HQ Staff', 'J2 - Mission Making'],
+        },
+
+        schedule: {
+            /**
+             * Reading the Schedule tab — the automation timeline, what is due
+             * when, and what has already fired.
+             *
+             * Not public: the page redirects a viewer without it back to the
+             * operation. Legacy arm: `pages.operationsEdit`.
+             *
+             * Used by:
+             *  - `app/operations/[id]/schedule/page.tsx`
+             *  - `lib/operations/permissions.ts` (`'schedule.view'`)
+             */
+            view: ['HQ Staff', 'J2 - Mission Making'],
+
+            /**
+             * Changing the schedule: RSVP open and close offsets, reminder
+             * timings, the development check, and firing a reminder by hand.
+             *
+             * Legacy arm: `operations.write`.
+             *
+             * Used by:
+             *  - `app/api/operations/[id]/remind/route.ts`
+             *  - `app/api/operations/[id]/mission-development/route.ts`
+             *  - `lib/operations/permissions.ts` (`'schedule.manage'`)
+             */
+            manage: ['HQ Staff', 'J2 - Mission Making'],
+
+            /**
+             * The lifecycle override — setting an operation's status by hand to
+             * any of In Development / Upcoming / Active / Completed regardless
+             * of where its schedule says it should be.
+             *
+             * Deliberately apart from `schedule.manage`: it is not an edit, it
+             * is an override. "In Development" suspends every automation, and
+             * "Completed" opens attendance confirmation and issues squad-leader
+             * tasks — both things that should be chosen rather than arrived at.
+             *
+             * Legacy arm: `operations.overrideLifecycle`, the key this replaces.
+             * That key stays declared and its holders keep working.
+             *
+             * Used by:
+             *  - `app/api/operations/update/route.ts` (the `status` parameter)
+             *  - `app/operations/[id]/edit/tabs/schedule/LifecycleOverride.tsx`
+             *  - `lib/operations/permissions.ts` (`'schedule.override'`)
+             */
+            override: ['HQ Staff', 'J2 - Department Leader'],
+        },
+
+        ocap: {
+            /**
+             * Watching an operation's OCAP replay and reading its statistics.
+             *
+             * Legacy arm: being signed in, on an operation that actually has a
+             * recording linked — which is what gated it before.
+             *
+             * Used by:
+             *  - `app/operations/[id]/themes/*` (the OCAP document)
+             *  - `lib/operations/permissions.ts` (`'ocap.view'`)
+             */
+            view: ['ASOT Member'],
+
+            /**
+             * Linking, re-syncing and unlinking an operation's OCAP recording.
+             *
+             * Legacy arm: `pages.operationsEdit`.
+             *
+             * Used by:
+             *  - `app/api/operations/ocap/sync/route.ts` + `inspect` + `recordings`
+             *  - `app/operations/[id]/OcapLinkPanel.tsx`
+             *  - `lib/operations/permissions.ts` (`'ocap.manage'`)
+             */
+            manage: ['HQ Staff', 'J2 - Mission Making'],
+        },
     },
 
     // ── Uploads ───────────────────────────────────────────────────────────────
@@ -559,6 +734,57 @@ const PERMISSIONS = {
          *  - `components/operations/board/AttendanceBoard.tsx` (`canManage` flag)
          */
         manage: ['HQ Staff', 'All Staff'],
+
+        /**
+         * Reading an operation's attendance board.
+         *
+         * Legacy arm: being signed in, which is exactly what the tab required
+         * before — `visibleTabs(canEdit, signedIn)` opens Attendance to any
+         * member because the board is how they RSVP and claim a position.
+         *
+         * Used by:
+         *  - `app/operations/[id]/attendance/page.tsx`
+         *  - `app/operations/[id]/tabs.ts` (`visibleTabs`)
+         *  - `lib/operations/permissions.ts` (`'attendance.view'`)
+         */
+        view: ['ASOT Member'],
+
+        /**
+         * Claiming a position on the board for yourself, and giving it up.
+         *
+         * A member acting on their own slot, which is a different power from
+         * `attendance.manage` — that one moves *other* people. Members can
+         * always move themselves while RSVP is open; once it closes, only a
+         * holder of `attendance.manage` can change the board at all.
+         *
+         * Legacy arm: being signed in.
+         *
+         * Used by:
+         *  - `app/api/operations/[id]/attendance/roster/route.ts` (self moves)
+         *  - `app/api/operations/[id]/attendance/rsvp/route.ts`
+         *  - `lib/operations/permissions.ts` (`'attendance.claim'`)
+         */
+        claim: ['ASOT Member'],
+
+        /**
+         * Changing what positions *exist* on the board — adding roles to a
+         * section, creating custom units, editing platoon structure, setting
+         * billet counts.
+         *
+         * Apart from `attendance.manage` because they answer different
+         * questions: manage is "who sits where", this is "what seats there
+         * are". Cutting a new section onto an operation's ORBAT is a mission
+         * design decision; moving a rifleman into it on the night is not.
+         *
+         * Legacy arm: `attendance.manage`, which carried both before.
+         *
+         * Used by:
+         *  - `app/api/operations/[id]/attendance/roles/route.ts`
+         *  - `app/api/operations/[id]/attendance/custom-units/route.ts`
+         *  - `app/api/operations/[id]/attendance/platoons/route.ts`
+         *  - `lib/operations/permissions.ts` (`'attendance.roles'`)
+         */
+        roles: ['HQ Staff', 'All Staff'],
     },
 
     // ── Auth / integrations ───────────────────────────────────────────────────
@@ -1129,6 +1355,23 @@ const PERMISSIONS = {
         use: ['ASOT Member'],
     },
 
-} satisfies Record<string, Record<string, string[]>>
+} satisfies PermissionTree
+
+/**
+ * The shape of the map above: groups of keys, where a group may itself hold
+ * groups.
+ *
+ * Recursive rather than two levels deep because the operations area is grouped
+ * by surface — `operations.orders.write`, `operations.map.edit`,
+ * `operations.schedule.override` — and a flat `operations.ordersWrite` would
+ * have put the namespacing into the key *names* rather than into the
+ * structure, where the Roles Manager's picker can see it.
+ *
+ * Nothing downstream needed changing for this: `lib/permissions-catalog.ts`
+ * already flattened recursively, and the Permissions Explorer groups on the
+ * first segment of the dot path. The depth was expressible at runtime long
+ * before the type allowed it.
+ */
+type PermissionTree = { [key: string]: string[] | PermissionTree }
 
 export default PERMISSIONS

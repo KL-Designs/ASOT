@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { can } from '@/lib/operations/permissions'
 import EditorPage from '../edit/EditorPage'
 
 /**
@@ -24,6 +24,6 @@ import EditorPage from '../edit/EditorPage'
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     const me = await client.fetchMe().catch(() => null)
-    if (!me || !client.hasRoles(me, PERMISSIONS.pages.operationsEdit)) redirect(`/operations/${id}`)
+    if (!(await can(me, 'schedule.view'))) redirect(`/operations/${id}`)
     return <EditorPage />
 }

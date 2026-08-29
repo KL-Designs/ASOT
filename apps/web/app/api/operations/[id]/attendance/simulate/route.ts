@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { isTurnoutKey, mulberry32, simulateAttendance } from '@/lib/attendance/simulate'
 import { DEV_TOOLS_ENABLED } from '@/lib/dev-tools'
+import { can } from '@/lib/operations/permissions'
 
 /**
  * Fill an operation's board with plausible attendance, for looking at.
@@ -37,9 +38,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const canManage = (await hasPermission(me, 'attendance.manage'))
-        || client.hasRoles(me, PERMISSIONS.attendance.manage)
-        || client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+    const canManage = await can(me, 'attendance.manage')
     if (!canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { id } = await params

@@ -7,6 +7,7 @@ import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
 import { statusForStage, type AttendanceStage } from '@/lib/operations/stage'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { ensureRosterSnapshot } from '@/lib/attendance/snapshot'
+import { can } from '@/lib/operations/permissions'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     await client.updateRoles()
@@ -27,9 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // not honour the J4 bypass, so a brand-new key checked only the dynamic way
     // would be false for everybody. The old key stays as a third arm so this
     // strictly widens access and cannot lock out anyone who works today.
-    const canManage = (await hasPermission(me, 'attendance.manage'))
-        || client.hasRoles(me, PERMISSIONS.attendance.manage)
-        || client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+    const canManage = await can(me, 'attendance.roles')
     if (!canManage) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }

@@ -3,13 +3,14 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { can } from '@/lib/operations/permissions'
 
 // GET /api/operations/ocap/sync-status?operationId=<id>
 // Returns the current ocapSync progress field for an operation.
 export async function GET(req: NextRequest) {
     try {
         const me = await client.fetchMe()
-        const isHQ = await client.hasRoles(me, PERMISSIONS.pages.operationsEdit)
+        const isHQ = await can(me, 'ocap.manage')
         if (!isHQ) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     } catch {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

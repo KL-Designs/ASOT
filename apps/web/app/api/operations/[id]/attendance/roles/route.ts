@@ -3,6 +3,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { hasPermission } from '@/lib/orbat/hasPermission'
+import { can } from '@/lib/operations/permissions'
 
 /**
  * The roles the attendance board's "add position" picker can offer.
@@ -32,9 +33,7 @@ export async function GET() {
 
     // Same three arms as the rest of the board's staff surface — see
     // PERMISSIONS.attendance.manage for why the dynamic check alone is not enough.
-    const canManage = (await hasPermission(me, 'attendance.manage'))
-        || client.hasRoles(me, PERMISSIONS.attendance.manage)
-        || client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+    const canManage = await can(me, 'attendance.roles')
     if (!canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const roles = await Db.orbatRoles

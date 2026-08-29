@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { can } from '@/lib/operations/permissions'
 
 // POST /api/operations/[id]/attendance/manage
 // HQ-only: add, move, or remove individual attendance records.
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) {
+    if (!(await can(me, 'attendance.manage'))) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

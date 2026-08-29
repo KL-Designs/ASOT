@@ -45,7 +45,7 @@ function hexToRgb(hex: string) {
  * and let the dead branches fall out on their own.
  */
 export default function ClassicPage({
-    id, operation, me, isLoggedIn, isHQ, isAllStaff, canManageAttendance,
+    id, operation, me, isLoggedIn, isHQ, isAllStaff, canManageAttendance, access, canOcapManage,
     canZeus, isSectionLeader, showAcknowledgeCard, activePageParam, fromJ2,
 }: ThemePageProps) {
     const { r, g, b } = hexToRgb(operation.themeColor || '#db001d')
@@ -110,7 +110,7 @@ export default function ClassicPage({
                 themeColor={operation.themeColor}
                 active='orders'
                 canEdit={isHQ}
-                signedIn={isLoggedIn}
+                access={access}
                 fromJ2={fromJ2}
             />
 

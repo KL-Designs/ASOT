@@ -2,8 +2,7 @@ import Db from '@/lib/mongo'
 import { connection } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { canEach } from '@/lib/operations/permissions'
 import ClassicPage from './themes/ClassicPage'
 import ModernPage from './themes/ModernPage'
 import ColdWarPage from './themes/ColdWarPage'
@@ -31,25 +30,28 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         client.fetchMe().catch(() => null),
     ])
     const isLoggedIn = !!me
-    const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
-    const isAllStaff = me ? await hasPermission(me, 'attendance.confirm') : false
-    // See PERMISSIONS.attendance.manage -- three-armed for the same reason the
-    // write route is: `hasPermission` has no Discord-role fallback and does not
-    // honour the J4 bypass, and the legacy ORBAT key must keep working.
-    const canManageAttendance = me
-        ? (await hasPermission(me, 'attendance.manage'))
-            || client.hasRoles(me, PERMISSIONS.attendance.manage)
-            || client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
-        : false
+
     /*
-     * Zeus Notes pages. Two-armed for the same reason the attendance check is:
-     * `hasPermission` has no Discord-role fallback, and the legacy J6 role has
-     * to keep working until the migration finishes.
+     * Every question this page asks about the viewer, answered once and in
+     * parallel.
+     *
+     * Each of these used to be spelled out here as its own two- or three-armed
+     * check, and each restated the legacy fallbacks that `hasPermission`'s lack
+     * of a Discord-role arm forces. That is now the business of
+     * `lib/operations/permissions.ts`, where the fallbacks are written down per
+     * capability instead of per call site — which is what let five different
+     * powers hide behind one `pages.operationsEdit` check for as long as they did.
      */
-    const canZeus = me
-        ? (await hasPermission(me, 'operations.zeus'))
-            || client.hasRoles(me, PERMISSIONS.departments.j6)
-        : false
+    const caps = await canEach(me, [
+        'orders.view', 'schedule.view', 'attendance.view',
+        'attendance.manage', 'attendance.confirm', 'zeus', 'ocap.manage',
+    ] as const)
+
+    const isHQ = caps['orders.view']
+    const isAllStaff = caps['attendance.confirm']
+    const canManageAttendance = caps['attendance.manage']
+    const canZeus = caps['zeus']
+    const access = { schedule: caps['schedule.view'], attendance: caps['attendance.view'] }
 
     // Check if the logged-in user is a section leader (isSenior on their ORBAT position)
     const isSectionLeader = me
@@ -66,7 +68,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
     const shared: ThemePageProps = {
         id, operation, me, isLoggedIn, isHQ, isAllStaff, canManageAttendance,
-        canZeus, isSectionLeader, showAcknowledgeCard, activePageParam, fromJ2,
+        canZeus, canOcapManage: caps['ocap.manage'], access,
+        isSectionLeader, showAcknowledgeCard, activePageParam, fromJ2,
     }
 
     /*

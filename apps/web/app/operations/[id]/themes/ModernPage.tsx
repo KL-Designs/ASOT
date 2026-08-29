@@ -33,7 +33,7 @@ const OCAP = '__ocap__'
  * place is one call to action that says what you have and haven't done.
  */
 export default function ModernPage({
-    id, operation, isLoggedIn, isHQ, canZeus, showAcknowledgeCard,
+    id, operation, isLoggedIn, isHQ, canZeus, canOcapManage, access, showAcknowledgeCard,
     activePageParam, fromJ2, attendance, lineage,
 }: ModernPageProps) {
     const accent = operation.themeColor || '#db001d'
@@ -108,7 +108,7 @@ export default function ModernPage({
                 themeColor={operation.themeColor}
                 active='orders'
                 canEdit={isHQ}
-                signedIn={isLoggedIn}
+                access={access}
                 fromJ2={fromJ2}
             />
 
@@ -206,7 +206,7 @@ export default function ModernPage({
                     <div className={s.readerInner}>
                         {activeDocument === OCAP && hasOcap && (
                             <>
-                                {isHQ && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}
+                                {canOcapManage && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}
                                 {isLoggedIn && !!operation.ocap?.playerStats?.length && (
                                     <OcapStatsPanel
                                         ocap={operation.ocap}

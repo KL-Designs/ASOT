@@ -3,12 +3,13 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { can } from '@/lib/operations/permissions'
 
 
 export async function POST(request: NextRequest) {
     try {
         const me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.operations.write)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+        if (!(await can(me, 'orders.write'))) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
         const { id, content } = await request.json()
         if (!id) return NextResponse.json({ error: 'Missing ID' }, { status: 400 })

@@ -3,13 +3,14 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
+import { can } from '@/lib/operations/permissions'
 
 type Params = { params: Promise<{ id: string }> }
 
 async function authJ2Lead() {
     try {
         const me = await client.fetchMe()
-        if (!(await hasPermission(me, 'departmentLeads.j2'))) return null
+        if (!(await can(me, 'schedule.manage')) && !(await hasPermission(me, 'departmentLeads.j2'))) return null
         return me
     } catch { return null }
 }

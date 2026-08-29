@@ -7,13 +7,30 @@
  * permission check drifting apart is a bug nobody notices until somebody sees
  * something they shouldn't.
  */
+import type { TabAccess } from '../tabs'
+
 export interface ThemePageProps {
     id: string
     operation: Operation
     me: User | null
     isLoggedIn: boolean
-    /** `pages.operationsEdit` — staff who own the operation. */
+    /**
+     * `operations.orders.view` — may open the orders editor. Drives the Edit
+     * button and the Orders tab's Read/Edit menu.
+     *
+     * Named `isHQ` from when the whole area hung off one Discord role. It is a
+     * capability now; the name survives because four theme files read it and
+     * renaming it would be a much larger diff than the change that earned it.
+     */
     isHQ: boolean
+    /** `operations.ocap.manage` — may link and re-sync the replay. */
+    canOcapManage: boolean
+    /**
+     * Which tabs this viewer gets, one capability each. Resolved server-side in
+     * `page.tsx` and handed to `OperationBar`, so the strip never offers a tab
+     * whose page would redirect the viewer straight back.
+     */
+    access: TabAccess
     /** `attendance.confirm` — everyone who takes a roll call. */
     isAllStaff: boolean
     canManageAttendance: boolean

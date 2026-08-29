@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { can } from '@/lib/operations/permissions'
 
 /** GET /api/operations/[id]/attendance/custom-units — return custom units for this op */
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     let me: Awaited<ReturnType<typeof client.fetchMe>>
     try {
         me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) {
+        if (!(await can(me, 'attendance.roles'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     } catch {
@@ -59,7 +60,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     let me: Awaited<ReturnType<typeof client.fetchMe>>
     try {
         me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) {
+        if (!(await can(me, 'attendance.roles'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     } catch {
@@ -91,7 +92,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     let me: Awaited<ReturnType<typeof client.fetchMe>>
     try {
         me = await client.fetchMe()
-        if (!client.hasRoles(me, PERMISSIONS.admin.manageOrbat)) {
+        if (!(await can(me, 'attendance.roles'))) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
     } catch {

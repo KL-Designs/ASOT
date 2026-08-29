@@ -81,10 +81,36 @@ export function editHref(operationId: string): Route {
  * the same board in its read-and-claim mode, with none of the staff controls.
  * A logged-out visitor still gets neither, since they have nothing to answer.
  */
-export function visibleTabs(canEdit: boolean, signedIn = false): OperationTab[] {
+export interface TabAccess {
+    /** `operations.schedule.view`. */
+    schedule?: boolean
+    /** `attendance.view`. */
+    attendance?: boolean
+    /** `operations.map.view` — public, so this defaults to shown. */
+    map?: boolean
+}
+
+/**
+ * Which of the four tabs this viewer gets.
+ *
+ * Takes one capability per tab rather than the `canEdit` boolean it used to,
+ * because "can edit operations" was answering four different questions at once
+ * and there was no way to give somebody the Schedule without also giving them
+ * the editor. The capabilities themselves are resolved server-side by
+ * `lib/operations/permissions.ts`; this file stays a plain module with no
+ * imports so the public page and the editor's client header can both read it.
+ *
+ * Orders is always shown — it is the operation's front door and it is public.
+ * Map defaults to shown for the same reason.
+ *
+ * Offering a tab whose page redirects the viewer straight back is worse than
+ * not offering it, which is the whole reason this function exists.
+ */
+export function visibleTabs(access: TabAccess = {}): OperationTab[] {
     return TABS.filter(t => {
-        if (t === 'schedule') return canEdit
-        if (t === 'attendance') return canEdit || signedIn
+        if (t === 'schedule') return !!access.schedule
+        if (t === 'attendance') return !!access.attendance
+        if (t === 'map') return access.map !== false
         return true
     })
 }

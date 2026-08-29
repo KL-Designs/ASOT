@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { downloadOcapRecording, parseOcapBuffer, matchPlayersToMembers, buildViewerUrl } from '@/lib/ocap'
+import { can } from '@/lib/operations/permissions'
 
 // Allow up to 5 minutes — large JSON files can take time to download + parse
 export const maxDuration = 300
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     // ── Auth ────────────────────────────────────────────────────────────────
     try {
         const me = await client.fetchMe()
-        const isHQ = await client.hasRoles(me, PERMISSIONS.pages.operationsEdit)
+        const isHQ = await can(me, 'ocap.manage')
         if (!isHQ) return new Response('Forbidden', { status: 403 })
     } catch {
         return new Response('Unauthorized', { status: 401 })

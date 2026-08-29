@@ -2,7 +2,7 @@ import { connection } from 'next/server'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
-import PERMISSIONS from '@/lib/permissions'
+import { can } from '@/lib/operations/permissions'
 import { getAvailableWorlds } from '@/lib/maps'
 import MapSection from '@/components/operations/map/MapSection'
 import FullscreenPage from '@/components/FullscreenPage'
@@ -20,14 +20,13 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
 
     const availableWorlds = getAvailableWorlds()
     const world = availableWorlds.find(w => w.name === (operation?.mapWorld ?? '')) ?? null
-    const isHQ = me ? client.hasRoles(me, PERMISSIONS.pages.operationsEdit) : false
-
     // One URL for "the map of this operation", serving whichever version the
-    // viewer is entitled to: the editor's Map tab for anyone who can edit, the
-    // read-only fullscreen viewer below for everyone else. Splitting it into two
-    // paths would mean the link people paste to each other only works for half
-    // of them.
-    if (isHQ) return <EditorPage />
+    // viewer is entitled to: the editor's Map tab for anyone who can draw on it,
+    // the read-only fullscreen viewer below for everyone else. Splitting it into
+    // two paths would mean the link people paste to each other only works for
+    // half of them — which is also why there is no gate on the viewer: `map.view`
+    // is public, so a logged-out visitor still gets the map.
+    if (await can(me, 'map.edit')) return <EditorPage />
     const themeColor = operation?.themeColor || '#db001d'
 
     return (
@@ -78,9 +77,11 @@ export default async function MapPage({ params }: { params: Promise<{ id: string
 
             {/* Map */}
             <div style={{ flex: 1, overflow: 'hidden' }}>
+                {/* Read-only by construction: anyone holding `map.edit` was
+                    already handed the editor's Map tab above. */}
                 <MapSection
                     operationId={id}
-                    canEdit={isHQ}
+                    canEdit={false}
                     world={world}
                 />
             </div>

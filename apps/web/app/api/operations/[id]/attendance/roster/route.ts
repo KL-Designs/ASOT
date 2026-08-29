@@ -14,6 +14,7 @@ import { isMemberAction, type BoardAction } from '@/lib/attendance/actions'
 import { roleAllowedIn } from '@/lib/orbat/roleScope'
 import { buildRosterForOperation } from '@/lib/attendance/snapshot'
 import { toBoardUser } from '@/lib/attendance/board-user'
+import { can } from '@/lib/operations/permissions'
 
 /**
  * Every write to the live attendance board.
@@ -66,9 +67,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // See PERMISSIONS.attendance.manage: three-armed because `hasPermission`
     // has no Discord-role fallback and does not honour the J4 bypass, and the
     // legacy ORBAT key must keep working for whoever relies on it today.
-    const canManage = (await hasPermission(me, 'attendance.manage'))
-        || client.hasRoles(me, PERMISSIONS.attendance.manage)
-        || client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
+    const canManage = await can(me, 'attendance.manage')
 
     if (!isMemberAction(body) && !canManage) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

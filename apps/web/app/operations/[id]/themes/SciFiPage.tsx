@@ -124,7 +124,7 @@ const CONSOLE_CHROME: Record<string, string> = {
  *   where it sits.
  */
 export default function SciFiPage({
-    id, operation, isLoggedIn, isHQ, canZeus, showAcknowledgeCard,
+    id, operation, isLoggedIn, isHQ, canZeus, canOcapManage, access, showAcknowledgeCard,
     activePageParam, fromJ2, attendance, lineage,
 }: ModernPageProps) {
     /*
@@ -208,7 +208,7 @@ export default function SciFiPage({
                 themeColor={operation.themeColor}
                 active='orders'
                 canEdit={isHQ}
-                signedIn={isLoggedIn}
+                access={access}
                 fromJ2={fromJ2}
                 palette={CONSOLE_CHROME}
             />
@@ -306,7 +306,7 @@ export default function SciFiPage({
                             <div className={s.panel}>
                                 {activeDocument === OCAP && hasOcap && (
                                     <>
-                                        {isHQ && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}
+                                        {canOcapManage && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}
                                         {isLoggedIn && !!operation.ocap?.playerStats?.length && (
                                             <OcapStatsPanel
                                                 ocap={operation.ocap}

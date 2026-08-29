@@ -50,7 +50,7 @@ export default function MemberBoard({ operationId, title, status, themeColor, da
                 themeColor={themeColor}
                 active='attendance'
                 canEdit={false}
-                signedIn
+                access={{ attendance: true }}
             />
 
             <AttendanceBoard
