@@ -1,4 +1,5 @@
 import type { GridView, SortKey } from './_components/Toolbar'
+import { splitOperation } from '@/lib/gallery/naming'
 
 /* ============================================================================
    The archive, flattened.
@@ -25,22 +26,6 @@ export type Photo = {
     src: string
 }
 
-/*
-   "1. Op Black Hill", "9. Op Copper Ridge (Lanze Verde)" — that leading number
-   is the storage layer's ordering leaking into the interface, and it makes a
-   set of choices read as a numbered list. It is genuinely useful for *sorting*,
-   so it is parsed out and kept rather than thrown away, but nothing prints it.
-*/
-const ORDER_PREFIX = /^\s*(\d+)\s*[.)\-–]?\s*/
-
-export function splitOperation(folder: string): { label: string, order: number } {
-    const match = folder.match(ORDER_PREFIX)
-    if (!match) return { label: folder.trim(), order: Number.MAX_SAFE_INTEGER }
-    return {
-        label: folder.slice(match[0].length).trim() || folder.trim(),
-        order: parseInt(match[1], 10),
-    }
-}
 
 export function photoSrc(p: { year: string, operation: string, mission: string, file: string }): string {
     const q = new URLSearchParams({
@@ -188,3 +173,4 @@ export function archiveStats(years: GalleryAPI['years']): ArchiveStats {
 }
 
 export type { GridView, SortKey }
+export { splitOperation }
