@@ -131,11 +131,25 @@ export default function Lightbox({ item, index, count, onClose, onStep, onTagCli
                         Twitch item has no bytes of its own here, only a provider
                         id, so it plays through that provider's own player. */}
                     {item.kind === 'video' && item.source === 'upload' && (
+                        // Keyed like the <img> below it, for the same reason:
+                        // without a key, stepping from one video to the next
+                        // reuses this DOM node and swaps its `src` in place,
+                        // which can carry the previous clip's audio and
+                        // playback position into the new one instead of
+                        // mounting a fresh player.
+                        //
+                        // No autoPlay: unmuted autoplay is blocked by every
+                        // major browser, so the attribute would silently do
+                        // nothing, and muting to make it work would strip the
+                        // audio from a clip whose audio is often the point of
+                        // it. A poster frame with visible controls reads as
+                        // intentional; a silently-failed autoplay reads as
+                        // broken.
                         <video
+                            key={item.src}
                             src={item.src ?? undefined}
                             poster={item.poster ?? undefined}
                             controls
-                            autoPlay
                             playsInline
                             className={s.lbVideo}
                         />
