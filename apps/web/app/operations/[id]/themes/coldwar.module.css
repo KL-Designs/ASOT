@@ -165,9 +165,13 @@
 .tab:hover { background: var(--paper-2); color: var(--carbon); }
 .tab:focus-visible { outline: 2px solid var(--stamp); outline-offset: -2px; }
 
-/* The open one is the sheet's own stock, and reaches across the seam. */
+/*
+ * The open one is cut from the sheet's own stock, so the two read as one piece
+ * of paper. It used to reach 2px across the seam as well, which on a real
+ * folder is what a tab does — on screen it just looked like a tab overhanging
+ * the document, so it stops flush.
+ */
 .tabOn {
-    margin-right: -2px;
     padding-left: 12px;
     background: var(--paper);
     color: var(--carbon);
@@ -184,7 +188,6 @@
     padding: 6px 0 6px 16px;
     background: var(--paper);
     border-left: 4px solid rgba(140, 43, 29, 0.35);
-    margin-right: -2px;
 }
 .tabSec {
     display: flex;

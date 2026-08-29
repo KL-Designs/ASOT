@@ -82,6 +82,16 @@
     flex-shrink: 0;
     transition: color 120ms ease;
 }
+/*
+ * The glyph is a bare `<span>`, and globals.css sets `color: var(--foreground)`
+ * on every bare span — a declaration that matches an element always beats a
+ * value it would have inherited, whatever the selector's specificity. So the
+ * caret never saw the colour set on its own button. Invisible on dark chrome,
+ * where the foreground is near-white anyway; white-on-white the moment a theme
+ * paints the bar light.
+ */
+.caret > span { color: inherit; }
+
 .caret:hover { color: var(--ink); }
 .caret:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
 .caretOn { color: var(--ink); }
