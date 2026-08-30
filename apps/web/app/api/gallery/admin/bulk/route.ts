@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { logAction } from '@/lib/logAction'
+import { operationFacets } from '@/lib/gallery/operation-facets'
 import { relocateMedia } from '@/lib/gallery/relocate'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 
@@ -17,8 +18,19 @@ import { resolveStorageKey } from '@/lib/gallery/paths'
  *
  * A move is applied one item at a time, sequentially. It renames files, and
  * running those concurrently against the same operation folder races on the
- * folder's creation and on the next-order-number scan. A selection is at most
- * a page of sixty, so sequential is fast enough and correct.
+ * folder's creation and on the next-order-number scan — the two things that
+ * mint a duplicate numbered folder, which is the split facet rail this whole
+ * feature exists to stop. Sequential is not a performance choice that could be
+ * revisited; it is the correctness property.
+ *
+ * MAX_IDS is 500, not the sixty a page of the Media tab shows: "select all in
+ * this folder" is exactly how the ~1,157 undated files get an operation, and
+ * capping at a page would make that job twenty passes. Sequential is still
+ * acceptable at that size because each item is one indexed updateOne plus one
+ * same-volume rename — milliseconds each, and no re-scan of the archive — but
+ * 500 of them is no longer inside a default request budget, hence the
+ * maxDuration below. Raising the cap further should come with a batch/progress
+ * response rather than a longer timeout.
  *
  * Partial success is reported rather than rolled back. There is no transaction
  * across a filesystem and a database, and a reviewer who moved sixty items of
@@ -27,6 +39,11 @@ import { resolveStorageKey } from '@/lib/gallery/paths'
  */
 
 const MAX_IDS = 500
+
+/** 500 sequential moves, each a rename plus an update. The default budget is
+ *  sized for a request that does neither. Matches submissions/route.ts, which
+ *  raised it for the same kind of reason. */
+export const maxDuration = 300
 
 async function manager() {
     const me = await client.fetchMe().catch(() => null)
@@ -64,13 +81,66 @@ export async function POST(request: NextRequest) {
         // operation folder's creation and its next-order-number scan.
         for (const _id of ids) {
             try {
-                await Db.galleryMedia.updateOne({ _id }, opId
-                    ? { $set: { operationId: opId } }
-                    : { $unset: { operationId: '' } })
-                await relocateMedia({ media: Db.galleryMedia, operations: Db.operations }, _id)
+                const doc = await Db.galleryMedia.findOne({ _id }, { projection: { source: 1, storageKey: 1 } })
+                if (!doc) {
+                    failed.push({ id: _id.toString(), error: 'No such item' })
+                    continue
+                }
+
+                if (doc.source === 'upload' && doc.storageKey) {
+                    /* Bytes to move: the id is written here and relocateMedia
+                       derives year, operation, opLabel and takenAt from the
+                       folder it files them into. One producer — writing the
+                       facets here as well is what let the two disagree. */
+                    await Db.galleryMedia.updateOne({ _id }, opId
+                        ? { $set: { operationId: opId } }
+                        : { $unset: { operationId: '' } })
+                    await relocateMedia({ media: Db.galleryMedia, operations: Db.operations }, _id)
+                } else {
+                    /* No bytes — an embed, or a record whose transcode failed.
+                       relocateMedia returns null for it without doing
+                       anything, so this loop used to write `operationId`,
+                       count the item as changed, and leave year, operation,
+                       opLabel and takenAt naming the operation it was moved
+                       AWAY from. The public facet rail groups on `operation`,
+                       so the item stayed filed under the old operation
+                       forever, and nothing could find it: reconcile walks
+                       FILES, and its rule 4 only inspects documents whose
+                       storageKey starts with content:/legacy:, which an embed
+                       never has. This route is the documented remedy for that
+                       class of split, so it had to be the one thing that could
+                       not cause it.
+
+                       One update, both halves: the id and the facets are never
+                       observable apart. Resolved per item rather than once
+                       before the loop so an embed sees any folder an upload
+                       earlier in this same selection has just created. */
+                    const facets = await operationFacets(
+                        { media: Db.galleryMedia, operations: Db.operations },
+                        opId ? opId.toString() : 'unknown',
+                    )
+                    if (!facets) {
+                        failed.push({ id: _id.toString(), error: 'No such operation' })
+                        continue
+                    }
+                    await Db.galleryMedia.updateOne({ _id }, {
+                        $set: facets.$set,
+                        ...(facets.$unset ? { $unset: facets.$unset } : {}),
+                    })
+                }
                 changed++
             } catch (err) {
-                failed.push({ id: _id.toString(), error: err instanceof Error ? err.message : 'Move failed' })
+                /* `changed` counts only items this loop actually wrote through
+                   to the end. A failure here is not necessarily a no-op: the
+                   upload branch writes `operationId` and then moves the file,
+                   so an item that failed between the two carries the new
+                   operation with the old folder facets. Saying so is the
+                   difference between a reviewer re-applying the move and a
+                   reviewer trusting a silently split record. */
+                failed.push({
+                    id: _id.toString(),
+                    error: `${err instanceof Error ? err.message : 'Move failed'} — this item may have kept its old operation details; set its operation again from the Media tab.`,
+                })
             }
         }
     } else if (action === 'addTags' || action === 'removeTags') {

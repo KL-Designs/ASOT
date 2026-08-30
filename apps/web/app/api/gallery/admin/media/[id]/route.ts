@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { logAction } from '@/lib/logAction'
+import { operationFacets } from '@/lib/gallery/operation-facets'
 import { relocateMedia } from '@/lib/gallery/relocate'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 
@@ -22,6 +23,16 @@ import { resolveStorageKey } from '@/lib/gallery/paths'
  * of 4,781 files, and every file a human has touched gains the property that
  * makes moving it by hand safe. relocateMedia does that as a side effect of
  * building the new name.
+ *
+ * An item with no bytes — an embed, or a record whose transcode failed — has
+ * no file to move, and relocateMedia returns early for it. Reassigning one
+ * used to write `operationId` and nothing else, leaving `year`, `operation`,
+ * `opLabel` and `takenAt` naming the operation it was moved AWAY from: the
+ * public facet rail groups on `operation`, so the item stayed under its old
+ * operation forever, and reconcile could not see it (rule 4 only inspects
+ * documents whose storageKey starts with content:/legacy:, which an embed
+ * never has). Those items get their facets from operationFacets() instead,
+ * in the same write that sets the id.
  */
 
 async function manager() {
@@ -74,24 +85,37 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         if (trimmed) set.mission = trimmed; else unset.mission = ''
     }
 
-    /* The operation is written here but the facets that hang off it are not:
-       relocateMedia re-derives year, operation, opLabel and takenAt from the
-       operation record and the folder it resolves, so writing them here too
-       would give two producers of the same fields a chance to disagree —
-       which is exactly the defect this feature spent three rounds closing. */
+    /* Whether this item's bytes are about to move decides who writes the four
+       facets that hang off the operation. Exactly one producer either way,
+       never both: relocateMedia re-derives year, operation, opLabel and
+       takenAt from the operation record and the folder it resolves, so
+       writing them here as well would give two producers of the same fields a
+       chance to disagree — which is exactly the defect this feature spent
+       three rounds closing. */
+    const relocating = doc.source === 'upload' && !!doc.storageKey
+
     let moving = false
     if (operationId !== undefined) {
-        if (operationId === null || operationId === 'unknown') {
-            unset.operationId = ''
-            moving = true
-        } else if (ObjectId.isValid(String(operationId))) {
-            const op = await Db.operations.findOne({ _id: new ObjectId(String(operationId)) }, { projection: { _id: 1 } })
-            if (!op) return NextResponse.json({ error: 'No such operation' }, { status: 400 })
-            set.operationId = op._id
-            moving = true
+        // One validator for both branches, so "No such operation" means the
+        // same thing whether or not the item has a file behind it.
+        const facets = await operationFacets(
+            { media: Db.galleryMedia, operations: Db.operations },
+            operationId === null || operationId === 'unknown' ? 'unknown' : String(operationId),
+        )
+        if (!facets) return NextResponse.json({ error: 'No such operation' }, { status: 400 })
+
+        if (relocating) {
+            // Just the id. relocateMedia, below, writes the rest.
+            if (facets.$set.operationId) set.operationId = facets.$set.operationId
+            else unset.operationId = ''
         } else {
-            return NextResponse.json({ error: 'No such operation' }, { status: 400 })
+            // Nothing will relocate this item, so the facets are written here
+            // — in the same update as the id, which is what stops the two
+            // from ever being observed apart.
+            Object.assign(set, facets.$set)
+            Object.assign(unset, facets.$unset ?? {})
         }
+        moving = true
     }
 
     if (!Object.keys(set).length && !Object.keys(unset).length) {
@@ -108,13 +132,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
        the caption changed: that changes the readable filename, and a name on
        disk that disagrees with the database is what reconcile then has to
        repair. */
-    if (doc.source === 'upload' && doc.storageKey) {
+    if (relocating) {
         try {
             await relocateMedia({ media: Db.galleryMedia, operations: Db.operations }, _id)
         } catch (err) {
             console.error('[gallery/admin] relocate failed for', id, err)
+            /* Deliberately not "run a re-scan": a re-scan is curative for only
+               one of the two windows this can fail in. If it threw AFTER the
+               physical move, the bytes are at the new path and the document
+               still names the old one — reconcile's rule 1 sees the key and
+               the path disagree and repairs both the key and the facets. If it
+               threw BEFORE the move, the file never went anywhere, the key
+               still matches the path, rule 1 has nothing to re-derive, and the
+               scan reports a clean archive while operationId and the facets
+               stay split. Only re-applying the operation fixes that one, so
+               the message names the action that works in both cases. */
             return NextResponse.json({
-                error: 'The details were saved, but the file could not be moved. Run a gallery re-scan from the Health view.',
+                error: 'The details were saved, but the file could not be moved, so the operation details on this item may not match the folder its file is in. Set the operation again; if it keeps failing, run a gallery re-scan from the Health view.',
             }, { status: 500 })
         }
     }
