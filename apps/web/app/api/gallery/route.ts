@@ -139,6 +139,7 @@ export async function GET() {
         height: m.height ?? null,
         caption: m.caption ?? null,
         opLabel: m.opLabel ?? null,
+        file: fileFor(m),
     }))
 
     return NextResponse.json({

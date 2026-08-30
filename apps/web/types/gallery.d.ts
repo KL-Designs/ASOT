@@ -80,6 +80,13 @@ declare global {
         height: number | null
         caption: string | null
         opLabel: string | null
+        /** Readable filename for the lightbox's download attribute — same
+         *  role as GalleryItemAPI.file, and needed for the same reason: `src`
+         *  is an id-keyed /api/gallery/media/{id} URL with no extension
+         *  anywhere in it, so without this every featured download would
+         *  save as a bare ObjectId. Null only in the same case GalleryItemAPI
+         *  allows it: no storageKey behind the record at all. */
+        file: string | null
     }
 
     interface GalleryAPI {

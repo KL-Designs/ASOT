@@ -174,24 +174,29 @@ export default function Page() {
     }, [update, closeLightbox])
 
     const openFeatured = useCallback((index: number) => {
-        const file = featured[index]
-        if (!file) return
-        // The featured strip and SOTM are not archive items — kind/source are
-        // set to whatever makes the stage and the Download button behave like
-        // a plain photograph, which is what both actually are.
+        const item = featured[index]
+        if (!item) return
+        // Featured tiles are gallery_media records now (see useGalleryData),
+        // so the lightbox gets their real caption and operation rather than
+        // the filename it used to fall back to. kind/source are still set to
+        // whatever makes the stage and the Download button behave like a
+        // plain photograph, which is what a featured tile actually is — it
+        // carries no `kind`/`source` of its own in FeaturedItemAPI.
         setSingleImage({
-            src: `/api/gallery/featured?img=${encodeURIComponent(file)}`,
+            src: item.src,
             poster: null,
-            kicker: 'Featured',
-            title: file.replace(/\.[^.]+$/, ''),
+            kicker: item.opLabel ?? 'Featured',
+            title: item.caption ?? item.opLabel ?? 'Featured',
             rows: [],
-            file,
+            // Falls back to the id only in the same case GalleryItemAPI.file
+            // does: no readable name exists at all behind this record.
+            file: item.file ?? item.id,
             kind: 'image',
             source: 'upload',
             embedId: null,
             embedKind: null,
             embedUrl: null,
-            caption: null,
+            caption: item.caption,
             authorName: null,
             tags: [],
             vote: null,

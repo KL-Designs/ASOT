@@ -38,7 +38,7 @@ function downloadName(p: Photo): string {
 
 export function useGalleryData() {
     const [items, setItems] = useState<Photo[]>([])
-    const [featured, setFeatured] = useState<string[]>([])
+    const [featured, setFeatured] = useState<FeaturedItemAPI[]>([])
     const [sotm, setSotm] = useState<ScreenshotOfMonth | null>(null)
     const [tags, setTags] = useState<{ slug: string, label: string }[]>([])
     const [votes, setVotes] = useState<Record<string, 1 | -1>>({})
@@ -58,10 +58,14 @@ export function useGalleryData() {
             .then(res => res.json())
             .then((json: GalleryAPI) => {
                 setItems(json.items ?? [])
-                // Shuffled per visit: the strip is a sample of the archive, not
-                // a ranking, and a fixed order would show the same dozen photos
-                // to everyone forever.
-                setFeatured([...(json.featured ?? [])].sort(() => Math.random() - 0.5))
+                // Held in the order the server sent it — featuredOrder on
+                // gallery_media, curated by J5 through the Featured tab. This
+                // used to be reshuffled here on every visit
+                // (`.sort(() => Math.random() - 0.5)`), which discarded that
+                // curation on arrival and, on top of that, wasn't a uniform
+                // shuffle to begin with. Randomising it now happens once,
+                // deliberately, server-side, when J5 presses Shuffle.
+                setFeatured(json.featured ?? [])
                 setTags(json.tags ?? [])
             })
             .catch(() => { })

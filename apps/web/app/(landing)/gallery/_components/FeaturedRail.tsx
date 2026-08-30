@@ -25,7 +25,7 @@ import s from '@/styles/gallery.module.css'
  * identical tiles, so the seam is invisible and the loop never ends.
  */
 export default function FeaturedRail({ images, onOpen }: {
-    images: string[]
+    images: FeaturedItemAPI[]
     onOpen: (index: number) => void
 }) {
     const rail = useRef<HTMLDivElement>(null)
@@ -192,7 +192,7 @@ export default function FeaturedRail({ images, onOpen }: {
             >
                 {[...images, ...images].map((img, i) => (
                     <button
-                        key={`${img}-${i}`}
+                        key={`${img.id}-${i}`}
                         type='button'
                         className={s.railItem}
                         onClick={() => onOpen(i % images.length)}
@@ -202,7 +202,7 @@ export default function FeaturedRail({ images, onOpen }: {
                         aria-hidden={i >= images.length}
                         tabIndex={i >= images.length ? -1 : undefined}
                     >
-                        <img src={`/api/gallery/featured?img=${encodeURIComponent(img)}`} alt='' loading='lazy' decoding='async' />
+                        <img src={img.src} alt='' loading='lazy' decoding='async' />
                     </button>
                 ))}
             </div>
