@@ -32,6 +32,12 @@ import { resolveStorageKey } from '@/lib/gallery/paths'
  * maxDuration below. Raising the cap further should come with a batch/progress
  * response rather than a longer timeout.
  *
+ * Over the cap is REJECTED, not truncated. `.slice(0, MAX_IDS)` meant a
+ * selection of 620 moved 500, answered `changed: 500, failed: []` — which the
+ * panel reads as a clean run, so it cleared the whole selection — and left
+ * 120 items untouched with nothing anywhere saying so. A 400 naming the cap
+ * costs the reviewer one more pass and cannot lose anything.
+ *
  * Partial success is reported rather than rolled back. There is no transaction
  * across a filesystem and a database, and a reviewer who moved sixty items of
  * which two failed is better served by being told which two than by having the
@@ -58,12 +64,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const { action, operationId, tags, authorName } = body
 
-    const ids: ObjectId[] = (Array.isArray(body.ids) ? body.ids : [])
+    const given: string[] = (Array.isArray(body.ids) ? body.ids : [])
         .filter((v: unknown): v is string => typeof v === 'string' && ObjectId.isValid(v))
-        .slice(0, MAX_IDS)
-        .map((v: string) => new ObjectId(v))
 
-    if (!ids.length) return NextResponse.json({ error: 'Nothing selected' }, { status: 400 })
+    if (!given.length) return NextResponse.json({ error: 'Nothing selected' }, { status: 400 })
+    if (given.length > MAX_IDS) {
+        // Named, not silently trimmed — see the module comment.
+        return NextResponse.json({
+            error: `Too many items: ${given.length} selected, ${MAX_IDS} is the most one bulk action can take. Narrow the selection and run it again.`,
+        }, { status: 400 })
+    }
+
+    const ids: ObjectId[] = given.map(v => new ObjectId(v))
 
     const failed: { id: string, error: string }[] = []
     let changed = 0

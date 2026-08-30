@@ -109,13 +109,29 @@ export async function operationFacets(
     const { year, operation } = await resolveOperationFolder(deps, opObjectId)
     const set: OperationFacetValues = {
         operationId: op._id,
-        operation: operation ?? '',
-        opLabel: operation ? splitOperation(operation).label : '',
         takenAt: op.date ? new Date(op.date) : null,
+    }
+    const unset: Partial<Record<'operationId' | 'operation' | 'opLabel' | 'year', ''>> = {}
+
+    /* Absent, never `''`. `operation ?? ''` kept a non-nullish empty string,
+       which resolveOperationFolder returns for an operation document with an
+       empty title and no date — and `operation: ''` is a real value to
+       $group, so the facets tree grew a row with a blank label whose click
+       filtered on the empty string and returned the whole year. Filed under
+       the `unset` bucket instead, which is what "this operation has no folder
+       name" actually means, and matches relocateMedia's own else-branch. */
+    if (operation) {
+        set.operation = operation
+        set.opLabel = splitOperation(operation).label
+    } else {
+        unset.operation = ''
+        unset.opLabel = ''
     }
 
     // An undated operation leaves `year` absent rather than `''` — matching
     // relocateMedia, which unsets it for the same document.
-    if (year) return { $set: { ...set, year } }
-    return { $set: set, $unset: { year: '' } }
+    if (year) set.year = year
+    else unset.year = ''
+
+    return Object.keys(unset).length ? { $set: set, $unset: unset } : { $set: set }
 }
