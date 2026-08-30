@@ -8,6 +8,7 @@ import { hasPermission } from '@/lib/orbat/hasPermission'
 import { logAction } from '@/lib/logAction'
 import { reconcile } from '@/lib/gallery/reconcile'
 import { parseContentPath } from '@/lib/gallery/content-path'
+import { splitOperation } from '@/lib/gallery/naming'
 import { CONTENT_DIR, contentKey } from '@/lib/gallery/paths'
 
 /**
@@ -106,7 +107,20 @@ export async function POST(request: NextRequest) {
                         source: 'upload',
                         storageKey: contentKey(relative),
                         ...(facets.year ? { year: facets.year } : {}),
-                        ...(facets.operation ? { operation: facets.operation, opLabel: facets.operation } : {}),
+                        /* `opLabel` is the folder name with its order prefix
+                           stripped — "Op Silent Ridge", not "4. Op Silent
+                           Ridge". Every other producer writes
+                           splitOperation(...).label (relocate.ts,
+                           operation-facets.ts, reconcile.ts); this one wrote
+                           the raw folder name, a second spelling of the same
+                           label. The public facet rail groups on `operation`
+                           and displays `opLabel` from a last-wins Map
+                           representative, so a freshly indexed item flipped
+                           the whole operation's rail label to the numbered
+                           form — and reconcile could not heal it, because a
+                           document indexed here matches by path (rule 2) and
+                           never enters the facet-rewrite loop. */
+                        ...(facets.operation ? { operation: facets.operation, opLabel: splitOperation(facets.operation).label } : {}),
                         ...(facets.mission ? { mission: facets.mission } : {}),
                         // Null, not a guessed date. A reviewer assigns the
                         // operation from the Media tab and takenAt follows it.
