@@ -1,11 +1,12 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Button, TextField, Typography, LinearProgress } from '@mui/material'
+import { TextField, Typography, LinearProgress } from '@mui/material'
 
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import mc from '@/styles/media-console.module.css'
 import s from '@/styles/j5-console.module.css'
+import c from '@/styles/j5-controls.module.css'
 
 /* ============================================================================
    The Screenshot of the Month tab.
@@ -25,13 +26,6 @@ import s from '@/styles/j5-console.module.css'
    is gallery.manage-gated, and a J5 lead without gallery.manage would 403 on
    the very thing this tab exists for. See the route's own comment.
    ============================================================================ */
-
-const redBtn = {
-    fontSize: '0.72rem',
-    borderColor: 'rgba(219,0,29,0.27)',
-    color: 'rgba(219,0,29,0.8)',
-    '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.08)' },
-}
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -197,13 +191,13 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                     <Typography className={s.zoneTitle}>Current Screenshot of the Month</Typography>
                     {canManage && (
                         <>
-                            <Button size='small' variant='outlined' onClick={pickerOpen ? closePicker : openPicker} sx={redBtn}>
+                            <button type='button' className={`${c.btn} ${pickerOpen ? c.btnGhost : ''}`} onClick={pickerOpen ? closePicker : openPicker}>
                                 {pickerOpen ? 'Cancel' : 'Replace from library'}
-                            </Button>
+                            </button>
                             {sotm && (
-                                <Button size='small' variant='outlined' disabled={clearing} onClick={handleClear} sx={redBtn}>
+                                <button type='button' className={`${c.btn} ${c.btnDanger}`} disabled={clearing} onClick={handleClear}>
                                     {clearing ? 'Clearing…' : 'Clear'}
-                                </Button>
+                                </button>
                             )}
                         </>
                     )}
@@ -258,9 +252,9 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                             </div>
                             {hasMoreLibrary && (
                                 <div className={mc.pager}>
-                                    <Button size='small' variant='outlined' disabled={libraryLoading} onClick={() => setLibraryPage(p => p + 1)} sx={redBtn}>
+                                    <button type='button' className={c.btn} disabled={libraryLoading} onClick={() => setLibraryPage(p => p + 1)}>
                                         Load more
-                                    </Button>
+                                    </button>
                                 </div>
                             )}
                         </>
@@ -275,14 +269,14 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                             sx={{ ...inputSx, minWidth: 240 }}
                             placeholder='e.g. Cpl. Smith'
                         />
-                        <Button
-                            variant='contained'
+                        <button
+                            type='button'
+                            className={`${c.btn} ${c.btnPrimary}`}
                             disabled={saving || !selectedId || !credit.trim()}
                             onClick={handleSet}
-                            sx={{ background: 'var(--red)', '&:hover': { background: 'var(--red)' } }}
                         >
                             {saving ? 'Saving…' : 'Set as SOTM'}
-                        </Button>
+                        </button>
                     </div>
                 </section>
             )}

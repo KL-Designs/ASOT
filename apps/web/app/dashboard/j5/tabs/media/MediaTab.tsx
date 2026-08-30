@@ -1,10 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Button, MenuItem, TextField, Typography } from '@mui/material'
+import { MenuItem, TextField, Typography } from '@mui/material'
 
 import { PAGE_SIZE, type LibrarySort } from '@/lib/gallery/library-query'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import BulkPanel from './BulkPanel'
 import HealthView from './HealthView'
 import Inspector from './Inspector'
@@ -12,6 +13,7 @@ import LibraryRail from './LibraryRail'
 import MediaGrid from './MediaGrid'
 import { useLibrary } from './useLibrary'
 import s from '@/styles/media-console.module.css'
+import c from '@/styles/j5-controls.module.css'
 
 type Operation = { id: string, title: string, date: string | null }
 
@@ -156,6 +158,7 @@ export default function MediaTab() {
     return (
         <div>
             <div className={s.work}>
+                <CornerBrackets />
                 <LibraryRail
                     facets={facets}
                     view={filters.view}
@@ -265,9 +268,9 @@ export default function MediaTab() {
                             <MenuItem value='image'>Images</MenuItem>
                             <MenuItem value='video'>Videos</MenuItem>
                         </TextField>
-                        <Button size='small' onClick={() => { clear(); setSelected(new Set()) }} sx={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.5)' }}>
+                        <button type='button' className={`${c.btn} ${c.btnGhost}`} onClick={() => { clear(); setSelected(new Set()) }}>
                             Clear filters
-                        </Button>
+                        </button>
                         <Typography sx={{ ml: 'auto', fontFamily: 'var(--font-mono)', fontSize: '0.66rem', color: 'rgba(237,237,237,0.38)' }}>
                             {total.toLocaleString('en-AU')} ITEMS{selected.size ? ` · ${selected.size} SELECTED` : ''}
                         </Typography>
@@ -283,9 +286,9 @@ export default function MediaTab() {
                     {error && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
                             <Typography sx={{ fontSize: '0.75rem', color: 'var(--red-hi)' }}>{error}</Typography>
-                            <Button size='small' variant='outlined' onClick={retry} sx={{ fontSize: '0.7rem' }}>
+                            <button type='button' className={c.btn} onClick={retry}>
                                 Retry
-                            </Button>
+                            </button>
                         </div>
                     )}
 
@@ -318,11 +321,11 @@ export default function MediaTab() {
 
                     {filters.view !== 'health' && pages > 1 && (
                         <div className={s.pager}>
-                            <Button size='small' disabled={page === 0} onClick={() => setPage(page - 1)} sx={{ fontSize: '0.7rem' }}>Previous</Button>
+                            <button type='button' className={c.btn} disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</button>
                             <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: '0.66rem', color: 'rgba(237,237,237,0.5)' }}>
                                 {page + 1} / {pages}
                             </Typography>
-                            <Button size='small' disabled={page + 1 >= pages} onClick={() => setPage(page + 1)} sx={{ fontSize: '0.7rem' }}>Next</Button>
+                            <button type='button' className={c.btn} disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>Next</button>
                         </div>
                     )}
                 </div>

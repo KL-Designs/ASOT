@@ -1,10 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Autocomplete, Button, Chip, MenuItem, TextField, Typography } from '@mui/material'
+import { Autocomplete, Chip, MenuItem, TextField, Typography } from '@mui/material'
 
 import { embedIframeSrc } from '@/lib/gallery/embeds'
 import s from '@/styles/media-console.module.css'
+import c from '@/styles/j5-controls.module.css'
 
 /**
  * One item, and everything a reviewer can change about it.
@@ -181,14 +182,14 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
             {error && <Typography sx={{ fontSize: '0.75rem', color: 'var(--red-hi)' }}>{error}</Typography>}
 
             <div className={s.actions}>
-                <Button size='small' variant='outlined' disabled={saving} onClick={save} sx={{ fontSize: '0.7rem' }}>Save</Button>
+                <button type='button' className={`${c.btn} ${c.btnPrimary}`} disabled={saving} onClick={save}>Save</button>
                 {confirmDelete ? (
                     <>
-                        <Button size='small' color='error' disabled={saving} onClick={remove} sx={{ fontSize: '0.7rem' }}>Delete for good</Button>
-                        <Button size='small' disabled={saving} onClick={() => setConfirmDelete(false)} sx={{ fontSize: '0.7rem' }}>Cancel</Button>
+                        <button type='button' className={`${c.btn} ${c.btnDanger}`} disabled={saving} onClick={remove}>Delete for good</button>
+                        <button type='button' className={`${c.btn} ${c.btnGhost}`} disabled={saving} onClick={() => setConfirmDelete(false)}>Cancel</button>
                     </>
                 ) : (
-                    <Button size='small' color='error' disabled={saving} onClick={() => setConfirmDelete(true)} sx={{ fontSize: '0.7rem' }}>Delete</Button>
+                    <button type='button' className={`${c.btn} ${c.btnDanger}`} disabled={saving} onClick={() => setConfirmDelete(true)}>Delete</button>
                 )}
             </div>
         </aside>

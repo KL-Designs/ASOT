@@ -3,9 +3,11 @@
    A CSS module, like media-console.module.css, for the same reason: these are
    layouts with their own scrolling regions, and expressing that in MUI sx
    objects spread across three components is how this dashboard's older tabs
-   ended up with their layout in five places at once. Controls stay MUI. */
+   ended up with their layout in five places at once. Buttons now come from
+   j5-controls.module.css instead — this module owns position, that one owns
+   appearance. Text fields, selects and autocompletes still stay MUI. */
 
-.batch { border: 1px solid rgba(219, 0, 29, 0.18); margin-bottom: 14px; }
+.batch { position: relative; border: 1px solid rgba(219, 0, 29, 0.18); margin-bottom: 14px; }
 
 .batchHead {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -79,7 +81,7 @@
    classes for the tiles themselves (see FeaturedTab.tsx) — these are just
    the layout and the overlay controls a plain library tile doesn't need. ── */
 
-.zone { margin-bottom: 30px; }
+.zone { position: relative; margin-bottom: 30px; }
 .zoneHead {
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     margin-bottom: 10px;

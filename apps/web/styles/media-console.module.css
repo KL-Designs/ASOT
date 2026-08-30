@@ -3,10 +3,12 @@
    A CSS module rather than MUI sx props: this is a layout with a scrolling
    rail, a scrolling centre and a sticky inspector, and expressing that in sx
    objects spread across four components is how the dashboard's other tabs
-   ended up with their layout in five places at once. The controls inside stay
-   MUI, matching every other tab. */
+   ended up with their layout in five places at once. Buttons now come from
+   j5-controls.module.css instead — this module owns position, that one owns
+   appearance. Text fields, selects and autocompletes still stay MUI. */
 
 .work {
+    position: relative; /* anchors CornerBrackets, which positions itself absolutely */
     display: grid;
     grid-template-columns: 210px 1fr 320px;
     gap: 0;

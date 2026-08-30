@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Button, LinearProgress, Typography } from '@mui/material'
+import { LinearProgress, Typography } from '@mui/material'
 import { Add, Close, Shuffle, Upload } from '@mui/icons-material'
 import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -11,8 +11,10 @@ import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@d
 import { CSS } from '@dnd-kit/utilities'
 
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import mc from '@/styles/media-console.module.css'
 import s from '@/styles/j5-console.module.css'
+import c from '@/styles/j5-controls.module.css'
 
 /* ============================================================================
    The Featured tab.
@@ -31,13 +33,6 @@ import s from '@/styles/j5-console.module.css'
    ============================================================================ */
 
 const MAX_ROTATION = 60   // matches the order route's own cap
-
-const redBtn = {
-    fontSize: '0.72rem',
-    borderColor: 'rgba(219,0,29,0.27)',
-    color: 'rgba(219,0,29,0.8)',
-    '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.08)' },
-}
 
 /** One rotation tile. The whole tile is the drag handle — dnd-kit's
  *  listeners are spread on the wrapper div, and the remove button inside
@@ -228,14 +223,17 @@ export default function FeaturedTab() {
             )}
 
             <section className={s.zone}>
+                <CornerBrackets />
                 <div className={s.zoneHead}>
                     <Typography className={s.zoneTitle}>In rotation ({rotation.length})</Typography>
-                    <Button size='small' variant='outlined' startIcon={<Shuffle sx={{ fontSize: 14 }} />} disabled={rotation.length < 2 || saving} onClick={shuffle} sx={redBtn}>
+                    <button type='button' className={c.btn} disabled={rotation.length < 2 || saving} onClick={shuffle}>
+                        <Shuffle sx={{ fontSize: 14, marginRight: '4px', verticalAlign: 'middle' }} />
                         Shuffle
-                    </Button>
-                    <Button size='small' variant='outlined' startIcon={<Upload sx={{ fontSize: 14 }} />} disabled={uploading} onClick={() => uploadInputRef.current?.click()} sx={redBtn}>
+                    </button>
+                    <button type='button' className={c.btn} disabled={uploading} onClick={() => uploadInputRef.current?.click()}>
+                        <Upload sx={{ fontSize: 14, marginRight: '4px', verticalAlign: 'middle' }} />
                         Upload
-                    </Button>
+                    </button>
                     <span className={s.zoneNote} style={{ marginLeft: 'auto' }}>Drag to reorder. This is the order the public rail plays in.</span>
                 </div>
 
@@ -255,6 +253,7 @@ export default function FeaturedTab() {
             </section>
 
             <section className={s.zone}>
+                <CornerBrackets />
                 <div className={s.zoneHead}>
                     <Typography className={s.zoneTitle}>Library ({libraryTotal})</Typography>
                     <span className={s.zoneNote}>Top rated first. Already-featured images are hidden.</span>
@@ -277,9 +276,9 @@ export default function FeaturedTab() {
                         </div>
                         {hasMoreLibrary && (
                             <div className={mc.pager}>
-                                <Button size='small' variant='outlined' disabled={libraryLoading} onClick={() => setLibraryPage(p => p + 1)} sx={redBtn}>
+                                <button type='button' className={c.btn} disabled={libraryLoading} onClick={() => setLibraryPage(p => p + 1)}>
                                     Load more
-                                </Button>
+                                </button>
                             </div>
                         )}
                     </>

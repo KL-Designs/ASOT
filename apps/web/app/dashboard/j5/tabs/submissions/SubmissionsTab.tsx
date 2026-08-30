@@ -1,14 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
+import { CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
 import { Done } from '@mui/icons-material'
 
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import Lightbox, { type LightboxItem } from '@/app/(landing)/gallery/_components/Lightbox'
 import SubmissionRow from './SubmissionRow'
 import { useSubmissions, type PendingItem, type Tag } from './useSubmissions'
 import s from '@/styles/j5-console.module.css'
+import c from '@/styles/j5-controls.module.css'
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -18,19 +20,6 @@ const inputSx = {
         '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
         '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
     },
-}
-
-const redBtn = {
-    fontSize: '0.72rem',
-    borderColor: 'rgba(219,0,29,0.27)',
-    color: 'rgba(219,0,29,0.8)',
-    '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.08)' },
-}
-
-const ghostBtn = {
-    fontSize: '0.72rem',
-    color: 'rgba(237,237,237,0.4)',
-    '&:hover': { color: 'rgba(237,237,237,0.7)' },
 }
 
 function timeAgo(iso: string) {
@@ -157,32 +146,30 @@ export default function SubmissionsTab() {
                 const batchBusy = batch.items.some(i => busy[i.id])
                 return (
                     <div key={batch.batchId} className={s.batch}>
+                        <CornerBrackets />
                         <div className={s.batchHead}>
                             <span className={s.who}>{batch.authorName}</span>
                             <span className={s.when}>
                                 {batch.items.length} item{batch.items.length !== 1 ? 's' : ''} · {timeAgo(batch.earliest)}
                             </span>
                             <span className={s.spacer} />
-                            <Button
-                                size='small'
-                                variant='outlined'
-                                color='error'
+                            <button
+                                type='button'
+                                className={`${c.btn} ${c.btnDanger}`}
                                 disabled={batchBusy}
                                 onClick={() => { setRejectTarget({ ids: batch.items.map(i => i.id) }); setRejectReason('') }}
-                                sx={{ fontSize: '0.72rem' }}
                             >
                                 Reject all
-                            </Button>
-                            <Button
-                                size='small'
-                                variant='outlined'
-                                startIcon={batchBusy ? <CircularProgress size={12} sx={{ color: 'inherit' }} /> : <Done fontSize='small' />}
+                            </button>
+                            <button
+                                type='button'
+                                className={`${c.btn} ${c.btnPrimary}`}
                                 disabled={batchBusy}
                                 onClick={() => acceptBatch(batch.batchId)}
-                                sx={redBtn}
                             >
+                                {batchBusy ? <CircularProgress size={12} sx={{ color: 'inherit', marginRight: '6px', verticalAlign: 'middle' }} /> : <Done fontSize='small' sx={{ fontSize: 14, marginRight: '4px', verticalAlign: 'middle' }} />}
                                 Accept all
-                            </Button>
+                            </button>
                         </div>
 
                         {batch.items.map(item => (
@@ -225,10 +212,10 @@ export default function SubmissionsTab() {
                     />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
-                    <Button onClick={() => { setRejectTarget(null); setRejectReason('') }} disabled={rejecting} sx={ghostBtn}>Cancel</Button>
-                    <Button onClick={confirmReject} variant='contained' color='error' disabled={rejecting || !rejectReason.trim()} sx={{ fontSize: '0.75rem' }}>
+                    <button type='button' className={`${c.btn} ${c.btnGhost}`} onClick={() => { setRejectTarget(null); setRejectReason('') }} disabled={rejecting}>Cancel</button>
+                    <button type='button' className={`${c.btn} ${c.btnDanger}`} onClick={confirmReject} disabled={rejecting || !rejectReason.trim()}>
                         Reject
-                    </Button>
+                    </button>
                 </DialogActions>
             </Dialog>
 

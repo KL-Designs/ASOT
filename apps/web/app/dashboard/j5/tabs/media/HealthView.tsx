@@ -1,10 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Button, Typography } from '@mui/material'
+import { Typography } from '@mui/material'
 
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import s from '@/styles/media-console.module.css'
+import c from '@/styles/j5-controls.module.css'
 
 /**
  * Where the database and the disk disagree.
@@ -127,12 +128,12 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
                         ? `LAST SCAN ${new Date(report.at).toLocaleString('en-AU')} · ${report.scanned.toLocaleString('en-AU')} FILES WALKED`
                         : 'NEVER SCANNED'}
                 </Typography>
-                <Button size='small' variant='outlined' disabled={busy} onClick={() => post({ action: 'rescan' })} sx={{ ml: 'auto', fontSize: '0.7rem' }}>
+                <button type='button' className={`${c.btn} ${c.btnGhost}`} disabled={busy} onClick={() => post({ action: 'rescan' })} style={{ marginLeft: 'auto' }}>
                     {/* A rescan walks 4,781 files — slow enough that the
                         button must say so and refuse a second click while
                         one is already running. */}
                     {busy ? 'Scanning the whole archive…' : 'Re-scan disk'}
-                </Button>
+                </button>
             </div>
 
             {notice && (
@@ -146,9 +147,9 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
                         post() error already sits next to a working report
                         and the archive button covers retrying. */}
                     {!report && (
-                        <Button size='small' variant='outlined' onClick={load} sx={{ fontSize: '0.7rem' }}>
+                        <button type='button' className={c.btn} onClick={load}>
                             Retry
-                        </Button>
+                        </button>
                     )}
                 </div>
             )}
@@ -223,9 +224,9 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
                             {report.notIndexed.length - LIST_CAP} more not shown.
                         </Typography>
                     )}
-                    <Button
-                        size='small'
-                        variant='outlined'
+                    <button
+                        type='button'
+                        className={`${c.btn} ${c.btnPrimary}`}
                         disabled={busy}
                         // Every not-indexed path, not just the ones shown —
                         // the cap is a display limit, not a scope limit. The
@@ -234,10 +235,10 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
                         // list here still can't index anything the reviewer
                         // hasn't actually seen a report of.
                         onClick={() => post({ action: 'index', paths: report.notIndexed.map(f => f.path) })}
-                        sx={{ fontSize: '0.7rem', mt: 1 }}
+                        style={{ marginTop: 8 }}
                     >
                         Index all {report.notIndexed.length}
-                    </Button>
+                    </button>
                 </section>
             )}
 

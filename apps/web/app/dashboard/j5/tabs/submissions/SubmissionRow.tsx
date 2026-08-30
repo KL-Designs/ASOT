@@ -1,11 +1,12 @@
 'use client'
 
-import { Autocomplete, Button, Chip, CircularProgress, TextField, Typography } from '@mui/material'
+import { Autocomplete, Chip, CircularProgress, TextField, Typography } from '@mui/material'
 import { Done, Close, OpenInFull, Warning } from '@mui/icons-material'
 
 import { embedIframeSrc } from '@/lib/gallery/embeds'
 import type { OperationOption, PatchFields, PendingItem, Tag } from './useSubmissions'
 import s from '@/styles/j5-console.module.css'
+import c from '@/styles/j5-controls.module.css'
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -17,13 +18,6 @@ const inputSx = {
     },
     '& .MuiInputLabel-root': { fontSize: '0.78rem' },
     '& .MuiInputLabel-root.Mui-focused': { color: 'var(--red)' },
-}
-
-const redBtn = {
-    fontSize: '0.72rem',
-    borderColor: 'rgba(219,0,29,0.27)',
-    color: 'rgba(219,0,29,0.8)',
-    '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.08)' },
 }
 
 function formatDuration(totalSec: number): string {
@@ -173,23 +167,24 @@ export default function SubmissionRow({ item, tags, operations, saveState, busy,
                 <span className={s.saveState} data-state={saveState}>
                     {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : saveState === 'error' ? 'Save failed' : ''}
                 </span>
-                <Button
-                    size='small'
-                    variant='outlined'
-                    startIcon={busy ? <CircularProgress size={12} sx={{ color: 'inherit' }} /> : <Done fontSize='small' />}
+                <button
+                    type='button'
+                    className={`${c.btn} ${c.btnPrimary}`}
                     disabled={busy || missingMedia}
                     onClick={onAccept}
-                    sx={redBtn}
                     title={missingMedia ? 'This item has no media to publish.' : undefined}
                 >
+                    {busy ? <CircularProgress size={12} sx={{ color: 'inherit', marginRight: '4px', verticalAlign: 'middle' }} /> : <Done fontSize='small' sx={{ fontSize: 14, marginRight: '4px', verticalAlign: 'middle' }} />}
                     Accept
-                </Button>
-                <Button size='small' variant='outlined' color='error' startIcon={<Close fontSize='small' />} disabled={busy} onClick={onReject} sx={{ fontSize: '0.72rem' }}>
+                </button>
+                <button type='button' className={`${c.btn} ${c.btnDanger}`} disabled={busy} onClick={onReject}>
+                    <Close fontSize='small' sx={{ fontSize: 14, marginRight: '4px', verticalAlign: 'middle' }} />
                     Reject
-                </Button>
-                <Button size='small' variant='text' startIcon={<OpenInFull fontSize='small' />} onClick={onExpand} sx={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>
+                </button>
+                <button type='button' className={`${c.btn} ${c.btnGhost}`} onClick={onExpand}>
+                    <OpenInFull fontSize='small' sx={{ fontSize: 14, marginRight: '4px', verticalAlign: 'middle' }} />
                     Expand
-                </Button>
+                </button>
             </div>
         </div>
     )

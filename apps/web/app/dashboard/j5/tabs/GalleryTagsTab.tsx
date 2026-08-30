@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Typography, TextField, Button, IconButton, Tooltip } from '@mui/material'
+import { Typography, TextField, IconButton, Tooltip } from '@mui/material'
 import { Add, ArrowUpward, ArrowDownward, RestoreFromTrash, Delete, DragIndicator } from '@mui/icons-material'
 import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -10,6 +10,7 @@ import {
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import c from '@/styles/j5-controls.module.css'
 
 /** `count` is only ever present for the manager this tab is gated to — see
  *  the route's own comment on why it's computed there rather than read from
@@ -26,13 +27,6 @@ const inputSx = {
     },
     '& .MuiInputLabel-root': { fontSize: '0.82rem' },
     '& .MuiInputLabel-root.Mui-focused': { color: 'var(--red)' },
-}
-
-const redBtn = {
-    fontSize: '0.72rem',
-    borderColor: 'rgba(219,0,29,0.27)',
-    color: 'rgba(219,0,29,0.8)',
-    '&:hover': { borderColor: 'var(--red)', background: 'rgba(219,0,29,0.08)' },
 }
 
 const rowStyle = {
@@ -255,9 +249,10 @@ export default function GalleryTagsTab() {
                     onKeyDown={e => { if (e.key === 'Enter') addTag() }}
                     sx={{ ...inputSx, flex: 1 }}
                 />
-                <Button variant='outlined' startIcon={<Add />} disabled={adding || !newLabel.trim()} onClick={addTag} sx={redBtn}>
+                <button type='button' className={`${c.btn} ${c.btnPrimary}`} disabled={adding || !newLabel.trim()} onClick={addTag}>
+                    <Add sx={{ fontSize: 14, marginRight: '4px', verticalAlign: 'middle' }} />
                     Add
-                </Button>
+                </button>
             </div>
 
             <div className='flex flex-col gap-1.5'>

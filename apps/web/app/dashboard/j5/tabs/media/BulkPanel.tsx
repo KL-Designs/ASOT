@@ -1,9 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Autocomplete, Button, Chip, MenuItem, TextField, Typography } from '@mui/material'
+import { Autocomplete, Chip, MenuItem, TextField, Typography } from '@mui/material'
 
 import s from '@/styles/media-console.module.css'
+import c from '@/styles/j5-controls.module.css'
 
 /**
  * One action over a selection — the cleanup path for the ~1,157 files the
@@ -129,9 +130,9 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
                 </div>
             )}
 
-            <Button size='small' variant='outlined' disabled={!operationId || busy} onClick={() => run('move', { operationId })} sx={{ fontSize: '0.7rem' }}>
+            <button type='button' className={`${c.btn} ${c.btnPrimary}`} disabled={!operationId || busy} onClick={() => run('move', { operationId })}>
                 Apply to {ids.length}
-            </Button>
+            </button>
 
             <Autocomplete
                 multiple
@@ -146,14 +147,14 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
                 renderInput={p => <TextField {...p} label='Tags' sx={inputSx} />}
             />
             <div style={{ display: 'flex', gap: 6 }}>
-                <Button size='small' disabled={!chosen.length || busy} onClick={() => run('addTags', { tags: chosen })} sx={{ fontSize: '0.7rem' }}>Add tags</Button>
-                <Button size='small' disabled={!chosen.length || busy} onClick={() => run('removeTags', { tags: chosen })} sx={{ fontSize: '0.7rem' }}>Remove tags</Button>
+                <button type='button' className={c.btn} disabled={!chosen.length || busy} onClick={() => run('addTags', { tags: chosen })}>Add tags</button>
+                <button type='button' className={c.btn} disabled={!chosen.length || busy} onClick={() => run('removeTags', { tags: chosen })}>Remove tags</button>
             </div>
 
             <TextField size='small' label='Set author' value={authorName} onChange={e => setAuthorName(e.target.value)} sx={inputSx} />
-            <Button size='small' disabled={busy} onClick={() => run('setAuthor', { authorName })} sx={{ fontSize: '0.7rem' }}>
+            <button type='button' className={c.btn} disabled={busy} onClick={() => run('setAuthor', { authorName })}>
                 {authorName.trim() ? `Set author on ${ids.length}` : `Clear author on ${ids.length}`}
-            </Button>
+            </button>
 
             {result && <Typography sx={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.62)' }}>{result}</Typography>}
             {error && <Typography sx={{ fontSize: '0.75rem', color: 'var(--red-hi)' }}>{error}</Typography>}
@@ -170,15 +171,15 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
             <div className={s.actions}>
                 {confirmDelete ? (
                     <>
-                        <Button size='small' color='error' disabled={busy} onClick={() => run('delete', {})} sx={{ fontSize: '0.7rem' }}>
+                        <button type='button' className={`${c.btn} ${c.btnDanger}`} disabled={busy} onClick={() => run('delete', {})}>
                             Delete {ids.length} for good
-                        </Button>
-                        <Button size='small' disabled={busy} onClick={() => setConfirmDelete(false)} sx={{ fontSize: '0.7rem' }}>Cancel</Button>
+                        </button>
+                        <button type='button' className={`${c.btn} ${c.btnGhost}`} disabled={busy} onClick={() => setConfirmDelete(false)}>Cancel</button>
                     </>
                 ) : (
-                    <Button size='small' color='error' disabled={busy} onClick={() => setConfirmDelete(true)} sx={{ fontSize: '0.7rem' }}>
+                    <button type='button' className={`${c.btn} ${c.btnDanger}`} disabled={busy} onClick={() => setConfirmDelete(true)}>
                         Delete {ids.length}
-                    </Button>
+                    </button>
                 )}
             </div>
         </aside>
