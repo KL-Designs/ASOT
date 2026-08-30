@@ -11,7 +11,7 @@ import { enqueue } from '@/lib/gallery/queue'
 import { checkFile, checkItemCount, kindForMime } from '@/lib/gallery/limits'
 import { parseEmbedUrl } from '@/lib/gallery/embeds'
 import { splitOperation } from '@/lib/gallery/naming'
-import { operationYear } from '@/lib/gallery/relocate'
+import { resolveOperationFolder, type RelocateDeps } from '@/lib/gallery/relocate'
 
 /**
  * One submitted item per request.
@@ -48,27 +48,56 @@ type OperationFields = {
 /** Resolves the operation the submitter chose into the four fields that have to
  *  agree with each other. `'unknown'` leaves every one of them absent, which is
  *  what makes an undated item sort into its own group rather than lying about
- *  a date. */
-async function resolveOperation(operationId: string | null): Promise<OperationFields> {
+ *  a date.
+ *
+ *  `operation`/`opLabel`/`year` go through `resolveOperationFolder()`
+ *  (lib/gallery/relocate.ts) — the same resolver `relocateMedia` and
+ *  `operationFields()` (the PATCH review handler, submissions/[id]/route.ts)
+ *  already use — rather than reading `op.title`/a local year straight off the
+ *  operation document. That matters more here than in either of those: an
+ *  uploaded file's `operation`/`opLabel` written here are provisional and get
+ *  overwritten the moment `relocateMedia` runs at accept, but an embed has no
+ *  bytes, so `relocateMedia` never touches it — whatever gets written here is
+ *  what the embed carries forever unless a reviewer PATCHes it by hand. A
+ *  member submitting a photo and a YouTube link from the same operation used
+ *  to end up with the photo tagged `operation: "4. Op Silent Ridge"` (once
+ *  accepted) and the video permanently stuck at
+ *  `operation: "OPERATION Silent Ridge — Sat"` — one operation rendered as
+ *  two entries in the public facet rail, and the video's half never healed.
+ *
+ *  `resolveOperationFolder` only reads the existing folder listing here — it
+ *  creates nothing on disk, so calling it before any file exists is safe. Its
+ *  proposed name for a brand new operation (no folder yet, in either case) is
+ *  therefore a guess, not a reservation: if some other operation's upload gets
+ *  accepted first and claims that same "next" number within the year, an
+ *  upload from THIS operation would compute a different number when it is
+ *  later actually relocated, and an already-accepted embed's guess (which
+ *  nothing ever revisits) would end up one folder number ahead of the real
+ *  one. That residual race is inherent to guessing before any folder exists;
+ *  it is far narrower than the near-certain mismatch this replaces, and
+ *  reconcile.ts's health view is what surfaces it if it ever fires. `deps`
+ *  defaults to the real collections; a test overrides it (with a throwaway
+ *  `contentDir`) the same way `operationFields()` does. */
+export async function resolveOperation(
+    operationId: string | null,
+    deps: RelocateDeps = { media: Db.galleryMedia, operations: Db.operations },
+): Promise<OperationFields> {
     if (!operationId || operationId === 'unknown') return {}
 
     if (!ObjectId.isValid(operationId)) return {}
-    const op = await Db.operations.findOne(
-        { _id: new ObjectId(operationId) },
+    const opObjectId = new ObjectId(operationId)
+    const op = await deps.operations.findOne(
+        { _id: opObjectId },
         { projection: { title: 1, date: 1 } },
     )
     if (!op) return {}
 
-    const { label } = splitOperation(op.title ?? '')
+    const { year, operation } = await resolveOperationFolder(deps, opObjectId)
     return {
         operationId: op._id,
-        operation: op.title ?? undefined,
-        opLabel: label,
-        // operationYear(), not a local getFullYear(): relocateMedia and
-        // operationFields() (submissions/[id]/route.ts) already read this
-        // date in UTC to choose a year folder, and a local read here would
-        // disagree with both of them on a server not running in UTC.
-        year: op.date ? operationYear(new Date(op.date)) : undefined,
+        operation: operation ?? undefined,
+        opLabel: operation ? splitOperation(operation).label : undefined,
+        year: year ?? undefined,
         takenAt: op.date ? new Date(op.date) : null,
     }
 }
