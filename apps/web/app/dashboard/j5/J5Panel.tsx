@@ -5,6 +5,7 @@ import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import GalleryOperationsTab from '@/app/dashboard/j5/tabs/GalleryOperationsTab'
+import MediaTab from '@/app/dashboard/j5/tabs/media/MediaTab'
 import GalleryFeaturedTab from '@/app/dashboard/j5/tabs/GalleryFeaturedTab'
 import ScreenshotOfMonthTab from '@/app/dashboard/j5/tabs/ScreenshotOfMonthTab'
 import GallerySubmissionsTab from '@/app/dashboard/j5/tabs/GallerySubmissionsTab'
@@ -25,6 +26,7 @@ export default function J5Panel({
     isJ4,
     canReviewGallery,
     canManageGalleryTags,
+    canManageGallery,
 }: {
     displayName: string
     userId: string
@@ -33,6 +35,7 @@ export default function J5Panel({
     isJ4: boolean
     canReviewGallery: boolean
     canManageGalleryTags: boolean
+    canManageGallery: boolean
 }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
 
@@ -45,7 +48,7 @@ export default function J5Panel({
         canManageGalleryTags && 'tags',
     ].filter(Boolean) as ('submissions' | 'tags')[])
 
-    const FIXED_TABS = 5   // Operations, Featured, SOTM, Meetings, Tickets
+    const FIXED_TABS = 5   // Media, Featured, SOTM, Meetings, Tickets
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -124,7 +127,7 @@ export default function J5Panel({
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Operations'          pinLabel='J5 — Operations' href='/dashboard/j5' tabIndex={0} />} sx={tabSx} />
+                            <Tab label={<PinTabLabel label='Media'               pinLabel='J5 — Media'      href='/dashboard/j5' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Featured Images'     pinLabel='J5 — Featured'   href='/dashboard/j5' tabIndex={1} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Screenshot of Month' pinLabel='J5 — SOTM'       href='/dashboard/j5' tabIndex={2} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Meetings'            pinLabel='J5 — Meetings'   href='/dashboard/j5' tabIndex={3} />} sx={tabSx} />
@@ -145,7 +148,7 @@ export default function J5Panel({
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && <GalleryOperationsTab />}
+                        {tab === 0 && (canManageGallery ? <MediaTab /> : <GalleryOperationsTab />)}
                         {tab === 1 && <GalleryFeaturedTab />}
                         {tab === 2 && <ScreenshotOfMonthTab canManage={canManageMembers} />}
                         {tab === 3 && <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} />}

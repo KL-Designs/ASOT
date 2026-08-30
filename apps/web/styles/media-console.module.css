@@ -1,0 +1,218 @@
+/* The J5 Media tab's three-column workspace.
+
+   A CSS module rather than MUI sx props: this is a layout with a scrolling
+   rail, a scrolling centre and a sticky inspector, and expressing that in sx
+   objects spread across four components is how the dashboard's other tabs
+   ended up with their layout in five places at once. The controls inside stay
+   MUI, matching every other tab. */
+
+.work {
+    display: grid;
+    grid-template-columns: 210px 1fr 320px;
+    gap: 0;
+    border: 1px solid rgba(219, 0, 29, 0.18);
+    background: rgba(255, 255, 255, 0.012);
+    min-height: 560px;
+}
+.work > * { min-width: 0; }
+
+/* ── rail ───────────────────────────────────────────────────────────── */
+.rail {
+    border-right: 1px solid rgba(219, 0, 29, 0.14);
+    padding: 10px 0;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+.railHead {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+    padding: 0 12px;
+    margin: 0 0 6px;
+}
+.railHead + .railHead { margin-top: 18px; }
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 5px 12px;
+    border: 0;
+    border-left: 2px solid transparent;
+    background: none;
+    color: rgba(237, 237, 237, 0.62);
+    font-family: var(--font-cond);
+    font-size: 13.5px;
+    letter-spacing: 0.03em;
+    text-align: left;
+    cursor: pointer;
+}
+.row:hover { background: rgba(255, 255, 255, 0.03); color: var(--foreground); }
+.row:focus-visible { outline: 1px solid var(--red); outline-offset: -1px; }
+.rowOn {
+    background: rgba(219, 0, 29, 0.1);
+    border-left-color: var(--red);
+    color: var(--foreground);
+}
+.rowSub { padding-left: 26px; font-size: 12.5px; }
+.rowSubSub { padding-left: 40px; font-size: 12px; }
+
+.count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(237, 237, 237, 0.38);
+    font-variant-numeric: tabular-nums;
+}
+.rowOn .count { color: var(--red-hi); }
+.caret { width: 9px; flex: none; font-size: 9px; color: rgba(237, 237, 237, 0.38); }
+
+/* ── centre ─────────────────────────────────────────────────────────── */
+.centre { display: flex; flex-direction: column; }
+.tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(219, 0, 29, 0.14);
+    flex-wrap: wrap;
+}
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    padding: 12px;
+    align-content: start;
+    max-height: 62vh;
+    overflow-y: auto;
+}
+.tile {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 0;
+    cursor: pointer;
+    overflow: hidden;
+}
+.tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile:focus-visible { outline: 1px solid var(--red); outline-offset: 1px; }
+.tileOn { border-color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
+
+.check {
+    position: absolute;
+    top: 5px; left: 5px;
+    width: 15px; height: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background: rgba(0, 0, 0, 0.5);
+}
+.tileOn .check { background: var(--red); border-color: var(--red); }
+
+.badge {
+    position: absolute;
+    top: 5px; right: 5px;
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    padding: 2px 5px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+}
+.badgeWarn { background: rgba(216, 172, 69, 0.92); color: #1a1400; }
+
+.cap {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 14px 6px 5px;
+    font-family: var(--font-cond);
+    font-size: 11px;
+    color: #fff;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.88));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
+}
+
+.empty {
+    padding: 48px 16px;
+    text-align: center;
+    color: rgba(237, 237, 237, 0.38);
+    font-size: 13px;
+}
+.pager {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    padding: 10px;
+    border-top: 1px solid rgba(219, 0, 29, 0.14);
+}
+
+/* ── inspector ──────────────────────────────────────────────────────── */
+.insp {
+    border-left: 1px solid rgba(219, 0, 29, 0.14);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+.inspHead {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.preview { aspect-ratio: 16 / 10; border: 1px solid rgba(255, 255, 255, 0.06); }
+.preview img, .preview video { width: 100%; height: 100%; object-fit: contain; display: block; }
+
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 11.5px; align-items: baseline; }
+.facts dt {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+}
+.facts dd { margin: 0; color: rgba(237, 237, 237, 0.62); font-variant-numeric: tabular-nums; }
+
+/* The path is shown in full, because the bracketed id in it is the contract
+   that lets a file be dragged to another folder and still be recognised. */
+.path {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.6;
+    color: rgba(237, 237, 237, 0.62);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 7px 8px;
+    word-break: break-all;
+}
+
+.consequence {
+    border: 1px solid rgba(216, 172, 69, 0.3);
+    background: rgba(216, 172, 69, 0.07);
+    padding: 9px 10px;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: rgba(237, 237, 237, 0.62);
+}
+.consequence b { color: var(--foreground); }
+
+@media (max-width: 1180px) {
+    .work { grid-template-columns: 190px 1fr; }
+    .insp { grid-column: 1 / -1; border-left: 0; border-top: 1px solid rgba(219, 0, 29, 0.14); max-height: none; }
+}
+@media (max-width: 760px) {
+    .work { grid-template-columns: 1fr; }
+    .rail { border-right: 0; border-bottom: 1px solid rgba(219, 0, 29, 0.14); max-height: 240px; }
+}

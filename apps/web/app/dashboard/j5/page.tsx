@@ -20,6 +20,7 @@ export default async function Page() {
     const isJ4 = client.hasRoles(me, PERMISSIONS.departments.j4)
     const canReviewGallery = await hasPermission(me, 'gallery.review')
     const canManageGalleryTags = await hasPermission(me, 'gallery.tags')
+    const canManageGallery = await hasPermission(me, 'gallery.manage')
 
     return (
         <J5Panel
@@ -30,6 +31,7 @@ export default async function Page() {
             isJ4={isJ4}
             canReviewGallery={canReviewGallery}
             canManageGalleryTags={canManageGalleryTags}
+            canManageGallery={canManageGallery}
         />
     )
 }
