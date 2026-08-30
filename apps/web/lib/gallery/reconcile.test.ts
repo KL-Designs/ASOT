@@ -1,0 +1,207 @@
+import { describe, test, expect, beforeEach, afterEach } from 'vitest'
+import { ObjectId } from 'mongodb'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs'
+import { join } from 'path'
+import { tmpdir } from 'os'
+
+import { reconcile, type ReconcileDeps } from './reconcile'
+
+const OP_ID = new ObjectId('6a8000000000000000000001')
+const A = new ObjectId('6a9380f11c4e5d2a77b31099')
+const B = new ObjectId('6a937cc528231f89cb64d678')
+
+/**
+ * A stand-in document: a real `_id` plus whatever else a test wants to put on
+ * it. The index signature is what lets a test both hand arbitrary fields in
+ * and read arbitrary fields back out after an update, without an `as` on
+ * either side — ReconcileMediaDoc's fields are `unknown` for exactly this.
+ */
+type Doc = Record<string, unknown> & { _id: ObjectId }
+
+let root: string
+let contentDir: string
+
+function write(relative: string, body = 'BYTES') {
+    const full = join(contentDir, ...relative.split('/'))
+    mkdirSync(join(full, '..'), { recursive: true })
+    writeFileSync(full, body)
+}
+
+/** A minimal stand-in for the two collections reconcile reads. `find` returns
+ *  a cursor because that is the shape the real driver has. */
+function deps(docs: Doc[], ops: Doc[] = []): ReconcileDeps {
+    return {
+        contentDir,
+        media: {
+            find() {
+                return { async toArray() { return docs } }
+            },
+            async updateOne(filter: { _id: ObjectId }, update: { $set?: Record<string, unknown>, $unset?: Record<string, ''> }) {
+                const doc = docs.find(d => d._id.equals(filter._id))
+                if (!doc) return {}
+                Object.assign(doc, update.$set ?? {})
+                for (const k of Object.keys(update.$unset ?? {})) delete doc[k]
+                return {}
+            },
+        },
+        operations: {
+            find() {
+                return { async toArray() { return ops } }
+            },
+        },
+    }
+}
+
+beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'asot-reconcile-'))
+    contentDir = join(root, 'content')
+    mkdirSync(contentDir, { recursive: true })
+})
+
+afterEach(() => rmSync(root, { recursive: true, force: true }))
+
+describe('reconcile', () => {
+    test('matches a file by the id in its name and leaves an unmoved item alone', async () => {
+        const name = `Koda — Danger close [${A}].jpg`
+        write(`2026/23. Op New Winter/${name}`)
+
+        const docs: Doc[] = [{ _id: A, storageKey: `content:2026/23. Op New Winter/${name}`, caption: 'Danger close', tags: ['funny'], up: 3, down: 0 }]
+        const report = await reconcile(deps(docs))
+
+        expect(report.matchedById).toBe(1)
+        expect(report.relocated).toEqual([])
+        expect(report.notIndexed).toEqual([])
+        expect(report.missingFiles).toEqual([])
+    })
+
+    // THE test. Everything about reorganising a backup by hand rests on this.
+    test('a file moved into a different operation folder keeps its metadata and takes the new operation', async () => {
+        const name = `Koda — Danger close [${A}].jpg`
+        write(`2021/4. Op Silent Ridge/${name}`)
+
+        const docs: Doc[] = [{
+            _id: A,
+            storageKey: `content:2026/23. Op New Winter/${name}`,   // stale — the file moved
+            caption: 'Danger close', tags: ['funny', 'armour'], authorName: 'Koda', up: 3, down: 1,
+            year: '2026', operation: '23. Op New Winter',
+        }]
+        const ops: Doc[] = [{ _id: OP_ID, title: 'OPERATION Silent Ridge — Sat', date: new Date('2021-08-14T09:00:00Z') }]
+
+        const report = await reconcile(deps(docs, ops))
+
+        expect(report.matchedById).toBe(1)
+        expect(report.relocated).toHaveLength(1)
+        expect(report.relocated[0]).toMatchObject({
+            id: A.toString(),
+            from: `content:2026/23. Op New Winter/${name}`,
+            to: `content:2021/4. Op Silent Ridge/${name}`,
+        })
+
+        // Facets follow the folder…
+        expect(docs[0].storageKey).toBe(`content:2021/4. Op Silent Ridge/${name}`)
+        expect(docs[0].year).toBe('2021')
+        expect(docs[0].operation).toBe('4. Op Silent Ridge')
+        expect(docs[0].operationId).toEqual(OP_ID)
+        expect(docs[0].takenAt).toEqual(new Date('2021-08-14T09:00:00Z'))
+
+        // …and nothing a member or reviewer wrote is touched.
+        expect(docs[0].caption).toBe('Danger close')
+        expect(docs[0].tags).toEqual(['funny', 'armour'])
+        expect(docs[0].authorName).toBe('Koda')
+        expect(docs[0].up).toBe(3)
+        expect(docs[0].down).toBe(1)
+
+        // The move must not also be reported as a missing file: the document's
+        // old key is the one still in the snapshot this run read.
+        expect(report.missingFiles).toEqual([])
+    })
+
+    test('a legacy file with no id in its name matches by path', async () => {
+        write('2021/4. Op Silent Ridge/I/arma3_01.png')
+        const docs: Doc[] = [{ _id: B, storageKey: 'content:2021/4. Op Silent Ridge/I/arma3_01.png', caption: null }]
+
+        const report = await reconcile(deps(docs))
+        expect(report.matchedByPath).toBe(1)
+        expect(report.notIndexed).toEqual([])
+    })
+
+    test('a file matching nothing is reported, never inserted', async () => {
+        write('2026/23. Op New Winter/III/dropped-in-by-hand.png')
+        const report = await reconcile(deps([]))
+
+        expect(report.notIndexed).toHaveLength(1)
+        expect(report.notIndexed[0]).toMatchObject({
+            path: '2026/23. Op New Winter/III/dropped-in-by-hand.png',
+            proposedOperation: '23. Op New Winter',
+        })
+        expect(report.matchedById + report.matchedByPath).toBe(0)
+    })
+
+    test('a record whose file is gone is reported, never deleted', async () => {
+        const docs: Doc[] = [{ _id: A, storageKey: 'content:Unknown/gone.jpg', caption: 'WOOOOO' }]
+        const report = await reconcile(deps(docs))
+
+        expect(report.missingFiles).toEqual([{ id: A.toString(), storageKey: 'content:Unknown/gone.jpg', caption: 'WOOOOO' }])
+        // The record survives.
+        expect(docs).toHaveLength(1)
+        expect(docs[0].storageKey).toBe('content:Unknown/gone.jpg')
+    })
+
+    test('a pending item in the flat media tree is not reported missing', async () => {
+        const docs: Doc[] = [{ _id: A, storageKey: `media:${A}.jpg`, status: 'pending' }]
+        const report = await reconcile(deps(docs))
+        // media/ is not the content tree and is not walked; a flat key is out
+        // of scope rather than broken.
+        expect(report.missingFiles).toEqual([])
+    })
+
+    test('a failed transcode is surfaced', async () => {
+        const docs: Doc[] = [{ _id: B, status: 'pending', processingError: 'ffmpeg exited 1: unsupported codec' }]
+        const report = await reconcile(deps(docs))
+        expect(report.failedProcessing).toEqual([{ id: B.toString(), error: 'ffmpeg exited 1: unsupported codec' }])
+    })
+
+    test('an id in a filename that matches no record falls through to not-indexed', async () => {
+        write(`Unknown/orphan [${A}].jpg`)
+        const report = await reconcile(deps([]))
+        expect(report.notIndexed).toHaveLength(1)
+        expect(report.matchedById).toBe(0)
+    })
+
+    test('counts everything it walked', async () => {
+        write('2021/4. Op Silent Ridge/I/a.png')
+        write('2021/4. Op Silent Ridge/I/b.png')
+        write('Unknown/c.png')
+        const report = await reconcile(deps([]))
+        expect(report.scanned).toBe(3)
+        expect(report.at).toBeInstanceOf(Date)
+    })
+
+    // A five-year archive must not die on one folder, and a restored backup
+    // must not be able to spin the walk forever.
+    test('an unreadable directory is counted and the walk continues', async () => {
+        write('2021/4. Op Silent Ridge/I/a.png')
+        mkdirSync(join(contentDir, '2021', '5. Op Deep'), { recursive: true })
+
+        // Nothing portable makes a directory unreadable on both Windows and
+        // Linux, so the same failure is provoked by handing reconcile a
+        // contentDir that does not exist at all: readdirSync throws, and the
+        // report has to come back rather than the error.
+        const gone = await reconcile({ ...deps([]), contentDir: join(root, 'no-such-tree') })
+        expect(gone.unreadable).toBe(1)
+        expect(gone.scanned).toBe(0)
+
+        const ok = await reconcile(deps([]))
+        expect(ok.unreadable).toBe(0)
+        expect(ok.scanned).toBe(1)
+    })
+
+    // The tree is at most year/operation/mission deep. Anything below that is
+    // not addressable by a storageKey, so it is skipped rather than indexed.
+    test('does not descend past the mission level', async () => {
+        write('2021/4. Op Silent Ridge/I/deeper/x.png')
+        const report = await reconcile(deps([]))
+        expect(report.scanned).toBe(0)
+        expect(report.notIndexed).toEqual([])
+    })
+})
