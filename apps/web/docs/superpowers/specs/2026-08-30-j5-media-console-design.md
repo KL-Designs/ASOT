@@ -139,6 +139,14 @@ content/Unknown/{file}                          2 segments — no operation chos
 - `Unknown` — a literal top-level folder beside the year folders. Anything the
   submitter left unknown, or the migration could not resolve, goes here.
 
+**A file enters the content tree when it is published, not when it is
+uploaded.** The pipeline is `staging/` (raw upload) → `media/` (transcoded,
+`status: pending`) → `content/` (accepted, `status: live`). Three reasons: the
+readable tree then holds only archive material a human would want to browse; a
+rejected submission never touches it; and a reviewer who corrects the operation
+mid-review causes one move at accept rather than a move and then a second move.
+Rejecting deletes the flat file and leaves the tree alone.
+
 ### 4.4 Filename grammar
 
 ```
