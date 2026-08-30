@@ -31,27 +31,36 @@ export type ProcessedStill = { ext: string, width: number, height: number, bytes
 export type ProcessedVideo = { ext: 'mp4', width: number, height: number, durationSec: number, bytes: number }
 
 export async function probeVideo(file: string): Promise<{ durationSec: number, width: number, height: number } | null> {
+    let stdout: string
     try {
-        const { stdout } = await run('ffprobe', [
+        ({ stdout } = await run('ffprobe', [
             '-v', 'error',
             '-select_streams', 'v:0',
             '-show_entries', 'stream=width,height:format=duration',
             '-of', 'json',
             file,
-        ], { maxBuffer: 1024 * 1024 })
-
-        const parsed = JSON.parse(stdout)
-        const stream = parsed.streams?.[0]
-        const duration = Number(parsed.format?.duration)
-
-        // No video stream at all: an audio file with a video extension, or a
-        // container ffprobe could not make sense of. Not a video.
-        if (!stream?.width || !stream?.height || !Number.isFinite(duration)) return null
-
-        return { durationSec: duration, width: stream.width, height: stream.height }
-    } catch {
-        return null
+        ], { maxBuffer: 1024 * 1024 }))
+    } catch (err) {
+        // ffprobe itself failed to run or to read the file — a missing binary,
+        // a corrupt container, a permissions problem. Logged rather than
+        // swallowed: this used to come back identical to "no video stream",
+        // which sent a reviewer to inspect a member's perfectly good upload
+        // for a problem that was actually on this end. Thrown, not returned
+        // null, so processVideo's message can tell the two cases apart.
+        console.error('[gallery/process] ffprobe failed for', file, err)
+        throw new Error('That file could not be probed. It may be corrupt or in a format ffprobe cannot read.')
     }
+
+    const parsed = JSON.parse(stdout)
+    const stream = parsed.streams?.[0]
+    const duration = Number(parsed.format?.duration)
+
+    // ffprobe ran fine and found nothing to encode: an audio file with a
+    // video extension, or a container it could read but that has no video
+    // stream in it. This is a real "not a video", unlike the throw above.
+    if (!stream?.width || !stream?.height || !Number.isFinite(duration)) return null
+
+    return { durationSec: duration, width: stream.width, height: stream.height }
 }
 
 export async function processStill(staged: string, destNoExt: string): Promise<ProcessedStill> {
@@ -88,8 +97,15 @@ export async function processVideo(staged: string, destNoExt: string): Promise<P
         dest,
     ], { maxBuffer: 10 * 1024 * 1024 })
 
+    // A fixed `-ss 1` fails outright on any clip under a second: ffmpeg finds
+    // nothing at that offset and exits non-zero rather than emitting a frame,
+    // which used to fail the whole upload over a poster grab. Clamped to the
+    // midpoint of the (probed, pre-transcode) duration and never past it, so
+    // the seek always lands inside the file no matter how short the clip.
+    const posterSeek = Math.min(1, probe.durationSec / 2)
+
     await run('ffmpeg', [
-        '-y', '-ss', '1', '-i', dest,
+        '-y', '-ss', String(posterSeek), '-i', dest,
         '-frames:v', '1', '-q:v', '3',
         `${destNoExt}_poster.jpg`,
     ], { maxBuffer: 10 * 1024 * 1024 })

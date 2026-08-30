@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { createNotification } from '@/lib/notifications'
+import { logAction } from '@/lib/logAction'
 import { canTransition } from '@/lib/gallery/status'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 import { fetchEmbedPoster } from '@/lib/gallery/poster'
@@ -26,9 +27,19 @@ async function reviewer() {
     return await hasPermission(me, 'gallery.review') ? me : null
 }
 
+/** Same fallback chain `submissions/route.ts` uses for `authorName` — kept in
+ *  step here rather than reusing a shared helper because both are one-liners
+ *  and a shared wrapper would only hide that they're deliberately identical. */
+function reviewerName(me: { guild?: { displayName?: string | null } | null, globalName?: string | null, username: string }): string {
+    return me.guild?.displayName || me.globalName || me.username
+}
+
 /** Changing the operation re-derives everything that hangs off it in one go, so
- *  takenAt, year, operation and opLabel can never disagree with each other. */
-async function operationFields(operationId: string | null) {
+ *  takenAt, year, operation and opLabel can never disagree with each other.
+ *  An undated operation leaves `year` absent rather than `''`, matching
+ *  `submissions/route.ts`'s POST — two producers of the same field disagreeing
+ *  on "no year" would make every reader guess which spelling it might see. */
+async function operationFields(operationId: string | null): Promise<{ $set: Record<string, unknown>, $unset?: Record<string, ''> } | null> {
     if (!operationId || operationId === 'unknown') {
         return { $unset: { operationId: '', operation: '', opLabel: '', year: '' }, $set: { takenAt: null } }
     }
@@ -38,15 +49,14 @@ async function operationFields(operationId: string | null) {
     if (!op) return null
 
     const { label } = splitOperation(op.title ?? '')
-    return {
-        $set: {
-            operationId: op._id,
-            operation: op.title ?? '',
-            opLabel: label,
-            year: op.date ? String(new Date(op.date).getFullYear()) : '',
-            takenAt: op.date ? new Date(op.date) : null,
-        },
+    const set: Record<string, unknown> = {
+        operationId: op._id,
+        operation: op.title ?? '',
+        opLabel: label,
+        takenAt: op.date ? new Date(op.date) : null,
     }
+    if (op.date) return { $set: { ...set, year: String(new Date(op.date).getFullYear()) } }
+    return { $set: set, $unset: { year: '' } }
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -74,7 +84,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         const fields = await operationFields(operationId === null ? 'unknown' : String(operationId))
         if (!fields) return NextResponse.json({ error: 'No such operation' }, { status: 400 })
         Object.assign(set, fields.$set ?? {})
-        Object.assign(unset, (fields as { $unset?: Record<string, ''> }).$unset ?? {})
+        Object.assign(unset, fields.$unset ?? {})
     }
 
     if (!Object.keys(set).length && !Object.keys(unset).length) {
@@ -103,6 +113,21 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
         return NextResponse.json({ error: `Cannot publish something that is ${doc.status}.` }, { status: 409 })
     }
 
+    // A failed transcode still reaches `pending` — queue.ts's fail() puts it
+    // there deliberately, carrying processingError, so a reviewer sees it
+    // rather than it vanishing. But that means canTransition alone waves it
+    // through: nothing about pending -> live objects to a document with no
+    // storageKey. Publishing it anyway is a live item with `src: null`, an
+    // empty <img> or <video> on the public page. Embeds are exempt — they
+    // never carry a storageKey to begin with, and that is not a failure.
+    if (doc.source === 'upload' && !doc.storageKey) {
+        return NextResponse.json({
+            error: doc.processingError
+                ? `This item's transcode failed and there is no media to publish: ${doc.processingError}`
+                : 'This item has no media to publish.',
+        }, { status: 409 })
+    }
+
     // Fetched now rather than at submission, so a reviewer's edits to the
     // caption are on the placeholder if a placeholder is what we end up with.
     if (doc.source !== 'upload' && !doc.posterKey) await fetchEmbedPoster(doc)
@@ -110,6 +135,18 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
     await Db.galleryMedia.updateOne({ _id: doc._id }, {
         $set: { status: 'live', publishedAt: new Date(), publishedBy: me.id },
         $unset: { processingError: '' },
+    })
+
+    await logAction({
+        action: 'gallery.submission.accept',
+        category: 'gallery',
+        performedBy: me.id,
+        performedByName: reviewerName(me),
+        department: 'j5',
+        entityType: 'gallery_media',
+        entityId: id,
+        actionUrl: '/dashboard/j5',
+        target: doc.caption || doc.opLabel || undefined,
     })
 
     if (doc.authorId) {
@@ -162,6 +199,19 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         const file = resolveStorageKey(key)
         if (file) { try { unlinkSync(file) } catch { /* already gone, or the update above already dropped the key — either way, nothing left to clean up */ } }
     }
+
+    await logAction({
+        action: 'gallery.submission.reject',
+        category: 'gallery',
+        performedBy: me.id,
+        performedByName: reviewerName(me),
+        department: 'j5',
+        entityType: 'gallery_media',
+        entityId: id,
+        actionUrl: '/dashboard/j5',
+        target: doc.caption || doc.opLabel || undefined,
+        details: { reason: trimmed },
+    })
 
     if (doc.authorId) {
         await createNotification({

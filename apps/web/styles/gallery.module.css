@@ -1813,27 +1813,6 @@
     white-space: nowrap;
 }
 
-/* The same control shrunk to sit on a tile overlay, where there's no room for
-   26px buttons. Sizing only — the pressed/hover rules above still apply. */
-.voteCompact {
-    gap: 5px;
-}
-
-.voteCompact button {
-    height: 20px;
-    padding: 0 6px;
-    font-size: 10px;
-}
-
-.voteCompact button svg {
-    width: 10px;
-    height: 10px;
-}
-
-.voteCompact .voteBar {
-    width: 30px;
-}
-
 /* ---------- responsive ---------------------------------------------------- */
 
 @media (max-width: 1240px) {

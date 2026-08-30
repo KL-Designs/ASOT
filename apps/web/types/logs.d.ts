@@ -21,6 +21,7 @@ declare global {
         | 'board'
         | 'reminder'
         | 'deptLinks'
+        | 'gallery'
 
     interface ActionLog {
         _id: ObjectId

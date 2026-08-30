@@ -8,7 +8,7 @@ import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { STAGING_DIR } from '@/lib/gallery/paths'
 import { enqueue } from '@/lib/gallery/queue'
-import { checkFile, kindForMime } from '@/lib/gallery/limits'
+import { checkFile, checkItemCount, kindForMime } from '@/lib/gallery/limits'
 import { parseEmbedUrl } from '@/lib/gallery/embeds'
 import { splitOperation } from '@/lib/gallery/naming'
 
@@ -88,6 +88,15 @@ export async function POST(request: NextRequest) {
     if (!batchId || !/^[a-z0-9-]{8,64}$/.test(batchId)) {
         return NextResponse.json({ error: 'A batch id is required' }, { status: 400 })
     }
+
+    // The submit page already refuses past MAX_ITEMS_PER_SUBMISSION before a
+    // byte moves, but that is a browser-side courtesy, not enforcement — a
+    // hand-crafted request can skip the page entirely. Scoped to the caller's
+    // own items so nobody can push someone else's batch over the limit by
+    // posting under the same batchId.
+    const existingInBatch = await Db.galleryMedia.countDocuments({ batchId, authorId: me.id })
+    const countFailure = checkItemCount(existingInBatch + 1)
+    if (countFailure) return NextResponse.json({ error: countFailure.message }, { status: 400 })
 
     const caption = (field('caption') ?? '').trim().slice(0, 500) || undefined
 

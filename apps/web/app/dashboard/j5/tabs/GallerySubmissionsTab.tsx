@@ -134,6 +134,12 @@ export default function GallerySubmissionsTab() {
     const [rejectReason, setRejectReason] = useState('')
     const [rejecting, setRejecting]       = useState(false)
 
+    // Keyed by item id, same shape as saveState: a failed accept (most often
+    // a failed transcode with no media behind it) has to land somewhere a
+    // reviewer will actually see it, not just a silent no-op where the item
+    // stays in the list with no explanation.
+    const [acceptError, setAcceptError] = useState<Record<string, string | undefined>>({})
+
     const itemsRef = useRef(items)
     useEffect(() => { itemsRef.current = items }, [items])
     const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -265,12 +271,19 @@ export default function GallerySubmissionsTab() {
 
     async function acceptItem(id: string) {
         setBusy(prev => ({ ...prev, [id]: true }))
+        setAcceptError(prev => ({ ...prev, [id]: undefined }))
         try {
             // Flush first: publishing has to carry whatever the reviewer just
             // typed, not whatever the last debounce cycle happened to save.
             if (!await flushSave(id)) return
             const res = await fetch(`/api/gallery/submissions/${id}`, { method: 'POST' })
-            if (res.ok) removeItem(id)
+            if (res.ok) { removeItem(id); return }
+            // A 409 here is most often a failed transcode with no media behind
+            // it (see the route's own comment) — surfaced per-item rather than
+            // left to fail silently, which would leave the item sitting in the
+            // list with no explanation for why Accept did nothing.
+            const body = await res.json().catch(() => ({}))
+            setAcceptError(prev => ({ ...prev, [id]: body.error ?? 'Could not publish this item.' }))
         } finally {
             setBusy(prev => { const n = { ...prev }; delete n[id]; return n })
         }
@@ -279,13 +292,16 @@ export default function GallerySubmissionsTab() {
     async function acceptBatch(batchId: string) {
         const ids = items.filter(i => i.batchId === batchId).map(i => i.id)
         setBusy(prev => { const n = { ...prev }; ids.forEach(id => { n[id] = true }); return n })
+        setAcceptError(prev => { const n = { ...prev }; ids.forEach(id => { n[id] = undefined }); return n })
         // Every item's edit is flushed before its own accept — not just the
         // one the reviewer was last looking at — since a batch can carry
         // several items with a debounce still in flight at once.
         await Promise.all(ids.map(async id => {
             if (!await flushSave(id)) return
             const res = await fetch(`/api/gallery/submissions/${id}`, { method: 'POST' })
-            if (res.ok) removeItem(id)
+            if (res.ok) { removeItem(id); return }
+            const body = await res.json().catch(() => ({}))
+            setAcceptError(prev => ({ ...prev, [id]: body.error ?? 'Could not publish this item.' }))
         }))
         setBusy(prev => { const n = { ...prev }; ids.forEach(id => delete n[id]); return n })
     }
@@ -368,6 +384,17 @@ export default function GallerySubmissionsTab() {
                                             }}>
                                                 <Warning sx={{ fontSize: 16, flexShrink: 0, marginTop: '1px' }} />
                                                 <span>Transcode failed — this media may be unusable: {item.processingError}</span>
+                                            </div>
+                                        )}
+
+                                        {acceptError[item.id] && (
+                                            <div style={{
+                                                display: 'flex', alignItems: 'flex-start', gap: 6,
+                                                background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)',
+                                                padding: '6px 10px', fontSize: '0.7rem', color: 'rgba(255,150,150,0.95)',
+                                            }}>
+                                                <Warning sx={{ fontSize: 16, flexShrink: 0, marginTop: '1px' }} />
+                                                <span>{acceptError[item.id]}</span>
                                             </div>
                                         )}
 

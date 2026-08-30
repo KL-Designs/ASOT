@@ -133,5 +133,8 @@ export function useGalleryData() {
         }
     }, [tags, votes, canVote])
 
-    return { items, featured, sotm, tags, votes, canVote, canSubmit, applyVote, toLightboxItem }
+    // `votes` and `canVote` are deliberately not returned: nothing outside
+    // this hook needs the raw state, only what `toLightboxItem` builds from
+    // it, and returning them anyway would be an API surface with no caller.
+    return { items, featured, sotm, tags, canSubmit, applyVote, toLightboxItem }
 }

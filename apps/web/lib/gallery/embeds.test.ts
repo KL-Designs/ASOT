@@ -60,6 +60,16 @@ describe('parseEmbedUrl — refusals', () => {
         'https://streamable.com/abcdef',
         'ftp://youtube.com/watch?v=dQw4w9WgXcQ',
         'javascript:alert(1)',
+        // A lookalike host is not youtube.com: the hostname strip only trims a
+        // leading www./m., it does not treat "ends with youtube.com" as a
+        // match, so a subdomain of an attacker-controlled domain is refused
+        // rather than trusted because it happens to contain the right string.
+        'https://youtube.com.evil.tld/watch?v=dQw4w9WgXcQ',
+        'https://notyoutube.com/watch?v=dQw4w9WgXcQ',
+        // Never reaches the URL parser's http(s) check in a way that matters
+        // here, but a data: URL pasted into the embed field must come back
+        // null just like javascript: does — neither is a video.
+        'data:text/html,<script>alert(1)</script>',
     ])('refuses %s', input => {
         expect(parseEmbedUrl(input)).toBeNull()
     })

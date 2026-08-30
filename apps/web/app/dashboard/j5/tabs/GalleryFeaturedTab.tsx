@@ -85,7 +85,11 @@ export default function GalleryFeaturedTab() {
     const refresh = useCallback(async () => {
         setLoading(true)
         try {
-            const res = await fetch('/api/gallery')
+            // Not /api/gallery: that route now serialises every live gallery_media
+            // document (thousands, post-migration) just to reach the one field
+            // this tab wants. /api/gallery/admin/tree already returns `featured`
+            // and is gated on gallery.manage, which this tab's users hold anyway.
+            const res = await fetch('/api/gallery/admin/tree')
             const data = await res.json()
             setFeatured(data.featured ?? [])
         } finally {

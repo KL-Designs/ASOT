@@ -210,6 +210,8 @@ Three permission keys gate the feature, all under `gallery.*` in `lib/permission
 
 Until all three are granted, the Submit button doesn't render for anybody and the J5 review/tags tabs don't appear — by design.
 
+`lib/gallery/status.ts` models a `live -> hidden` transition, but no route or control exercises it — there is no unpublish/hide button anywhere in the app. A published item can currently only be pulled off the gallery with a direct database edit.
+
 Video submissions transcode through **ffmpeg**, a runtime dependency present in the `apps/web` image (see its dockerfile) — not an npm package. Confirm it's actually in a deployed image with `docker compose exec web ffmpeg -version`; without it, video submissions fail at the transcode and land in the review queue carrying a `processingError` (images are unaffected). A restart mid-transcode doesn't strand anything at `processing` forever — `sweepStranded()` (`lib/gallery/queue.ts`) runs once at startup via `POST /api/gallery/internal/sweep`, called from `server.mjs` over loopback once Next is ready, and either re-queues the work (staged original survived) or hands it to a reviewer with an explanation (it didn't).
 
 `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` (optional, `.env.template`) enable real Twitch clip/VOD thumbnails via Helix — Twitch's public oEmbed is gone. Without them, Twitch embeds still work end-to-end but fall back to a generated placeholder poster. YouTube posters need no credentials.

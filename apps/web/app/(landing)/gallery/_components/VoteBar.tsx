@@ -28,14 +28,13 @@ import { ThumbUpIcon, ThumbDownIcon } from './icons'
  * A guest sees the bar — the score is public information — and gets a prompt
  * on click rather than a disabled button, which explains nothing.
  */
-export default function VoteBar({ mediaId, up, down, mine, canVote, onChange, compact }: {
+export default function VoteBar({ mediaId, up, down, mine, canVote, onChange }: {
     mediaId: string
     up: number
     down: number
     mine: 1 | -1 | null
     canVote: boolean
     onChange: (next: { up: number, down: number, mine: 1 | -1 | null }) => void
-    compact?: boolean
 }) {
     const [busy, setBusy] = useState(false)
     const [prompt, setPrompt] = useState(false)
@@ -71,7 +70,7 @@ export default function VoteBar({ mediaId, up, down, mine, canVote, onChange, co
     }
 
     return (
-        <div className={compact ? `${s.vote} ${s.voteCompact}` : s.vote}>
+        <div className={s.vote}>
             <button type='button' className={mine === 1 ? s.voteOn : ''} onClick={() => cast(1)}
                 aria-label='Thumbs up' aria-pressed={mine === 1}>
                 <ThumbUpIcon />{up}
