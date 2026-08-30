@@ -111,7 +111,7 @@ describe('resolveOperationFolder', () => {
     })
 
     // year stays null — there is no date to file a year folder under — but
-    // operation does not: operationFields() (submissions/[id]/route.ts) keeps
+    // operation does not: operationFacets() (lib/gallery/operation-facets.ts) keeps
     // operation/opLabel set on its undated branch and unsets only year, so
     // this must too, or the same document disagrees depending on which path
     // touched it last.
@@ -130,7 +130,7 @@ describe('resolveOperationFolder', () => {
 })
 
 describe('operationYear', () => {
-    // operationFields() (submissions/[id]/route.ts) calls this same function
+    // operationFacets() (lib/gallery/operation-facets.ts) calls this same function
     // rather than keeping its own getFullYear() — this pins the UTC behaviour
     // both sides depend on.
     test('reads the year in UTC, not the host process\'s local timezone', () => {
@@ -236,8 +236,8 @@ describe('relocateMedia', () => {
         const docs = {
             [MEDIA_ID.toString()]: {
                 _id: MEDIA_ID, storageKey: `media:${MEDIA_ID}.jpg`, authorName: 'Reaper',
-                // Left over from a previous operation link. operationFields()
-                // (app/api/gallery/submissions/[id]/route.ts) always nulls
+                // Left over from a previous operation link. operationFacets()
+                // (lib/gallery/operation-facets.ts) always nulls
                 // takenAt on its Unknown branch, so relocateMedia must too —
                 // otherwise the tile would keep sorting/grouping on a date
                 // from an operation it is no longer assigned to.
@@ -254,7 +254,7 @@ describe('relocateMedia', () => {
 
     // The file still goes to Unknown/ — there is no date to file a year
     // folder under — but operation/opLabel survive, matching
-    // operationFields()'s undated branch (item 3 of fix round 1).
+    // operationFacets()'s undated branch (item 3 of fix round 1).
     test('an operation that exists but has no date still lands in Unknown, with the operation preserved', async () => {
         const flat = join(root, 'media')
         mkdirSync(flat, { recursive: true })

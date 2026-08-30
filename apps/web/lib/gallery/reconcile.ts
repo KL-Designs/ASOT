@@ -184,7 +184,8 @@ export async function reconcile(deps: ReconcileDeps): Promise<ReconcileReport> {
     // outright — so one year either side still counts.
     //
     // operationYear() rather than a third getUTCFullYear() of its own:
-    // relocate.ts and the review route's operationFields() already share it,
+    // relocate.ts and operationFacets() (lib/gallery/operation-facets.ts)
+    // already share it,
     // and this is the function that decides whether the folder they chose
     // still names the same operation. A private copy is what quietly disagrees
     // on the one day a year it matters.
