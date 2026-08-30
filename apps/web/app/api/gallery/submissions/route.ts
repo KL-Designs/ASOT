@@ -74,8 +74,10 @@ type OperationFields = {
  *  later actually relocated, and an already-accepted embed's guess (which
  *  nothing ever revisits) would end up one folder number ahead of the real
  *  one. That residual race is inherent to guessing before any folder exists;
- *  it is far narrower than the near-certain mismatch this replaces, and
- *  reconcile.ts's health view is what surfaces it if it ever fires. `deps`
+ *  it is far narrower than the near-certain mismatch this replaces. Nothing
+ *  surfaces it: reconcile walks FILES and rule 4 needs a content: storageKey,
+ *  which an embed never has at all, so the reconcile pass is structurally
+ *  blind to it. Plan B's bulk reassign is the remedy, by hand. `deps`
  *  defaults to the real collections; a test overrides it (with a throwaway
  *  `contentDir`) the same way `operationFields()` does. */
 export async function resolveOperation(

@@ -13,8 +13,11 @@ import { operationYear } from './relocate'
 /**
  * Making the database and the disk agree.
  *
- * Runs when a backup is imported and when a human presses Re-scan disk. Never
- * on a timer, and never as a side effect of anything else.
+ * Runs when a backup is imported, and when someone chooses Migrations ->
+ * Reconcile: gallery disk from the repo root's `npm start` menu
+ * (apps/web/scripts/reconcile-gallery.ts). Never on a timer, and never as a
+ * side effect of anything else. There is no button for it in the app: the
+ * Health view that will carry one is Plan B.
  *
  * Four rules, in this order:
  *   1. the filename carries `[id]` and that record exists -> match by id, and

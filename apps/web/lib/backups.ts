@@ -1030,10 +1030,15 @@ function findDirNamed(root: string, name: string): string | null {
  * moves back in: a file carrying its media id is matched by it and takes the
  * operation of whichever folder it now sits in.
  *
+ * Runs after a restore of the gallery tree OR of the database — rolling back
+ * either half is what makes the two disagree.
+ *
  * Never fatal. The restore itself has already succeeded by the time this runs,
  * and failing the whole operation because the index could not be refreshed
  * would report a successful restore as a failure. The report lands in
- * gallery_health either way, and a human can press Re-scan disk.
+ * gallery_health either way, and it can be re-run by hand from the repo root's
+ * `npm start` menu (Migrations -> Reconcile: gallery disk). There is no button
+ * for it in the app yet: the Health view that will carry one is Plan B.
  *
  * The imports are dynamic rather than top-level ones: `lib/gallery/reconcile.ts`
  * reaches `lib/mongo.ts`, and a static import would pull a database connection
@@ -1108,12 +1113,16 @@ export async function revertToPoint(
         // is no undo for what follows, so the restore does not happen.
         await runSafetyBackup()
 
+        let restoredDatabase = false
+        let restoredGallery = false
+
         if (point.dbSnapshotId && parts.includes('database')) {
             await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring database…', stage: 'db-restore' })
             const dbTarget = join(tmp, 'db-restore')
             await resticRestore(DB_REPO, point.dbSnapshotId, dbTarget)
             const dumpRoot = findByMarker(dbTarget, 'manifest.json')
             await restoreDatabase(dumpRoot)
+            restoredDatabase = true
         }
         if (point.mediaSnapshotId && (parts.includes('gallery') || parts.includes('uploads'))) {
             await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring media files…', stage: 'media-restore' })
@@ -1138,15 +1147,26 @@ export async function revertToPoint(
                 if (opts.wipeMedia) await emptyDir(UPLOADS_DIR)
                 await copyDirRecursive(uploads, UPLOADS_DIR)
             }
-            // Guarded on `gallery`, not `parts.includes('gallery')`: that flag
-            // only means the caller asked, while `gallery` also means the
-            // snapshot actually held one (findDirNamed above). A media
-            // restore that turns out to carry no gallery tree must not run
-            // reconcile against a tree this restore never touched. Both the
-            // database and the media tree are settled by here — reconcile
-            // compares the two, so it cannot run between them.
-            if (gallery) await runGalleryReconcile()
+            // `gallery`, not `parts.includes('gallery')`: that flag only means
+            // the caller asked, while `gallery` also means the snapshot
+            // actually held one (findDirNamed above). A media restore that
+            // turns out to carry no gallery tree moved nothing to reconcile.
+            restoredGallery = !!gallery
         }
+
+        /* Either half moving is enough. The index and the disk are the two
+           sides reconcile compares, so rolling back EITHER is what makes them
+           disagree — and a database-only revert is the worst case, not an
+           exempt one: gallery_media goes back to a dump taken before files
+           were reorganised while the tree on disk stays current, so every tile
+           whose file has moved since renders 404. Guarding on the gallery
+           alone left exactly that revert unreconciled.
+
+           Deliberately outside the media block and after both: reconcile
+           compares the database against the disk, so it cannot run between the
+           two being settled. */
+        if (restoredGallery || restoredDatabase) await runGalleryReconcile()
+
         await writeOwnedStatus(token, { state: 'idle' })
         console.log(`[backups] Revert to ${point.id} complete`)
     } catch (e: unknown) {
@@ -1438,13 +1458,18 @@ export async function applyUploadedZip(
             await copyDirRecursive(uploads, UPLOADS_DIR)
         }
 
-        // Both the database and the media tree are settled by here — reconcile
-        // compares the two, so it cannot run between them. Guarded on
-        // hasGallery specifically, not hasUploads: uploads/ is a separate tree
-        // (department files, not the content tree reconcile walks), so an
-        // uploads-only restore must not trigger a reconcile against a gallery
-        // tree that was never touched.
-        if (hasGallery) await runGalleryReconcile()
+        /* Both the database and the media tree are settled by here — reconcile
+           compares the two, so it cannot run between them.
+
+           Either half moving is enough. `hasUploads` is excluded because
+           uploads/ really is a separate tree (department files, not the
+           content tree reconcile walks) — but the DATABASE is not separate at
+           all: a db-source-only ZIP rolls gallery_media back to a dump taken
+           before files were reorganised while the tree on disk stays current,
+           which is the restore that leaves the index MOST out of step with the
+           disk. Guarding on hasGallery alone left it the one restore that
+           never reconciled, and every tile whose file had moved rendered 404. */
+        if (hasGallery || hasDbSource) await runGalleryReconcile()
 
         await writeOwnedStatus(token, { state: 'idle' })
         console.log('[backups] Upload-revert complete')

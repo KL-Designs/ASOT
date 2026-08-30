@@ -179,7 +179,9 @@ export async function relocateMedia(
     // right order (the alternative loses track of where the bytes went). It
     // self-heals: the new filename still carries [id], so the reconcile pass
     // matches it back to this document by id and rewrites storageKey — the
-    // item just sits in the Health view, visibly broken, until that runs.
+    // item renders broken until someone runs one (the start menu's
+    // Migrations -> Reconcile: gallery disk, or any backup restore). The
+    // Health view that will show it without being asked is Plan B.
     move(source, destination)
 
     const set: Record<string, unknown> = { storageKey: toKey }

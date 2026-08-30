@@ -238,6 +238,51 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
         expect(reconcileMock).toHaveBeenCalledTimes(1)
     }, 300000)
 
+    /* Final review, important 3: runGalleryReconcile() used to sit INSIDE the
+       media-restore block, guarded on a gallery tree having been copied. A
+       database-only restore is the one that leaves the index MOST out of step
+       with the disk — gallery_media rolls back to a dump taken before the
+       files were reorganised while the tree on disk stays current, so every
+       tile whose file has moved renders 404 — and it was the single restore
+       that never reconciled. One test per call site, as above. */
+    test('a database-only revert still reconciles', async () => {
+        await seed('db-only-revert')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        await seed('CORRUPTED')
+        await backups.revertToPoint(point, ['database'])
+
+        expect(await liveState()).toEqual({
+            db: 'db-only-revert',   // rolled back
+            gallery: 'CORRUPTED',   // untouched, as asked — and now stale
+            uploads: 'CORRUPTED',
+        })
+        expect(reconcileMock).toHaveBeenCalledTimes(1)
+    }, 300000)
+
+    test('a database-only uploaded zip still reconciles', async () => {
+        await seed('db-only-zip')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        const zipPath = join(tempRoot, 'db-only.zip')
+        const stream = await backups.openDownloadZipStream(point, ['database']) as unknown as NodeWebReadableStream
+        await pipeline(Readable.fromWeb(stream), createWriteStream(zipPath))
+
+        await seed('CORRUPTED')
+        await backups.applyUploadedZip(zipPath, ['database'])
+
+        expect(await liveState()).toEqual({
+            db: 'db-only-zip',
+            gallery: 'CORRUPTED',
+            uploads: 'CORRUPTED',
+        })
+        expect(reconcileMock).toHaveBeenCalledTimes(1)
+
+        await rm(zipPath, { force: true }).catch(() => {})
+    }, 300000)
+
     // A restore left the database clean (collections are dropped and reinserted)
     // but the media tree merged — copyDirRecursive() only ever writes, so a file
     // added after the backup survived a restore of it. The two halves of one

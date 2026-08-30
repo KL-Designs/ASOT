@@ -826,6 +826,25 @@ const MIGRATION_ITEMS = [
     // the indexer above. Run this after Index: gallery media has run at least
     // once, since it reads gallery_media for authorName/caption.
     { label: '🗃️ Relocate: flat gallery media', script: 'scripts/relocate-flat-media.mjs', cwd: ROOT },
+    /* Dry-run first, then --apply, via runMigration's own flow — hence the
+       trailing '--', which is what lets runMigration's appended '--apply'
+       reach the script rather than being eaten by npm as one of its own
+       flags. Runs through apps/web so it can import lib/gallery/reconcile.ts
+       itself: reconcile is the one piece of this feature that must not be
+       duplicated into an .mjs, since a second copy disagreeing with the first
+       about what matches what is the exact defect it exists to catch.
+
+       Walks the content tree and makes gallery_media agree with it — a file
+       moved by hand into a different operation folder takes that operation.
+       Deletes and inserts nothing; a record with no file and a file with no
+       record are both reported, never resolved. Until Plan B's Health view
+       ships this is the only trigger outside a backup restore. */
+    {
+        label: '🗃️ Reconcile: gallery disk',
+        command: 'npm',
+        args: ['--prefix', 'apps/web', 'run', 'reconcile:gallery', '--'],
+        cwd: ROOT,
+    },
     {
         label: '🗃️ Import: member history CSV',
         command: 'npm',
