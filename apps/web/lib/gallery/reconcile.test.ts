@@ -34,7 +34,16 @@ function deps(docs: Doc[], ops: Doc[] = []): ReconcileDeps {
         contentDir,
         media: {
             find() {
-                return { async toArray() { return docs } }
+                // A detached snapshot, exactly as the driver hands back — and
+                // load-bearing, not tidiness. The documents rule 4 examines
+                // are the ones read BEFORE the relocation writes, so they
+                // still carry the OLD storageKey. Returning the live objects
+                // instead would let updateOne's in-place mutation put the new
+                // key on them, which is already in seenKeys by then, and the
+                // seenIds guard — the only thing keeping a hand-reorganised
+                // backup from being reported as entirely missing — would never
+                // be reached by any test.
+                return { async toArray() { return docs.map(d => ({ ...d })) } }
             },
             async updateOne(filter: { _id: ObjectId }, update: { $set?: Record<string, unknown>, $unset?: Record<string, ''> }) {
                 const doc = docs.find(d => d._id.equals(filter._id))
@@ -111,9 +120,67 @@ describe('reconcile', () => {
         expect(docs[0].up).toBe(3)
         expect(docs[0].down).toBe(1)
 
-        // The move must not also be reported as a missing file: the document's
-        // old key is the one still in the snapshot this run read.
+        // The move must not also be reported as a missing file. This is the
+        // assertion that pins the seenIds guard: the snapshot rule 4 reads
+        // still holds `content:2026/…`, which no file on disk answers to, so
+        // deleting that guard turns this line red.
         expect(report.missingFiles).toEqual([])
+    })
+
+    // Everything scripts/index-gallery.mjs has written so far is keyed
+    // `legacy:`. Matching only `content:` would report every record in the
+    // archive missing and every file not-indexed on the same pass.
+    test('a legacy:-keyed document matches the file at its path', async () => {
+        write('2021/4. Op Silent Ridge/I/arma3_02.png')
+        const docs: Doc[] = [{ _id: B, storageKey: 'legacy:2021/4. Op Silent Ridge/I/arma3_02.png' }]
+
+        const report = await reconcile(deps(docs))
+
+        expect(report.matchedByPath).toBe(1)
+        expect(report.notIndexed).toEqual([])
+        expect(report.missingFiles).toEqual([])
+        // Rule 2 matches and moves on — it rewrites nothing.
+        expect(docs[0].storageKey).toBe('legacy:2021/4. Op Silent Ridge/I/arma3_02.png')
+    })
+
+    // Copying rather than moving is a normal mistake when a human reorganises
+    // a downloaded backup, and it leaves two files carrying the same [id].
+    test('a file copied rather than moved relocates its document once, and the copy is reported', async () => {
+        const name = `Koda — Danger close [${A}].jpg`
+        write(`2021/4. Op Silent Ridge/${name}`)
+        write(`2022/9. Op Copper Ridge/${name}`)
+
+        const docs: Doc[] = [{ _id: A, storageKey: `content:2026/23. Op New Winter/${name}`, caption: 'Danger close' }]
+        const report = await reconcile(deps(docs))
+
+        // One document has one file. The second copy cannot also be it.
+        expect(report.matchedById).toBe(1)
+        expect(report.relocated).toHaveLength(1)
+        expect(report.notIndexed).toHaveLength(1)
+        expect(report.missingFiles).toEqual([])
+
+        // Which copy won is readdir order and not this test's business; that
+        // the document followed exactly one of them, and the other was
+        // reported rather than silently written over it, is.
+        expect(docs[0].storageKey).toBe(report.relocated[0].to)
+        expect(`content:${report.notIndexed[0].path}`).not.toBe(report.relocated[0].to)
+    })
+
+    // An operation with no date still names the folder correctly. Writing its
+    // absent date through would destroy a date a reviewer typed in by hand.
+    test('a match against a dateless operation keeps a takenAt set by hand', async () => {
+        const name = `Koda — Danger close [${A}].jpg`
+        write(`2021/4. Op Silent Ridge/${name}`)
+
+        const hand = new Date('2021-08-14T09:00:00Z')
+        const docs: Doc[] = [{ _id: A, storageKey: `content:Unknown/${name}`, takenAt: hand }]
+        const ops: Doc[] = [{ _id: OP_ID, title: 'OPERATION Silent Ridge — Sat' }]
+
+        const report = await reconcile(deps(docs, ops))
+
+        expect(report.relocated).toHaveLength(1)
+        expect(docs[0].operationId).toEqual(OP_ID)
+        expect(docs[0].takenAt).toEqual(hand)
     })
 
     test('a legacy file with no id in its name matches by path', async () => {

@@ -8,6 +8,7 @@ import type { ContentFacets } from './content-path'
 import { parseMediaFilename } from './filenames'
 import { normalizeKey, splitOperation } from './naming'
 import { CONTENT_DIR, contentKey } from './paths'
+import { operationYear } from './relocate'
 
 /**
  * Making the database and the disk agree.
@@ -38,6 +39,13 @@ export type ReconcileReport = {
     notIndexed: { path: string, bytes: number, proposedOperation: string | null }[]
     missingFiles: { id: string, storageKey: string, caption: string | null }[]
     failedProcessing: { id: string, error: string }[]
+    /**
+     * Things the walk could not read: unreadable *directories* and unreadable
+     * *files* both land here, and the count does not distinguish them. A
+     * non-zero value means "this report is incomplete by an unknown amount",
+     * not "n folders are broken" — anything rendering it should say so rather
+     * than imply a count of folders.
+     */
     unreadable: number
     at: Date
 }
@@ -165,7 +173,16 @@ export async function reconcile(deps: ReconcileDeps): Promise<ReconcileReport> {
 
         // A year folder is a season, not a calendar year — "2022 - 2023" spans
         // two outright — so one year either side still counts.
-        const yearOf = (op: ReconcileOperationDoc) => toDate(op.date)?.getUTCFullYear() ?? NaN
+        //
+        // operationYear() rather than a third getUTCFullYear() of its own:
+        // relocate.ts and the review route's operationFields() already share
+        // it, and this is the function that decides whether the folder they
+        // chose still names the same operation. A private copy is what quietly
+        // disagrees on the one day a year it matters.
+        const yearOf = (op: ReconcileOperationDoc) => {
+            const date = toDate(op.date)
+            return date ? Number(operationYear(date)) : NaN
+        }
         return candidates.find(op => yearOf(op) === yearNum)
             ?? candidates.find(op => Math.abs(yearOf(op) - yearNum) === 1)
             ?? candidates[0]
@@ -222,16 +239,21 @@ export async function reconcile(deps: ReconcileDeps): Promise<ReconcileReport> {
 
             report.scanned++
 
-            let bytes = 0
-            try { bytes = statSync(full).size } catch { report.unreadable++; continue }
-
             const key = contentKey(relative)
 
             // Rule 1 — by id. Before the path rule, because a file that MOVED
             // has both a resolvable id and a stale path, and matching by path
             // first would fail to notice it moved.
+            //
+            // Skipped once that document already has a file: copying instead
+            // of moving leaves two files carrying the same [id], which is a
+            // normal mistake for a feature that invites reorganising a backup
+            // by hand. Without the seenIds test the pair would count twice in
+            // matchedById and queue two contradictory relocations of one
+            // document, the winner decided by readdir order. The second copy
+            // falls through to notIndexed, which is the truthful answer.
             const byIdDoc = id ? byId.get(id) : undefined
-            if (byIdDoc) {
+            if (byIdDoc && !seenIds.has(byIdDoc._id.toString())) {
                 report.matchedById++
                 seenKeys.add(key)
                 seenIds.add(byIdDoc._id.toString())
@@ -247,15 +269,35 @@ export async function reconcile(deps: ReconcileDeps): Promise<ReconcileReport> {
             }
 
             // Rule 2 — by path. Legacy files, never renamed.
-            const byKeyDoc = byKey.get(key)
+            //
+            // `legacy:` is the former spelling of `content:` and names the
+            // same directory; it is still what scripts/index-gallery.mjs
+            // writes. Rule 4 admits both spellings, so without the second
+            // lookup here a legacy-keyed record could never match, and running
+            // this against a database indexed today would report EVERY record
+            // missing and EVERY file not-indexed at once — the report exactly
+            // inverted, in front of a human holding a delete button.
+            const byKeyDoc = byKey.get(key) ?? byKey.get(`legacy:${relative}`)
             if (byKeyDoc) {
                 report.matchedByPath++
                 seenKeys.add(key)
+                // The id as well as the key, because rule 4 tests a document's
+                // OWN storageKey and that is the `legacy:` spelling, which
+                // seenKeys does not hold.
                 seenIds.add(byKeyDoc._id.toString())
                 continue
             }
 
             // Rule 3 — nothing matches. Reported, never inserted.
+            //
+            // statSync sits here rather than above the rules on purpose: a
+            // file that readdir listed but stat cannot read was otherwise
+            // counted in `unreadable` and skipped before rules 1 and 2, so its
+            // document was reported missing for a file that is physically
+            // present. `bytes` is only ever needed on this branch.
+            let bytes = 0
+            try { bytes = statSync(full).size } catch { report.unreadable++; continue }
+
             report.notIndexed.push({ path: relative, bytes, proposedOperation: facets.operation })
         }
     }
@@ -280,7 +322,13 @@ export async function reconcile(deps: ReconcileDeps): Promise<ReconcileReport> {
 
         if (op) {
             set.operationId = op._id
-            set.takenAt = toDate(op.date)
+            // Only when the operation actually carries one. Writing
+            // toDate(op.date) unconditionally would null takenAt for a
+            // dateless operation — the very loss the else branch below goes
+            // out of its way to avoid, and it would overwrite a date a
+            // reviewer set by hand.
+            const takenAt = toDate(op.date)
+            if (takenAt) set.takenAt = takenAt
         } else {
             unset.operationId = ''
             // Deliberately does NOT null takenAt. A folder this pass cannot
