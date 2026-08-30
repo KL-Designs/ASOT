@@ -118,6 +118,15 @@ async function processOne(id: string): Promise<void> {
  * at startup already exists to recover exactly this, and duplicating that
  * machinery here for a rare double-fault would be new moving parts for a
  * problem the startup sweep already covers.
+ *
+ * Known gap, not fixed here: if `processVideo` throws after ffmpeg has
+ * already written the encoded `.mp4`/`_poster.jpg` into MEDIA_DIR — e.g. the
+ * post-transcode dimension probe failing in a way severe enough to still
+ * throw — those bytes are never referenced by `storageKey` (this document
+ * still has none) and are never cleaned up by this function. They sit
+ * orphaned on disk. Recovering them belongs with a broader orphan sweep, not
+ * a special case bolted onto a failure handler that otherwise has nothing to
+ * delete.
  */
 async function fail(_id: ObjectId, message: string): Promise<void> {
     try {

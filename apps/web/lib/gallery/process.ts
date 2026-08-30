@@ -110,7 +110,21 @@ export async function processVideo(staged: string, destNoExt: string): Promise<P
         `${destNoExt}_poster.jpg`,
     ], { maxBuffer: 10 * 1024 * 1024 })
 
-    const out = await probeVideo(dest)
+    // This second probe is cosmetic, unlike the first: the first call decides
+    // whether to encode at all, and a file it cannot read is a file that
+    // should not be spent CPU on. This one only decorates a result that
+    // already exists — the encode above already succeeded, and a transient
+    // ffprobe failure here is not a reason to throw the whole thing away and
+    // report a working video as failed. Falls back to the pre-transcode
+    // dimensions, which are a perfectly good answer for something that only
+    // ever changes size on purpose (the `scale` filter above) in a way the
+    // pre-transcode probe already accounts for close enough for display.
+    let out: { durationSec: number, width: number, height: number } | null = null
+    try {
+        out = await probeVideo(dest)
+    } catch (err) {
+        console.error('[gallery/process] post-transcode probe failed for', dest, err)
+    }
 
     return {
         ext: 'mp4',
