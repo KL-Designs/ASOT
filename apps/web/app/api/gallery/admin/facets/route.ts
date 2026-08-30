@@ -17,7 +17,15 @@ import { hasPermission } from '@/lib/orbat/hasPermission'
  * would be several hundred round trips every time the tab mounts.
  */
 
-type TreeRow = { _id: { year: string | null, operation: string | null, opLabel: string | null, mission: string | null }, count: number }
+/* Every key is optional as well as nullable: `$group` OMITS a field that is
+   missing from the document rather than grouping it as null, so the runtime
+   value for an item with no year is `undefined`, not `null`. Harmless as
+   written — every read below goes through `??` — but the old `string | null`
+   would have quietly lied to anyone who wrote `=== null`. */
+type TreeRow = {
+    _id: { year?: string | null, operation?: string | null, opLabel?: string | null, mission?: string | null }
+    count: number
+}
 
 export async function GET() {
     const me = await client.fetchMe().catch(() => null)
@@ -147,8 +155,15 @@ export async function GET() {
             unknown,
             nocaption,
             videos,
+            /* `unreadable` counts too. It is not a resolvable row like the
+               other three — it is "this report is incomplete by an unknown
+               amount" (see ReconcileReport's own docstring) — but leaving it
+               out let the rail read Health · 0 on a scan that could not read
+               the disk at all, which is the moment the archive is least
+               healthy. A non-zero count is what sends someone into the view
+               where HealthView says so in words. */
             health: health
-                ? health.missingFiles.length + health.notIndexed.length + health.failedProcessing.length
+                ? health.missingFiles.length + health.notIndexed.length + health.failedProcessing.length + health.unreadable
                 : 0,
         },
         // Descending, so the years with the most work sit at the top — and

@@ -24,6 +24,12 @@ import { CONTENT_DIR, contentKey } from '@/lib/gallery/paths'
  * of new files, and only a person can tell the difference.
  */
 
+/** A rescan walks 4,781 files, and an index run does that again after
+ *  upserting every path the reviewer accepted. The default budget is sized
+ *  for a request that does neither — same reasoning as bulk/route.ts, which
+ *  raised it for 500 sequential renames. */
+export const maxDuration = 300
+
 async function manager() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return null
@@ -86,6 +92,10 @@ export async function POST(request: NextRequest) {
         const report = await Db.galleryHealth.findOne({})
         const allowed = new Set((report?.notIndexed ?? []).map(n => n.path))
 
+        /* Counts records CREATED, not writes attempted: `upsertedCount` is 1
+           only when the upsert actually inserted. Incrementing unconditionally
+           counted a path that matched an existing record as a new one, and
+           this number is what the reviewer is shown as "indexed". */
         let indexed = 0
         for (const relative of wanted) {
             if (!allowed.has(relative)) continue
@@ -99,7 +109,7 @@ export async function POST(request: NextRequest) {
 
             const isVideo = /\.(mp4|webm|mov)$/i.test(facets.file)
 
-            await Db.galleryMedia.updateOne(
+            const result = await Db.galleryMedia.updateOne(
                 { storageKey: contentKey(relative) },
                 {
                     $setOnInsert: {
@@ -135,7 +145,7 @@ export async function POST(request: NextRequest) {
                 },
                 { upsert: true },
             )
-            indexed++
+            if (result.upsertedCount) indexed++
         }
 
         // Re-scan so the report reflects what was just indexed rather than

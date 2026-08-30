@@ -39,10 +39,14 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
     const [loading, setLoading] = useState(true)
     const [busy, setBusy] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    /** What the last index run actually created. `indexed` was returned by the
+     *  route and never shown, so "Index all 312" gave no answer at all. */
+    const [notice, setNotice] = useState<string | null>(null)
 
     const load = useCallback(async () => {
         setLoading(true)
         setError(null)
+        setNotice(null)
         try {
             const res = await fetch('/api/gallery/admin/health')
             if (!res.ok) {
@@ -71,6 +75,7 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
     async function post(body: Record<string, unknown>) {
         setBusy(true)
         setError(null)
+        setNotice(null)
         try {
             const res = await fetch('/api/gallery/admin/health', {
                 method: 'POST',
@@ -89,6 +94,9 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
             // both re-run reconcile server-side) — used directly rather than
             // triggering a second GET for the same data.
             setReport(data.report)
+            if (typeof data.indexed === 'number') {
+                setNotice(`Indexed ${data.indexed.toLocaleString('en-AU')}.`)
+            }
             onChanged()
         } catch {
             setError('Could not reach the server.')
@@ -99,7 +107,17 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
 
     if (loading) return <TacticalSkeleton />
 
-    const total = report ? report.missingFiles.length + report.notIndexed.length + report.failedProcessing.length : 0
+    /* `unreadable` is part of the total. It is not a resolvable row like the
+       other three — ReconcileReport's own docstring calls a non-zero value
+       "this report is incomplete by an unknown amount" — but excluding it
+       rendered "Nothing to resolve. The database and the disk agree." over a
+       scan that could not read the disk. A storage/ bind mount that comes up
+       with the wrong ownership after a container restart returns
+       `scanned: 40, unreadable: 312, missingFiles: []`, and that is the
+       moment the archive is least healthy, not the moment to say it agrees. */
+    const total = report
+        ? report.missingFiles.length + report.notIndexed.length + report.failedProcessing.length + report.unreadable
+        : 0
 
     return (
         <div style={{ padding: 14 }}>
@@ -116,6 +134,10 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
                     {busy ? 'Scanning the whole archive…' : 'Re-scan disk'}
                 </Button>
             </div>
+
+            {notice && (
+                <Typography sx={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.62)', mb: 1.5 }}>{notice}</Typography>
+            )}
 
             {error && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -138,6 +160,19 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
                 4,781-file re-scan. The error branch above now owns that case. */}
             {!report && !error && (
                 <div className={s.empty}>Never scanned. Re-scan disk to build the first report.</div>
+            )}
+
+            {/* Said in words, not just counted: `unreadable` mixes unreadable
+                directories and unreadable files and distinguishes neither, so
+                the only honest reading is "everything below is incomplete by
+                an unknown amount". Rendered above every list for that reason
+                — the lists cannot be trusted to be complete while it stands. */}
+            {report && report.unreadable > 0 && (
+                <div className={s.consequence} style={{ marginBottom: 14 }}>
+                    <b>{report.unreadable.toLocaleString('en-AU')}</b> paths could not be read during the scan, so this
+                    report is incomplete by an unknown amount — files under an unreadable folder are not listed below
+                    and are not counted as missing. Check the <b>storage/</b> mount&rsquo;s permissions, then re-scan.
+                </div>
             )}
 
             {report && total === 0 && (
@@ -173,8 +208,15 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
                     <Typography sx={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', mb: 1 }}>
                         Files on disk with no record. Drop files into a folder and index them here.
                     </Typography>
+                    {/* The proposed operation is on the row, not just in the
+                        report: "Index (operation proposed from folder)" is
+                        what the button does, and a reviewer approving 312
+                        paths should see what each one is about to be filed
+                        under before pressing it. */}
                     {report.notIndexed.slice(0, LIST_CAP).map(f => (
-                        <div key={f.path} className={s.path} style={{ marginBottom: 4 }}>{f.path}</div>
+                        <div key={f.path} className={s.path} style={{ marginBottom: 4 }}>
+                            {f.path}{f.proposedOperation ? ` → ${f.proposedOperation}` : ' → Unknown'}
+                        </div>
                     ))}
                     {report.notIndexed.length > LIST_CAP && (
                         <Typography sx={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.38)', mt: 0.5 }}>
@@ -204,8 +246,11 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
                     <Typography sx={{ fontFamily: 'var(--font-cond)', fontWeight: 700, fontSize: '0.85rem', letterSpacing: '0.08em', color: '#d8ac45', mb: 1 }}>
                         PROCESSING FAILED · {report.failedProcessing.length}
                     </Typography>
+                    {/* The id as well as the message. `ffmpeg exited 1` alone
+                        tells a reviewer nothing about WHICH item failed, and
+                        the id is what they need to find it in the grid. */}
                     {report.failedProcessing.map(f => (
-                        <div key={f.id} className={s.path} style={{ marginBottom: 4 }}>{f.error}</div>
+                        <div key={f.id} className={s.path} style={{ marginBottom: 4 }}>{f.id} — {f.error}</div>
                     ))}
                 </section>
             )}
