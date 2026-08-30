@@ -25,9 +25,15 @@ import { parseRange } from '@/lib/gallery/range'
  * is 60MB of heap per concurrent viewer, and the gallery is a public page.
  */
 
+/* Every extension MEDIA_EXT accepts, or a file the archive really holds goes
+   out as application/octet-stream and the browser renders a broken tile.
+   `.jfif` is plain JPEG under a different extension — three real photographs
+   are saved that way — and webm/mov were accepted at upload but unmapped
+   here. */
 const CONTENT_TYPES: Record<string, string> = {
-    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-    webp: 'image/webp', gif: 'image/gif', mp4: 'video/mp4',
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', jfif: 'image/jpeg',
+    png: 'image/png', webp: 'image/webp', gif: 'image/gif',
+    mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

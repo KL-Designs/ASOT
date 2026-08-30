@@ -73,6 +73,19 @@ describe('GET /api/gallery', () => {
         expect(ids).not.toContain(SOTM.toString())
     })
 
+    /* Every archive item is content:-keyed with an /api/gallery/media/{id}
+       src, so there is nothing in the URL for the client to name a download
+       from — all 4,781 saved as a bare ObjectId with no extension. The
+       readable name the feature put on disk is sent explicitly. */
+    test('sends the readable on-disk filename for a download', async () => {
+        const json = await (await GET()).json()
+        const items: GalleryItemAPI[] = json.items
+
+        expect(items.find(i => i.id === CONTENT.toString())?.file).toBe('a.png')
+        // An embed has no bytes and therefore no file to name.
+        expect(items.find(i => i.id === EMBED.toString())?.file).toBeNull()
+    })
+
     test('keeps archive items and embeds', async () => {
         const json = await (await GET()).json()
         const ids: string[] = json.items.map((i: GalleryItemAPI) => i.id)

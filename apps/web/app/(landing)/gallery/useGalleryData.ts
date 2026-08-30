@@ -15,14 +15,21 @@ import type { Photo } from './gallery-data'
    alongside filtering, paging and the lightbox would stop being a layout.
    ========================================================================== */
 
-/** The lightbox's download attribute wants a real filename. GalleryItemAPI
- *  carries none — that raw name lived only in the storage tree, not in the
- *  index — but a legacy item's src is /api/gallery/fetch?...&img=<filename>,
- *  so the original name can still be read back out of it for the photographs
- *  the archive holds today. An item with no such query string (an upload)
- *  falls back to its id, which is the best a download picker can do once
- *  there is no folder-derived name to reach for. */
+/**
+ * The lightbox's download attribute wants a real filename.
+ *
+ * `file` is the item's actual name on disk and is what almost everything has
+ * now. It was added because deriving the name from the URL stopped working
+ * the moment the archive was indexed: every migrated item became
+ * `content:`-keyed with an `/api/gallery/media/{id}` src, so all 4,781
+ * downloads saved as a bare ObjectId with no extension at all.
+ *
+ * The `img=` fallback is kept for an item still served through
+ * `/api/gallery/fetch?...&img=<filename>`, and the id for an embed, which has
+ * no file to name.
+ */
 function downloadName(p: Photo): string {
+    if (p.file) return p.file
     if (!p.src) return p.id
     const q = p.src.split('?')[1]
     const img = q ? new URLSearchParams(q).get('img') : null

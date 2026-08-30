@@ -63,6 +63,23 @@ function srcFor(m: GalleryMedia): string | null {
  */
 const ARCHIVE_FILTER: Filter<GalleryMedia> = { status: 'live', storageKey: { $not: /^(featured|sotm):/ } }
 
+/**
+ * The readable filename behind a key, for the lightbox's download attribute.
+ *
+ * The last path segment of the key, whatever the prefix — which for an archive
+ * item is exactly what the file is called on disk
+ * ("Koda — Danger close [68c3…ab].jpg"), and for a still-pending upload is the
+ * flat "{id}.{ext}". Read off the key rather than rebuilt with
+ * buildMediaFilename(): the key is what actually names the bytes, so a
+ * document whose caption changed since the file was written still downloads
+ * under the name the file really has.
+ */
+function fileFor(m: GalleryMedia): string | null {
+    if (!m.storageKey) return null
+    const rest = m.storageKey.slice(m.storageKey.indexOf(':') + 1)
+    return rest.slice(rest.lastIndexOf('/') + 1) || null
+}
+
 export async function GET() {
     const [docs, tags] = await Promise.all([
         Db.galleryMedia.find(ARCHIVE_FILTER).toArray(),
@@ -104,6 +121,8 @@ export async function GET() {
         score: wilsonScore(m.up ?? 0, m.down ?? 0),
 
         publishedAt: m.publishedAt ? m.publishedAt.toISOString() : null,
+
+        file: fileFor(m),
     }))
 
     let featured: string[] = []

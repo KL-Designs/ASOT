@@ -56,6 +56,19 @@ declare global {
 
         /** ISO. Null on migrated legacy files — see lib/gallery/freshness.ts. */
         publishedAt: string | null
+
+        /**
+         * The item's readable name on disk, for a download's filename.
+         *
+         * Every archive item is `content:`-keyed and served from
+         * `/api/gallery/media/{id}`, so there is nothing in the URL for the
+         * client to derive a name from — before this, all 4,781 downloads
+         * saved as a bare ObjectId with no extension. The name the feature
+         * spent nine tasks putting on disk is simply sent.
+         *
+         * Null only for an embed, which has no bytes and no file.
+         */
+        file: string | null
     }
 
     interface GalleryAPI {
