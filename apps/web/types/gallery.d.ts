@@ -93,6 +93,13 @@ declare global {
         src: string | null
         poster: string | null
 
+        /** Embeds only — what tells a reviewer which YouTube/Twitch video a
+         *  row is, since an embed has no storageKey and src is always null
+         *  for it. Mirrors GalleryItemAPI's fields of the same name. */
+        embedId: string | null
+        embedKind: 'video' | 'clip' | null
+        embedUrl: string | null
+
         year: string | null
         operation: string | null
         opLabel: string | null

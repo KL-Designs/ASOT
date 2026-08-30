@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import type { Filter } from 'mongodb'
 
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
@@ -24,21 +25,20 @@ export async function GET() {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Record<string, unknown>, not Filter<GalleryMedia> — the nocaption count
-    // below queries `caption: { $in: [null, ''] }` against a field the schema
-    // types as `string | undefined`, never `null`. That is deliberate (an
-    // absent field and a null one both mean uncaptioned) but Filter<GalleryMedia>
-    // would reject it, so this widens the same way lib/gallery/library-query.ts's
-    // buildLibraryFilter already does for the identical query.
-    const live: Record<string, unknown> = { status: 'live' }
-    // Each variant declared as its own Record<string, unknown> rather than
-    // inlined into the countDocuments() call: an inline object literal is
-    // contextually typed against Filter<GalleryMedia> regardless of what
-    // `live` was widened to, and that rejects `caption: { $in: [null, ''] } }`
-    // the same way an untyped `live` did above.
-    const unknownFilter: Record<string, unknown> = { ...live, operationId: { $exists: false } }
+    const live: Filter<GalleryMedia> = { status: 'live' }
+    const unknownFilter: Filter<GalleryMedia> = { ...live, operationId: { $exists: false } }
+    const videosFilter: Filter<GalleryMedia> = { ...live, kind: 'video' }
+    // Record<string, unknown>, not Filter<GalleryMedia>, and only this one:
+    // `caption` is schema-typed `string | undefined`, never `null`, but an
+    // absent caption and an explicit null both mean uncaptioned (a reviewer
+    // clearing a caption leaves an empty string, the migration leaves the
+    // field absent — neither ever writes null, so this is a defensive query,
+    // not a real value the schema should allow). Filter<GalleryMedia> would
+    // reject the null in `$in`, so only this filter is widened — `live`,
+    // `unknownFilter` and `videosFilter` above all check cleanly against the
+    // real schema and stay narrow so a typo'd field name or value (e.g.
+    // `kind: 'vidoe'`) is still a compile error.
     const nocaptionFilter: Record<string, unknown> = { ...live, caption: { $in: [null, ''] } }
-    const videosFilter: Record<string, unknown> = { ...live, kind: 'video' }
 
     const [all, unknown, nocaption, videos, health, tree, tagDocs, tagCounts, authorCounts] = await Promise.all([
         Db.galleryMedia.countDocuments(live),
@@ -65,7 +65,7 @@ export async function GET() {
        (a few hundred rows) and $group cannot nest. A missing year or operation
        is filed under 'Unknown' rather than dropped — those are exactly the
        items a reviewer opened this tab to fix. */
-    const years = new Map<string, Map<string, { opLabel: string, count: number, missions: Map<string, number> }>>()
+    const years = new Map<string, Map<string, { labelCounts: Map<string, number>, count: number, missions: Map<string, number> }>>()
 
     for (const row of tree) {
         const year = row._id.year ?? 'Unknown'
@@ -75,11 +75,27 @@ export async function GET() {
         const ops = years.get(year) ?? new Map()
         years.set(year, ops)
 
-        const op = ops.get(operation) ?? { opLabel, count: 0, missions: new Map<string, number>() }
+        const op = ops.get(operation) ?? { labelCounts: new Map<string, number>(), count: 0, missions: new Map<string, number>() }
         ops.set(operation, op)
 
         op.count += row.count
+        // opLabel isn't picked here, only tallied: $group makes no promise
+        // about row order, so "whichever row happened to arrive first" would
+        // make the label flip between otherwise identical calls whenever an
+        // operation carries more than one label (imports have left both
+        // 'Operation Nightfall' and 'Op Nightfall (draft)' on the same
+        // operation before). The winner is decided once, after the loop, by
+        // which label actually covers the most documents.
+        op.labelCounts.set(opLabel, (op.labelCounts.get(opLabel) ?? 0) + row.count)
         if (row._id.mission) op.missions.set(row._id.mission, (op.missions.get(row._id.mission) ?? 0) + row.count)
+    }
+
+    // Most-documents wins; a tie breaks on the label text so the result is
+    // stable rather than depending on Map insertion order (which is itself
+    // just $group's unspecified row order, one step removed).
+    function majorityLabel(labelCounts: Map<string, number>): string {
+        return [...labelCounts.entries()]
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
     }
 
     const facets: LibraryFacetsAPI = {
@@ -103,7 +119,7 @@ export async function GET() {
                     .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
                     .map(([operation, op]) => ({
                         operation,
-                        opLabel: op.opLabel,
+                        opLabel: majorityLabel(op.labelCounts),
                         count: op.count,
                         missions: [...op.missions.entries()]
                             .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
