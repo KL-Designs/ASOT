@@ -356,4 +356,62 @@ describe('index-gallery', () => {
         expect(sotm).toBeTruthy()
         expect(sotm?.featuredOrder).toBeUndefined()
     })
+
+    /* Final review, important 2: this script used to write `legacy:{relative}`
+       and now writes `content:{relative}` for the same file in the same place.
+       The upsert filters on storageKey, so without the rename pass a database
+       indexed by the older version gains a SECOND document per file — the new
+       one blank — and reconcile then reports the whole archive as missing.
+       Both of these run last: they leave `legacy:` documents behind on
+       purpose, and the "no storage key uses the legacy: prefix" test above
+       must see the tree as a fresh run leaves it. */
+    test('renames an existing legacy: key rather than inserting a second document', async () => {
+        const media = db.collection('gallery_media')
+        mkdirSync(join(root, 'storage', 'gallery', 'content', '2020', '30. Op Legacy Keyed', 'I'), { recursive: true })
+        writeFileSync(
+            join(root, 'storage', 'gallery', 'content', '2020', '30. Op Legacy Keyed', 'I', 's.png'),
+            Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'),
+        )
+        await media.insertOne({
+            storageKey: 'legacy:2020/30. Op Legacy Keyed/I/s.png',
+            kind: 'image', source: 'upload', status: 'live',
+            caption: 'written before the rename', tags: ['funny'], up: 3, down: 0,
+            takenAt: null, createdAt: new Date(),
+        })
+        const before = await media.countDocuments()
+
+        run()
+
+        // One document for the file, not two — and it is the one carrying the
+        // caption and the votes, not a blank replacement beside it.
+        expect(await media.countDocuments()).toBe(before)
+        expect(await media.countDocuments({ storageKey: 'legacy:2020/30. Op Legacy Keyed/I/s.png' })).toBe(0)
+        const doc = await media.findOne({ storageKey: 'content:2020/30. Op Legacy Keyed/I/s.png' })
+        expect(doc?.caption).toBe('written before the rename')
+        expect(doc?.tags).toEqual(['funny'])
+        expect(doc?.up).toBe(3)
+
+        // Idempotent: a second run finds nothing left to rename and still
+        // inserts nothing.
+        run()
+        expect(await media.countDocuments()).toBe(before)
+    })
+
+    test('leaves a legacy: key alone when its content: twin already exists', async () => {
+        const media = db.collection('gallery_media')
+        await media.insertOne({
+            storageKey: 'legacy:2025/1. Op Black Hill/I/a.png',
+            kind: 'image', source: 'upload', status: 'live',
+            tags: [], up: 0, down: 0, takenAt: null, createdAt: new Date(),
+        })
+
+        run()
+
+        // Nothing is deleted and nothing is overwritten: one of the two
+        // documents holds the captions and votes and the script cannot tell
+        // which, so it reports and leaves both standing.
+        expect(await media.countDocuments({ storageKey: 'legacy:2025/1. Op Black Hill/I/a.png' })).toBe(1)
+        const twin = await media.findOne({ storageKey: 'content:2025/1. Op Black Hill/I/a.png' })
+        expect(twin?.caption).toBe('set by a reviewer')
+    })
 })

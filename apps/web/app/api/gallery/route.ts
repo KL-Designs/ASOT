@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import type { Filter } from 'mongodb'
 import fs from 'fs'
 
 import Db from '@/lib/mongo'
@@ -39,9 +40,32 @@ function srcFor(m: GalleryMedia): string | null {
     return `/api/gallery/media/${m._id.toString()}`
 }
 
+/**
+ * The public archive grid: live media that is not a featured/SOTM fixture.
+ *
+ * `scripts/index-gallery.mjs` writes a document for the 58 files in
+ * `featured/` and the one in `sotm/` too, so J5's console can manage them by
+ * id (spec §6.7). They are NOT archive items: they carry no year, no
+ * operation, no author and no caption, and several are the same photograph a
+ * visitor can already see — dated and attributed — in the archive itself.
+ * Without this clause the migration adds 59 blank, undated, partly duplicate
+ * tiles to the public grid.
+ *
+ * Excluded by storage key rather than by giving them a non-`live` status:
+ * `isPublic()` gates `/api/gallery/media/[id]`, and spec §6.7/§6.8 have Plan B
+ * serve both the featured rail and the screenshot of the month BY MEDIA ID
+ * through that route. A non-live status would 404 the rail for every visitor
+ * and leave Plan B's library having to special-case a status nothing else
+ * uses.
+ *
+ * `$not` also matches a document with no `storageKey` at all, which is what an
+ * embed is — those must stay in the grid.
+ */
+const ARCHIVE_FILTER: Filter<GalleryMedia> = { status: 'live', storageKey: { $not: /^(featured|sotm):/ } }
+
 export async function GET() {
     const [docs, tags] = await Promise.all([
-        Db.galleryMedia.find({ status: 'live' }).toArray(),
+        Db.galleryMedia.find(ARCHIVE_FILTER).toArray(),
         Db.galleryTags.find({ retired: false }).sort({ order: 1 }).toArray(),
     ])
 

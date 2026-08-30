@@ -15,6 +15,11 @@
  * `featured/` and `sotm/` get their own `featured:{file}` / `sotm:{file}` keys,
  * since those two directories predate media ids entirely.
  *
+ * An earlier version of this script wrote `legacy:` where it now writes
+ * `content:` for the same file in the same place, so it renames those keys
+ * before it walks anything — see the rename block below for what a second set
+ * of documents for the whole archive would do to reconcile.
+ *
  * Idempotent, and it has to be: J5 keeps uploading through their existing
  * dashboard tab, so this is re-run rather than run once. The unique index on
  * storageKey plus `$setOnInsert` is what makes a second run a no-op — note
@@ -174,6 +179,59 @@ try {
     const media = db.collection('gallery_media')
     const tags = db.collection('gallery_tags')
 
+    /* ── legacy: -> content: ──────────────────────────────────────────────
+       This script used to write `legacy:{relative}`; it now writes
+       `content:{relative}` for the same file in the same place. The upsert
+       below filters on `{ storageKey }`, so without this rename a database
+       already indexed by the older version gains a SECOND document for every
+       one of its files — the new one with no caption, no tags and no votes —
+       and reconcile then reports every original as `missingFiles` and every
+       file as `notIndexed`, the exact inverted report Task 6 exists to
+       prevent. The user's dev database holds these keys; production does not
+       yet, and this run is what makes the difference invisible.
+
+       Renamed rather than dual-written: two spellings of one key is what
+       created this problem.
+
+       Idempotent — a second run finds no `legacy:` keys left. Runs BEFORE
+       createIndex below so it can also unblock a collection whose unique
+       index has not been built yet.
+
+       A `legacy:` key whose `content:` twin already exists is left alone
+       rather than overwritten or deleted. One of the two documents carries
+       the captions and votes and this script cannot tell which; nothing here
+       removes a gallery record, so it is reported for a human instead. */
+    const LEGACY_PREFIX = 'legacy:'
+    const legacyKeyed = await media
+        .find({ storageKey: { $regex: `^${LEGACY_PREFIX}` } }, { projection: { storageKey: 1 } })
+        .toArray()
+
+    if (legacyKeyed.length === 0) {
+        console.log('no legacy: storage keys to rename')
+    } else {
+        const contentKeys = new Set(
+            (await media.find({ storageKey: { $regex: '^content:' } }, { projection: { storageKey: 1 } }).toArray())
+                .map(d => d.storageKey),
+        )
+        const renames = []
+        let blocked = 0
+        for (const doc of legacyKeyed) {
+            const to = `content:${doc.storageKey.slice(LEGACY_PREFIX.length)}`
+            if (contentKeys.has(to)) { blocked++; continue }
+            renames.push({ updateOne: { filter: { _id: doc._id }, update: { $set: { storageKey: to } } } })
+        }
+
+        if (APPLY) {
+            if (renames.length) await media.bulkWrite(renames, { ordered: false })
+            console.log(`renamed ${renames.length} legacy: key(s) to content:`)
+        } else {
+            console.log(`[dry-run] would rename ${renames.length} legacy: key(s) to content:`)
+        }
+        if (blocked) {
+            console.warn(`${blocked} legacy: key(s) already have a content: twin — left alone; resolve by hand.`)
+        }
+    }
+
     if (APPLY) {
         await media.createIndex({ storageKey: 1 }, { unique: true, sparse: true, name: 'storageKey_unique' })
         await media.createIndex({ status: 1, takenAt: -1 }, { name: 'status_takenAt' })
@@ -259,7 +317,14 @@ try {
     const existingKeys = new Set(
         (await media.find({}, { projection: { storageKey: 1 } }).toArray())
             .map(d => d.storageKey)
-            .filter(Boolean),
+            .filter(Boolean)
+            /* A dry run has not performed the legacy: -> content: rename
+               above, so the keys read back are still the old spelling. Counted
+               under the name they WILL carry, or the one line an operator
+               reads before deciding to write would report an
+               already-indexed archive as 4,781 fresh inserts — which is
+               precisely the alarm this rename exists to stop being real. */
+            .map(key => (key.startsWith(LEGACY_PREFIX) ? `content:${key.slice(LEGACY_PREFIX.length)}` : key)),
     )
 
     // ── Walk ─────────────────────────────────────────────────────────────────
