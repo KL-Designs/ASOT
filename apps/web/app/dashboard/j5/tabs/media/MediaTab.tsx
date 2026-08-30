@@ -45,7 +45,7 @@ function isSort(value: string): value is LibrarySort {
  * against gallery_media rather than a directory listing.
  */
 export default function MediaTab() {
-    const { items, total, facets, filters, setParam, selectNode, clear, loading, page, setPage, refresh } = useLibrary()
+    const { items, total, facets, filters, setParam, selectNode, clear, loading, error, retry, page, setPage, refresh } = useLibrary()
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [operations, setOperations] = useState<Operation[]>([])
     const [tagVocab, setTagVocab] = useState<{ slug: string, label: string }[]>([])
@@ -149,13 +149,29 @@ export default function MediaTab() {
                         </Typography>
                     </div>
 
+                    {/* Above the grid, and it suppresses the grid's own empty
+                        state below: a failed fetch leaves `items` empty, and
+                        "Nothing here. Try a different view, or clear the
+                        filters." reads as "your 4,781-item archive is empty"
+                        to someone whose session has merely expired. Same
+                        shape as HealthView's error line — the server's own
+                        message, with a Retry that re-runs both fetches. */}
+                    {error && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
+                            <Typography sx={{ fontSize: '0.75rem', color: 'var(--red-hi)' }}>{error}</Typography>
+                            <Button size='small' variant='outlined' onClick={retry} sx={{ fontSize: '0.7rem' }}>
+                                Retry
+                            </Button>
+                        </div>
+                    )}
+
                     {filters.view === 'health' ? (
                         // Health is a view of the same library, not a
                         // separate screen — the rail, tools bar and
                         // inspector column stay exactly as they are; only
                         // the grid and pager give way to the report.
                         <HealthView onChanged={refresh} />
-                    ) : loading ? <TacticalSkeleton /> : (
+                    ) : loading ? <TacticalSkeleton /> : error && items.length === 0 ? null : (
                         <MediaGrid
                             items={items}
                             selected={selected}

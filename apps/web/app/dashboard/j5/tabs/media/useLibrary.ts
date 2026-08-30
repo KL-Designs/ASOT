@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import type { LibraryParams } from '@/lib/gallery/library-query'
+import { PAGE_SIZE, type LibraryParams } from '@/lib/gallery/library-query'
 
 /**
  * The Media tab's server state.
@@ -22,6 +22,15 @@ import type { LibraryParams } from '@/lib/gallery/library-query'
  * An in-flight request is abandoned when a newer one starts — without that,
  * typing "chopper" fires several requests whose responses can arrive out of
  * order and leave the grid showing the results for "chopp".
+ *
+ * Both fetches surface their failure. Neither used to: a 403 from an expired
+ * Discord session left `facets` null and `items` empty, so the rail rendered
+ * its two headings and nothing under them while the grid said "Nothing here.
+ * Try a different view, or clear the filters." — telling a reviewer their
+ * 4,781-item archive was empty and inviting them to fix it by clearing
+ * filters that were not set. HealthView, Inspector and BulkPanel all already
+ * showed the server's own `error`; this hook was the one server-state
+ * consumer that showed nothing at all.
  */
 
 type Filters = Omit<LibraryParams, 'page'>
@@ -40,6 +49,13 @@ export function useLibrary() {
     const [total, setTotal] = useState(0)
     const [facets, setFacets] = useState<LibraryFacetsAPI | null>(null)
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+    // Bumped to re-run the items fetch without changing a filter — what
+    // `retry` and `refresh` both ask for. Going through the one effect rather
+    // than a second copy of the fetch keeps the request-id guard, the
+    // error handling and the page clamp in a single place; a duplicated
+    // refetch is how `refresh()` came to have none of the three.
+    const [reloadToken, setReloadToken] = useState(0)
 
     const requestId = useRef(0)
 
@@ -69,8 +85,21 @@ export function useLibrary() {
     }, [])
 
     const loadFacets = useCallback(async () => {
-        const res = await fetch('/api/gallery/admin/facets')
-        if (res.ok) setFacets(await res.json())
+        try {
+            const res = await fetch('/api/gallery/admin/facets')
+            if (!res.ok) {
+                // The server's own message — same idiom as HealthView.load(),
+                // Inspector.save() and BulkPanel.run(). A 403 here says
+                // "Forbidden", which tells a reviewer to sign in again rather
+                // than to go looking for their missing archive.
+                const data = await res.json().catch(() => ({}))
+                setError(typeof data.error === 'string' ? data.error : 'Could not load the archive rail.')
+                return
+            }
+            setFacets(await res.json())
+        } catch {
+            setError('Could not reach the server.')
+        }
     }, [])
 
     useEffect(() => { loadFacets() }, [loadFacets])
@@ -78,21 +107,39 @@ export function useLibrary() {
     useEffect(() => {
         const id = ++requestId.current
         setLoading(true)
+        // Cleared here rather than on success, so a facets failure raised
+        // while this request is in flight survives the request completing.
+        setError(null)
 
         void (async () => {
             try {
                 const res = await fetch(`/api/gallery/admin/library?${query(effective, page)}`)
-                if (!res.ok) return
+                // A stale response must not overwrite a newer one — nor set an
+                // error for a request nothing is waiting on any more.
+                if (id !== requestId.current) return
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}))
+                    setError(typeof data.error === 'string' ? data.error : 'Could not load the archive.')
+                    return
+                }
                 const data = await res.json()
-                // A stale response must not overwrite a newer one.
                 if (id !== requestId.current) return
                 setItems(data.items ?? [])
-                setTotal(data.total ?? 0)
+                const nextTotal = data.total ?? 0
+                setTotal(nextTotal)
+                /* A bulk move can empty the filter the reviewer is standing
+                   in. `pages` shrinks, `page` does not, and the pager then
+                   reads "4 / 2" over an empty grid with no way back except
+                   Previous. Clamped here, where the new total is known. */
+                const pages = Math.ceil(nextTotal / PAGE_SIZE)
+                if (page > 0 && page >= pages) setPage(Math.max(0, pages - 1))
+            } catch {
+                if (id === requestId.current) setError('Could not reach the server.')
             } finally {
                 if (id === requestId.current) setLoading(false)
             }
         })()
-    }, [effective, page, query])
+    }, [effective, page, query, reloadToken])
 
     const setParam = useCallback(<K extends keyof Filters>(key: K, value: Filters[K]) => {
         setFilters(prev => ({ ...prev, [key]: value }))
@@ -136,16 +183,22 @@ export function useLibrary() {
 
     const clear = useCallback(() => { setFilters(EMPTY); setPage(0) }, [])
 
+    /** Re-run both fetches after an edit. The items half goes through the
+     *  effect above rather than repeating the fetch here — that second copy
+     *  had no error handling and no page clamp, which is exactly the pair of
+     *  gaps this change closes. */
     const refresh = useCallback(async () => {
-        const id = ++requestId.current
-        const res = await fetch(`/api/gallery/admin/library?${query(effective, page)}`)
-        if (res.ok && id === requestId.current) {
-            const data = await res.json()
-            setItems(data.items ?? [])
-            setTotal(data.total ?? 0)
-        }
+        setReloadToken(t => t + 1)
         await loadFacets()
-    }, [effective, page, query, loadFacets])
+    }, [loadFacets])
 
-    return { items, total, facets, filters, setParam, selectNode, clear, loading, page, setPage, refresh }
+    /** What the error banner's Retry does: both halves, since a stale session
+     *  403s both and only one of them raised the message on screen. */
+    const retry = useCallback(() => {
+        setError(null)
+        setReloadToken(t => t + 1)
+        void loadFacets()
+    }, [loadFacets])
+
+    return { items, total, facets, filters, setParam, selectNode, clear, loading, error, retry, page, setPage, refresh }
 }
