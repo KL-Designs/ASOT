@@ -1,0 +1,76 @@
+/* Layout for the rebuilt J5 tabs.
+
+   A CSS module, like media-console.module.css, for the same reason: these are
+   layouts with their own scrolling regions, and expressing that in MUI sx
+   objects spread across three components is how this dashboard's older tabs
+   ended up with their layout in five places at once. Controls stay MUI. */
+
+.batch { border: 1px solid rgba(219, 0, 29, 0.18); margin-bottom: 14px; }
+
+.batchHead {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(219, 0, 29, 0.14);
+    background: rgba(219, 0, 29, 0.06);
+}
+.who { font-family: var(--font-cond); font-weight: 700; font-size: 15px; letter-spacing: 0.05em; }
+.when {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em;
+    color: rgba(237, 237, 237, 0.38); text-transform: uppercase;
+}
+.spacer { flex: 1; }
+
+/* Preview leads, fields beside it, actions fixed right — the whole point of
+   the rebuild. The old tab stacked a full-width caption box above a squeezed
+   thumbnail, so a reviewer could not see what they were judging. */
+.row {
+    display: grid;
+    grid-template-columns: 190px 1fr auto;
+    gap: 14px;
+    padding: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    align-items: start;
+}
+.row:last-child { border-bottom: 0; }
+
+.preview {
+    position: relative; aspect-ratio: 16 / 10;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(0, 0, 0, 0.3);
+}
+.preview img, .preview video, .preview iframe {
+    width: 100%; height: 100%; object-fit: cover; display: block; border: 0;
+}
+.previewFail {
+    display: grid; place-items: center; height: 100%;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+    color: var(--amber); text-align: center; padding: 8px;
+}
+.dur {
+    position: absolute; right: 5px; bottom: 5px;
+    font-family: var(--font-mono); font-size: 9px;
+    background: rgba(0, 0, 0, 0.8); color: #fff; padding: 2px 5px;
+}
+
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.wide { grid-column: 1 / -1; }
+.techline {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em;
+    color: rgba(237, 237, 237, 0.38);
+}
+.warn { color: var(--amber); font-size: 12px; line-height: 1.6; }
+
+.actions { display: flex; flex-direction: column; gap: 6px; min-width: 104px; }
+
+.saveState {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: rgba(237, 237, 237, 0.38);
+}
+.saveState[data-state='error'] { color: var(--red-hi); }
+.saveState[data-state='saved'] { color: var(--live); }
+
+@media (max-width: 900px) {
+    .row { grid-template-columns: 1fr; }
+    .fields { grid-template-columns: 1fr; }
+    .actions { flex-direction: row; }
+}

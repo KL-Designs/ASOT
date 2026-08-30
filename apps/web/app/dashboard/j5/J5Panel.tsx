@@ -8,7 +8,7 @@ import GalleryOperationsTab from '@/app/dashboard/j5/tabs/GalleryOperationsTab'
 import MediaTab from '@/app/dashboard/j5/tabs/media/MediaTab'
 import GalleryFeaturedTab from '@/app/dashboard/j5/tabs/GalleryFeaturedTab'
 import ScreenshotOfMonthTab from '@/app/dashboard/j5/tabs/ScreenshotOfMonthTab'
-import GallerySubmissionsTab from '@/app/dashboard/j5/tabs/GallerySubmissionsTab'
+import SubmissionsTab from '@/app/dashboard/j5/tabs/submissions/SubmissionsTab'
 import GalleryTagsTab from '@/app/dashboard/j5/tabs/GalleryTagsTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
@@ -153,7 +153,7 @@ export default function J5Panel({
                         {tab === 2 && <ScreenshotOfMonthTab canManage={canManageMembers} />}
                         {tab === 3 && <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} />}
                         {tab === 4 && <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
-                        {tab >= FIXED_TABS && extraTabs[tab - FIXED_TABS] === 'submissions' && <GallerySubmissionsTab />}
+                        {tab >= FIXED_TABS && extraTabs[tab - FIXED_TABS] === 'submissions' && <SubmissionsTab />}
                         {tab >= FIXED_TABS && extraTabs[tab - FIXED_TABS] === 'tags' && <GalleryTagsTab />}
                     </div>
                 </>
