@@ -5,6 +5,7 @@ import { Button, MenuItem, TextField, Typography } from '@mui/material'
 
 import { PAGE_SIZE, type LibrarySort } from '@/lib/gallery/library-query'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import BulkPanel from './BulkPanel'
 import Inspector from './Inspector'
 import LibraryRail from './LibraryRail'
 import MediaGrid from './MediaGrid'
@@ -180,14 +181,28 @@ export default function MediaTab() {
                             />
                         ) : null
                     })()
-                    : (
-                        <aside className={s.insp}>
-                            <div className={s.inspHead}><span>{selected.size === 0 ? 'Inspector' : 'Bulk edit'}</span></div>
-                            <Typography sx={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.38)' }}>
-                                {selected.size === 0 ? 'Select an item to edit it.' : `${selected.size} selected.`}
-                            </Typography>
-                        </aside>
-                    )}
+                    : selected.size > 1
+                        ? (
+                            <BulkPanel
+                                ids={[...selected]}
+                                operations={operations}
+                                tags={tagVocab}
+                                // Selection only clears on a clean run — see
+                                // BulkPanel's module comment. A partial
+                                // failure keeps every originally-selected id
+                                // (successes and failures alike) so the
+                                // reviewer can see what happened and retry.
+                                onDone={hadFailures => { if (!hadFailures) setSelected(new Set()); refresh() }}
+                            />
+                        )
+                        : (
+                            <aside className={s.insp}>
+                                <div className={s.inspHead}><span>Inspector</span></div>
+                                <Typography sx={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.38)' }}>
+                                    Select an item to edit it.
+                                </Typography>
+                            </aside>
+                        )}
             </div>
         </div>
     )
