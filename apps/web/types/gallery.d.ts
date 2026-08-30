@@ -79,4 +79,64 @@ declare global {
         tags: { slug: string, label: string }[]
     }
 
+    /**
+     * One media row as the J5 Media tab receives it. Distinct from
+     * GalleryItemAPI, which is what the public gallery gets: this one carries
+     * the storage key and the on-disk filename, because the tab shows a
+     * reviewer exactly where the bytes are, and omits the Wilson score, which
+     * only the public sort needs.
+     */
+    interface AdminMediaAPI {
+        id: string
+        kind: 'image' | 'video'
+        source: 'upload' | 'youtube' | 'twitch'
+        src: string | null
+        poster: string | null
+
+        year: string | null
+        operation: string | null
+        opLabel: string | null
+        mission: string | null
+        operationId: string | null
+        takenAt: string | null
+
+        authorId: string | null
+        authorName: string | null
+        caption: string | null
+        tags: string[]
+
+        width: number | null
+        height: number | null
+        durationSec: number | null
+        bytes: number | null
+
+        /** The full storage key, shown verbatim in the inspector — the
+         *  bracketed id in it is the contract that lets a file be moved by
+         *  hand, so a reviewer is shown it rather than told about it. */
+        storageKey: string | null
+
+        up: number
+        down: number
+        publishedAt: string | null
+    }
+
+    /** The Media tab's left rail: saved views on top, the archive tree below,
+     *  every row carrying a live count. */
+    interface LibraryFacetsAPI {
+        views: { all: number, unknown: number, nocaption: number, videos: number, health: number }
+        years: {
+            year: string
+            count: number
+            operations: {
+                operation: string
+                opLabel: string
+                count: number
+                missions: { mission: string, count: number }[]
+            }[]
+        }[]
+        /** For the filter chips — every tag and author actually in use. */
+        tags: { slug: string, label: string, count: number }[]
+        authors: { name: string, count: number }[]
+    }
+
 }
