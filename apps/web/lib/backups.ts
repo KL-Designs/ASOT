@@ -1022,6 +1022,52 @@ function findDirNamed(root: string, name: string): string | null {
     return null
 }
 
+/**
+ * Reconcile the gallery after a restore.
+ *
+ * A backup can be downloaded, reorganised in a file manager and re-uploaded —
+ * that is the point of the readable content tree. This is what reads those
+ * moves back in: a file carrying its media id is matched by it and takes the
+ * operation of whichever folder it now sits in.
+ *
+ * Never fatal. The restore itself has already succeeded by the time this runs,
+ * and failing the whole operation because the index could not be refreshed
+ * would report a successful restore as a failure. The report lands in
+ * gallery_health either way, and a human can press Re-scan disk.
+ *
+ * The imports are dynamic rather than top-level ones: `lib/gallery/reconcile.ts`
+ * reaches `lib/mongo.ts`, and a static import would pull a database connection
+ * into this module at load time — lib/backups.roundtrip.test.ts boots its own
+ * MongoMemoryServer and sets process.env.TEMP *before* importing backups.ts,
+ * because DB_DUMP_DIR is derived from os.tmpdir() at module load. A top-level
+ * `import './gallery/reconcile'` would run before that setup and connect to
+ * whatever Mongo happens to be configured, or throw trying.
+ */
+async function runGalleryReconcile(): Promise<void> {
+    try {
+        const { reconcile } = await import('./gallery/reconcile')
+        const Db = (await import('./mongo')).default
+
+        // acceptsRealCollections() in reconcile.ts pins that a real
+        // Collection<GalleryMedia> / Collection<Operation> satisfy
+        // ReconcileDeps with no adapter and no cast — so the collections are
+        // handed over as-is.
+        const report = await reconcile({
+            media: Db.galleryMedia,
+            operations: Db.operations,
+        })
+
+        await Db.galleryHealth.replaceOne({}, report, { upsert: true })
+
+        console.log(
+            `[backups] gallery reconcile: ${report.scanned} scanned, ${report.relocated.length} relocated, ` +
+            `${report.notIndexed.length} not indexed, ${report.missingFiles.length} missing`,
+        )
+    } catch (e: unknown) {
+        console.error('[backups] gallery reconcile after restore failed:', e instanceof Error ? e.message : String(e))
+    }
+}
+
 // ── Revert ────────────────────────────────────────────────────────────────────
 
 export async function revertToPoint(
@@ -1092,6 +1138,14 @@ export async function revertToPoint(
                 if (opts.wipeMedia) await emptyDir(UPLOADS_DIR)
                 await copyDirRecursive(uploads, UPLOADS_DIR)
             }
+            // Guarded on `gallery`, not `parts.includes('gallery')`: that flag
+            // only means the caller asked, while `gallery` also means the
+            // snapshot actually held one (findDirNamed above). A media
+            // restore that turns out to carry no gallery tree must not run
+            // reconcile against a tree this restore never touched. Both the
+            // database and the media tree are settled by here — reconcile
+            // compares the two, so it cannot run between them.
+            if (gallery) await runGalleryReconcile()
         }
         await writeOwnedStatus(token, { state: 'idle' })
         console.log(`[backups] Revert to ${point.id} complete`)
@@ -1383,6 +1437,14 @@ export async function applyUploadedZip(
             if (opts.wipeMedia) await emptyDir(UPLOADS_DIR)
             await copyDirRecursive(uploads, UPLOADS_DIR)
         }
+
+        // Both the database and the media tree are settled by here — reconcile
+        // compares the two, so it cannot run between them. Guarded on
+        // hasGallery specifically, not hasUploads: uploads/ is a separate tree
+        // (department files, not the content tree reconcile walks), so an
+        // uploads-only restore must not trigger a reconcile against a gallery
+        // tree that was never touched.
+        if (hasGallery) await runGalleryReconcile()
 
         await writeOwnedStatus(token, { state: 'idle' })
         console.log('[backups] Upload-revert complete')

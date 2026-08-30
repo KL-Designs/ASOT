@@ -258,4 +258,69 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
 
         await rm(zipPath, { force: true }).catch(() => {})
     }, 300000)
+
+    // Task 8 closes the loop: a downloaded backup, reorganised by hand in a
+    // file manager and re-uploaded, has those moves read back into the
+    // database without a human touching Health first — runGalleryReconcile()
+    // in backups.ts calls reconcile() with exactly the ReconcileDeps built
+    // here.
+    //
+    // Exercised directly against reconcile() rather than through
+    // applyUploadedZip()/revertToPoint(): CONTENT_DIR (lib/gallery/paths.ts)
+    // resolves from a fixed path.resolve('../../storage/gallery') at module
+    // load and, unlike GALLERY_DIR in backups.ts, is never redirected by
+    // BACKUPS_STORAGE_ROOT — so driving this through the real restore path in
+    // this suite would walk the actual repository's storage/gallery/content
+    // tree instead of this test's fixture. Calling reconcile() directly with
+    // a contentDir override is the same thing reconcile.test.ts already does
+    // for the same reason, and is the only safe way to point this at the
+    // temp tree.
+    test('a file moved between folders in the zip keeps its record and takes the new operation', async () => {
+        if (!hasRestic) return
+
+        const { ObjectId } = await import('mongodb')
+        const { reconcile } = await import('./gallery/reconcile')
+
+        const id = new ObjectId()
+        const contentDir = join(storageRoot, 'gallery', 'content')
+        const name = `Koda — Danger close [${id.toString()}].jpg`
+
+        // The file is where a human dragged it; the record still names where
+        // it was.
+        mkdirSync(join(contentDir, '2021', '4. Op Silent Ridge'), { recursive: true })
+        writeFileSync(join(contentDir, '2021', '4. Op Silent Ridge', name), 'BYTES')
+
+        // Record<string, unknown> & { _id } rather than Record<string, unknown>
+        // alone: ReconcileMediaDoc's _id is a real ObjectId, not unknown, so a
+        // bare index-signature type would not satisfy it. Same shape
+        // reconcile.test.ts's Doc type uses.
+        type Doc = Record<string, unknown> & { _id: InstanceType<typeof ObjectId> }
+        const docs: Doc[] = [{
+            _id: id,
+            storageKey: `content:2026/23. Op New Winter/${name}`,
+            caption: 'Danger close', tags: ['funny'], up: 5, down: 0,
+        }]
+
+        const report = await reconcile({
+            contentDir,
+            media: {
+                // find() returns a cursor-shaped { toArray() }, not a promise
+                // of an array directly — ReconcileDeps.find has to match the
+                // real driver's Collection.find(), which acceptsRealCollections()
+                // in reconcile.ts pins at compile time.
+                find() { return { async toArray() { return docs } } },
+                async updateOne(filter: { _id: InstanceType<typeof ObjectId> }, update: { $set?: Record<string, unknown> }) {
+                    Object.assign(docs[0], update.$set ?? {})
+                    return {}
+                },
+            },
+            operations: { find() { return { async toArray() { return [] } } } },
+        })
+
+        expect(report.relocated).toHaveLength(1)
+        expect(docs[0].storageKey).toBe(`content:2021/4. Op Silent Ridge/${name}`)
+        expect(docs[0].operation).toBe('4. Op Silent Ridge')
+        expect(docs[0].caption).toBe('Danger close')
+        expect(docs[0].up).toBe(5)
+    })
 })
