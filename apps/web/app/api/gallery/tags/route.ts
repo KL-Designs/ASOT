@@ -12,9 +12,27 @@ async function canManage() {
     return !!me && await hasPermission(me, 'gallery.tags')
 }
 
-/** Public: the facet rail and the submit form both need the vocabulary, and
- *  the gallery is a public page. Retired tags are included only for a manager,
- *  who has to see them to bring one back. */
+/**
+ * Public: the facet rail and the submit form both need the vocabulary, and
+ * the gallery is a public page. Retired tags are included only for a manager,
+ * who has to see them to bring one back.
+ *
+ * Usage counts are computed here too, but only inside that same `all` branch
+ * — an anonymous or non-manager call never touches the aggregation below, so
+ * the public/cheap path this route exists for stays exactly that cheap.
+ *
+ * They are NOT read from GET /api/gallery/admin/facets, which already
+ * computes the identical `{ slug, label, count }` shape: that route is
+ * gated on `gallery.manage`, and the tag vocabulary editor
+ * (GalleryTagsTab.tsx) is gated on the separate `gallery.tags` key — the two
+ * are granted independently (see lib/permissions.ts), so a J5 lead holding
+ * `gallery.tags` without `gallery.manage` would get a silent 403 (no counts,
+ * no error surfaced) from admin/facets despite being fully entitled to see
+ * this vocabulary. Aggregating again here, gated the same way this route's
+ * write endpoints already are, is what keeps the tab's counts working for
+ * everyone who can reach the tab, at the cost of one small aggregation only
+ * a manager's request ever pays for.
+ */
 export async function GET() {
     const all = await canManage()
     const tags = await Db.galleryTags
@@ -22,8 +40,29 @@ export async function GET() {
         .sort({ order: 1 })
         .toArray()
 
+    let counts = new Map<string, number>()
+    if (all) {
+        const rows = await Db.galleryMedia.aggregate<{ _id: string, count: number }>([
+            { $match: { status: 'live' } },
+            { $unwind: '$tags' },
+            { $group: { _id: '$tags', count: { $sum: 1 } } },
+        ]).toArray()
+        counts = new Map(rows.map(r => [r._id, r.count]))
+    }
+
     return NextResponse.json({
-        tags: tags.map(t => ({ id: t._id.toString(), slug: t.slug, label: t.label, order: t.order, retired: t.retired })),
+        tags: tags.map(t => ({
+            id: t._id.toString(),
+            slug: t.slug,
+            label: t.label,
+            order: t.order,
+            retired: t.retired,
+            // Omitted rather than 0 for a non-manager caller — the public
+            // facet rail and submit form have never carried this field, and
+            // sending a fabricated 0 would claim knowledge this response
+            // deliberately didn't pay to compute.
+            ...(all ? { count: counts.get(t.slug) ?? 0 } : {}),
+        })),
     })
 }
 
