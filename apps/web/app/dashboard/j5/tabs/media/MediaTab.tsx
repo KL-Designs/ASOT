@@ -50,6 +50,11 @@ export default function MediaTab() {
     const [operations, setOperations] = useState<Operation[]>([])
     const [tagVocab, setTagVocab] = useState<{ slug: string, label: string }[]>([])
     const [pickerError, setPickerError] = useState<string | null>(null)
+    /* What just happened, shown where the inspector was. A save or a clean
+       bulk run both end with the selection cleared and the panel unmounted,
+       so neither had anywhere left to put its own confirmation — from the
+       reviewer's seat, Save made the panel disappear and said nothing. */
+    const [note, setNote] = useState<string | null>(null)
 
     // Fetched once — the picker's own list of operations/tags rather than the
     // filter facets in `facets`, which only carry the ones already in use on
@@ -97,6 +102,15 @@ export default function MediaTab() {
         })()
     }, [])
 
+    // Cleared on a timer rather than on the next click: the reviewer's next
+    // action is usually selecting the next tile, and a confirmation that
+    // vanished on that click would routinely never be read.
+    useEffect(() => {
+        if (!note) return
+        const timer = setTimeout(() => setNote(null), 5000)
+        return () => clearTimeout(timer)
+    }, [note])
+
     const toggle = useCallback((id: string) => {
         setSelected(prev => {
             const next = new Set(prev)
@@ -118,6 +132,20 @@ export default function MediaTab() {
     }, [items])
 
     const pages = Math.ceil(total / PAGE_SIZE)
+
+    /* One element, two callers: the "nothing selected" column and the branch
+       where the single selected id is no longer on this page. Both are the
+       same state — there is no item to edit — and both are where the note
+       from the last save or bulk run is read. */
+    const emptyInspector = (
+        <aside className={s.insp}>
+            <div className={s.inspHead}><span>Inspector</span></div>
+            {note && <Typography sx={{ fontSize: '0.78rem', color: 'var(--red-hi)' }}>{note}</Typography>}
+            <Typography sx={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.38)' }}>
+                Select an item to edit it.
+            </Typography>
+        </aside>
+    )
 
     return (
         <div>
@@ -240,15 +268,30 @@ export default function MediaTab() {
                 {selected.size === 1
                     ? (() => {
                         const item = items.find(i => selected.has(i.id))
+                        /* Falls through to the empty aside when the selected
+                           id is not on this page — it used to render null,
+                           which blanked the whole 320px column while the
+                           toolbar still said "1 SELECTED". That is the tab's
+                           most common journey, not an edge case: a reviewer
+                           in `Unknown operation` clicks a tile, assigns an
+                           operation and saves; the save succeeds, so the item
+                           now HAS an operation and drops out of the view, and
+                           find() misses. */
                         return item ? (
                             <Inspector
                                 item={item}
                                 operations={operations}
                                 tags={tagVocab}
-                                onSaved={() => { refresh() }}
-                                onDeleted={() => { setSelected(new Set()); refresh() }}
+                                // The selection is cleared and the outcome
+                                // said out loud: after a save the item has
+                                // very often left the current view, so
+                                // keeping it selected buys nothing and only
+                                // leaves the toolbar counting a tile that is
+                                // no longer on screen.
+                                onSaved={() => { setSelected(new Set()); setNote('Saved.'); refresh() }}
+                                onDeleted={() => { setSelected(new Set()); setNote('Deleted.'); refresh() }}
                             />
-                        ) : null
+                        ) : emptyInspector
                     })()
                     : selected.size > 1
                         ? (
@@ -261,17 +304,18 @@ export default function MediaTab() {
                                 // failure keeps every originally-selected id
                                 // (successes and failures alike) so the
                                 // reviewer can see what happened and retry.
-                                onDone={hadFailures => { if (!hadFailures) setSelected(new Set()); refresh() }}
+                                //
+                                // The summary is lifted up here because
+                                // clearing the selection unmounts the panel
+                                // that produced it: a clean "60 changed." was
+                                // destroyed in the same tick it was set.
+                                onDone={(hadFailures, summary) => {
+                                    if (!hadFailures) { setSelected(new Set()); setNote(summary) }
+                                    refresh()
+                                }}
                             />
                         )
-                        : (
-                            <aside className={s.insp}>
-                                <div className={s.inspHead}><span>Inspector</span></div>
-                                <Typography sx={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.38)' }}>
-                                    Select an item to edit it.
-                                </Typography>
-                            </aside>
-                        )}
+                        : emptyInspector}
             </div>
         </div>
     )

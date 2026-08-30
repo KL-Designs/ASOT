@@ -19,6 +19,14 @@ import s from '@/styles/media-console.module.css'
  * who moved sixty items of which two failed needs the selection to survive so
  * they can see and retry just those two — clearing it the way a clean run
  * does would throw that away.
+ *
+ * It carries the summary line too, because on a CLEAN run this panel is not
+ * around to show it: `onDone(false)` clears the selection, which unmounts
+ * this component, which destroyed the "60 changed." it had just set on its
+ * own state. A successful bulk action gave no confirmation at all. The
+ * summary is handed up and rendered where the panel used to be. The failure
+ * path is unchanged — the selection survives, this panel stays mounted, and
+ * `result` and `failed[]` render here per item.
  */
 
 const inputSx = {
@@ -40,7 +48,7 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
     ids: string[]
     operations: Operation[]
     tags: { slug: string, label: string }[]
-    onDone: (hadFailures: boolean) => void
+    onDone: (hadFailures: boolean, summary: string) => void
 }) {
     const [operationId, setOperationId] = useState('')
     const [chosen, setChosen] = useState<string[]>([])
@@ -79,10 +87,11 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
             const itemFailures: Failure[] = Array.isArray(data.failed) ? data.failed : []
             setFailed(itemFailures)
             const changed = typeof data.changed === 'number' ? data.changed : 0
-            setResult(itemFailures.length
+            const summary = itemFailures.length
                 ? `${changed} changed, ${itemFailures.length} failed.`
-                : `${changed} changed.`)
-            onDone(itemFailures.length > 0)
+                : `${changed} changed.`
+            setResult(summary)
+            onDone(itemFailures.length > 0, summary)
         } catch {
             // fetch itself rejected (offline, DNS, etc.) — the reviewer still
             // needs to see that nothing happened, not silence.
@@ -107,10 +116,16 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
 
             {operationId && (
                 <div className={s.consequence}>
+                    {/* "Moves N items", not "moves N files on disk": a
+                        selection is a mix, and roughly a third of the archive
+                        is embeds with no bytes to move. Inspector can say
+                        which because it holds one item; this panel cannot know
+                        the mix, so it says the thing that is true of both. */}
                     {operationId === 'unknown'
-                        ? <>Moves <b>{ids.length}</b> files into <b>Unknown</b> on disk and clears their dates.</>
-                        : <>Moves <b>{ids.length}</b> files into <b>{target?.title}</b>&rsquo;s folder on disk
-                            {target?.date ? <> and dates them <b>{new Date(target.date).toLocaleDateString('en-AU')}</b></> : null}.</>}
+                        ? <>Moves <b>{ids.length}</b> items to <b>Unknown</b> and clears their dates. Uploads are moved on disk; embeds are relabelled in place.</>
+                        : <>Moves <b>{ids.length}</b> items to <b>{target?.title}</b>
+                            {target?.date ? <> and dates them <b>{new Date(target.date).toLocaleDateString('en-AU')}</b></> : null}.
+                            Uploads are moved into its folder on disk; embeds are relabelled in place.</>}
                 </div>
             )}
 
