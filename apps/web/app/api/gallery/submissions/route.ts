@@ -11,6 +11,7 @@ import { enqueue } from '@/lib/gallery/queue'
 import { checkFile, checkItemCount, kindForMime } from '@/lib/gallery/limits'
 import { parseEmbedUrl } from '@/lib/gallery/embeds'
 import { splitOperation } from '@/lib/gallery/naming'
+import { operationYear } from '@/lib/gallery/relocate'
 
 /**
  * One submitted item per request.
@@ -63,7 +64,11 @@ async function resolveOperation(operationId: string | null): Promise<OperationFi
         operationId: op._id,
         operation: op.title ?? undefined,
         opLabel: label,
-        year: op.date ? String(new Date(op.date).getFullYear()) : undefined,
+        // operationYear(), not a local getFullYear(): relocateMedia and
+        // operationFields() (submissions/[id]/route.ts) already read this
+        // date in UTC to choose a year folder, and a local read here would
+        // disagree with both of them on a server not running in UTC.
+        year: op.date ? operationYear(new Date(op.date)) : undefined,
         takenAt: op.date ? new Date(op.date) : null,
     }
 }

@@ -11,7 +11,7 @@ import { canTransition } from '@/lib/gallery/status'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 import { fetchEmbedPoster } from '@/lib/gallery/poster'
 import { splitOperation } from '@/lib/gallery/naming'
-import { operationYear } from '@/lib/gallery/relocate'
+import { operationYear, relocateMedia, resolveOperationFolder, type RelocateDeps } from '@/lib/gallery/relocate'
 
 /**
  * What a reviewer can do to one submission.
@@ -40,27 +40,42 @@ function reviewerName(me: { guild?: { displayName?: string | null } | null, glob
  *  An undated operation leaves `year` absent rather than `''`, matching
  *  `submissions/route.ts`'s POST — two producers of the same field disagreeing
  *  on "no year" would make every reader guess which spelling it might see.
- *  `year` itself comes from `operationYear()` (lib/gallery/relocate.ts) rather
- *  than a local `getFullYear()`, because `relocateMedia` computes the same
- *  year to choose a folder — a local read would disagree with the folder on
- *  a server not running in UTC. */
-async function operationFields(operationId: string | null): Promise<{ $set: Record<string, unknown>, $unset?: Record<string, ''> } | null> {
+ *
+ *  `operation`/`opLabel`/`year` are resolved through `resolveOperationFolder()`
+ *  (lib/gallery/relocate.ts) rather than read straight off the operation
+ *  document, because that is the exact same resolver `relocateMedia` calls to
+ *  pick the folder a published item's file lives in. This function and
+ *  `relocateMedia` run against the same document seconds apart — first a
+ *  reviewer corrects the operation here, then accepting the item moves its
+ *  file — so if this wrote `op.title` (`"OPERATION Silent Ridge — Sat"`)
+ *  while `relocateMedia` writes the folder name (`"4. Op Silent Ridge"`), the
+ *  document would carry one spelling until publish and a different one after.
+ *  The public gallery's facet rail groups tiles on `operation` and displays
+ *  `opLabel`, so that split would show up as two filter entries for what is
+ *  really one operation. `deps` defaults to the real collections; a test
+ *  overrides it (with a throwaway `contentDir`) so this never touches the
+ *  real storage/gallery tree — exported for that reason. */
+export async function operationFields(
+    operationId: string | null,
+    deps: RelocateDeps = { media: Db.galleryMedia, operations: Db.operations },
+): Promise<{ $set: Record<string, unknown>, $unset?: Record<string, ''> } | null> {
     if (!operationId || operationId === 'unknown') {
         return { $unset: { operationId: '', operation: '', opLabel: '', year: '' }, $set: { takenAt: null } }
     }
     if (!ObjectId.isValid(operationId)) return null
 
-    const op = await Db.operations.findOne({ _id: new ObjectId(operationId) }, { projection: { title: 1, date: 1 } })
+    const opObjectId = new ObjectId(operationId)
+    const op = await deps.operations.findOne({ _id: opObjectId }, { projection: { title: 1, date: 1 } })
     if (!op) return null
 
-    const { label } = splitOperation(op.title ?? '')
+    const { year, operation } = await resolveOperationFolder(deps, opObjectId)
     const set: Record<string, unknown> = {
         operationId: op._id,
-        operation: op.title ?? '',
-        opLabel: label,
+        operation: operation ?? '',
+        opLabel: operation ? splitOperation(operation).label : '',
         takenAt: op.date ? new Date(op.date) : null,
     }
-    if (op.date) return { $set: { ...set, year: operationYear(new Date(op.date)) } }
+    if (year) return { $set: { ...set, year } }
     return { $set: set, $unset: { year: '' } }
 }
 
@@ -136,6 +151,28 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
     // Fetched now rather than at submission, so a reviewer's edits to the
     // caption are on the placeholder if a placeholder is what we end up with.
     if (doc.source !== 'upload' && !doc.posterKey) await fetchEmbedPoster(doc)
+
+    /* Into the readable tree, and only now.
+       A file lives flat under media/ while it is pending and moves to
+       content/{year}/{operation}/ on publish, carrying its id in the filename.
+       Doing it here rather than at upload means a rejected submission never
+       touches the archive tree, and a reviewer who corrects the operation
+       causes one move instead of two.
+
+       Before the status change, not after: if this throws, nothing is
+       published, which is recoverable. The reverse would leave a live document
+       pointing at a file that was never moved. Embeds have no bytes and
+       relocateMedia returns null for them without doing anything. */
+    if (doc.source === 'upload') {
+        try {
+            await relocateMedia({ media: Db.galleryMedia, operations: Db.operations }, doc._id)
+        } catch (err) {
+            console.error('[gallery] failed to file media into the content tree', id, err)
+            return NextResponse.json({
+                error: 'Could not move this item into the gallery archive. Nothing was published.',
+            }, { status: 500 })
+        }
+    }
 
     await Db.galleryMedia.updateOne({ _id: doc._id }, {
         $set: { status: 'live', publishedAt: new Date(), publishedBy: me.id },
