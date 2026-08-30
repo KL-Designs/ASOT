@@ -23,10 +23,19 @@ declare global {
         source: 'upload' | EmbedProvider
 
         /**
-         * Uploads and migrated legacy files.
-         *   'media:{_id}.{ext}'                    -> storage/gallery/media/...
-         *   'legacy:{year}/{op}/{mission}/{file}'  -> storage/gallery/content/...
-         * The prefix is what tells the serving layer which tree to look in.
+         * Where the bytes are. The prefix names the directory.
+         *   'content:{year}/{op}/{mission}/{file}'  -> storage/gallery/content/...
+         *   'content:{year}/{op}/{file}'            -> a published submission, no mission
+         *   'content:Unknown/{file}'                -> no operation resolved
+         *   'media:{_id}.{ext}'                     -> storage/gallery/media/... (pending only)
+         *   'featured:{file}'                       -> storage/gallery/featured/...
+         *   'sotm:{file}'                           -> storage/gallery/sotm/...
+         * 'legacy:' is the former spelling of 'content:' and still resolves.
+         *
+         * A file reaches the content tree when it is PUBLISHED, not when it is
+         * uploaded: staging/ -> media/ (pending) -> content/ (live). So the
+         * readable tree holds only archive material, and a rejected submission
+         * never touches it.
          */
         storageKey?: string
         /** 'media:{_id}_poster.jpg'. Uploaded video and embeds; stills have none. */
@@ -68,6 +77,14 @@ declare global {
         height?: number
         durationSec?: number
         bytes?: number
+
+        /** Featured rail position. Absent means not featured. */
+        featuredOrder?: number
+        /** When this became the screenshot of the month. Absent means it never was. */
+        sotmAt?: Date
+        /** The photographer credit shown with the screenshot of the month, which
+         *  is not always the submitting member. */
+        sotmCredit?: string
 
         status: GalleryStatus
         /** Why processing failed. Carried into the review queue rather than

@@ -39,6 +39,10 @@ export function posterKey(id: string): string {
     return `media:${id}_poster.jpg`
 }
 
+export function contentKey(relative: string): string {
+    return `content:${relative}`
+}
+
 /** The absolute path this key names, or null if it does not name one safely. */
 export function resolveStorageKey(key: string): string | null {
     if (!key) return null
@@ -50,17 +54,39 @@ export function resolveStorageKey(key: string): string | null {
         return resolved.startsWith(MEDIA_DIR + path.sep) ? resolved : null
     }
 
-    if (key.startsWith('legacy:')) {
-        const rest = key.slice('legacy:'.length)
+    /* `content:` replaces `legacy:` — the tree stopped being legacy the moment
+       published submissions started landing in it. `legacy:` is still accepted
+       because a developer database may hold keys written before the rename;
+       both name the same directory. */
+    if (key.startsWith('content:') || key.startsWith('legacy:')) {
+        const rest = key.slice(key.indexOf(':') + 1)
         if (!rest) return null
+
         const segments = rest.split('/')
-        // Four segments exactly — year, operation, mission, file — and none of
-        // them may be a traversal or empty.
-        if (segments.length !== 4) return null
+        // Two, three or four: Unknown/file, year/operation/file, and the
+        // original year/operation/mission/file. Empty segments are rejected
+        // rather than filtered, because here they mean a malformed key rather
+        // than a human's stray slash.
+        if (segments.length < 2 || segments.length > 4) return null
         if (segments.some(s => !s || s === '.' || s === '..' || s.includes('\\'))) return null
+
         const resolved = path.resolve(CONTENT_DIR, ...segments)
         return resolved.startsWith(CONTENT_DIR + path.sep) ? resolved : null
     }
 
+    if (key.startsWith('featured:')) return resolveFlat(FEATURED_DIR, key.slice('featured:'.length))
+    if (key.startsWith('sotm:')) return resolveFlat(SOTM_DIR, key.slice('sotm:'.length))
+
     return null
+}
+
+/** A plain filename directly inside `dir` — no separators, no traversal.
+ *  Used for the two directories whose files predate media ids. */
+function resolveFlat(dir: string, file: string): string | null {
+    if (!file || file === '.' || file === '..') return null
+    if (file.includes('/') || file.includes('\\')) return null
+    if (/[\u0000-\u001f]/.test(file)) return null
+
+    const resolved = path.resolve(dir, file)
+    return resolved.startsWith(dir + path.sep) ? resolved : null
 }
