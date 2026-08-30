@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import type { Filter } from 'mongodb'
 
 import Db from '@/lib/mongo'
@@ -64,19 +64,44 @@ export async function GET() {
     /* Assembled here rather than in the aggregation because the tree is small
        (a few hundred rows) and $group cannot nest. A missing year or operation
        is filed under 'Unknown' rather than dropped — those are exactly the
-       items a reviewer opened this tab to fix. */
+       items a reviewer opened this tab to fix.
+
+       `row._id.year`/`row._id.operation` is `null` when the field is absent
+       from the document, and can independently be the literal string
+       'Unknown' when a document actually holds that word — relocate.ts's
+       undated-operation branch writes an operation's raw, unvalidated title
+       verbatim, so an admin can title a real Operation exactly 'Unknown';
+       and pre-fix parseContentPath used to write the literal string as a
+       year for a nested `Unknown/SomeFolder/x.jpg`, and documents written
+       that way are still in the database. A plain `row._id.year ?? 'Unknown'`
+       folds both into the same map key, so the row's count includes the
+       literal-string documents — but buildLibraryFilter's `yearUnset`/
+       `operationUnset` (lib/gallery/library-query.ts) only ever match
+       `{ $exists: false }`, which excludes them. The row's count and what
+       clicking it returns would disagree. UNSET keys the absent case with a
+       control character sanitizeSegment (content-path.ts) strips from every
+       value this route can otherwise see, so it can never collide with a
+       real field value — including the literal string 'Unknown' — and the
+       two stay distinguishable all the way to the API response via the
+       `unset` flag below, rather than being silently re-merged the way `??`
+       would. */
+    const UNSET = '\u0000'
+
     const years = new Map<string, Map<string, { labelCounts: Map<string, number>, count: number, missions: Map<string, number> }>>()
 
     for (const row of tree) {
-        const year = row._id.year ?? 'Unknown'
-        const operation = row._id.operation ?? 'Unknown'
-        const opLabel = row._id.opLabel ?? operation
+        const yearKey = row._id.year ?? UNSET
+        const opKey = row._id.operation ?? UNSET
+        // Falls back to the operation's own display value (not a hardcoded
+        // 'Unknown') so a literal-'Unknown' operation with no opLabel still
+        // shows 'Unknown' rather than the control-character key leaking out.
+        const opLabel = row._id.opLabel ?? (opKey === UNSET ? 'Unknown' : opKey)
 
-        const ops = years.get(year) ?? new Map()
-        years.set(year, ops)
+        const ops = years.get(yearKey) ?? new Map()
+        years.set(yearKey, ops)
 
-        const op = ops.get(operation) ?? { labelCounts: new Map<string, number>(), count: 0, missions: new Map<string, number>() }
-        ops.set(operation, op)
+        const op = ops.get(opKey) ?? { labelCounts: new Map<string, number>(), count: 0, missions: new Map<string, number>() }
+        ops.set(opKey, op)
 
         op.count += row.count
         // opLabel isn't picked here, only tallied: $group makes no promise
@@ -98,6 +123,24 @@ export async function GET() {
             .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
     }
 
+    /* The UNSET bucket (if present) is always placed last, regardless of
+       where a raw control character would otherwise sort under locale-aware
+       comparison. Doing this explicitly is what actually guarantees the
+       field-missing row sorts last, which the previous single-key version
+       only got by coincidence of comparing the literal word against digit
+       years. `known` is sorted with `compare`; the unset entry, if any, is
+       appended after. */
+    function orderedEntries<T>(map: Map<string, T>, compare: (a: string, b: string) => number): [string, T][] {
+        const known: [string, T][] = []
+        let unset: [string, T] | undefined
+        for (const entry of map) {
+            if (entry[0] === UNSET) unset = entry
+            else known.push(entry)
+        }
+        known.sort((a, b) => compare(a[0], b[0]))
+        return unset ? [...known, unset] : known
+    }
+
     const facets: LibraryFacetsAPI = {
         views: {
             all,
@@ -108,18 +151,20 @@ export async function GET() {
                 ? health.missingFiles.length + health.notIndexed.length + health.failedProcessing.length
                 : 0,
         },
-        // Descending, so the years with the most work sit at the top —
-        // and 'Unknown' sorts last by name, which is where it belongs.
-        years: [...years.entries()]
-            .sort((a, b) => b[0].localeCompare(a[0]))
-            .map(([year, ops]) => ({
-                year,
+        // Descending, so the years with the most work sit at the top — and
+        // the field-missing row sorts last, which orderedEntries guarantees
+        // explicitly (see its own comment) rather than leaving to how a
+        // control character happens to compare against a digit year.
+        years: orderedEntries(years, (a, b) => b.localeCompare(a))
+            .map(([yearKey, ops]) => ({
+                year: yearKey === UNSET ? 'Unknown' : yearKey,
+                unset: yearKey === UNSET,
                 count: [...ops.values()].reduce((n, op) => n + op.count, 0),
-                operations: [...ops.entries()]
-                    .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-                    .map(([operation, op]) => ({
-                        operation,
+                operations: orderedEntries(ops, (a, b) => a.localeCompare(b, undefined, { numeric: true }))
+                    .map(([opKey, op]) => ({
+                        operation: opKey === UNSET ? 'Unknown' : opKey,
                         opLabel: majorityLabel(op.labelCounts),
+                        unset: opKey === UNSET,
                         count: op.count,
                         missions: [...op.missions.entries()]
                             .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))

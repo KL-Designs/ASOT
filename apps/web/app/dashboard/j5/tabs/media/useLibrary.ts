@@ -104,27 +104,32 @@ export function useLibrary() {
     /**
      * A tree row's year/operation/mission, translated into filter state.
      *
-     * LibraryRail passes the raw values it read off the facets response,
-     * where the Unknown bucket is reported as the literal string 'Unknown'
-     * (facets/route.ts's own display fallback for an absent field, `row._id
-     * .year ?? 'Unknown'`). That string is translated to `null` plus the
-     * matching `*Unset` flag here, in one place, rather than passed through
-     * as a filter value: a real document can legitimately hold the literal
-     * string 'Unknown' (relocate.ts's undated-operation branch writes an
-     * operation's raw, unvalidated title verbatim, so an admin can title one
-     * exactly that), so the string can no longer double as "this field is
-     * absent" — see lib/gallery/library-query.ts's comment on
-     * buildLibraryFilter for the full reasoning.
+     * LibraryRail passes each field's `unset` flag straight from the facets
+     * response (facets/route.ts's tree assembly) rather than this hook
+     * inferring it from the display text: the rail can hold two rows that
+     * both show the label 'Unknown' — one for "the field is absent", one for
+     * a document whose field literally holds that word (relocate.ts's
+     * undated-operation branch writes an operation's raw, unvalidated title
+     * verbatim, so an admin can title one exactly 'Unknown') — and a string
+     * comparison here could not tell the two apart once both exist. The
+     * absent one becomes the `*Unset` filter channel; the literal one is
+     * passed through as an ordinary value, same as any other year/operation
+     * — see lib/gallery/library-query.ts's comment on buildLibraryFilter for
+     * why those are two disjoint channels.
      */
-    const selectNode = useCallback((year: string | null, operation: string | null, mission: string | null) => {
+    const selectNode = useCallback((sel: {
+        year: string | null, yearUnset: boolean,
+        operation: string | null, operationUnset: boolean,
+        mission: string | null,
+    }) => {
         setFilters(prev => ({
             ...prev,
             view: 'all',
-            year: year === 'Unknown' ? null : year,
-            yearUnset: year === 'Unknown',
-            operation: operation === 'Unknown' ? null : operation,
-            operationUnset: operation === 'Unknown',
-            mission,
+            year: sel.yearUnset ? null : sel.year,
+            yearUnset: sel.yearUnset,
+            operation: sel.operationUnset ? null : sel.operation,
+            operationUnset: sel.operationUnset,
+            mission: sel.mission,
         }))
         setPage(0)
     }, [])

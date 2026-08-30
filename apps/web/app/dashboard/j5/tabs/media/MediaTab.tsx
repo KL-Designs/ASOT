@@ -91,18 +91,19 @@ export default function MediaTab() {
                 <LibraryRail
                     facets={facets}
                     view={filters.view}
-                    // LibraryRail only ever compares these against the raw
-                    // strings the facets response itself uses ('Unknown' for
-                    // an absent field — see selectNode's comment in
-                    // useLibrary.ts) to decide which row is highlighted; it
-                    // never sends them to the query. Mapping *Unset back to
-                    // that display string here — the inverse of what
-                    // selectNode does going in — is what keeps the Unknown
-                    // row (and "All media" losing its highlight under it)
-                    // showing correctly without LibraryRail needing to know
-                    // the boolean flags exist at all.
-                    year={filters.yearUnset ? 'Unknown' : filters.year}
-                    operation={filters.operationUnset ? 'Unknown' : filters.operation}
+                    // Passed straight through rather than translated into
+                    // the display string 'Unknown': the facets response can
+                    // now carry two rows that both show that label — one for
+                    // "the field is absent" (yearUnset/operationUnset), one
+                    // for a document whose field literally is that word —
+                    // and only the raw boolean tells LibraryRail which one
+                    // the current filter actually selected. See LibraryRail's
+                    // yearSelected/opSelected and facets/route.ts's tree
+                    // assembly for the full reasoning.
+                    year={filters.year}
+                    yearUnset={filters.yearUnset}
+                    operation={filters.operation}
+                    operationUnset={filters.operationUnset}
                     mission={filters.mission}
                     onView={v => {
                         setParam('view', v)

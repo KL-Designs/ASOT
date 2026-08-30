@@ -133,10 +133,21 @@ declare global {
         views: { all: number, unknown: number, nocaption: number, videos: number, health: number }
         years: {
             year: string
+            /** True when this row is the "field is absent" bucket, as
+             *  opposed to a row whose `year` literally is the string
+             *  'Unknown' (relocate.ts can write that verbatim, and legacy
+             *  documents from parseContentPath's pre-fix behaviour still
+             *  hold it). Both display the same label, so this is what lets
+             *  the rail send the right filter channel — `yearUnset` for
+             *  this row, a literal `year` match for the other — instead of
+             *  the two being indistinguishable once both exist. */
+            unset: boolean
             count: number
             operations: {
                 operation: string
                 opLabel: string
+                /** Same distinction as `unset` above, one level down. */
+                unset: boolean
                 count: number
                 missions: { mission: string, count: number }[]
             }[]
