@@ -53,16 +53,35 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!file) return new NextResponse('Not found', { status: 404 })
 
     let size: number
-    try { size = statSync(file).size } catch { return new NextResponse('Not found', { status: 404 }) }
+    let etag: string
+    try {
+        const stat = statSync(file)
+        size = stat.size
+        // Weak: byte-range responses below are not the full entity, so a
+        // strong validator would be wrong on a 206.
+        etag = `W/"${doc._id.toString()}-${stat.size.toString(36)}-${Math.floor(stat.mtimeMs).toString(36)}"`
+    } catch { return new NextResponse('Not found', { status: 404 }) }
 
     const ext = file.slice(file.lastIndexOf('.') + 1).toLowerCase()
     const contentType = CONTENT_TYPES[ext] ?? 'application/octet-stream'
 
-    /* Only live media is cached hard. A pending item can be re-processed or
-       corrected, and an immutable cache entry would outlive the change. */
+    /* No `immutable`, deliberately. This URL is addressed by media id, not by
+       content hash, so its bytes can be replaced by a re-process and can
+       vanish entirely on a delete. `immutable` promised a year of never
+       revalidating and delivered exactly that: a deleted image kept rendering
+       through a force-refresh because the browser never asked again. An ETag
+       over size and mtime gives the same saving on repeat views and self-heals
+       in an hour when it doesn't. */
     const cacheControl = isPublic(doc.status)
-        ? 'public, max-age=31536000, immutable'
+        ? 'public, max-age=3600'
         : 'private, no-store'
+
+    /* Only on a full request. A 304 to a ranged request would tell the player
+       its cached copy of the whole file is current, which is not what it
+       asked and not what it has. */
+    if (!request.headers.get('range') && request.headers.get('if-none-match') === etag) {
+        return new NextResponse(null, { status: 304, headers: { ETag: etag, 'Cache-Control': cacheControl } })
+    }
 
     const result = parseRange(request.headers.get('range'), size)
 
@@ -84,6 +103,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                 'Content-Range': `bytes ${start}-${end}/${size}`,
                 'Accept-Ranges': 'bytes',
                 'Cache-Control': cacheControl,
+                ETag: etag,
             },
         })
     }
@@ -97,6 +117,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             // for a range in the first place.
             'Accept-Ranges': 'bytes',
             'Cache-Control': cacheControl,
+            ETag: etag,
         },
     })
 }

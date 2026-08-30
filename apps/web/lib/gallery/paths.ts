@@ -24,6 +24,8 @@ const GALLERY_ROOT = path.resolve('../../storage/gallery')
 export const CONTENT_DIR = path.join(GALLERY_ROOT, 'content')
 export const MEDIA_DIR = path.join(GALLERY_ROOT, 'media')
 export const STAGING_DIR = path.join(GALLERY_ROOT, 'staging')
+export const FEATURED_DIR = path.join(GALLERY_ROOT, 'featured')
+export const SOTM_DIR = path.join(GALLERY_ROOT, 'sotm')
 
 /** A media filename this application wrote: an ObjectId hex, an optional
  *  _poster suffix, and an extension. Nothing else. */
