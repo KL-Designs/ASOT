@@ -36,6 +36,12 @@ function isSort(value: string): value is LibrarySort {
     return SORTS.some(s => s === value)
 }
 
+// Same reasoning one filter over: the Kind select's two MenuItems are the
+// only valid values, and anything else means "not filtering on kind".
+function isKind(value: string): value is 'image' | 'video' {
+    return value === 'image' || value === 'video'
+}
+
 /**
  * The archive, and everything a reviewer can do to it.
  *
@@ -202,6 +208,62 @@ export default function MediaTab() {
                             <MenuItem value='oldest'>Oldest first</MenuItem>
                             <MenuItem value='rated'>Top rated</MenuItem>
                             <MenuItem value='operation'>By operation</MenuItem>
+                        </TextField>
+                        {/* The tag/author/kind chips. LibraryParams,
+                            buildLibraryFilter and the facets route have all
+                            supported these three from the start — the facets
+                            route pays for two full-collection aggregations
+                            (one with a $unwind) on every rail load and after
+                            every edit to compute the tag and author counts —
+                            and nothing rendered them, so the cost was being
+                            paid for nothing. Counts are shown in the option
+                            because the whole rail's argument is that a number
+                            tells a reviewer whether a row is worth opening.
+
+                            Options come from `facets`, which lists only what
+                            is actually in use, so no option here can return
+                            an empty grid. */}
+                        <TextField
+                            size='small'
+                            select
+                            label='Tag'
+                            value={filters.tag ?? ''}
+                            onChange={e => setParam('tag', e.target.value || null)}
+                            sx={{ ...inputSx, minWidth: 130 }}
+                        >
+                            <MenuItem value=''>Any tag</MenuItem>
+                            {(facets?.tags ?? []).map(t => (
+                                <MenuItem key={t.slug} value={t.slug}>{t.label} · {t.count.toLocaleString('en-AU')}</MenuItem>
+                            ))}
+                        </TextField>
+                        <TextField
+                            size='small'
+                            select
+                            label='Author'
+                            value={filters.author ?? ''}
+                            onChange={e => setParam('author', e.target.value || null)}
+                            sx={{ ...inputSx, minWidth: 150 }}
+                        >
+                            <MenuItem value=''>Any author</MenuItem>
+                            {(facets?.authors ?? []).map(a => (
+                                <MenuItem key={a.name} value={a.name}>{a.name} · {a.count.toLocaleString('en-AU')}</MenuItem>
+                            ))}
+                        </TextField>
+                        <TextField
+                            size='small'
+                            select
+                            label='Kind'
+                            value={filters.kind ?? ''}
+                            // An explicit kind wins over the Videos view —
+                            // buildLibraryFilter applies it after the view for
+                            // exactly that reason, so the grid can never
+                            // disagree with the chip on screen.
+                            onChange={e => setParam('kind', isKind(e.target.value) ? e.target.value : null)}
+                            sx={{ ...inputSx, minWidth: 110 }}
+                        >
+                            <MenuItem value=''>Any kind</MenuItem>
+                            <MenuItem value='image'>Images</MenuItem>
+                            <MenuItem value='video'>Videos</MenuItem>
                         </TextField>
                         <Button size='small' onClick={() => { clear(); setSelected(new Set()) }} sx={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.5)' }}>
                             Clear filters
