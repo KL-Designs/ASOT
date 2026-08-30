@@ -173,7 +173,23 @@
     gap: 8px;
 }
 .preview { aspect-ratio: 16 / 10; border: 1px solid rgba(255, 255, 255, 0.06); }
-.preview img, .preview video { width: 100%; height: 100%; object-fit: contain; display: block; }
+.preview img, .preview video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
+.preview iframe { width: 100%; height: 100%; border: 0; display: block; }
+.previewEmpty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(237, 237, 237, 0.32);
+    font-family: var(--font-cond);
+    font-size: 12px;
+}
+
+/* The "On disk" mini-section: its own header sitting directly above the path
+   block, rather than inheriting the 10px gap .insp puts between every other
+   field — that gap read as the header belonging to nothing in particular. */
+.diskBlock { display: flex; flex-direction: column; gap: 4px; }
 
 .facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 11.5px; align-items: baseline; }
 .facts dt {
@@ -207,6 +223,11 @@
     color: rgba(237, 237, 237, 0.62);
 }
 .consequence b { color: var(--foreground); }
+
+/* Save/Delete row — pinned to the bottom of the flex column via margin-top:
+   auto, so it stays put whether the panel above it is a single image or a
+   full field set with tags and the storage path. */
+.actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; }
 
 @media (max-width: 1180px) {
     .work { grid-template-columns: 190px 1fr; }

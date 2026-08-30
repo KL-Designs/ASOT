@@ -6,7 +6,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { logAction } from '@/lib/logAction'
-import { operationFacets } from '@/lib/gallery/operation-facets'
+import { operationFacets, type OperationFacetUpdate } from '@/lib/gallery/operation-facets'
 import { relocateMedia } from '@/lib/gallery/relocate'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 
@@ -95,6 +95,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const relocating = doc.source === 'upload' && !!doc.storageKey
 
     let moving = false
+    // Captured so the post-update fallback below can apply it: `doc.storageKey`
+    // being present is not proof the bytes behind it still exist (the Health
+    // view's missingFiles), and relocateMedia silently returns null rather than
+    // writing anything when there is no file to move — so the facets computed
+    // here have to be ready to write themselves if that happens.
+    let pendingFacets: OperationFacetUpdate | null = null
     if (operationId !== undefined) {
         // One validator for both branches, so "No such operation" means the
         // same thing whether or not the item has a file behind it.
@@ -105,9 +111,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         if (!facets) return NextResponse.json({ error: 'No such operation' }, { status: 400 })
 
         if (relocating) {
-            // Just the id. relocateMedia, below, writes the rest.
+            // Just the id. relocateMedia, below, writes the rest — unless it
+            // turns out to have nothing to move, in which case the fallback
+            // after it applies these instead.
             if (facets.$set.operationId) set.operationId = facets.$set.operationId
             else unset.operationId = ''
+            pendingFacets = facets
         } else {
             // Nothing will relocate this item, so the facets are written here
             // — in the same update as the id, which is what stops the two
@@ -134,7 +143,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
        repair. */
     if (relocating) {
         try {
-            await relocateMedia({ media: Db.galleryMedia, operations: Db.operations }, _id)
+            const result = await relocateMedia({ media: Db.galleryMedia, operations: Db.operations }, _id)
+            if (!result && pendingFacets) {
+                // relocateMedia found no file behind doc.storageKey and returned
+                // without writing anything — `relocating` above only checked that
+                // a storageKey is PRESENT, not that the bytes it names still
+                // exist (an upload the Health view lists under missingFiles has
+                // exactly this shape). Only operationId was written above, so
+                // without this, year/operation/opLabel/takenAt would keep naming
+                // the operation this item was just reassigned away from — the
+                // same defect the embed path was fixed for, with a narrower
+                // cause. Exactly one producer still writes these four fields:
+                // relocateMedia claimed the job by being the relocating branch,
+                // found nothing to do, and this is that claim being given back.
+                await Db.galleryMedia.updateOne({ _id }, {
+                    ...(Object.keys(pendingFacets.$set).length ? { $set: pendingFacets.$set } : {}),
+                    ...(pendingFacets.$unset && Object.keys(pendingFacets.$unset).length ? { $unset: pendingFacets.$unset } : {}),
+                })
+            }
         } catch (err) {
             console.error('[gallery/admin] relocate failed for', id, err)
             /* Deliberately not "run a re-scan": a re-scan is curative for only

@@ -1,14 +1,17 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Button, MenuItem, TextField, Typography } from '@mui/material'
 
 import { PAGE_SIZE, type LibrarySort } from '@/lib/gallery/library-query'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import Inspector from './Inspector'
 import LibraryRail from './LibraryRail'
 import MediaGrid from './MediaGrid'
 import { useLibrary } from './useLibrary'
 import s from '@/styles/media-console.module.css'
+
+type Operation = { id: string, title: string, date: string | null }
 
 const inputSx = {
     '& .MuiOutlinedInput-root': {
@@ -40,8 +43,23 @@ function isSort(value: string): value is LibrarySort {
  * against gallery_media rather than a directory listing.
  */
 export default function MediaTab() {
-    const { items, total, facets, filters, setParam, selectNode, clear, loading, page, setPage } = useLibrary()
+    const { items, total, facets, filters, setParam, selectNode, clear, loading, page, setPage, refresh } = useLibrary()
     const [selected, setSelected] = useState<Set<string>>(new Set())
+    const [operations, setOperations] = useState<Operation[]>([])
+    const [tagVocab, setTagVocab] = useState<{ slug: string, label: string }[]>([])
+
+    // Fetched once — the picker's own list of operations/tags rather than the
+    // filter facets in `facets`, which only carry the ones already in use on
+    // a media item and would never offer an operation nothing has been tagged
+    // with yet.
+    useEffect(() => {
+        fetch('/api/gallery/operations').then(r => r.ok ? r.json() : null).then(d => {
+            if (d?.operations) setOperations(d.operations)
+        })
+        fetch('/api/gallery/tags').then(r => r.ok ? r.json() : null).then(d => {
+            if (d?.tags) setTagVocab(d.tags.filter((t: { retired: boolean }) => !t.retired))
+        })
+    }, [])
 
     const toggle = useCallback((id: string) => {
         setSelected(prev => {
@@ -129,14 +147,27 @@ export default function MediaTab() {
                     )}
                 </div>
 
-                <aside className={s.insp}>
-                    <div className={s.inspHead}><span>Inspector</span></div>
-                    <Typography sx={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.38)' }}>
-                        {selected.size === 0
-                            ? 'Select an item to edit it.'
-                            : `${selected.size} selected. Editing arrives in the next task.`}
-                    </Typography>
-                </aside>
+                {selected.size === 1
+                    ? (() => {
+                        const item = items.find(i => selected.has(i.id))
+                        return item ? (
+                            <Inspector
+                                item={item}
+                                operations={operations}
+                                tags={tagVocab}
+                                onSaved={() => { refresh() }}
+                                onDeleted={() => { setSelected(new Set()); refresh() }}
+                            />
+                        ) : null
+                    })()
+                    : (
+                        <aside className={s.insp}>
+                            <div className={s.inspHead}><span>{selected.size === 0 ? 'Inspector' : 'Bulk edit'}</span></div>
+                            <Typography sx={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.38)' }}>
+                                {selected.size === 0 ? 'Select an item to edit it.' : `${selected.size} selected.`}
+                            </Typography>
+                        </aside>
+                    )}
             </div>
         </div>
     )
