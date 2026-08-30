@@ -223,46 +223,53 @@ export async function getScreenshotOfMonth(): Promise<ScreenshotOfMonth | null> 
 
 export type GalleryTile = {
     src: string
-    /** The filename, tidied up — see the note in getGalleryTiles. */
+    /** The media's own caption or operation label, when it has one — see the
+     *  note in getGalleryTiles. */
     caption: string
 }
 
 /**
  * A random handful of the gallery's featured images.
  *
- * Featured is the curated shelf, so it is a better source for the home page
- * than the newest files in the content tree — those are just whatever was
- * uploaded last. Shuffled per request, so a return visit gets a different set.
+ * Reads `gallery_media` where `featuredOrder` is set — the same rotation the
+ * public gallery's featured rail plays (`/api/gallery/route.ts`) and the
+ * Featured tab curates (`PUT /api/gallery/admin/featured/order`) — rather
+ * than its own `readdir` of storage/gallery/featured, which this used to
+ * walk directly. That directory is legacy bytes only: nothing removes a file
+ * from it when J5 drops the item from the rotation in the console, so the
+ * two sources disagreed the moment featuredOrder existed — a screenshot
+ * pulled from the rail this morning could still be on the homepage this
+ * afternoon. Querying the same field the rail reads is what keeps the
+ * homepage and the gallery page from ever showing a different rotation.
  *
- * The caption is the filename made presentable, because that is all the gallery
- * stores: it is a filesystem tree with no titles, dates or photographer
- * credits. Rather than invent a credit, this claims none.
+ * Shuffled per request, so a return visit gets a different set — the
+ * ordering `featuredOrder` itself carries is what the rail plays in
+ * sequence; the homepage only ever wanted a handful, not that sequence.
+ *
+ * The caption is the media's own caption, falling back to its operation
+ * label — unlike the old filename-derived text, these documents actually
+ * carry one now.
  */
 export async function getGalleryTiles(limit = 6): Promise<GalleryTile[]> {
-    const fs = await import('fs/promises')
-
     try {
-        const files = (await fs.readdir('../../storage/gallery/featured'))
-            .filter(f => /\.(jpe?g|png|webp|gif)$/i.test(f))
+        const docs = await Db.galleryMedia
+            .find({ status: 'live', featuredOrder: { $exists: true } })
+            .toArray()
 
         // Fisher-Yates over a copy — a sort() with a random comparator is not a
         // uniform shuffle, and this is small enough that the real thing is free.
-        for (let i = files.length - 1; i > 0; i--) {
+        for (let i = docs.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1))
-            ;[files[i], files[j]] = [files[j], files[i]]
+            ;[docs[i], docs[j]] = [docs[j], docs[i]]
         }
 
-        return files.slice(0, limit).map(file => ({
-            src: `/api/gallery/featured?img=${encodeURIComponent(file)}`,
-            caption: file
-                .replace(/\.[^.]+$/, '')
-                .replace(/[-_]+/g, ' ')
-                .replace(/\s+/g, ' ')
-                .trim(),
+        return docs.slice(0, limit).map(doc => ({
+            src: `/api/gallery/media/${doc._id.toString()}`,
+            caption: doc.caption || doc.opLabel || '',
         }))
     }
 
-    // No featured folder on disk — the strip renders nothing rather than a
+    // No item in rotation yet — the strip renders nothing rather than a
     // row of broken images.
     catch { return [] }
 }

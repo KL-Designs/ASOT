@@ -6,16 +6,20 @@ import type { GalleryTile } from '@/lib/landing'
 import s from '@/styles/landing.module.css'
 
 /**
- * Six frames drawn at random from the gallery's featured set.
+ * Six frames drawn at random from the gallery's featured rotation
+ * (`lib/landing.ts`'s `getGalleryTiles`, reading `gallery_media` where
+ * `featuredOrder` is set).
  *
  * Featured is the curated shelf — the J5 media team put images there
- * deliberately — so it is a better source for the home page than the newest
- * files in the content tree, which are simply whatever was uploaded last.
- * Re-shuffled per request, so the strip is different on a return visit.
+ * deliberately, through the console's Featured tab — so it is a better
+ * source for the home page than the newest files in the content tree, which
+ * are simply whatever was uploaded last. Re-shuffled per request, so the
+ * strip is different on a return visit.
  *
- * The caption is the filename tidied up. That is genuinely all the gallery
- * stores: it is a filesystem tree with no titles, dates or photographer
- * credits, so no credit is claimed here rather than inventing one.
+ * The caption is the media's own caption, or its operation label when it has
+ * no caption — `tile.caption` can still be an empty string for an item that
+ * carries neither, which just renders as a blank label rather than inventing
+ * one.
  */
 
 /*
