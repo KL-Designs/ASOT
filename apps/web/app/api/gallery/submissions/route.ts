@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ObjectId } from 'mongodb'
 import { mkdirSync, writeFileSync } from 'fs'
 import path from 'path'
 
@@ -10,8 +9,7 @@ import { STAGING_DIR } from '@/lib/gallery/paths'
 import { enqueue } from '@/lib/gallery/queue'
 import { checkFile, checkItemCount, kindForMime } from '@/lib/gallery/limits'
 import { parseEmbedUrl } from '@/lib/gallery/embeds'
-import { splitOperation } from '@/lib/gallery/naming'
-import { resolveOperationFolder, type RelocateDeps } from '@/lib/gallery/relocate'
+import { operationFacets } from '@/lib/gallery/operation-facets'
 
 /**
  * One submitted item per request.
@@ -30,79 +28,6 @@ import { resolveOperationFolder, type RelocateDeps } from '@/lib/gallery/relocat
 
 // A 500MB body needs longer than the platform default to arrive.
 export const maxDuration = 300
-
-/** The subset of GalleryMedia an operation choice fills in. Declared explicitly
- *  — rather than left for TypeScript to infer from the two return statements
- *  below — so `takenAt` has one real type (`Date | null | undefined`) that the
- *  caller can read directly. Without this, the inferred return type is a union
- *  of `{}` and the full shape, and reading `.takenAt` off that union needs an
- *  unchecked cast that would silently stop catching a typo'd field name. */
-type OperationFields = {
-    operationId?: ObjectId
-    operation?: string
-    opLabel?: string
-    year?: string
-    takenAt?: Date | null
-}
-
-/** Resolves the operation the submitter chose into the four fields that have to
- *  agree with each other. `'unknown'` leaves every one of them absent, which is
- *  what makes an undated item sort into its own group rather than lying about
- *  a date.
- *
- *  `operation`/`opLabel`/`year` go through `resolveOperationFolder()`
- *  (lib/gallery/relocate.ts) — the same resolver `relocateMedia` and
- *  `operationFields()` (the PATCH review handler, submissions/[id]/route.ts)
- *  already use — rather than reading `op.title`/a local year straight off the
- *  operation document. That matters more here than in either of those: an
- *  uploaded file's `operation`/`opLabel` written here are provisional and get
- *  overwritten the moment `relocateMedia` runs at accept, but an embed has no
- *  bytes, so `relocateMedia` never touches it — whatever gets written here is
- *  what the embed carries forever unless a reviewer PATCHes it by hand. A
- *  member submitting a photo and a YouTube link from the same operation used
- *  to end up with the photo tagged `operation: "4. Op Silent Ridge"` (once
- *  accepted) and the video permanently stuck at
- *  `operation: "OPERATION Silent Ridge — Sat"` — one operation rendered as
- *  two entries in the public facet rail, and the video's half never healed.
- *
- *  `resolveOperationFolder` only reads the existing folder listing here — it
- *  creates nothing on disk, so calling it before any file exists is safe. Its
- *  proposed name for a brand new operation (no folder yet, in either case) is
- *  therefore a guess, not a reservation: if some other operation's upload gets
- *  accepted first and claims that same "next" number within the year, an
- *  upload from THIS operation would compute a different number when it is
- *  later actually relocated, and an already-accepted embed's guess (which
- *  nothing ever revisits) would end up one folder number ahead of the real
- *  one. That residual race is inherent to guessing before any folder exists;
- *  it is far narrower than the near-certain mismatch this replaces. Nothing
- *  surfaces it: reconcile walks FILES and rule 4 needs a content: storageKey,
- *  which an embed never has at all, so the reconcile pass is structurally
- *  blind to it. Plan B's bulk reassign is the remedy, by hand. `deps`
- *  defaults to the real collections; a test overrides it (with a throwaway
- *  `contentDir`) the same way `operationFields()` does. */
-export async function resolveOperation(
-    operationId: string | null,
-    deps: RelocateDeps = { media: Db.galleryMedia, operations: Db.operations },
-): Promise<OperationFields> {
-    if (!operationId || operationId === 'unknown') return {}
-
-    if (!ObjectId.isValid(operationId)) return {}
-    const opObjectId = new ObjectId(operationId)
-    const op = await deps.operations.findOne(
-        { _id: opObjectId },
-        { projection: { title: 1, date: 1 } },
-    )
-    if (!op) return {}
-
-    const { year, operation } = await resolveOperationFolder(deps, opObjectId)
-    return {
-        operationId: op._id,
-        operation: operation ?? undefined,
-        opLabel: operation ? splitOperation(operation).label : undefined,
-        year: year ?? undefined,
-        takenAt: op.date ? new Date(op.date) : null,
-    }
-}
 
 export async function POST(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
@@ -149,14 +74,34 @@ export async function POST(request: NextRequest) {
         tags = known.map(t => t.slug)
     }
 
-    const operation = await resolveOperation(field('operationId'))
+    /* The four folder facets, from the one resolver that decides them for
+       anything with no bytes (lib/gallery/operation-facets.ts).
+
+       It matters more here than anywhere else: an uploaded file's
+       operation/opLabel written now are provisional and get overwritten the
+       moment relocateMedia runs at accept, but an embed has no bytes, so
+       relocateMedia never touches it — whatever is written here is what the
+       embed carries until a reviewer reassigns it. That reassignment applies
+       the same function, so the two can no longer drift apart.
+
+       `null` back means the id was malformed or named no operation. Unlike
+       the review route, which answers "No such operation", a submission
+       simply files with no operation: the member picks from a list, and
+       rejecting the upload outright over a stale option would throw away the
+       bytes they just spent five minutes sending. */
+    const facets = await operationFacets(
+        { media: Db.galleryMedia, operations: Db.operations },
+        field('operationId'),
+    )
 
     const common = {
-        ...operation,
-        // Explicit rather than left to the spread: an unknown/invalid/missing
-        // operation resolves to `{}`, which carries no `takenAt` key at all,
-        // and GalleryMedia.takenAt is `Date | null` — never undefined.
-        takenAt: operation.takenAt ?? null,
+        // `$unset` is dropped: there is nothing to clear on a document that
+        // does not exist yet, so those fields are simply absent.
+        ...(facets?.$set ?? {}),
+        // Explicit rather than left to the spread: GalleryMedia.takenAt is
+        // `Date | null` — never undefined — and a caller reading it back
+        // should never have to ask which.
+        takenAt: facets?.$set.takenAt ?? null,
         authorId: me.id,
         authorName: me.guild?.displayName || me.globalName || me.username,
         caption,

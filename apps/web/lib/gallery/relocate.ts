@@ -15,6 +15,13 @@ import { CONTENT_DIR, MEDIA_DIR, contentKey, resolveStorageKey } from './paths'
  * item's operation. Both are the same operation: work out which folder the
  * item belongs in, give the file a name carrying its id, and move it there.
  *
+ * It is also the ONLY writer of `year`/`operation`/`opLabel`/`takenAt` for an
+ * item that has bytes. An item with none — an embed, or a record whose
+ * transcode failed — returns early below without writing anything, so those
+ * four fields are decided for it by operationFacets()
+ * (lib/gallery/operation-facets.ts) instead. Exactly one producer each; never
+ * both on one path.
+ *
  * A rename, never a copy — bulk-reassigning three hundred items has to be
  * instant and must not duplicate bytes. The copy path below exists only for
  * EXDEV, which cannot happen while both trees are under storage/gallery but
@@ -58,12 +65,11 @@ const ORDER_PREFIX = /^\s*(\d+)/
  * Reads UTC, never the server's local time. The stored `date` is UTC, so an
  * operation logged near midnight on 1 January must resolve to the same year
  * everywhere it is read, regardless of which timezone the process happens to
- * be running in. Exported so operationFields() (the review route's PATCH
- * handler, in submissions/[id]/route.ts) calls this instead of keeping its
- * own copy — two independent `getFullYear()`/`getUTCFullYear()` calls are
- * exactly the kind of thing that quietly disagrees the one day a year it
- * matters, and both functions run against the same document minutes apart
- * once the accept route wires this one in.
+ * be running in. Exported so nothing keeps its own copy — two independent
+ * `getFullYear()`/`getUTCFullYear()` calls are exactly the kind of thing that
+ * quietly disagrees the one day a year it matters, and this and
+ * operationFacets() (lib/gallery/operation-facets.ts, the resolver for
+ * anything with no bytes) run against the same document minutes apart.
  */
 export function operationYear(date: Date): string {
     return String(date.getUTCFullYear())
@@ -89,7 +95,7 @@ export async function resolveOperationFolder(
         // Without a date there is no year folder to sit in, and inventing one
         // would file the item under a year nothing else agrees with — so the
         // bytes go to Unknown/. The operation itself is still returned: the
-        // member chose it, and operationFields()'s own undated branch keeps
+        // member chose it, and operationFacets()'s own undated branch keeps
         // `operation`/`opLabel` set and unsets only `year` — folding it into
         // a bare Unknown here too would make the two disagree on a document
         // reachable from either path.
@@ -210,12 +216,12 @@ export async function relocateMedia(
        filters on. */
     if (mission) set.mission = mission; else unset.mission = ''
 
-    // takenAt follows the operation, exactly as the review route's
-    // operationFields() does — the two must never disagree. That function
-    // always writes takenAt (null in its Unknown branch, never left alone),
-    // so an item relocated to Unknown here must do the same: otherwise a
-    // stale date from a previous operation would survive the reassignment
-    // and the gallery would keep sorting/grouping the tile on it.
+    // takenAt follows the operation, exactly as operationFacets()
+    // (lib/gallery/operation-facets.ts) does — the two must never disagree.
+    // That function always writes takenAt (null in its Unknown branch, never
+    // left alone), so an item relocated to Unknown here must do the same:
+    // otherwise a stale date from a previous operation would survive the
+    // reassignment and the gallery would keep sorting/grouping the tile on it.
     if (operationId) {
         const op = await deps.operations.findOne({ _id: operationId }, { projection: { date: 1 } })
         set.takenAt = op?.date ? new Date(op.date) : null
