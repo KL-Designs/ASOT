@@ -3,7 +3,7 @@
 import { useCallback, useState } from 'react'
 import { Button, MenuItem, TextField, Typography } from '@mui/material'
 
-import type { LibrarySort } from '@/lib/gallery/library-query'
+import { PAGE_SIZE, type LibrarySort } from '@/lib/gallery/library-query'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import LibraryRail from './LibraryRail'
 import MediaGrid from './MediaGrid'
@@ -63,7 +63,7 @@ export default function MediaTab() {
         })
     }, [items])
 
-    const pages = Math.ceil(total / 60)
+    const pages = Math.ceil(total / PAGE_SIZE)
 
     return (
         <div>

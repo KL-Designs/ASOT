@@ -74,6 +74,23 @@ describe('buildLibraryFilter', () => {
         expect(f).toMatchObject({ year: '2021', operation: '4. Op Silent Ridge', mission: 'I' })
     })
 
+    // The rail's Unknown node is a synthesised display label — no document
+    // ever stores the literal string 'Unknown' in `year` or `operation`; the
+    // migration and relocateMedia both omit the field entirely instead (see
+    // GalleryMedia's doc comment). A literal string match here would select
+    // nothing, dead-ending the exact row the tab exists to make useful.
+    test('year=Unknown means the field is absent, not a literal match', () => {
+        expect(buildLibraryFilter(params('year=Unknown'))).toMatchObject({
+            year: { $exists: false },
+        })
+    })
+
+    test('operation=Unknown means the field is absent, not a literal match', () => {
+        expect(buildLibraryFilter(params('operation=Unknown'))).toMatchObject({
+            operation: { $exists: false },
+        })
+    })
+
     test('tag and author', () => {
         expect(buildLibraryFilter(params('tag=funny')).tags).toBe('funny')
         expect(buildLibraryFilter(params('author=Koda')).authorName).toBe('Koda')

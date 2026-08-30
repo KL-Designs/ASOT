@@ -91,8 +91,20 @@ export function buildLibraryFilter(params: LibraryParams): Record<string, unknow
     if (params.view === 'nocaption') filter.caption = { $in: [null, ''] }
     if (params.view === 'videos') filter.kind = 'video'
 
-    if (params.year) filter.year = params.year
-    if (params.operation) filter.operation = params.operation
+    // 'Unknown' is the rail's synthesised label for a document with no year
+    // or operation at all (facets/route.ts does `row._id.year ?? 'Unknown'`),
+    // not a value any producer ever writes to the field. index-gallery.mjs's
+    // Unknown pass, relocate.ts's resolveOperationFolder (operationId null)
+    // and content-path.ts's parseContentPath all agree: the Unknown folder
+    // means year/operation are OMITTED, never the literal string — see
+    // GalleryMedia's own doc comment ("all absent together when the
+    // submitter chose Unknown"). A literal match against 'Unknown' would
+    // therefore match nothing, dead-ending the rail's own Unknown row on
+    // exactly the items it exists to surface.
+    if (params.year === 'Unknown') filter.year = { $exists: false }
+    else if (params.year) filter.year = params.year
+    if (params.operation === 'Unknown') filter.operation = { $exists: false }
+    else if (params.operation) filter.operation = params.operation
     if (params.mission) filter.mission = params.mission
     if (params.tag) filter.tags = params.tag
     if (params.author) filter.authorName = params.author
