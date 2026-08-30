@@ -24,7 +24,7 @@
  * Skips (rather than fails) when the restic binary isn't present, so a fresh
  * clone that hasn't run scripts/ensure-restic.mjs yet still gets a green suite.
  */
-import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, test, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { MongoClient } from 'mongodb'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, statSync, createWriteStream } from 'fs'
@@ -38,6 +38,44 @@ import unzipper from 'unzipper'
 
 const RESTIC_BIN = resolve(__dirname, '..', 'bin', process.platform === 'win32' ? 'restic.exe' : 'restic')
 const hasRestic = existsSync(RESTIC_BIN)
+
+/**
+ * runGalleryReconcile() in backups.ts calls reconcile() with no `contentDir`
+ * override, so — correctly, for production — it falls back to CONTENT_DIR in
+ * lib/gallery/paths.ts: a fixed path.resolve('../../storage/gallery/content')
+ * with NO environment override, unlike GALLERY_DIR here, which
+ * BACKUPS_STORAGE_ROOT (set in beforeAll below) already redirects. Left
+ * unmocked, every test in this file that restores the gallery part would have
+ * reconcile() walk the real repository's storage/gallery/content tree —
+ * thousands of real files on a populated checkout — instead of anything this
+ * suite creates. Read-only, so nothing would be corrupted, but it is exactly
+ * the cross-test isolation this file's BACKUPS_STORAGE_ROOT/tempRoot setup
+ * exists to guarantee, and it would make the suite behave differently on a
+ * machine with no archive.
+ *
+ * Mocking the module removes that side effect AND gives a spy for the pin
+ * below: two tests assert reconcileMock was actually called after a gallery
+ * restore, so deleting either call site in backups.ts turns an assertion red
+ * instead of leaving the suite silently green. vi.hoisted() is required here
+ * — vi.mock() factories run before this file's own top-level code, so a
+ * factory that closes over a plain `const` declared below it would throw
+ * "Cannot access before initialization".
+ */
+const { reconcileMock } = vi.hoisted(() => ({
+    reconcileMock: vi.fn(async () => ({
+        scanned: 0, matchedById: 0, matchedByPath: 0,
+        relocated: [], notIndexed: [], missingFiles: [], failedProcessing: [],
+        unreadable: 0, at: new Date(),
+    })),
+}))
+
+vi.mock('./gallery/reconcile', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./gallery/reconcile')>()
+    // Only `reconcile` is replaced. `acceptsRealCollections` is a
+    // compile-time-only pin with nothing to fake — the real one, unused at
+    // runtime, is left in place so any other future import of it still works.
+    return { ...actual, reconcile: reconcileMock }
+})
 
 let mongod: MongoMemoryServer
 let mongo: MongoClient
@@ -80,6 +118,10 @@ afterAll(async () => {
 })
 
 describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
+    // Cleared before every test so a call count asserted in one test can
+    // never be satisfied by a call made during a previous one.
+    beforeEach(() => { reconcileMock.mockClear() })
+
     const seed = async (marker: string) => {
         const db = mongo.db('asot-roundtrip')
         await db.collection('sentinel').deleteMany({})
@@ -189,6 +231,11 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
         const status = await backups.readStatus()
         expect(status.state).toBe('idle')
         expect(status.error).toBeUndefined()
+
+        // The pin for revertToPoint's call site — deliberately a separate
+        // assertion from applyUploadedZip's, in a separate test, so neither
+        // call site's coverage depends on the other one still being called.
+        expect(reconcileMock).toHaveBeenCalledTimes(1)
     }, 300000)
 
     // A restore left the database clean (collections are dropped and reinserted)
@@ -256,6 +303,12 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
         expect(existsSync(stray)).toBe(false)
         expect(readFileSync(join(storageRoot, 'gallery', 'photo.txt'), 'utf-8')).toBe('zip-clean')
 
+        // The pin for applyUploadedZip's call site: this is the assertion
+        // that turns red if `if (hasGallery) await runGalleryReconcile()` is
+        // ever deleted from backups.ts. Without it, the whole reconcile-after-
+        // restore feature could be removed and this suite would stay green.
+        expect(reconcileMock).toHaveBeenCalledTimes(1)
+
         await rm(zipPath, { force: true }).catch(() => {})
     }, 300000)
 
@@ -263,7 +316,9 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
     // file manager and re-uploaded, has those moves read back into the
     // database without a human touching Health first — runGalleryReconcile()
     // in backups.ts calls reconcile() with exactly the ReconcileDeps built
-    // here.
+    // here. The other two tests above prove backups.ts calls the real
+    // reconcile(); this one proves what reconcile() actually does with a
+    // moved file, which is the whole point of running it after a restore.
     //
     // Exercised directly against reconcile() rather than through
     // applyUploadedZip()/revertToPoint(): CONTENT_DIR (lib/gallery/paths.ts)
@@ -275,11 +330,16 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
     // a contentDir override is the same thing reconcile.test.ts already does
     // for the same reason, and is the only safe way to point this at the
     // temp tree.
+    //
+    // vi.importActual() bypasses the vi.mock() above deliberately: that mock
+    // exists so backups.ts's OWN calls never touch the real tree, but this
+    // test needs the genuine implementation to prove the relocation logic
+    // actually works, not a canned response.
     test('a file moved between folders in the zip keeps its record and takes the new operation', async () => {
         if (!hasRestic) return
 
         const { ObjectId } = await import('mongodb')
-        const { reconcile } = await import('./gallery/reconcile')
+        const { reconcile } = await vi.importActual<typeof import('./gallery/reconcile')>('./gallery/reconcile')
 
         const id = new ObjectId()
         const contentDir = join(storageRoot, 'gallery', 'content')
