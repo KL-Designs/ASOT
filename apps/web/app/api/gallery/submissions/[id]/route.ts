@@ -11,6 +11,7 @@ import { canTransition } from '@/lib/gallery/status'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 import { fetchEmbedPoster } from '@/lib/gallery/poster'
 import { splitOperation } from '@/lib/gallery/naming'
+import { operationYear } from '@/lib/gallery/relocate'
 
 /**
  * What a reviewer can do to one submission.
@@ -38,7 +39,11 @@ function reviewerName(me: { guild?: { displayName?: string | null } | null, glob
  *  takenAt, year, operation and opLabel can never disagree with each other.
  *  An undated operation leaves `year` absent rather than `''`, matching
  *  `submissions/route.ts`'s POST — two producers of the same field disagreeing
- *  on "no year" would make every reader guess which spelling it might see. */
+ *  on "no year" would make every reader guess which spelling it might see.
+ *  `year` itself comes from `operationYear()` (lib/gallery/relocate.ts) rather
+ *  than a local `getFullYear()`, because `relocateMedia` computes the same
+ *  year to choose a folder — a local read would disagree with the folder on
+ *  a server not running in UTC. */
 async function operationFields(operationId: string | null): Promise<{ $set: Record<string, unknown>, $unset?: Record<string, ''> } | null> {
     if (!operationId || operationId === 'unknown') {
         return { $unset: { operationId: '', operation: '', opLabel: '', year: '' }, $set: { takenAt: null } }
@@ -55,7 +60,7 @@ async function operationFields(operationId: string | null): Promise<{ $set: Reco
         opLabel: label,
         takenAt: op.date ? new Date(op.date) : null,
     }
-    if (op.date) return { $set: { ...set, year: String(new Date(op.date).getFullYear()) } }
+    if (op.date) return { $set: { ...set, year: operationYear(new Date(op.date)) } }
     return { $set: set, $unset: { year: '' } }
 }
 

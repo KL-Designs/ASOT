@@ -53,6 +53,23 @@ export type RelocateDeps = {
 const ORDER_PREFIX = /^\s*(\d+)/
 
 /**
+ * The year an operation's date files under.
+ *
+ * Reads UTC, never the server's local time. The stored `date` is UTC, so an
+ * operation logged near midnight on 1 January must resolve to the same year
+ * everywhere it is read, regardless of which timezone the process happens to
+ * be running in. Exported so operationFields() (the review route's PATCH
+ * handler, in submissions/[id]/route.ts) calls this instead of keeping its
+ * own copy — two independent `getFullYear()`/`getUTCFullYear()` calls are
+ * exactly the kind of thing that quietly disagrees the one day a year it
+ * matters, and both functions run against the same document minutes apart
+ * once the accept route wires this one in.
+ */
+export function operationYear(date: Date): string {
+    return String(date.getUTCFullYear())
+}
+
+/**
  * Which folder an operation's media belongs in.
  *
  * Reuses an existing folder wherever one matches — that is what puts a new
@@ -70,12 +87,17 @@ export async function resolveOperationFolder(
     const op = await deps.operations.findOne({ _id: operationId }, { projection: { title: 1, date: 1 } })
     if (!op?.date) {
         // Without a date there is no year folder to sit in, and inventing one
-        // would file the item under a year nothing else agrees with.
-        return { year: null, operation: null }
+        // would file the item under a year nothing else agrees with — so the
+        // bytes go to Unknown/. The operation itself is still returned: the
+        // member chose it, and operationFields()'s own undated branch keeps
+        // `operation`/`opLabel` set and unsets only `year` — folding it into
+        // a bare Unknown here too would make the two disagree on a document
+        // reachable from either path.
+        return { year: null, operation: op ? String(op.title ?? '') : null }
     }
 
     const title = String(op.title ?? '')
-    const year = String(new Date(op.date).getUTCFullYear())
+    const year = operationYear(new Date(op.date))
     const yearDir = path.join(contentDir, year)
 
     let existing: string[] = []
@@ -150,6 +172,14 @@ export async function relocateMedia(
     if (path.resolve(destination) === path.resolve(source)) return null
 
     mkdirSync(path.dirname(destination), { recursive: true })
+    // If updateOne below throws after this succeeds, the bytes now sit at
+    // `destination` but the document still names `source` — a broken tile
+    // until something reconciles the two. There is no transaction spanning a
+    // filesystem and a database, and moving the file first is still the
+    // right order (the alternative loses track of where the bytes went). It
+    // self-heals: the new filename still carries [id], so the reconcile pass
+    // matches it back to this document by id and rewrites storageKey — the
+    // item just sits in the Health view, visibly broken, until that runs.
     move(source, destination)
 
     const set: Record<string, unknown> = { storageKey: toKey }

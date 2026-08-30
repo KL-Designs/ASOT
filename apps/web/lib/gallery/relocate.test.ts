@@ -5,7 +5,7 @@ import { rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 
-import { relocateMedia, resolveOperationFolder, type RelocateDeps } from './relocate'
+import { relocateMedia, resolveOperationFolder, operationYear, type RelocateDeps } from './relocate'
 
 const OP_ID = new ObjectId('6a8000000000000000000001')
 const MEDIA_ID = new ObjectId('6a9380f11c4e5d2a77b31099')
@@ -77,9 +77,31 @@ describe('resolveOperationFolder', () => {
         expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: '2027', operation: '1. Op First' })
     })
 
-    test('an operation with no date cannot be placed in a year, so it is Unknown', async () => {
+    // year stays null — there is no date to file a year folder under — but
+    // operation does not: operationFields() (submissions/[id]/route.ts) keeps
+    // operation/opLabel set on its undated branch and unsets only year, so
+    // this must too, or the same document disagrees depending on which path
+    // touched it last.
+    test('an operation with no date cannot be placed in a year, but the operation itself is kept', async () => {
         const d = deps({}, [{ _id: OP_ID, title: 'OPERATION Undated' }])
-        expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: null, operation: null })
+        expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: null, operation: 'OPERATION Undated' })
+    })
+
+    test('an operation dated right at the year boundary resolves by UTC, not local time', async () => {
+        // 2025-12-31T23:30:00Z is still December in UTC but would already be
+        // January in any timezone ahead of UTC — exactly the case
+        // operationYear() exists to pin down.
+        const d = deps({}, [{ _id: OP_ID, title: 'OPERATION Boundary \u2014 Sun', date: new Date('2025-12-31T23:30:00Z') }])
+        expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: '2025', operation: '1. Op Boundary' })
+    })
+})
+
+describe('operationYear', () => {
+    // operationFields() (submissions/[id]/route.ts) calls this same function
+    // rather than keeping its own getFullYear() — this pins the UTC behaviour
+    // both sides depend on.
+    test('reads the year in UTC, not the host process\'s local timezone', () => {
+        expect(operationYear(new Date('2025-12-31T23:30:00Z'))).toBe('2025')
     })
 })
 
@@ -140,6 +162,65 @@ describe('relocateMedia', () => {
         expect(result?.to).toBe(`content:Unknown/Reaper [${MEDIA_ID}].jpg`)
         expect(existsSync(join(contentDir, 'Unknown', `Reaper [${MEDIA_ID}].jpg`))).toBe(true)
         expect(docs[MEDIA_ID.toString()].takenAt).toBeNull()
+    })
+
+    // The file still goes to Unknown/ — there is no date to file a year
+    // folder under — but operation/opLabel survive, matching
+    // operationFields()'s undated branch (item 3 of fix round 1).
+    test('an operation that exists but has no date still lands in Unknown, with the operation preserved', async () => {
+        const flat = join(root, 'media')
+        mkdirSync(flat, { recursive: true })
+        writeFileSync(join(flat, `${MEDIA_ID}.jpg`), 'BYTES')
+
+        const docs = {
+            [MEDIA_ID.toString()]: {
+                _id: MEDIA_ID, storageKey: `media:${MEDIA_ID}.jpg`, authorName: 'Reaper', operationId: OP_ID,
+            } as Record<string, unknown>,
+        }
+        const d = deps(docs, [{ _id: OP_ID, title: 'OPERATION Undated' }])
+        const result = await relocateMedia({ ...d, mediaDir: flat }, MEDIA_ID)
+
+        expect(result?.to).toBe(`content:Unknown/Reaper [${MEDIA_ID}].jpg`)
+        const doc = docs[MEDIA_ID.toString()]
+        expect(doc.operation).toBe('OPERATION Undated')
+        expect(doc.opLabel).toBe('OPERATION Undated')
+        expect('year' in doc).toBe(false)
+        expect(doc.takenAt).toBeNull()
+    })
+
+    // $set/$unset are built correctly and the fake's updateOne handles
+    // $unset correctly (both already true) — but nothing exercised them
+    // together against a document that actually HAD year/operation/opLabel
+    // set beforehand, so a regression in either would go undetected (fix
+    // round 1, item 1). `'x' in doc` rather than `doc.x` being undefined:
+    // the field must be gone, not merely re-set to an undefined value that
+    // would still satisfy a Mongo `$exists: true` query.
+    test('reassigning an already-filed item to Unknown actually removes year, operation and opLabel', async () => {
+        const flat = join(root, 'media')
+        mkdirSync(flat, { recursive: true })
+        writeFileSync(join(flat, `${MEDIA_ID}.jpg`), 'BYTES')
+
+        const docs = {
+            [MEDIA_ID.toString()]: {
+                _id: MEDIA_ID,
+                storageKey: `media:${MEDIA_ID}.jpg`,
+                authorName: 'Reaper',
+                year: '2026',
+                operation: '23. Op New Winter',
+                opLabel: 'Op New Winter',
+                takenAt: new Date('2026-02-01T00:00:00Z'),
+                // No operationId: this is the "reassigned to Unknown" case.
+            } as Record<string, unknown>,
+        }
+        const d = deps(docs, [])
+        const result = await relocateMedia({ ...d, mediaDir: flat }, MEDIA_ID)
+
+        expect(result?.to).toBe(`content:Unknown/Reaper [${MEDIA_ID}].jpg`)
+        const doc = docs[MEDIA_ID.toString()]
+        expect('year' in doc).toBe(false)
+        expect('operation' in doc).toBe(false)
+        expect('opLabel' in doc).toBe(false)
+        expect(doc.takenAt).toBeNull()
     })
 
     test('relocating something already in the right place is a no-op, not a delete', async () => {
