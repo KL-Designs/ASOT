@@ -6,13 +6,37 @@ export { }
 declare global {
 
     interface ScreenshotOfMonth {
+        /**
+         * The readable filename — always present. For a legacy record it is
+         * the literal name of the file under storage/gallery/sotm; for one
+         * set through the library picker (see `mediaId`) it is the picked
+         * media's own filename, kept purely as a display/download name and
+         * as the truthy signal useGalleryData.ts gates the public gallery's
+         * SOTM column on. Never assume it names a file under SOTM_DIR — see
+         * the branch on `mediaId` in api/gallery/sotm/image/route.ts.
+         */
         filename: string
+        /** The gallery_media document this points at. Absent only on a
+         *  record that predates the library picker. */
+        mediaId?: string
         dateTaken: string
         credit: string
         setAt: string
         setBy: string
         operationId?: string
         operationTitle?: string
+    }
+
+    /** One tile in the SOTM tab: a library browse candidate or a past
+     *  winner. `sotmAt`/`sotmCredit` are null for the former, populated for
+     *  the latter. */
+    interface SotmMediaTileAPI {
+        id: string
+        src: string
+        caption: string | null
+        opLabel: string | null
+        sotmAt: string | null
+        sotmCredit: string | null
     }
 
     /** One piece of media, as the gallery page receives it. Everything is
