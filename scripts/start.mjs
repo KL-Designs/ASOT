@@ -820,6 +820,12 @@ const MIGRATION_ITEMS = [
     // vocabulary. Must run before the gallery starts reading Mongo, and it is
     // safe to re-run afterwards — J5 keeps uploading through their own tab.
     { label: '🗃️ Index: gallery media', script: 'scripts/index-gallery.mjs', cwd: ROOT },
+    // Dry-run first, then --apply, via runMigration's own flow. Moves anything
+    // still flat under storage/gallery/media into the content tree under its
+    // readable name; idempotent, and safe to re-run for the same reason as
+    // the indexer above. Run this after Index: gallery media has run at least
+    // once, since it reads gallery_media for authorName/caption.
+    { label: '🗃️ Relocate: flat gallery media', script: 'scripts/relocate-flat-media.mjs', cwd: ROOT },
     {
         label: '🗃️ Import: member history CSV',
         command: 'npm',

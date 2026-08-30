@@ -61,6 +61,13 @@ beforeAll(async () => {
         join(content, '2021', '20. Op Winter Storm', 'I'),
         join(content, '2025', '21. Op Sable Peak (Night Insert)', 'I'),
         join(content, '2025', '22. Op Sable Peak', 'I'),
+        // The Unknown bucket — no year, no operation — sits beside the year
+        // folders rather than inside one.
+        join(content, 'Unknown'),
+        // featured/ and sotm/ sit beside content/, not inside it — their own
+        // key prefixes name the directory instead of a content: path.
+        join(root, 'storage', 'gallery', 'featured'),
+        join(root, 'storage', 'gallery', 'sotm'),
     ]) mkdirSync(dir, { recursive: true })
 
     // A real 1x1 PNG, so the dimension probe has something to read.
@@ -83,6 +90,16 @@ beforeAll(async () => {
     // the archive are saved this way. Sharp reads the real bytes regardless
     // of what the extension claims, so the fixture works with the same PNG.
     writeFileSync(join(content, '2025', '1. Op Black Hill', 'I', 'm.jfif'), PNG)
+    // Sits directly in the operation folder, not a mission subfolder — a
+    // published submission, per the new two-pass walk.
+    writeFileSync(join(content, '2025', '1. Op Black Hill', 'n.png'), PNG)
+    // Sits in the top-level Unknown bucket — no year, no operation.
+    writeFileSync(join(content, 'Unknown', 'o.png'), PNG)
+    // Not a real video — the sharp probe is skipped for one regardless of
+    // whether the bytes would decode, so arbitrary bytes are enough here.
+    writeFileSync(join(content, '2025', '1. Op Black Hill', 'I', 'p.mp4'), Buffer.from('not a real video'))
+    writeFileSync(join(root, 'storage', 'gallery', 'featured', 'q.jpg'), PNG)
+    writeFileSync(join(root, 'storage', 'gallery', 'sotm', 'r.jpg'), PNG)
 
     // Real operations are recorded per session day, abbreviated differently
     // than the gallery folder, and sometimes carry parenthetical context the
@@ -132,25 +149,30 @@ afterAll(async () => {
 })
 
 describe('index-gallery', () => {
+    // 12 in the content tree (11 png/jfif from the original fix-round fixtures,
+    // plus n.png, o.png and p.mp4 for the two- and three-segment shapes and
+    // video kind) + q.jpg (featured) + r.jpg (sotm) = 17.
     test('indexes every file exactly once', () => {
         run()
-        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(12)
+        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(17)
     })
 
+    // The idempotence property this whole test file exists to pin: a second
+    // run against the same tree and the same database inserts nothing.
     test('running it again changes nothing', () => {
         run()
-        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(12)
+        return expect(db.collection('gallery_media').countDocuments()).resolves.toBe(17)
     })
 
     test('a re-run does not clobber what a reviewer edited', async () => {
         // $setOnInsert, not $set. A migrated item given a caption and tags must
         // survive the script being run again.
         await db.collection('gallery_media').updateOne(
-            { storageKey: 'legacy:2025/1. Op Black Hill/I/a.png' },
+            { storageKey: 'content:2025/1. Op Black Hill/I/a.png' },
             { $set: { caption: 'set by a reviewer', tags: ['funny'] } },
         )
         run()
-        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/1. Op Black Hill/I/a.png' })
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2025/1. Op Black Hill/I/a.png' })
         expect(doc?.caption).toBe('set by a reviewer')
         expect(doc?.tags).toEqual(['funny'])
     })
@@ -159,7 +181,9 @@ describe('index-gallery', () => {
         const docs = await db.collection('gallery_media').find({}).toArray()
         for (const d of docs) {
             expect(d.status).toBe('live')
-            expect(d.kind).toBe('image')
+            // 'video' for p.mp4, 'image' for everything else — kind is the
+            // one field this loop can't pin to a single value any more.
+            expect(['image', 'video']).toContain(d.kind)
             expect(d.source).toBe('upload')
             expect(d.authorId).toBeUndefined()
             expect(d.up).toBe(0)
@@ -171,7 +195,7 @@ describe('index-gallery', () => {
     })
 
     test('strips the ordering prefix into opLabel and keeps the raw folder', async () => {
-        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/1. Op Black Hill/I/a.png' })
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2025/1. Op Black Hill/I/a.png' })
         expect(doc?.operation).toBe('1. Op Black Hill')
         expect(doc?.opLabel).toBe('Op Black Hill')
         expect(doc?.year).toBe('2025')
@@ -179,13 +203,13 @@ describe('index-gallery', () => {
     })
 
     test('falls back to January of the folder year when no operation matches', async () => {
-        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2026/Op Unnumbered/I/d.png' })
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2026/Op Unnumbered/I/d.png' })
         expect(new Date(doc!.takenAt).getUTCFullYear()).toBe(2026)
         expect(new Date(doc!.takenAt).getUTCMonth()).toBe(0)
     })
 
     test('probes real dimensions off the file', async () => {
-        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/1. Op Black Hill/I/a.png' })
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2025/1. Op Black Hill/I/a.png' })
         expect(doc?.width).toBe(1)
         expect(doc?.height).toBe(1)
     })
@@ -207,7 +231,7 @@ describe('index-gallery', () => {
     // ("Op" vs "OPERATION"), a day-of-week suffix the folder lacks, and a
     // parenthetical the operation title lacks, all at once.
     test('matches a folder to an operation despite prefix, day-suffix and parenthetical differences', async () => {
-        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/18. Op Atlantic Shield (Test)/I/h.png' })
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2025/18. Op Atlantic Shield (Test)/I/h.png' })
         expect(doc?.operationId?.toString()).toBe(atlanticShieldOpId.toString())
         expect(new Date(doc!.takenAt).toISOString()).toBe(new Date(Date.UTC(2025, 5, 14)).toISOString())
     })
@@ -217,7 +241,7 @@ describe('index-gallery', () => {
     // fix tolerates, so this is the real collision the guard exists to catch
     // — borrowing this date would be worse than no match at all.
     test('refuses a normalised match when the matched operation is three years off', async () => {
-        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/19. Op Ghost Town/I/i.png' })
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2025/19. Op Ghost Town/I/i.png' })
         expect(doc?.operationId).toBeUndefined()
         // Falls back to the folder's own year, not the mismatched operation's.
         expect(new Date(doc!.takenAt).getUTCFullYear()).toBe(2025)
@@ -230,7 +254,7 @@ describe('index-gallery', () => {
     // accepted, and it must still set operationId and take the operation's
     // real date rather than the folder's January 1st placeholder.
     test('accepts a normalised match one year off the folder\'s parsed year', async () => {
-        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2021/20. Op Winter Storm/I/j.png' })
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2021/20. Op Winter Storm/I/j.png' })
         expect(doc?.operationId?.toString()).toBe(winterStormOpId.toString())
         expect(new Date(doc!.takenAt).toISOString()).toBe(new Date(Date.UTC(2022, 0, 15)).toISOString())
     })
@@ -242,7 +266,7 @@ describe('index-gallery', () => {
     // folder recovers a real (if approximate) year rather than corrupting the
     // one field the gallery sorts by.
     test('reads the leading year out of a range-named folder instead of producing an Invalid Date', async () => {
-        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2022 - 2023/Op Range Test/I/e.png' })
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2022 - 2023/Op Range Test/I/e.png' })
         const takenAt = new Date(doc!.takenAt)
         expect(Number.isNaN(takenAt.getTime())).toBe(false)
         expect(takenAt.getUTCFullYear()).toBe(2022)
@@ -253,7 +277,7 @@ describe('index-gallery', () => {
     // to. Null, not a guess and not an Invalid Date — the gallery already
     // sorts undated media into its own group.
     test('leaves takenAt null when the year folder has no leading digits to read', async () => {
-        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:Undated/Op Something/I/g.png' })
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:Undated/Op Something/I/g.png' })
         expect(doc?.takenAt).toBeNull()
     })
 
@@ -261,8 +285,8 @@ describe('index-gallery', () => {
     // reduce to the same stripped key ("sable peak") and collide on
     // whichever operation sorted earliest. Each must resolve to its own.
     test('keeps a parenthetical folder and its plain namesake on separate operations', async () => {
-        const nightDoc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/21. Op Sable Peak (Night Insert)/I/k.png' })
-        const plainDoc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/22. Op Sable Peak/I/l.png' })
+        const nightDoc = await db.collection('gallery_media').findOne({ storageKey: 'content:2025/21. Op Sable Peak (Night Insert)/I/k.png' })
+        const plainDoc = await db.collection('gallery_media').findOne({ storageKey: 'content:2025/22. Op Sable Peak/I/l.png' })
         expect(nightDoc?.operationId?.toString()).toBe(sablePeakNightOpId.toString())
         expect(plainDoc?.operationId?.toString()).toBe(sablePeakPlainOpId.toString())
         expect(nightDoc?.operationId?.toString()).not.toBe(plainDoc?.operationId?.toString())
@@ -272,9 +296,64 @@ describe('index-gallery', () => {
     // saved as .jfif (plain JPEG under a different extension) and were being
     // silently dropped as non-images before this.
     test('indexes a .jfif file as an image', async () => {
-        const doc = await db.collection('gallery_media').findOne({ storageKey: 'legacy:2025/1. Op Black Hill/I/m.jfif' })
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2025/1. Op Black Hill/I/m.jfif' })
         expect(doc?.kind).toBe('image')
         expect(doc?.width).toBe(1)
         expect(doc?.height).toBe(1)
+    })
+
+    // Task 9: a published submission has no mission, so the mission loop
+    // never sees it — the second, operation-direct pass has to.
+    test('a file directly inside an operation folder gets a three-segment key and no mission', async () => {
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2025/1. Op Black Hill/n.png' })
+        expect(doc).toBeTruthy()
+        expect(doc?.year).toBe('2025')
+        expect(doc?.operation).toBe('1. Op Black Hill')
+        expect(doc?.mission).toBeUndefined()
+    })
+
+    // Task 9: the Unknown bucket holds files with no operation at all — two
+    // segments, no year, per the content-path grammar.
+    test('a file in Unknown/ gets a two-segment key with no year and no operation', async () => {
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:Unknown/o.png' })
+        expect(doc).toBeTruthy()
+        expect(doc?.year).toBeUndefined()
+        expect(doc?.operation).toBeUndefined()
+        expect(doc?.opLabel).toBeUndefined()
+        expect(doc?.mission).toBeUndefined()
+    })
+
+    // Task 9: the tree now holds published video. kind must reflect that,
+    // and sharp (which cannot read video) must never be asked to try.
+    test('an .mp4 is indexed as video with no dimensions probed', async () => {
+        const doc = await db.collection('gallery_media').findOne({ storageKey: 'content:2025/1. Op Black Hill/I/p.mp4' })
+        expect(doc?.kind).toBe('video')
+        // The driver serialises an unset JS `undefined` as BSON null rather
+        // than omitting the key — width/height were simply never assigned,
+        // since indexOne skips the sharp probe entirely for a video.
+        expect(doc?.width).toBeNull()
+        expect(doc?.height).toBeNull()
+    })
+
+    // Task 9: legacy: is the spelling this migration used to write; nothing
+    // written by a fresh run should carry it any more.
+    test('no storage key uses the legacy: prefix', async () => {
+        const docs = await db.collection('gallery_media').find({}).toArray()
+        expect(docs.length).toBeGreaterThan(0)
+        for (const d of docs) {
+            expect(typeof d.storageKey === 'string' && d.storageKey.startsWith('legacy:'), d.storageKey).toBe(false)
+        }
+    })
+
+    // Task 9: featured/ and sotm/ predate media ids and sit outside the
+    // content tree entirely, so they get their own key prefixes rather than
+    // a content: path — and featuredOrder is assigned in readdir order.
+    test('indexes featured/ and sotm/ under their own key prefixes', async () => {
+        const featured = await db.collection('gallery_media').findOne({ storageKey: 'featured:q.jpg' })
+        const sotm = await db.collection('gallery_media').findOne({ storageKey: 'sotm:r.jpg' })
+        expect(featured?.featuredOrder).toBe(0)
+        expect(featured?.year).toBeUndefined()
+        expect(sotm).toBeTruthy()
+        expect(sotm?.featuredOrder).toBeUndefined()
     })
 })
