@@ -21,3 +21,27 @@ export function splitOperation(folder: string): { label: string, order: number }
         order: parseInt(match[1], 10),
     }
 }
+
+/**
+ * Reduce a folder label or an operation title to a comparable core.
+ *
+ * The two sides are structurally different, not merely formatted differently:
+ * operations are recorded per session day ("OPERATION Lost Army IV — Sun")
+ * while the gallery keeps one folder per weekend, abbreviated ("18. Op
+ * Atlantic Shield"). Exact matching between them finds nothing at all.
+ *
+ * Does not touch a trailing parenthetical. Stripping it unconditionally would
+ * let "Op Copper Ridge (Lanze Verde)" collide with a plain, unrelated "Op
+ * Copper Ridge" — a real pair of folders in this archive.
+ *
+ * Duplicated in scripts/index-gallery.mjs, which cannot import TypeScript.
+ * Both copies are pinned by tests.
+ */
+export function normalizeKey(s: string): string {
+    return String(s)
+        .toLowerCase()
+        .replace(/\s*[\u2014\u2013-]\s*(sat|sun|saturday|sunday)\s*$/i, '')
+        .replace(/^(operation|op|ftx|tvt)\s+/i, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+}
