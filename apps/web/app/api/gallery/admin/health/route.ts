@@ -68,7 +68,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'index') {
-        const wanted = (Array.isArray(paths) ? paths : []).filter((p: unknown): p is string => typeof p === 'string')
+        /* De-duplicated, because `indexed` is the number the reviewer is shown
+           and it must be the number of records created. The upsert is keyed on
+           the storageKey, so a path sent twice creates one record and matches
+           on the second pass — but the counter incremented twice, reporting
+           more new records than the archive gained. */
+        const wanted = [...new Set(
+            (Array.isArray(paths) ? paths : []).filter((p: unknown): p is string => typeof p === 'string'),
+        )]
         if (!wanted.length) return NextResponse.json({ error: 'Nothing to index' }, { status: 400 })
 
         /* Only paths the last report actually listed as not-indexed. The
