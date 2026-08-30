@@ -536,3 +536,155 @@ Not here, and correctly so: hide/unhide (excluded by the user), and running the 
 **Type consistency.** `FeaturedItemAPI` is defined in Task 3 and consumed in Tasks 4 and 5. `GalleryAPI.featured` changes shape in Task 3 and every consumer is updated in Task 5 — those two tasks must not be split across a release. `useSubmissions`'s return is defined in Task 1 and extended by Task 2's lightbox state.
 
 **One risk I want on the record:** Tasks 3 and 5 straddle the public gallery. Between them, `/api/gallery` returns the new shape while `useGalleryData` still expects the old one, so the featured rail is broken on the branch between those two commits. They should land together, and the final review should check that nothing else read `featured` as a `string[]`.
+
+---
+
+## Task 10: The mockup's control language (runs BEFORE Tasks 8 and 9)
+
+Added after the user reviewed the built tabs and found the controls did not match the approved
+mockups. The layout does; the controls do not. Every button in the new tabs is a plain MUI
+`<Button variant='outlined' size='small'>` with a font-size override, so it renders with MUI's shape,
+ripple and palette rather than the mockups' flat uppercase button with a thin red border. There are no
+`.btn` / `.chip` / `.seg` / `.frame` classes anywhere, and `CornerBrackets` — which exists in this
+codebase and frames every panel in the mockups — is used in none of the new tabs.
+
+That divergence was a deliberate choice recorded in the earlier plans ("MUI for controls, matching the
+sibling tabs' `inputSx` idiom") and never surfaced to the user. **Scope, decided by the user: the J5
+tabs only.** J5 will look different from J1–J7 until they follow; it becomes the template if they do.
+
+**Files:**
+- Create: `apps/web/styles/j5-controls.module.css`
+- Modify: every J5 media/submissions/featured/sotm/tags tab component
+
+**Interfaces:**
+- Produces: the class set below, imported as `c` by every J5 console component.
+
+- [ ] **Step 1: Open the approved mockups and match them**
+
+`https://claude.ai/code/artifact/9451c88e-b772-4d2a-80b7-6f037c23e43e` is the approved design. Its
+control styles are the target — read them there rather than inventing an interpretation.
+
+- [ ] **Step 2: Write the control stylesheet**
+
+Create `apps/web/styles/j5-controls.module.css`. The set, taken from the mockups:
+
+```css
+/* The J5 console's control language.
+
+   Split from the layout modules deliberately: media-console and j5-console own
+   where things sit, this owns what they look like. Scoped to J5 by the user's
+   decision — the other departments are MUI and stay MUI until someone decides
+   otherwise, at which point this file is the template rather than a second
+   opinion. */
+
+.btn {
+    font-family: var(--font-cond);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--grey);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--foreground);
+    padding: 6px 12px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 120ms var(--nav-ease), background 120ms var(--nav-ease);
+}
+.btn:hover:not(:disabled) { border-color: rgba(219, 0, 29, 0.5); background: rgba(219, 0, 29, 0.06); }
+.btn:focus-visible { outline: 1px solid var(--red); outline-offset: 1px; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Primary — the action the panel exists for. One per panel, at most. */
+.btnPrimary { border-color: var(--red); background: rgba(219, 0, 29, 0.2); color: #fff; }
+.btnPrimary:hover:not(:disabled) { background: rgba(219, 0, 29, 0.3); }
+
+/* Destructive. Never the primary, never the only styling that marks a delete —
+   the two-step confirm carries that weight. */
+.btnDanger { border-color: rgba(255, 66, 87, 0.4); color: var(--red-hi); background: transparent; }
+.btnDanger:hover:not(:disabled) { border-color: var(--red-hi); background: rgba(255, 66, 87, 0.08); }
+
+.btnGhost { border-color: var(--grey); background: transparent; color: rgba(237, 237, 237, 0.62); }
+
+.chip {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid var(--grey);
+    background: transparent;
+    color: rgba(237, 237, 237, 0.62);
+    padding: 5px 10px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.chipOn { border-color: var(--red); color: var(--red-hi); background: rgba(219, 0, 29, 0.1); }
+
+.seg { display: flex; border: 1px solid var(--grey); }
+.segItem {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 5px 9px;
+    color: rgba(237, 237, 237, 0.38);
+    border-right: 1px solid var(--grey);
+    background: transparent;
+    cursor: pointer;
+}
+.segItem:last-child { border-right: 0; }
+.segItemOn { background: rgba(219, 0, 29, 0.14); color: var(--red-hi); }
+
+/* The mono eyebrow above a section — '// SECTION' in the mockups. */
+.eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--red);
+}
+```
+
+- [ ] **Step 3: Replace the MUI buttons**
+
+Across the J5 media, submissions, featured, SOTM and tags tabs, replace `<Button …>` with
+`<button type='button' className={...}>` using the classes above. Map the intent:
+
+- The action the panel exists for → `btn btnPrimary` (Save, Apply to N, Accept, Set as SOTM)
+- Ordinary actions → `btn`
+- Delete and Reject → `btn btnDanger`
+- Cancel and Clear → `btn btnGhost`
+
+**Always `type='button'`.** A bare `<button>` inside a form defaults to `type='submit'`; several of
+these sit next to inputs and would submit and reload the page.
+
+Keep every `disabled` condition exactly as it is — several encode real guards (Accept disabled when an
+item has no media, Apply disabled with no operation chosen). Keep the two-step delete confirmations.
+
+- [ ] **Step 4: Frame the panels**
+
+Use the existing `CornerBrackets` component — read it first — on the panels the mockups show framed:
+the media workspace, each submissions batch, the featured rotation and library zones. Do not invent a
+second corner-bracket implementation.
+
+- [ ] **Step 5: Leave the inputs alone**
+
+Text fields, selects and autocompletes stay MUI with the existing `inputSx`. The mockups draw them as
+flat bordered boxes, which `inputSx` already approximates, and replacing MUI's `Autocomplete` for tag
+selection with a hand-rolled multi-select would be a large amount of accessible-combobox work for a
+cosmetic gain. If you disagree after looking, say so in your report rather than doing it.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git branch --show-current   # must print feat/gallery-submissions
+git add apps/web/styles/j5-controls.module.css apps/web/app/dashboard/j5
+git commit -m "feat(j5): the console's control language matches the mockups
+
+Layout already did; the controls were MUI with a font-size override. Flat
+uppercase buttons, filter chips, segmented toggles and corner-bracketed
+panels, scoped to J5 by decision — the other departments stay MUI until
+someone decides otherwise."
+```
