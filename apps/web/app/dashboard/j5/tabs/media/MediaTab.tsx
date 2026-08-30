@@ -49,18 +49,52 @@ export default function MediaTab() {
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [operations, setOperations] = useState<Operation[]>([])
     const [tagVocab, setTagVocab] = useState<{ slug: string, label: string }[]>([])
+    const [pickerError, setPickerError] = useState<string | null>(null)
 
     // Fetched once — the picker's own list of operations/tags rather than the
     // filter facets in `facets`, which only carry the ones already in use on
     // a media item and would never offer an operation nothing has been tagged
     // with yet.
+    //
+    // Both failures are surfaced. `r.ok ? r.json() : null` swallowed them, and
+    // a swallowed operations fetch is indistinguishable from an archive with
+    // no operations in it: the Operation select and the bulk "Move to
+    // operation" both silently offer nothing but "Unknown", which is the tab
+    // being unable to do its job while looking perfectly healthy. The route's
+    // own gate is fixed alongside this, but a future permission drift must
+    // say so rather than reproduce the same empty dropdown.
     useEffect(() => {
-        fetch('/api/gallery/operations').then(r => r.ok ? r.json() : null).then(d => {
-            if (d?.operations) setOperations(d.operations)
-        })
-        fetch('/api/gallery/tags').then(r => r.ok ? r.json() : null).then(d => {
-            if (d?.tags) setTagVocab(d.tags.filter((t: { retired: boolean }) => !t.retired))
-        })
+        void (async () => {
+            try {
+                const res = await fetch('/api/gallery/operations')
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}))
+                    const why = typeof data.error === 'string' ? data.error : `HTTP ${res.status}`
+                    setPickerError(`Operations could not be loaded (${why}). Assigning an operation is unavailable.`)
+                    return
+                }
+                const data = await res.json()
+                if (Array.isArray(data.operations)) setOperations(data.operations)
+            } catch {
+                setPickerError('Could not reach the server for the operation list. Assigning an operation is unavailable.')
+            }
+        })()
+
+        void (async () => {
+            try {
+                const res = await fetch('/api/gallery/tags')
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}))
+                    const why = typeof data.error === 'string' ? data.error : `HTTP ${res.status}`
+                    setPickerError(`Tags could not be loaded (${why}).`)
+                    return
+                }
+                const data = await res.json()
+                if (Array.isArray(data.tags)) setTagVocab(data.tags.filter((t: { retired: boolean }) => !t.retired))
+            } catch {
+                setPickerError('Could not reach the server for the tag list.')
+            }
+        })()
     }, [])
 
     const toggle = useCallback((id: string) => {
@@ -162,6 +196,17 @@ export default function MediaTab() {
                             <Button size='small' variant='outlined' onClick={retry} sx={{ fontSize: '0.7rem' }}>
                                 Retry
                             </Button>
+                        </div>
+                    )}
+
+                    {/* Not folded into the banner above: the archive can load
+                        perfectly while the pickers do not, and the reviewer
+                        needs to know the dropdowns are short rather than the
+                        archive empty. No Retry — it is a mount-once fetch,
+                        and reloading the tab is the honest remedy. */}
+                    {pickerError && (
+                        <div style={{ padding: '10px 12px' }}>
+                            <Typography sx={{ fontSize: '0.75rem', color: '#d8ac45' }}>{pickerError}</Typography>
                         </div>
                     )}
 
