@@ -6,6 +6,7 @@ import { Button, MenuItem, TextField, Typography } from '@mui/material'
 import { PAGE_SIZE, type LibrarySort } from '@/lib/gallery/library-query'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import BulkPanel from './BulkPanel'
+import HealthView from './HealthView'
 import Inspector from './Inspector'
 import LibraryRail from './LibraryRail'
 import MediaGrid from './MediaGrid'
@@ -147,7 +148,13 @@ export default function MediaTab() {
                         </Typography>
                     </div>
 
-                    {loading ? <TacticalSkeleton /> : (
+                    {filters.view === 'health' ? (
+                        // Health is a view of the same library, not a
+                        // separate screen — the rail, tools bar and
+                        // inspector column stay exactly as they are; only
+                        // the grid and pager give way to the report.
+                        <HealthView onChanged={refresh} />
+                    ) : loading ? <TacticalSkeleton /> : (
                         <MediaGrid
                             items={items}
                             selected={selected}
@@ -157,7 +164,7 @@ export default function MediaTab() {
                         />
                     )}
 
-                    {pages > 1 && (
+                    {filters.view !== 'health' && pages > 1 && (
                         <div className={s.pager}>
                             <Button size='small' disabled={page === 0} onClick={() => setPage(page - 1)} sx={{ fontSize: '0.7rem' }}>Previous</Button>
                             <Typography sx={{ fontFamily: 'var(--font-mono)', fontSize: '0.66rem', color: 'rgba(237,237,237,0.5)' }}>
