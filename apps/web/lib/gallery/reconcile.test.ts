@@ -265,6 +265,23 @@ describe('reconcile', () => {
 
     // The tree is at most year/operation/mission deep. Anything below that is
     // not addressable by a storageKey, so it is skipped rather than indexed.
+    /* Final review, minor: a media file loose at the ROOT of content/ is a
+       one-segment path, which parseContentPath refuses — and the walk used to
+       `continue` on that BEFORE counting it, so the file was not scanned, not
+       notIndexed and not unreadable. Invisible. For a feature whose premise is
+       "reorganise this by hand", a misplaced file the report never mentions is
+       the one thing it must not do. */
+    test('a media file loose at the root of content/ is reported, not silently skipped', async () => {
+        writeFileSync(join(contentDir, 'dropped-in-the-wrong-place.png'), 'BYTES')
+        const report = await reconcile(deps([]))
+
+        expect(report.scanned).toBe(1)
+        expect(report.unreadable).toBe(0)
+        expect(report.notIndexed).toEqual([
+            { path: 'dropped-in-the-wrong-place.png', bytes: 5, proposedOperation: null },
+        ])
+    })
+
     test('does not descend past the mission level', async () => {
         write('2021/4. Op Silent Ridge/I/deeper/x.png')
         const report = await reconcile(deps([]))

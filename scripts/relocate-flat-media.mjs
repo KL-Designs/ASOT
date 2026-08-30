@@ -9,6 +9,13 @@
  * Posters are skipped. They are regenerable derivatives of a video, nobody
  * organises them by hand, and they stay flat by design.
  *
+ * Only PUBLISHED media moves. The content tree holds archive material and
+ * nothing else — gallery-media.d.ts states that as an invariant — so a pending
+ * submission awaiting review, or one already rejected, must stay flat under
+ * media/ where the review tab and the reject path expect it. Without the
+ * status filter this quietly promoted every unreviewed upload into the public
+ * archive tree.
+ *
  * Idempotent: a file already in the content tree has a content: key and is
  * never seen by the media: query below.
  *
@@ -16,7 +23,7 @@
  */
 
 import { MongoClient, ObjectId } from 'mongodb'
-import { copyFileSync, existsSync, mkdirSync, realpathSync, renameSync, unlinkSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, realpathSync, renameSync, unlinkSync } from 'fs'
 import { join, resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 
@@ -70,6 +77,62 @@ function truncateOnWord(s, max) {
     return out.replace(/[. ]+$/, '')
 }
 
+/** Kept in step with apps/web/lib/gallery/naming.ts, same duplication as
+ *  buildName above and pinned by the same test file. */
+function splitOperation(folder) {
+    const match = folder.match(/^\s*(\d+)\s*[.)\-\u2013]?\s*/)
+    if (!match) return folder.trim()
+    return folder.slice(match[0].length).trim() || folder.trim()
+}
+
+function normalizeKey(s) {
+    return String(s)
+        .toLowerCase()
+        .replace(/\s*[\u2014\u2013-]\s*(sat|sun|saturday|sunday)\s*$/i, '')
+        .replace(/^(operation|op|ftx|tvt)\s+/i, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim()
+}
+
+const fullKey = s => normalizeKey(s)
+const strippedKey = s => normalizeKey(String(s).replace(/\s*\([^)]*\)\s*$/, ''))
+
+/**
+ * The folder inside `content/{year}` this item belongs in.
+ *
+ * `doc.operation` is NOT trusted as a folder name. A document written before
+ * the folder-resolving accept path shipped carries the operation's raw title
+ * ("OPERATION Copper Ridge — Sat"), and using that verbatim mints a brand new
+ * directory beside the numbered one already holding that operation's
+ * photographs — a duplicate folder, and the split facet rail this whole
+ * feature exists to stop.
+ *
+ * Two-tier, matching naming.ts's fullKey/strippedKey and index-gallery.mjs:
+ * the folder whose label carries the same trailing parenthetical first, then
+ * one that matches with it dropped ("9. Op Copper Ridge (Lanze Verde)" and
+ * "12. MW Training (CAG)" are the two real folders that need the fallback).
+ * The order is the safety property — see naming.ts.
+ *
+ * Falls back to `doc.operation` itself when no folder matches, which is the
+ * genuinely new operation case.
+ */
+export function resolveFolder(contentDir, year, operation) {
+    let existing = []
+    try {
+        existing = readdirSync(join(contentDir, year), { withFileTypes: true })
+            .filter(e => e.isDirectory()).map(e => e.name)
+    } catch {
+        // The year folder does not exist yet — nothing to reuse.
+    }
+
+    const wantedFull = fullKey(operation)
+    const exact = existing.find(f => fullKey(splitOperation(f)) === wantedFull)
+    if (exact) return exact
+
+    const wantedStripped = strippedKey(operation)
+    return existing.find(f => strippedKey(splitOperation(f)) === wantedStripped) ?? operation
+}
+
 export function buildName({ id, ext, author, caption }) {
     const normalizedExt = String(ext).replace(/^\./, '').toLowerCase()
 
@@ -102,9 +165,9 @@ async function main() {
         await client.connect()
         const media = client.db(MONGO_DB).collection('gallery_media')
 
-        // Every pending item, posters included — the poster/original split
-        // happens below, not in this query.
-        const docs = await media.find({ storageKey: { $regex: '^media:' } }).toArray()
+        // Published items only — see the module doc comment. Posters included;
+        // the poster/original split happens below, not in this query.
+        const docs = await media.find({ storageKey: { $regex: '^media:' }, status: 'live' }).toArray()
 
         let moved = 0, skipped = 0, missing = 0
 
@@ -116,8 +179,9 @@ async function main() {
 
             const source = join(MEDIA, file)
             if (!existsSync(source)) {
-                // Reported, never resolved by deleting the record — that is the
-                // Health view's job and a human's decision.
+                // Reported, never resolved by deleting the record: that is a
+                // human's decision, made from the reconcile report (the start
+                // menu's Migrations -> Reconcile: gallery disk).
                 console.warn(`missing file for ${doc._id}: ${doc.storageKey}`)
                 missing++
                 continue
@@ -127,7 +191,7 @@ async function main() {
             const name = buildName({ id: doc._id.toString(), ext, author: doc.authorName, caption: doc.caption })
 
             const relative = doc.year && doc.operation
-                ? `${doc.year}/${doc.operation}/${name}`
+                ? `${doc.year}/${resolveFolder(CONTENT, doc.year, doc.operation)}/${name}`
                 : `Unknown/${name}`
             const destination = join(CONTENT, ...relative.split('/'))
             const key = `content:${relative}`

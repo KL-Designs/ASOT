@@ -262,13 +262,28 @@ export async function reconcile(deps: ReconcileDeps): Promise<ReconcileReport> {
             if (!entry.isFile()) continue
 
             const relative = [...trail, entry.name].join('/')
-            const facets = parseContentPath(relative)
-            if (!facets) continue
 
             const { id, ext } = parseMediaFilename(entry.name)
             if (!MEDIA_EXT.has(ext)) continue
 
             report.scanned++
+
+            /* A media file with no parseable content path — in practice, one
+               loose at the ROOT of content/ rather than inside a year or
+               Unknown, which is a one-segment path parseContentPath refuses.
+               It used to `continue` BEFORE scanned++, so it was not scanned,
+               not notIndexed and not unreadable: invisible. For a feature
+               whose whole premise is "reorganise this by hand", a misplaced
+               file the report never mentions is the one outcome it must never
+               produce. No proposed operation, because there is no folder to
+               read one out of. */
+            const facets = parseContentPath(relative)
+            if (!facets) {
+                let loose = 0
+                try { loose = statSync(full).size } catch { report.unreadable++; continue }
+                report.notIndexed.push({ path: relative, bytes: loose, proposedOperation: null })
+                continue
+            }
 
             const key = contentKey(relative)
 

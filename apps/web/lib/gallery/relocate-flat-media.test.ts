@@ -1,5 +1,7 @@
-import { describe, test, expect } from 'vitest'
-import { resolve } from 'path'
+import { describe, test, expect, beforeEach, afterEach } from 'vitest'
+import { mkdirSync, mkdtempSync, rmSync } from 'fs'
+import { join, resolve } from 'path'
+import { tmpdir } from 'os'
 import { pathToFileURL } from 'url'
 
 import { buildMediaFilename } from './filenames'
@@ -21,7 +23,7 @@ import { buildMediaFilename } from './filenames'
  * connect to Mongo or touch a real MONGO_URI.
  */
 const SCRIPT_URL = pathToFileURL(resolve(__dirname, '../../../../scripts/relocate-flat-media.mjs')).href
-const { buildName } = await import(SCRIPT_URL)
+const { buildName, resolveFolder } = await import(SCRIPT_URL)
 
 const ID = '6a9380f11c4e5d2a77b31099'
 const emoji = String.fromCodePoint(0x1f642)
@@ -43,5 +45,48 @@ const cases: Record<string, { id: string, ext: string, author?: string | null, c
 describe('relocate-flat-media.mjs buildName', () => {
     test.each(Object.entries(cases))('matches buildMediaFilename byte-for-byte: %s', (_name, opts) => {
         expect(buildName(opts)).toBe(buildMediaFilename(opts))
+    })
+})
+
+/**
+ * The script used `doc.operation` verbatim as a folder name. A document
+ * written before the folder-resolving accept path shipped carries the
+ * operation's RAW TITLE, so that minted a brand new directory beside the
+ * numbered one already holding that operation's photographs — a duplicate
+ * folder and a split facet rail, the same class of defect as the three-matcher
+ * mismatch in naming.ts. Both folder names below are real.
+ */
+describe('relocate-flat-media.mjs resolveFolder', () => {
+    let contentDir: string
+
+    beforeEach(() => {
+        contentDir = mkdtempSync(join(tmpdir(), 'asot-flat-'))
+        for (const dir of [
+            join(contentDir, '2021', '9. Op Copper Ridge (Lanze Verde)'),
+            join(contentDir, '2021', '12. MW Training (CAG)'),
+            join(contentDir, '2021', '4. Op Silent Ridge'),
+        ]) mkdirSync(dir, { recursive: true })
+    })
+
+    afterEach(() => rmSync(contentDir, { recursive: true, force: true }))
+
+    test('reuses the existing folder for an operation carrying its raw title', () => {
+        expect(resolveFolder(contentDir, '2021', 'OPERATION Silent Ridge \u2014 Sat'))
+            .toBe('4. Op Silent Ridge')
+    })
+
+    test('falls back to the stripped key for the two parenthetical folders', () => {
+        expect(resolveFolder(contentDir, '2021', 'OPERATION Copper Ridge \u2014 Sun'))
+            .toBe('9. Op Copper Ridge (Lanze Verde)')
+        expect(resolveFolder(contentDir, '2021', 'MW Training'))
+            .toBe('12. MW Training (CAG)')
+    })
+
+    test('an operation with no folder yet keeps its own name', () => {
+        expect(resolveFolder(contentDir, '2021', 'Op Brand New')).toBe('Op Brand New')
+    })
+
+    test('a year with no folders at all is not an error', () => {
+        expect(resolveFolder(contentDir, '2030', 'Op Future')).toBe('Op Future')
     })
 })

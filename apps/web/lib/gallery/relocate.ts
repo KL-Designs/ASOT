@@ -202,6 +202,13 @@ export async function relocateMedia(
         unset.operation = ''
         unset.opLabel = ''
     }
+    /* Unset when the path drops it, exactly as reconcile.ts does. `mission` is
+       computed above as null whenever there is no operation to hang it off, so
+       reassigning a legacy file to Unknown moves the bytes to `Unknown/…`
+       while the document kept claiming `mission: 'I'` — a fifth field on which
+       the two halves of one operation disagreed, and one the facet rail
+       filters on. */
+    if (mission) set.mission = mission; else unset.mission = ''
 
     // takenAt follows the operation, exactly as the review route's
     // operationFields() does — the two must never disagree. That function
@@ -247,8 +254,15 @@ function move(source: string, destination: string): void {
     try {
         renameSync(source, destination)
     } catch (err: unknown) {
-        if ((err as NodeJS.ErrnoException)?.code !== 'EXDEV') throw err
+        if (!isErrno(err, 'EXDEV')) throw err
         copyFileSync(source, destination)
         unlinkSync(source)
     }
+}
+
+/** A thrown value is `unknown`, and `in` NARROWS it — where an
+ *  `as NodeJS.ErrnoException` only asserted the shape and would have read
+ *  `undefined` off any non-Error throw, silently rethrowing nothing useful. */
+function isErrno(err: unknown, code: string): boolean {
+    return typeof err === 'object' && err !== null && 'code' in err && err.code === code
 }

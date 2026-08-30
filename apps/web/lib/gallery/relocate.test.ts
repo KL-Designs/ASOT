@@ -139,6 +139,61 @@ describe('operationYear', () => {
 })
 
 describe('relocateMedia', () => {
+    /* Mission is the facet relocate.ts and reconcile.ts disagreed about:
+       relocate dropped it from the PATH when there was no operation but never
+       unset the FIELD, so a legacy file reassigned to Unknown sat at
+       "Unknown/…" while its document still claimed mission "I" — and the
+       public facet rail filters on that field. relocate.test.ts had never
+       covered mission at all, in either direction. */
+    test('a legacy file keeps its mission folder when the operation is reassigned', async () => {
+        const stage = join(contentDir, '2021', '4. Op Silent Ridge', 'I')
+        mkdirSync(stage, { recursive: true })
+        writeFileSync(join(stage, 'arma3_01.png'), 'BYTES')
+        mkdirSync(join(contentDir, '2022', '9. Op Copper Ridge'), { recursive: true })
+
+        const docs = {
+            [MEDIA_ID.toString()]: {
+                _id: MEDIA_ID,
+                storageKey: 'content:2021/4. Op Silent Ridge/I/arma3_01.png',
+                mission: 'I',
+                operationId: OP_ID,
+            },
+        }
+        const d = deps(docs, [{ _id: OP_ID, title: 'OPERATION Copper Ridge \u2014 Sat', date: new Date('2022-03-05T09:00:00Z') }])
+
+        const result = await relocateMedia(d, MEDIA_ID)
+
+        expect(result?.to).toBe(`content:2022/9. Op Copper Ridge/I/${MEDIA_ID}.png`)
+        expect(docs[MEDIA_ID.toString()].mission).toBe('I')
+        expect(existsSync(join(contentDir, '2022', '9. Op Copper Ridge', 'I', `${MEDIA_ID}.png`))).toBe(true)
+    })
+
+    test('reassigning to Unknown unsets mission rather than leaving it behind', async () => {
+        const stage = join(contentDir, '2021', '4. Op Silent Ridge', 'I')
+        mkdirSync(stage, { recursive: true })
+        writeFileSync(join(stage, 'arma3_02.png'), 'BYTES')
+
+        const docs = {
+            [MEDIA_ID.toString()]: {
+                _id: MEDIA_ID,
+                storageKey: 'content:2021/4. Op Silent Ridge/I/arma3_02.png',
+                mission: 'I',
+                year: '2021',
+                operation: '4. Op Silent Ridge',
+            },
+        }
+        const d = deps(docs, [])
+
+        const result = await relocateMedia(d, MEDIA_ID)
+
+        // The bytes are at Unknown/, so the document must not still claim a
+        // mission — exactly what reconcile.ts does for the same move.
+        expect(result?.to).toBe(`content:Unknown/${MEDIA_ID}.png`)
+        expect(docs[MEDIA_ID.toString()].mission).toBeUndefined()
+        expect(docs[MEDIA_ID.toString()].year).toBeUndefined()
+        expect(docs[MEDIA_ID.toString()].operation).toBeUndefined()
+    })
+
     test('moves the file, renames it, and updates the document', async () => {
         const flat = join(root, 'media')
         mkdirSync(flat, { recursive: true })
