@@ -13,6 +13,10 @@
  */
 const ORDER_PREFIX = /^\s*(\d+)\s*[.)\-–]?\s*/
 
+/** A trailing "(...)" and the whitespace before it. Only ever removed by
+ *  strippedKey below, never by normalizeKey. */
+const TRAILING_PARENTHETICAL = /\s*\([^)]*\)\s*$/
+
 export function splitOperation(folder: string): { label: string, order: number } {
     const match = folder.match(ORDER_PREFIX)
     if (!match) return { label: folder.trim(), order: Number.MAX_SAFE_INTEGER }
@@ -30,12 +34,13 @@ export function splitOperation(folder: string): { label: string, order: number }
  * while the gallery keeps one folder per weekend, abbreviated ("18. Op
  * Atlantic Shield"). Exact matching between them finds nothing at all.
  *
- * Does not touch a trailing parenthetical. Stripping it unconditionally would
- * let "Op Copper Ridge (Lanze Verde)" collide with a plain, unrelated "Op
- * Copper Ridge" — a real pair of folders in this archive.
+ * Does not touch a trailing parenthetical — that is fullKey/strippedKey's
+ * job below. Stripping it unconditionally HERE would let "Op Copper Ridge
+ * (Lanze Verde)" collide with a plain, unrelated "Op Copper Ridge" — a real
+ * pair of folders in this archive.
  *
- * Duplicated in scripts/index-gallery.mjs, which cannot import TypeScript.
- * Both copies are pinned by tests.
+ * Duplicated in scripts/index-gallery.mjs and scripts/relocate-flat-media.mjs,
+ * neither of which can import TypeScript. Every copy is pinned by tests.
  */
 export function normalizeKey(s: string): string {
     return String(s)
@@ -44,4 +49,56 @@ export function normalizeKey(s: string): string {
         .replace(/^(operation|op|ftx|tvt)\s+/i, '')
         .replace(/[^a-z0-9]+/g, ' ')
         .trim()
+}
+
+/**
+ * Matching a gallery folder to an operation, in two tiers.
+ *
+ * `fullKey` keeps a trailing parenthetical, so it only matches a title that
+ * carries the same detail. `strippedKey` drops it, because an operation's own
+ * title rarely repeats a gallery folder's parenthetical verbatim — the archive
+ * has "9. Op Copper Ridge (Lanze Verde)" and "12. MW Training (CAG)" against
+ * operations titled without either.
+ *
+ * The ORDER is the whole safety property, and it is why normalizeKey does not
+ * strip parentheses itself. Tried specific-first, "Op Copper Ridge (Lanze
+ * Verde)" can only reach a plain, unrelated "Op Copper Ridge" once nothing
+ * more specific has matched. Strip unconditionally, or try the stripped key
+ * first, and those two real folders collapse onto one operation.
+ *
+ * All three matchers share this pair: scripts/index-gallery.mjs (which had it
+ * first), reconcile.ts and relocate.ts. The last two knew only the full key,
+ * and the mismatch was not theoretical — a file the migration linked through
+ * the stripped key, moved by hand into "9. Op Copper Ridge (Lanze Verde)",
+ * reached reconcile's operationFor(), found no candidate, and had its
+ * operationId UNSET; and resolveOperationFolder could not see that folder
+ * either, so accepting a submission for the operation created a duplicate
+ * numbered folder beside it and split the facet rail.
+ */
+export function fullKey(s: string): string {
+    return normalizeKey(s)
+}
+
+export function strippedKey(s: string): string {
+    return normalizeKey(String(s).replace(TRAILING_PARENTHETICAL, ''))
+}
+
+/**
+ * The candidate whose own label names `label`, specific tier first.
+ *
+ * Each tier is swept across ALL candidates before the next is tried. A
+ * per-candidate "full or stripped" test would let an earlier candidate win on
+ * the loose key while a later one matched exactly.
+ */
+export function findByOperationKey<T>(
+    label: string,
+    candidates: readonly T[],
+    labelOf: (candidate: T) => string,
+): T | undefined {
+    const full = fullKey(label)
+    const exact = candidates.find(c => fullKey(labelOf(c)) === full)
+    if (exact) return exact
+
+    const stripped = strippedKey(label)
+    return candidates.find(c => strippedKey(labelOf(c)) === stripped)
 }

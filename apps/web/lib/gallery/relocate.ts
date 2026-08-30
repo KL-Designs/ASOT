@@ -5,7 +5,7 @@ import path from 'path'
 
 import { buildContentPath, sanitizeSegment } from './content-path'
 import { buildMediaFilename } from './filenames'
-import { normalizeKey, splitOperation } from './naming'
+import { findByOperationKey, splitOperation } from './naming'
 import { CONTENT_DIR, MEDIA_DIR, contentKey, resolveStorageKey } from './paths'
 
 /**
@@ -108,8 +108,15 @@ export async function resolveOperationFolder(
         // operation of a year creates it.
     }
 
-    const wanted = normalizeKey(title)
-    const match = existing.find(folder => normalizeKey(splitOperation(folder).label) === wanted)
+    /* Two-tier: the folder whose label carries the same trailing parenthetical
+       first, then one whose label matches with the parenthetical dropped.
+       Matching only on the full key could not see "9. Op Copper Ridge (Lanze
+       Verde)" from an operation titled "OPERATION Copper Ridge", so accepting
+       a submission for it minted "10. Op Copper Ridge" beside the folder that
+       already held that operation's photographs — a duplicate folder, and the
+       split facet rail this whole feature exists to stop. See naming.ts for
+       why the order, not an unconditional strip, is what keeps that safe. */
+    const match = findByOperationKey(title, existing, folder => splitOperation(folder).label)
     if (match) return { year, operation: match }
 
     const highest = existing.reduce((max, folder) => {

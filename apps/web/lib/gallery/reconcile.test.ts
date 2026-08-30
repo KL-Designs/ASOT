@@ -271,4 +271,62 @@ describe('reconcile', () => {
         expect(report.scanned).toBe(0)
         expect(report.notIndexed).toEqual([])
     })
+
+    /* Final review, important 5. scripts/index-gallery.mjs matches a folder to
+       an operation on a full key and then a parenthetical-stripped one;
+       reconcile knew only the full key. So the migration linked
+       "9. Op Copper Ridge (Lanze Verde)" — a real folder — to "OPERATION
+       Copper Ridge" through the stripped key, and then a file dragged by hand
+       into that same folder found no candidate here and reconcile UNSET the
+       operationId the migration had just established. */
+    test('a folder carrying a parenthetical the operation title lacks still resolves', async () => {
+        const name = `Koda — Danger close [${A}].jpg`
+        write(`2021/9. Op Copper Ridge (Lanze Verde)/${name}`)
+
+        const docs: Doc[] = [{ _id: A, storageKey: `content:Unknown/${name}` }]
+        const ops: Doc[] = [{ _id: OP_ID, title: 'OPERATION Copper Ridge — Sat', date: new Date('2021-05-15T09:00:00Z') }]
+
+        const report = await reconcile(deps(docs, ops))
+
+        expect(report.relocated).toHaveLength(1)
+        expect(docs[0].operationId).toEqual(OP_ID)
+        expect(docs[0].takenAt).toEqual(new Date('2021-05-15T09:00:00Z'))
+    })
+
+    test('the MW Training (CAG) folder resolves to an operation titled MW Training', async () => {
+        const name = `Koda — Range day [${A}].jpg`
+        write(`2021/12. MW Training (CAG)/${name}`)
+
+        const docs: Doc[] = [{ _id: A, storageKey: `content:Unknown/${name}` }]
+        const ops: Doc[] = [{ _id: OP_ID, title: 'MW Training', date: new Date('2021-06-19T09:00:00Z') }]
+
+        await reconcile(deps(docs, ops))
+        expect(docs[0].operationId).toEqual(OP_ID)
+    })
+
+    /* And the reason the fallback is a second TIER rather than an
+       unconditional strip: both folders are real and unrelated, so each must
+       keep its own operation. Stripping in normalizeKey, or trying the loose
+       key first, collapses them onto whichever sorted earliest. */
+    test('a parenthetical folder and its plain namesake keep separate operations', async () => {
+        const parenthetical = `Koda — Night [${A}].jpg`
+        const plain = `Koda — Day [${B}].jpg`
+        write(`2021/9. Op Copper Ridge (Lanze Verde)/${parenthetical}`)
+        write(`2021/10. Op Copper Ridge/${plain}`)
+
+        const LANZE = new ObjectId('6a8000000000000000000002')
+        const docs: Doc[] = [
+            { _id: A, storageKey: `content:Unknown/${parenthetical}` },
+            { _id: B, storageKey: `content:Unknown/${plain}` },
+        ]
+        const ops: Doc[] = [
+            { _id: LANZE, title: 'OPERATION Copper Ridge (Lanze Verde) — Sat', date: new Date('2021-05-15T09:00:00Z') },
+            { _id: OP_ID, title: 'OPERATION Copper Ridge — Sat', date: new Date('2021-09-04T09:00:00Z') },
+        ]
+
+        await reconcile(deps(docs, ops))
+
+        expect(docs[0].operationId).toEqual(LANZE)
+        expect(docs[1].operationId).toEqual(OP_ID)
+    })
 })

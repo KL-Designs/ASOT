@@ -64,6 +64,39 @@ describe('resolveOperationFolder', () => {
         expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: '2021', operation: '4. Op Silent Ridge' })
     })
 
+    /* Final review, important 5: the archive's two parenthetical folders sit
+       beside operations whose titles do not repeat the parenthetical.
+       Matching only on the full key could not see either, so accepting a
+       submission minted a DUPLICATE numbered folder next to the one already
+       holding that operation's photographs, and the public facet rail showed
+       the operation twice. */
+    test('reuses a folder whose label carries a parenthetical the operation title lacks', async () => {
+        mkdirSync(join(contentDir, '2021', '9. Op Copper Ridge (Lanze Verde)'), { recursive: true })
+        const d = deps({}, [{ _id: OP_ID, title: 'OPERATION Copper Ridge \u2014 Sat', date: new Date('2021-05-15T09:00:00Z') }])
+
+        expect(await resolveOperationFolder(d, OP_ID))
+            .toEqual({ year: '2021', operation: '9. Op Copper Ridge (Lanze Verde)' })
+    })
+
+    test('reuses the MW Training (CAG) folder for an operation titled MW Training', async () => {
+        mkdirSync(join(contentDir, '2021', '12. MW Training (CAG)'), { recursive: true })
+        const d = deps({}, [{ _id: OP_ID, title: 'MW Training', date: new Date('2021-06-19T09:00:00Z') }])
+
+        expect(await resolveOperationFolder(d, OP_ID))
+            .toEqual({ year: '2021', operation: '12. MW Training (CAG)' })
+    })
+
+    // The reason the tiers are ordered rather than merged: both folders are
+    // real and unrelated, so the specific one must win its own operation.
+    test('a parenthetical folder does not steal an operation that has a plain namesake folder', async () => {
+        mkdirSync(join(contentDir, '2021', '9. Op Copper Ridge (Lanze Verde)'), { recursive: true })
+        mkdirSync(join(contentDir, '2021', '10. Op Copper Ridge'), { recursive: true })
+        const d = deps({}, [{ _id: OP_ID, title: 'OPERATION Copper Ridge (Lanze Verde) \u2014 Sat', date: new Date('2021-05-15T09:00:00Z') }])
+
+        expect(await resolveOperationFolder(d, OP_ID))
+            .toEqual({ year: '2021', operation: '9. Op Copper Ridge (Lanze Verde)' })
+    })
+
     test('creates the next numbered folder name when nothing matches', async () => {
         mkdirSync(join(contentDir, '2021', '1. Op Armoured Spearhead'), { recursive: true })
         mkdirSync(join(contentDir, '2021', '7. Op Copper Ridge'), { recursive: true })

@@ -6,7 +6,7 @@ import path from 'path'
 import { parseContentPath } from './content-path'
 import type { ContentFacets } from './content-path'
 import { parseMediaFilename } from './filenames'
-import { normalizeKey, splitOperation } from './naming'
+import { fullKey, splitOperation, strippedKey } from './naming'
 import { CONTENT_DIR, contentKey } from './paths'
 import { operationYear } from './relocate'
 
@@ -150,45 +150,73 @@ export async function reconcile(deps: ReconcileDeps): Promise<ReconcileReport> {
         { projection: { title: 1, date: 1 } },
     ).toArray()
 
-    const opsByKey = new Map<string, ReconcileOperationDoc[]>()
-    for (const op of operations) {
-        const key = normalizeKey(String(op.title ?? ''))
-        if (!key) continue
-        const list = opsByKey.get(key)
+    /* Two buckets, not one: an operation is filed under both the key that
+       keeps a trailing parenthetical and the key that drops it, so a folder
+       can be matched specific-first and fall back — the same two-tier match
+       scripts/index-gallery.mjs makes. Knowing only the full key is what made
+       reconcile UNSET the operationId the migration had established through
+       the stripped one, for the two real folders that need it ("9. Op Copper
+       Ridge (Lanze Verde)", "12. MW Training (CAG)"). See naming.ts. */
+    const opsByFullKey = new Map<string, ReconcileOperationDoc[]>()
+    const opsByStrippedKey = new Map<string, ReconcileOperationDoc[]>()
+    const fileUnder = (map: Map<string, ReconcileOperationDoc[]>, key: string, op: ReconcileOperationDoc) => {
+        if (!key) return
+        const list = map.get(key)
         if (list) list.push(op)
-        else opsByKey.set(key, [op])
+        else map.set(key, [op])
     }
-    for (const list of opsByKey.values()) {
-        // A dateless operation sorts last rather than first, so it never wins
-        // the candidates[0] fallback over one that can actually date the media.
-        list.sort((a, b) => (toDate(a.date)?.getTime() ?? Number.MAX_SAFE_INTEGER)
-            - (toDate(b.date)?.getTime() ?? Number.MAX_SAFE_INTEGER))
+    for (const op of operations) {
+        const title = String(op.title ?? '')
+        if (!title) continue
+        fileUnder(opsByFullKey, fullKey(title), op)
+        fileUnder(opsByStrippedKey, strippedKey(title), op)
     }
+    for (const map of [opsByFullKey, opsByStrippedKey]) {
+        for (const list of map.values()) {
+            // A dateless operation sorts last rather than first, so it never
+            // wins the candidates[0] fallback over one that can date the media.
+            list.sort((a, b) => (toDate(a.date)?.getTime() ?? Number.MAX_SAFE_INTEGER)
+                - (toDate(b.date)?.getTime() ?? Number.MAX_SAFE_INTEGER))
+        }
+    }
+
+    // A year folder is a season, not a calendar year — "2022 - 2023" spans two
+    // outright — so one year either side still counts.
+    //
+    // operationYear() rather than a third getUTCFullYear() of its own:
+    // relocate.ts and the review route's operationFields() already share it,
+    // and this is the function that decides whether the folder they chose
+    // still names the same operation. A private copy is what quietly disagrees
+    // on the one day a year it matters.
+    const yearOf = (op: ReconcileOperationDoc) => {
+        const date = toDate(op.date)
+        return date ? Number(operationYear(date)) : NaN
+    }
+    const inYear = (candidates: ReconcileOperationDoc[] | undefined, yearNum: number) =>
+        candidates?.find(op => yearOf(op) === yearNum)
+        ?? candidates?.find(op => Math.abs(yearOf(op) - yearNum) === 1)
 
     /** The operation a folder label names, preferring one from the same year. */
     function operationFor(folder: string | null, year: string | null): ReconcileOperationDoc | null {
         if (!folder) return null
-        const candidates = opsByKey.get(normalizeKey(splitOperation(folder).label))
-        if (!candidates?.length) return null
+        const label = splitOperation(folder).label
+        const full = opsByFullKey.get(fullKey(label))
+        const stripped = opsByStrippedKey.get(strippedKey(label))
+        if (!full?.length && !stripped?.length) return null
 
         const yearNum = year ? Number(year.slice(0, 4)) : NaN
-        if (Number.isNaN(yearNum)) return candidates[0]
 
-        // A year folder is a season, not a calendar year — "2022 - 2023" spans
-        // two outright — so one year either side still counts.
-        //
-        // operationYear() rather than a third getUTCFullYear() of its own:
-        // relocate.ts and the review route's operationFields() already share
-        // it, and this is the function that decides whether the folder they
-        // chose still names the same operation. A private copy is what quietly
-        // disagrees on the one day a year it matters.
-        const yearOf = (op: ReconcileOperationDoc) => {
-            const date = toDate(op.date)
-            return date ? Number(operationYear(date)) : NaN
-        }
-        return candidates.find(op => yearOf(op) === yearNum)
-            ?? candidates.find(op => Math.abs(yearOf(op) - yearNum) === 1)
-            ?? candidates[0]
+        /* Year-matching is exhausted on the SPECIFIC bucket before the loose
+           one is consulted at all, and only then does the undated fallback
+           run — so "Op Copper Ridge (Lanze Verde)" can reach a plain,
+           unrelated "Op Copper Ridge" only when nothing carrying its own
+           parenthetical matched. Reversing these four lines is what collapses
+           the two folders onto one operation. */
+        return (Number.isNaN(yearNum) ? undefined : inYear(full, yearNum))
+            ?? (Number.isNaN(yearNum) ? undefined : inYear(stripped, yearNum))
+            ?? full?.[0]
+            ?? stripped?.[0]
+            ?? null
     }
 
     /* A file was found on disk for this key / for this document. Both are

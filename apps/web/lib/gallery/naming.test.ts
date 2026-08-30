@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { splitOperation } from './naming'
+import { findByOperationKey, fullKey, splitOperation, strippedKey } from './naming'
 
 describe('splitOperation', () => {
     test('strips a numeric prefix and keeps it for sorting', () => {
@@ -31,5 +31,66 @@ describe('splitOperation', () => {
 
     test('trims surrounding whitespace', () => {
         expect(splitOperation('  3.  Op Ash  ')).toEqual({ label: 'Op Ash', order: 3 })
+    })
+})
+
+/**
+ * The two-tier folder-to-operation match. Both folder names below are real:
+ * "9. Op Copper Ridge (Lanze Verde)" and "12. MW Training (CAG)" are the only
+ * two in the archive carrying a trailing parenthetical, and both sit beside
+ * operations whose own titles do not repeat it.
+ */
+describe('fullKey / strippedKey', () => {
+    test('the full key keeps a trailing parenthetical and the stripped key drops it', () => {
+        expect(fullKey('Op Copper Ridge (Lanze Verde)')).toBe('copper ridge lanze verde')
+        expect(strippedKey('Op Copper Ridge (Lanze Verde)')).toBe('copper ridge')
+    })
+
+    test('the two keys agree when there is no parenthetical to drop', () => {
+        expect(fullKey('OPERATION Copper Ridge \u2014 Sat')).toBe('copper ridge')
+        expect(strippedKey('OPERATION Copper Ridge \u2014 Sat')).toBe('copper ridge')
+    })
+
+    test('only a TRAILING parenthetical is dropped', () => {
+        // Mid-string parentheses are part of the name, not a qualifier.
+        expect(strippedKey('Op (Night) Assault')).toBe('night assault')
+    })
+})
+
+describe('findByOperationKey', () => {
+    const title = (t: string) => t
+
+    // Why the tiers are ordered rather than merged: these two operations both
+    // exist, and an unconditional strip puts the folder on whichever sorted
+    // first.
+    test('prefers the candidate carrying the same parenthetical', () => {
+        const ops = ['OPERATION Copper Ridge \u2014 Sat', 'OPERATION Copper Ridge (Lanze Verde) \u2014 Sat']
+        expect(findByOperationKey('Op Copper Ridge (Lanze Verde)', ops, title))
+            .toBe('OPERATION Copper Ridge (Lanze Verde) \u2014 Sat')
+        expect(findByOperationKey('Op Copper Ridge', ops, title))
+            .toBe('OPERATION Copper Ridge \u2014 Sat')
+    })
+
+    // The case the migration already handled and the other two matchers did
+    // not: nothing repeats the folder's parenthetical, so the loose key is the
+    // only thing that can link them.
+    test('falls back to the stripped key when no candidate repeats the parenthetical', () => {
+        expect(findByOperationKey('Op Copper Ridge (Lanze Verde)', ['OPERATION Copper Ridge \u2014 Sun'], title))
+            .toBe('OPERATION Copper Ridge \u2014 Sun')
+        expect(findByOperationKey('MW Training (CAG)', ['MW Training'], title))
+            .toBe('MW Training')
+    })
+
+    // The full tier is swept across every candidate before the stripped tier
+    // is tried at all — a per-candidate "full or stripped" test would let this
+    // return the first entry.
+    test('an exact match later in the list beats a loose match earlier in it', () => {
+        const ops = ['OPERATION Copper Ridge', 'OPERATION Copper Ridge (Lanze Verde)']
+        expect(findByOperationKey('Op Copper Ridge (Lanze Verde)', ops, title))
+            .toBe('OPERATION Copper Ridge (Lanze Verde)')
+    })
+
+    test('no candidate matches at all', () => {
+        expect(findByOperationKey('Op Nothing Like It', ['OPERATION Copper Ridge'], title)).toBeUndefined()
     })
 })
