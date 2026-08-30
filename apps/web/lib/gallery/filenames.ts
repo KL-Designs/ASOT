@@ -43,6 +43,11 @@ export function sanitizeFilePart(raw: string | null | undefined): string {
         .replace(/\s+/g, ' ')
         .trim()
         .replace(ILLEGAL, '')
+        // Stripping ILLEGAL can leave two spaces touching where a bracket or
+        // control character used to sit between them (e.g. "shot [ image]"),
+        // so collapse and trim again rather than trust the first pass.
+        .replace(/\s+/g, ' ')
+        .trim()
         // Windows silently drops trailing dots and spaces, which would leave
         // the name on disk differing from the name in the database.
         .replace(/[. ]+$/, '')
@@ -51,7 +56,16 @@ export function sanitizeFilePart(raw: string | null | undefined): string {
 /** Cut to `max`, preferring a word boundary if one falls near the end. */
 function truncateOnWord(s: string, max: number): string {
     if (s.length <= max) return s
-    const cut = s.slice(0, max)
+    let cut = s.slice(0, max)
+
+    // slice() counts UTF-16 code units, so a surrogate pair (an astral
+    // character such as an emoji) straddling the boundary is split, leaving
+    // a lone high surrogate — not valid UTF-8, and not a name a filesystem
+    // will accept. Drop the orphaned half rather than emit it; the whole
+    // character disappearing is fine, since it was going to be cut anyway.
+    const lastUnit = cut.charCodeAt(cut.length - 1)
+    if (lastUnit >= 0xd800 && lastUnit <= 0xdbff) cut = cut.slice(0, -1)
+
     const space = cut.lastIndexOf(' ')
     const out = space > 0 && space >= max - 12 ? cut.slice(0, space) : cut
     return out.replace(/[. ]+$/, '')

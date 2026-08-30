@@ -22,6 +22,19 @@ describe('sanitizeFilePart', () => {
         expect(sanitizeFilePart('  too   many\t\tspaces  ')).toBe('too many spaces')
     })
 
+    // Stripping a bracket or a control character can leave two spaces
+    // touching where it used to sit — a second collapse pass has to catch
+    // what the first pass, run before ILLEGAL, could not have seen coming.
+    test('collapses a double space left behind by stripping an illegal character', () => {
+        expect(sanitizeFilePart('shot [ image]')).toBe('shot image')
+        expect(sanitizeFilePart('Contact [ north ridge ]')).toBe('Contact north ridge')
+    })
+
+    test('collapses a double space left behind by stripping a control character', () => {
+        const bell = String.fromCharCode(7)
+        expect(sanitizeFilePart(`a ${bell} b`)).toBe('a b')
+    })
+
     // Windows silently drops these, which would make the name on disk differ
     // from the name recorded in the database.
     test('strips trailing dots and spaces', () => {
@@ -80,6 +93,17 @@ describe('buildMediaFilename', () => {
     test('truncation does not leave a trailing dot', () => {
         const name = buildMediaFilename({ id: ID, ext: 'jpg', caption: `${'a'.repeat(78)}. tail` })
         expect(name).not.toContain('. [')
+    })
+
+    // An astral character (built via fromCodePoint, not a \u escape, so the
+    // source stays plain ASCII) is two UTF-16 code units. Landing the cut
+    // exactly between them must not leave a lone surrogate in the filename —
+    // TextEncoder replaces an unpaired surrogate with U+FFFD when it hits
+    // one, so a round trip through it changes the string if one snuck in.
+    test('does not split a surrogate pair at the truncation boundary', () => {
+        const emoji = String.fromCodePoint(0x1f642)
+        const name = buildMediaFilename({ id: ID, ext: 'jpg', caption: `${'a'.repeat(79)}${emoji}` })
+        expect(new TextDecoder().decode(new TextEncoder().encode(name))).toBe(name)
     })
 })
 
