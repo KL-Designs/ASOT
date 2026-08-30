@@ -89,10 +89,30 @@ export default function MediaTab() {
                 <LibraryRail
                     facets={facets}
                     view={filters.view}
-                    year={filters.year}
-                    operation={filters.operation}
+                    // LibraryRail only ever compares these against the raw
+                    // strings the facets response itself uses ('Unknown' for
+                    // an absent field — see selectNode's comment in
+                    // useLibrary.ts) to decide which row is highlighted; it
+                    // never sends them to the query. Mapping *Unset back to
+                    // that display string here — the inverse of what
+                    // selectNode does going in — is what keeps the Unknown
+                    // row (and "All media" losing its highlight under it)
+                    // showing correctly without LibraryRail needing to know
+                    // the boolean flags exist at all.
+                    year={filters.yearUnset ? 'Unknown' : filters.year}
+                    operation={filters.operationUnset ? 'Unknown' : filters.operation}
                     mission={filters.mission}
-                    onView={v => { setParam('view', v); setParam('year', null); setParam('operation', null); setParam('mission', null) }}
+                    onView={v => {
+                        setParam('view', v)
+                        setParam('year', null)
+                        setParam('operation', null)
+                        setParam('mission', null)
+                        // A saved view replaces a tree selection outright — otherwise
+                        // clicking "All media" after the rail's Unknown node would
+                        // leave *Unset stuck true and silently keep filtering.
+                        setParam('yearUnset', false)
+                        setParam('operationUnset', false)
+                    }}
                     onNode={selectNode}
                 />
 

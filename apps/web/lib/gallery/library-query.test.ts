@@ -11,11 +11,12 @@ describe('parseLibraryParams', () => {
         expect(params('')).toEqual({
             view: 'all', year: null, operation: null, mission: null, tag: null,
             author: null, kind: null, q: null, sort: 'newest', page: 0,
+            yearUnset: false, operationUnset: false,
         })
     })
 
     test('reads every parameter', () => {
-        const p = params('view=unknown&year=2021&operation=4.+Op+Silent+Ridge&mission=I&tag=funny&author=Koda&kind=video&q=chopper&sort=rated&page=3')
+        const p = params('view=unknown&year=2021&operation=4.+Op+Silent+Ridge&mission=I&tag=funny&author=Koda&kind=video&q=chopper&sort=rated&page=3&yearUnset=true&operationUnset=true')
         expect(p.view).toBe('unknown')
         expect(p.year).toBe('2021')
         expect(p.operation).toBe('4. Op Silent Ridge')
@@ -26,6 +27,15 @@ describe('parseLibraryParams', () => {
         expect(p.q).toBe('chopper')
         expect(p.sort).toBe('rated')
         expect(p.page).toBe(3)
+        expect(p.yearUnset).toBe(true)
+        expect(p.operationUnset).toBe(true)
+    })
+
+    test('yearUnset/operationUnset default to false, and only the literal string "true" sets them', () => {
+        expect(params('').yearUnset).toBe(false)
+        expect(params('yearUnset=false').yearUnset).toBe(false)
+        expect(params('yearUnset=1').yearUnset).toBe(false)
+        expect(params('yearUnset=true').yearUnset).toBe(true)
     })
 
     // An unknown value is a typo or a stale bookmark, not a reason to 500.
@@ -74,21 +84,37 @@ describe('buildLibraryFilter', () => {
         expect(f).toMatchObject({ year: '2021', operation: '4. Op Silent Ridge', mission: 'I' })
     })
 
-    // The rail's Unknown node is a synthesised display label — no document
-    // ever stores the literal string 'Unknown' in `year` or `operation`; the
-    // migration and relocateMedia both omit the field entirely instead (see
-    // GalleryMedia's doc comment). A literal string match here would select
-    // nothing, dead-ending the exact row the tab exists to make useful.
-    test('year=Unknown means the field is absent, not a literal match', () => {
-        expect(buildLibraryFilter(params('year=Unknown'))).toMatchObject({
+    // The rail's Unknown tree node asks for "this field is absent" through a
+    // dedicated boolean, not by overloading the string 'Unknown' — a real
+    // document can hold that literal string (see the test below), so the
+    // string channel has to keep meaning a literal match.
+    test('yearUnset selects an absent year, not a literal match', () => {
+        expect(buildLibraryFilter(params('yearUnset=true'))).toMatchObject({
             year: { $exists: false },
         })
     })
 
-    test('operation=Unknown means the field is absent, not a literal match', () => {
-        expect(buildLibraryFilter(params('operation=Unknown'))).toMatchObject({
+    test('operationUnset selects an absent operation, not a literal match', () => {
+        expect(buildLibraryFilter(params('operationUnset=true'))).toMatchObject({
             operation: { $exists: false },
         })
+    })
+
+    // relocate.ts's undated-operation branch writes an operation's raw,
+    // unvalidated title verbatim, so an admin can title a real Operation
+    // exactly 'Unknown' and have it stored as that literal string. It must
+    // still be reachable by a literal filter now that the string is no
+    // longer overloaded as a sentinel.
+    test('a literal year or operation of "Unknown" still matches literally', () => {
+        expect(buildLibraryFilter(params('year=Unknown'))).toMatchObject({ year: 'Unknown' })
+        expect(buildLibraryFilter(params('operation=Unknown'))).toMatchObject({ operation: 'Unknown' })
+    })
+
+    // Defensive rather than reachable through the UI (which never sends
+    // both): the boolean must win unambiguously if it ever did, rather than
+    // silently depending on object key order.
+    test('yearUnset wins over a same-request literal year', () => {
+        expect(buildLibraryFilter(params('year=2021&yearUnset=true')).year).toEqual({ $exists: false })
     })
 
     test('tag and author', () => {

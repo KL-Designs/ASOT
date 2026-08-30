@@ -63,15 +63,19 @@ export function parseContentPath(relative: string): ContentFacets | null {
     const file = segments[segments.length - 1]
     const dirs = segments.slice(0, -1)
 
-    if (dirs.length === 1) {
-        return dirs[0] === UNKNOWN_FOLDER
-            ? { year: null, operation: null, mission: null, file }
-            : { year: dirs[0], operation: null, mission: null, file }
-    }
+    // Unknown/ means "no year", at any depth — not "the year is literally
+    // called Unknown". A human reorganising a downloaded backup can nest
+    // folders under it (Unknown/SomeFolder/x.jpg), and that must still read
+    // back as operation: 'SomeFolder' with no year, the same as it would one
+    // level up. Checked once here rather than per-branch below, so a future
+    // depth can't reintroduce the literal-string bug this replaced.
+    const isUnknown = dirs[0] === UNKNOWN_FOLDER
+    const year = isUnknown ? null : dirs[0]
 
-    if (dirs.length === 2) return { year: dirs[0], operation: dirs[1], mission: null, file }
+    if (dirs.length === 1) return { year, operation: null, mission: null, file }
+    if (dirs.length === 2) return { year, operation: dirs[1], mission: null, file }
 
-    return { year: dirs[0], operation: dirs[1], mission: dirs[2], file }
+    return { year, operation: dirs[1], mission: dirs[2], file }
 }
 
 export function buildContentPath(f: {

@@ -43,6 +43,20 @@ describe('parseContentPath', () => {
         })
     })
 
+    // Unknown/ means "no year" at any depth, not "the year is called
+    // Unknown" — a human reorganising a backup can nest a folder under it.
+    test('a folder nested under Unknown is the operation, not the year', () => {
+        expect(parseContentPath('Unknown/SomeFolder/x.jpg')).toEqual({
+            year: null, operation: 'SomeFolder', mission: null, file: 'x.jpg',
+        })
+    })
+
+    test('two folders nested under Unknown is operation and mission, still no year', () => {
+        expect(parseContentPath('Unknown/SomeFolder/Mission/x.jpg')).toEqual({
+            year: null, operation: 'SomeFolder', mission: 'Mission', file: 'x.jpg',
+        })
+    })
+
     // A year folder holding files directly is not a shape this writes, but a
     // human reorganising a backup can produce one. Report the year rather
     // than dropping the file.

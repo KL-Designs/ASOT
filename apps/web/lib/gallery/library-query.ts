@@ -26,6 +26,12 @@ export type LibraryParams = {
     q: string | null
     sort: LibrarySort
     page: number
+    /** "This field must be absent" — set only by the rail's Unknown tree
+     *  node (see buildLibraryFilter's comment for why this has to be a
+     *  separate channel from `year`/`operation` rather than a sentinel
+     *  string value). */
+    yearUnset: boolean
+    operationUnset: boolean
 }
 
 /** Tiles per page. Sixty fills the grid at every breakpoint without asking a
@@ -73,6 +79,12 @@ export function parseLibraryParams(search: URLSearchParams): LibraryParams {
         q: str(search, 'q'),
         sort: isLibrarySort(sort) ? sort : 'newest',
         page: Number.isInteger(page) && page > 0 ? page : 0,
+        // No "typo or stale bookmark" fallback needed here, unlike view/sort
+        // above: any value other than the literal string 'true' means false,
+        // which is the same as the field being absent — there's no invalid
+        // state to guard against.
+        yearUnset: search.get('yearUnset') === 'true',
+        operationUnset: search.get('operationUnset') === 'true',
     }
 }
 
@@ -91,19 +103,23 @@ export function buildLibraryFilter(params: LibraryParams): Record<string, unknow
     if (params.view === 'nocaption') filter.caption = { $in: [null, ''] }
     if (params.view === 'videos') filter.kind = 'video'
 
-    // 'Unknown' is the rail's synthesised label for a document with no year
-    // or operation at all (facets/route.ts does `row._id.year ?? 'Unknown'`),
-    // not a value any producer ever writes to the field. index-gallery.mjs's
-    // Unknown pass, relocate.ts's resolveOperationFolder (operationId null)
-    // and content-path.ts's parseContentPath all agree: the Unknown folder
-    // means year/operation are OMITTED, never the literal string — see
-    // GalleryMedia's own doc comment ("all absent together when the
-    // submitter chose Unknown"). A literal match against 'Unknown' would
-    // therefore match nothing, dead-ending the rail's own Unknown row on
-    // exactly the items it exists to surface.
-    if (params.year === 'Unknown') filter.year = { $exists: false }
+    // yearUnset/operationUnset are how the rail's Unknown tree node asks for
+    // "this field is absent" — a dedicated boolean the UI sets explicitly,
+    // not inferred from the string being 'Unknown'. An earlier version of
+    // this function used the string itself as the sentinel, which looked
+    // safe (no producer we could find writes 'Unknown' as a literal value)
+    // until review found two that can: relocate.ts's undated-operation
+    // branch writes an operation's raw, unvalidated title verbatim, so an
+    // admin can title a real Operation exactly 'Unknown'; and
+    // content-path.ts's parseContentPath, before its own fix in this same
+    // change, read a folder nested under Unknown/ as a literal year of
+    // 'Unknown'. Either way a document could legitimately hold that string,
+    // and overloading it made such a document match neither branch —
+    // permanently unreachable from the rail. The string channel now always
+    // means a literal match, full stop; only the boolean asks for absence.
+    if (params.yearUnset) filter.year = { $exists: false }
     else if (params.year) filter.year = params.year
-    if (params.operation === 'Unknown') filter.operation = { $exists: false }
+    if (params.operationUnset) filter.operation = { $exists: false }
     else if (params.operation) filter.operation = params.operation
     if (params.mission) filter.mission = params.mission
     if (params.tag) filter.tags = params.tag
