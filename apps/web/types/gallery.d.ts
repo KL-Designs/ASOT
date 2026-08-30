@@ -71,10 +71,21 @@ declare global {
         file: string | null
     }
 
+    /** One tile of the public featured rail. Ordered by the database, not by
+     *  readdir and not shuffled — J5 curates the sequence. */
+    interface FeaturedItemAPI {
+        id: string
+        src: string
+        width: number | null
+        height: number | null
+        caption: string | null
+        opLabel: string | null
+    }
+
     interface GalleryAPI {
         info: string
         updated: string
-        featured: string[]
+        featured: FeaturedItemAPI[]
         items: GalleryItemAPI[]
         tags: { slug: string, label: string }[]
     }

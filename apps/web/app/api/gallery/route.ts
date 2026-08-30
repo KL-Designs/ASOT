@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import type { Filter } from 'mongodb'
-import fs from 'fs'
 
 import Db from '@/lib/mongo'
 import { splitOperation } from '@/lib/gallery/naming'
@@ -20,9 +19,13 @@ import { wilsonScore } from '@/lib/gallery/ranking'
  * wrote a document for every file already on disk, so this returns strictly
  * more than the old route did, about exactly the same photographs.
  *
- * `featured` still comes off the filesystem. The featured strip is a folder of
- * hand-picked files that J5 manages through their own tab and it was never
- * part of the archive tree.
+ * `featured` is a database query now, not a readdir. It used to be a listing
+ * of `storage/gallery/featured/`, returned as bare filenames and shuffled
+ * client-side on every visit — which threw away any order J5 curated, since a
+ * shuffle applied after the fetch cannot tell "curated" from "readdir order"
+ * apart. `featuredOrder` on `gallery_media` is now the source of truth, set by
+ * `PUT /api/gallery/admin/featured/order`, and this route just reads it back
+ * in that order.
  */
 
 /** The two storage trees, and which URL serves each. A legacy item keeps being
@@ -81,9 +84,13 @@ function fileFor(m: GalleryMedia): string | null {
 }
 
 export async function GET() {
-    const [docs, tags] = await Promise.all([
+    const [docs, tags, featuredDocs] = await Promise.all([
         Db.galleryMedia.find(ARCHIVE_FILTER).toArray(),
         Db.galleryTags.find({ retired: false }).sort({ order: 1 }).toArray(),
+        Db.galleryMedia
+            .find({ status: 'live', featuredOrder: { $exists: true } })
+            .sort({ featuredOrder: 1 })
+            .toArray(),
     ])
 
     const items: GalleryItemAPI[] = docs.map(m => ({
@@ -125,13 +132,14 @@ export async function GET() {
         file: fileFor(m),
     }))
 
-    let featured: string[] = []
-    try {
-        featured = fs.readdirSync('../../storage/gallery/featured')
-    } catch {
-        // An absent featured folder is a normal state on a fresh checkout; the
-        // strip renders nothing rather than the page failing.
-    }
+    const featured: FeaturedItemAPI[] = featuredDocs.map(m => ({
+        id: m._id.toString(),
+        src: `/api/gallery/media/${m._id.toString()}`,
+        width: m.width ?? null,
+        height: m.height ?? null,
+        caption: m.caption ?? null,
+        opLabel: m.opLabel ?? null,
+    }))
 
     return NextResponse.json({
         info: 'Gallery API',
