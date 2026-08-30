@@ -6,7 +6,7 @@ import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import GalleryOperationsTab from '@/app/dashboard/j5/tabs/GalleryOperationsTab'
 import MediaTab from '@/app/dashboard/j5/tabs/media/MediaTab'
-import GalleryFeaturedTab from '@/app/dashboard/j5/tabs/GalleryFeaturedTab'
+import FeaturedTab from '@/app/dashboard/j5/tabs/featured/FeaturedTab'
 import ScreenshotOfMonthTab from '@/app/dashboard/j5/tabs/ScreenshotOfMonthTab'
 import SubmissionsTab from '@/app/dashboard/j5/tabs/submissions/SubmissionsTab'
 import GalleryTagsTab from '@/app/dashboard/j5/tabs/GalleryTagsTab'
@@ -149,7 +149,7 @@ export default function J5Panel({
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && (canManageGallery ? <MediaTab /> : <GalleryOperationsTab />)}
-                        {tab === 1 && <GalleryFeaturedTab />}
+                        {tab === 1 && <FeaturedTab />}
                         {tab === 2 && <ScreenshotOfMonthTab canManage={canManageMembers} />}
                         {tab === 3 && <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} />}
                         {tab === 4 && <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} />}

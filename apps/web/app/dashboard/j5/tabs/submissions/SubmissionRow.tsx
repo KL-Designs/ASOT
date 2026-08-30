@@ -3,7 +3,7 @@
 import { Autocomplete, Button, Chip, CircularProgress, TextField, Typography } from '@mui/material'
 import { Done, Close, OpenInFull, Warning } from '@mui/icons-material'
 
-import { embedIframeSrc, type EmbedProvider } from '@/lib/gallery/embeds'
+import { embedIframeSrc } from '@/lib/gallery/embeds'
 import type { OperationOption, PatchFields, PendingItem, Tag } from './useSubmissions'
 import s from '@/styles/j5-console.module.css'
 
@@ -46,8 +46,11 @@ function MediaPreview({ item }: { item: PendingItem }) {
         return <div className={s.previewFail}>No preview available</div>
     }
 
+    // No cast needed: item.source is 'upload' | 'youtube' | 'twitch', the
+    // 'upload' return above already narrowed it out, and EmbedProvider is
+    // exactly 'youtube' | 'twitch' — control flow gets this for free.
     const src = embedIframeSrc(
-        { provider: item.source as EmbedProvider, kind: item.embedKind, id: item.embedId },
+        { provider: item.source, kind: item.embedKind, id: item.embedId },
         window.location.hostname,
     )
     return <iframe src={src} allow='autoplay; fullscreen' />
