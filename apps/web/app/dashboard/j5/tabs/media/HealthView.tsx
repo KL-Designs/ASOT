@@ -42,9 +42,25 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
 
     const load = useCallback(async () => {
         setLoading(true)
+        setError(null)
         try {
             const res = await fetch('/api/gallery/admin/health')
-            if (res.ok) setReport((await res.json()).report)
+            if (!res.ok) {
+                // A stale session (403) or a transient 500 must not render as
+                // "never scanned" — that reads as a virgin archive and would
+                // send a reviewer into a 4,781-file re-scan to fix what was
+                // only a failed fetch. `report` is left exactly as it was
+                // (null on first load) so the error branch below, not the
+                // empty-state branch, is what renders.
+                const data = await res.json().catch(() => ({}))
+                setError(typeof data.error === 'string' ? data.error : 'Could not load the health report.')
+                return
+            }
+            setReport((await res.json()).report)
+        } catch {
+            // Same failure mode as a non-ok response — a network drop must
+            // not read as "database and disk agree" either.
+            setError('Could not reach the server.')
         } finally {
             setLoading(false)
         }
@@ -101,9 +117,26 @@ export default function HealthView({ onChanged }: { onChanged: () => void }) {
                 </Button>
             </div>
 
-            {error && <Typography sx={{ fontSize: '0.75rem', color: 'var(--red-hi)', mb: 1.5 }}>{error}</Typography>}
+            {error && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                    <Typography sx={{ fontSize: '0.75rem', color: 'var(--red-hi)' }}>{error}</Typography>
+                    {/* Only offered when the load itself is what failed — a
+                        post() error already sits next to a working report
+                        and the archive button covers retrying. */}
+                    {!report && (
+                        <Button size='small' variant='outlined' onClick={load} sx={{ fontSize: '0.7rem' }}>
+                            Retry
+                        </Button>
+                    )}
+                </div>
+            )}
 
-            {!report && (
+            {/* Gated on !error too: without it, a failed load (report still
+                null from the initial state) rendered this exact copy — "Never
+                scanned" — which is indistinguishable from a genuinely virgin
+                archive and would send a reviewer into an unnecessary
+                4,781-file re-scan. The error branch above now owns that case. */}
+            {!report && !error && (
                 <div className={s.empty}>Never scanned. Re-scan disk to build the first report.</div>
             )}
 
