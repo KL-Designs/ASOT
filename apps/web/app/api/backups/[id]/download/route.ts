@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { listBackups, openDownloadZipStream, parseBackupParts } from '@/lib/backups'
+import Db from '@/lib/mongo'
+import { EXPORT_FOLDER_PIPELINE, buildFolderNumbering, foldersFromAggregate } from '@/lib/gallery/export-numbering'
 import { logAction } from '@/lib/logAction'
 
 // Any ISO instant: a point's id is the run that produced it, and only falls
@@ -56,12 +58,34 @@ export async function GET(
         details: { parts },
     })
 
+    /* The order prefix the folders on disk no longer carry, ranked by the
+       operation dates in gallery_media — a zip is browsed in a file manager,
+       with no database and no website to sort anything, which is the only
+       reason the numbers ever existed. See lib/gallery/export-numbering.ts for
+       the rules that keep the re-import lossless.
+
+       Built here rather than inside lib/backups.ts because that module has to
+       stay importable without a Mongo connection. A failure degrades to an
+       UNNUMBERED zip rather than a failed download: this is the
+       disaster-recovery path, and a readability aid must never be the reason
+       it cannot run. An old snapshot whose folders no longer match today's
+       database simply misses the lookup and keeps its own names. */
+    let galleryNumbering: ReadonlyMap<string, string> = new Map()
+    if (parts.includes('gallery')) {
+        try {
+            const raw = await Db.galleryMedia.aggregate(EXPORT_FOLDER_PIPELINE).toArray()
+            galleryNumbering = buildFolderNumbering(foldersFromAggregate(raw))
+        } catch (e: unknown) {
+            console.error('[backups] gallery folder numbering failed, exporting unnumbered:', e)
+        }
+    }
+
     // Everything that can fail with a real error response has to fail here,
     // before the stream exists — once bytes are on the wire the status is
     // already committed and a failure can only truncate the download.
     let body: ReadableStream<Uint8Array>
     try {
-        body = await openDownloadZipStream(point, parts)
+        body = await openDownloadZipStream(point, parts, { galleryNumbering })
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : String(e)
         return NextResponse.json({ error: `Failed to build download: ${msg}` }, { status: 500 })

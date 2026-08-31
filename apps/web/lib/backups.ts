@@ -15,6 +15,10 @@ import archiver, { type Archiver } from 'archiver'
 // one directory is how an exclude silently stops matching. paths.ts imports
 // only `path`, so this pulls in no server-only dependency.
 import { THUMB_DIR } from '@/lib/gallery/paths'
+// Same rule as THUMB_DIR above: pure, imports nothing but ./naming, and in
+// particular does not reach @/lib/mongo — the numbering itself is built by the
+// caller and handed to openDownloadZipStream().
+import { numberContentEntry } from '@/lib/gallery/export-numbering'
 import { extract as tarExtract } from 'tar-stream'
 import unzipper from 'unzipper'
 
@@ -1260,12 +1264,25 @@ export async function revertToPoint(
 // emitting one would produce a disaster-recovery zip this app itself cannot
 // ingest. The restore-to-disk version dropped them only as a side effect of
 // copyDirRecursive() refusing to follow them; here the rule is explicit.
-export function zipEntryNameFor(prefix: string, header: { name: string; type?: string | null }): string | null {
+//
+// `rename` is the one hook into that contract: the gallery download passes a
+// function that puts the "{n}. " order prefix back onto an operation folder
+// (lib/gallery/export-numbering.ts), because folders on disk no longer carry
+// one and a zip is read in a file manager with nothing to sort it. It is
+// applied HERE rather than at the call site so the renamed name is still the
+// name this function returns — the compatibility contract has to cover the
+// string that actually goes into the zip, not the one before the rewrite.
+export function zipEntryNameFor(
+    prefix: string,
+    header: { name: string; type?: string | null },
+    rename?: (name: string, isDirectory: boolean) => string,
+): string | null {
     if (header.type === 'symlink' || header.type === 'link') return null
     if (header.type !== 'file' && header.type !== 'directory') return null
+    const name = rename ? rename(header.name, header.type === 'directory') : header.name
     // restic emits paths relative to the dumped subfolder, so this is just a
     // prefix join — 'db/users.ejson' becomes 'db-source/db/users.ejson'.
-    return `${prefix}/${header.name}`
+    return `${prefix}/${name}`
 }
 
 // Streams one snapshot subtree out of restic and straight into the archive.
@@ -1279,6 +1296,7 @@ function appendSnapshotSubtree(
     snapshotId: string,
     sourcePath: string,
     prefix: string,
+    rename?: (name: string, isDirectory: boolean) => string,
 ): Promise<void> {
     return new Promise<void>((resolveJob, reject) => {
         const child = spawn(
@@ -1292,7 +1310,7 @@ function appendSnapshotSubtree(
 
         const extract = tarExtract()
         extract.on('entry', (header, stream, next) => {
-            const name = zipEntryNameFor(prefix, header)
+            const name = zipEntryNameFor(prefix, header, rename)
             if (!name) {
                 // Still has to be drained, or tar-stream stalls on it.
                 stream.on('end', next)
@@ -1340,13 +1358,29 @@ function appendSnapshotSubtree(
 //
 // The response carries no Content-Length in exchange (the size isn't knowable
 // until it's built), so the browser shows an indeterminate progress bar.
+//
+// `galleryNumbering` is what puts the "{n}. " order prefix back onto the
+// operation folders inside gallery/content — see lib/gallery/export-
+// numbering.ts for the rules, and why an already-numbered folder must come
+// out byte-identical. It is passed in rather than computed here because
+// building it reads gallery_media, and lib/backups.ts must stay importable
+// without a live Mongo connection (@/lib/mongo opens one at module load, and
+// this module's own tests import it with no database at all). Omitted, the
+// zip carries the folder names exactly as they sit on disk.
 export async function openDownloadZipStream(
     point: BackupPoint,
     parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
+    opts: { galleryNumbering?: ReadonlyMap<string, string> } = {},
 ): Promise<ReadableStream<Uint8Array>> {
     // Resolved up front so a bad snapshot id still fails as a real HTTP error,
     // before any bytes commit the response.
-    const jobs: { repo: string; snapshotId: string; sourcePath: string; prefix: string }[] = []
+    const jobs: {
+        repo: string
+        snapshotId: string
+        sourcePath: string
+        prefix: string
+        rename?: (name: string, isDirectory: boolean) => string
+    }[] = []
 
     if (point.dbSnapshotId && parts.includes('database')) {
         const [dbPath] = await snapshotSourcePaths(DB_REPO, point.dbSnapshotId)
@@ -1366,7 +1400,15 @@ export async function openDownloadZipStream(
             // 'gallery' / 'uploads' — the live directory names, which are also
             // what applyUploadedZip() restores from.
             const prefix = toResticTreePath(sourcePath).split('/').filter(Boolean).pop() ?? 'media'
-            jobs.push({ repo: MEDIA_REPO, snapshotId: point.mediaSnapshotId, sourcePath, prefix })
+            /* Only the gallery subtree, and only when a numbering was built.
+               uploads/ is department files with no operation folders in it,
+               and numberContentEntry would refuse them anyway — but keying on
+               the prefix says so rather than relying on that. */
+            const numbering = opts.galleryNumbering
+            const rename = prefix === 'gallery' && numbering && numbering.size
+                ? (name: string, isDirectory: boolean) => numberContentEntry(name, isDirectory, numbering)
+                : undefined
+            jobs.push({ repo: MEDIA_REPO, snapshotId: point.mediaSnapshotId, sourcePath, prefix, rename })
         }
     }
 
@@ -1377,7 +1419,7 @@ export async function openDownloadZipStream(
     void (async () => {
         try {
             for (const job of jobs) {
-                await appendSnapshotSubtree(archive, job.repo, job.snapshotId, job.sourcePath, job.prefix)
+                await appendSnapshotSubtree(archive, job.repo, job.snapshotId, job.sourcePath, job.prefix, job.rename)
             }
             await archive.finalize()
         } catch (e: unknown) {
