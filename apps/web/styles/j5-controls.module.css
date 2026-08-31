@@ -57,6 +57,14 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     padding: 5px 9px;
+    /* Equal cells whatever the labels are: flex-basis 0 with grow 1 splits the
+       control evenly, so GRID and TABLE come out the same width instead of
+       sizing to their own four and five characters. The min-width is what the
+       longest label needs — without it, an even split can still be narrower
+       than the text and wrap it. */
+    flex: 1 1 0;
+    min-width: 54px;
+    text-align: center;
     color: rgba(237, 237, 237, 0.38);
     border-right: 1px solid var(--grey);
     background: transparent;
