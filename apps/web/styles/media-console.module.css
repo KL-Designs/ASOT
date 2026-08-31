@@ -92,15 +92,32 @@
     overflow-y: auto;
 }
 .tile {
-    position: relative;
-    aspect-ratio: 16 / 10;
+    /* Block, not the UA's inline-block: an inline-level grid item sits on a
+       line box and picks up the descender gap under it. */
+    display: block;
     border: 1px solid rgba(255, 255, 255, 0.06);
     background: rgba(255, 255, 255, 0.02);
     padding: 0;
     cursor: pointer;
+}
+/* The box that owns the ratio, and the anchor for the check, the badges and
+   the caption. This cannot be the <button> itself, which is where the ratio
+   used to live: a form control's block size comes from its content, so
+   `aspect-ratio` on .tile was dropped, and the <img>'s own `height: 100%` then
+   had no definite height to resolve against and fell back to auto. Button and
+   image collapsed onto each other and every tile rendered as a ~55px letterbox
+   sliver at every column width. A plain block child has neither problem, and
+   the button sizes itself to the ratio-derived height it produces. The
+   inspector's .preview is the same 16/10 on a <div> and was always correct —
+   the ratio was never the part that was wrong. */
+.tileBox {
+    display: block;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
     overflow: hidden;
 }
-.tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tileBox img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tile:focus-visible { outline: 1px solid var(--red); outline-offset: 1px; }
 .tileOn { border-color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
 
@@ -113,9 +130,20 @@
 }
 .tileOn .check { background: var(--red); border-color: var(--red); }
 
-.badge {
+/* A stack rather than a single cornered badge: an item can be unlinked, undated
+   and a video all at once, and while the badges shared one 5px corner the only
+   way to stop them overlapping was to suppress the others — VIDEO used to be
+   hidden on every unlinked item for exactly that reason, which on this archive
+   meant hidden on all of them. */
+.badges {
     position: absolute;
     top: 5px; right: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+}
+.badge {
     font-family: var(--font-mono);
     font-size: 8px;
     letter-spacing: 0.08em;
@@ -123,7 +151,13 @@
     background: rgba(0, 0, 0, 0.75);
     color: #fff;
 }
+/* Amber is for the fact a reviewer should act on, which means it has to be
+   rare to mean anything: every one of the 4,781 migrated items lacks
+   operationId, so UNLINKED in this colour painted the whole grid amber and
+   distinguished nothing. .badgeQuiet is for a label that is true of nearly
+   everything and is stated rather than flagged. */
 .badgeWarn { background: rgba(216, 172, 69, 0.92); color: #1a1400; }
+.badgeQuiet { background: rgba(0, 0, 0, 0.55); color: rgba(255, 255, 255, 0.5); }
 
 .cap {
     position: absolute;
@@ -352,11 +386,25 @@
    full field set with tags and the storage path. */
 .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; }
 
-@media (max-width: 1180px) {
+/* These are viewport queries for a layout that is a long way from being the
+   viewport, and the numbers have to pay for that difference. To the left of
+   .work sits the staff shell's 260px sidebar (StaffDashboardShell, `hidden
+   md:flex`, so it is there from 768px up) plus the panel's own gutters: .work
+   is about viewport − 310. Take the 210px rail and the 320px inspector off
+   that and the centre column — the thing that is actually being squeezed — is
+   roughly viewport − 840. At the old 1180px breakpoint the inspector was still
+   open over a ~340px centre, which is two 150px tiles; 1360 hands it over
+   while three still fit, which is where the grid stops reading as a grid.
+   A container query on .work would state this directly instead of deriving it,
+   but nothing in this codebase uses them yet. */
+@media (max-width: 1360px) {
     .work { grid-template-columns: 190px 1fr; }
     .insp { grid-column: 1 / -1; border-left: 0; border-top: 1px solid rgba(219, 0, 29, 0.14); max-height: none; }
 }
-@media (max-width: 760px) {
+/* 900 for the same reason, not the old 760: the shell's sidebar is still there
+   at 768px, so an 800px viewport left the centre near 300px — one tile per
+   row — while the viewport query was still reporting room for a rail. */
+@media (max-width: 900px) {
     .work { grid-template-columns: 1fr; }
     .rail { border-right: 0; border-bottom: 1px solid rgba(219, 0, 29, 0.14); max-height: 240px; }
 }
