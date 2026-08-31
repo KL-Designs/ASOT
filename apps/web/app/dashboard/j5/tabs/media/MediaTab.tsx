@@ -324,25 +324,35 @@ export default function MediaTab() {
                             neither layout, and a select-all over a report with
                             nothing to select, do nothing but invite a click. */}
                         {filters.view !== 'health' && (
-                            <>
-                                <div className={c.seg} role='group' aria-label='Layout'>
-                                    <button
-                                        type='button'
-                                        className={`${c.segItem} ${layout === 'grid' ? c.segItemOn : ''}`}
-                                        aria-pressed={layout === 'grid'}
-                                        onClick={() => setLayout('grid')}
-                                    >
-                                        Grid
-                                    </button>
-                                    <button
-                                        type='button'
-                                        className={`${c.segItem} ${layout === 'table' ? c.segItemOn : ''}`}
-                                        aria-pressed={layout === 'table'}
-                                        onClick={() => setLayout('table')}
-                                    >
-                                        Table
-                                    </button>
-                                </div>
+                            <div className={c.seg} role='group' aria-label='Layout'>
+                                <button
+                                    type='button'
+                                    className={`${c.segItem} ${layout === 'grid' ? c.segItemOn : ''}`}
+                                    aria-pressed={layout === 'grid'}
+                                    onClick={() => setLayout('grid')}
+                                >
+                                    Grid
+                                </button>
+                                <button
+                                    type='button'
+                                    className={`${c.segItem} ${layout === 'table' ? c.segItemOn : ''}`}
+                                    aria-pressed={layout === 'table'}
+                                    onClick={() => setLayout('table')}
+                                >
+                                    Table
+                                </button>
+                            </div>
+                        )}
+                        {/* The two resets, joined into one control: they undo
+                            the two things this toolbar sets, they always sit
+                            together, and as loose buttons they read as two
+                            unrelated actions that happen to be adjacent. In the
+                            health view the selection button is not rendered and
+                            the group is a single button, which is correct — a
+                            report has nothing to select. */}
+                        <div className={c.group}>
+                            {filters.view !== 'health' && (
+                                <>
                                 {/* One button, two jobs. Assigning an operation
                                     to a folder's worth of photographs is this
                                     tab's main task, and shift-click still asked
@@ -387,31 +397,28 @@ export default function MediaTab() {
                                         ? `Clear (${selected.size})`
                                         : pageIsEverything ? 'Select all' : 'Select page'}
                                 </button>
-                            </>
-                        )}
-                        {/* The selected line is rendered only when there is a
-                            selection — no reserved empty row, which would put
-                            the item count off the buttons' baseline for the
-                            whole time nothing is picked. */}
+                                </>
+                            )}
+                            <button
+                                type='button'
+                                className={`${c.btn} ${c.btnGhost}`}
+                                onClick={() => { clear(); setSelected(new Set()) }}
+                            >
+                                Clear filters
+                            </button>
+                        </div>
+                        {/* Last in the row, and last in the tab order with it,
+                            so the filter inputs and the actions that undo them
+                            run uninterrupted from the left and the row ends on
+                            the numbers they produced. The selected line is
+                            rendered only when there is a selection — no
+                            reserved empty row, which would put the item count
+                            off the buttons' baseline for the whole time nothing
+                            is picked. */}
                         <div className={s.count}>
                             <span>{total.toLocaleString('en-AU')} ITEMS</span>
                             {selected.size > 0 && <span>{selected.size} SELECTED</span>}
                         </div>
-                        {/* Last in the row, and last in the tab order with it,
-                            so the filter inputs run uninterrupted from the left
-                            and the row ends on the action that undoes them.
-                            Moved by relocating the markup rather than with a CSS
-                            `order`, which changes what is seen without changing
-                            what is tabbed — a keyboard user would reach the
-                            reset before the layout toggle that visibly comes
-                            first. */}
-                        <button
-                            type='button'
-                            className={`${c.btn} ${c.btnGhost} ${s.toolClear}`}
-                            onClick={() => { clear(); setSelected(new Set()) }}
-                        >
-                            Clear filters
-                        </button>
                     </div>
 
                     {/* Above the grid, and it suppresses the grid's own empty

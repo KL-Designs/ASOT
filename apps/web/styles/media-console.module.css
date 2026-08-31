@@ -92,12 +92,6 @@
 .toolSort, .toolTag { min-width: 130px; }
 .toolAuthor { min-width: 150px; }
 .toolKind { min-width: 110px; }
-/* The reset now sits at the far right, past the counts. The row's own 8px gap
-   is what says "these belong together", so the button that undoes the filters
-   takes a little more than that to read as separate from the number it sits
-   beside. No height or padding here — .btn is 30px and every control in this
-   row matches it. */
-.toolClear { margin-left: 6px; }
 
 /* The item and selection counts, stacked rather than joined by a middle dot.
    On one line the pair was the widest thing in the row and pushed the filters

@@ -86,6 +86,14 @@
     cursor: pointer;
 }
 .segItem:last-child { border-right: 0; }
+
+/* Two related actions joined into one control, the way .seg joins the layout
+   toggle. Adjacent .btn borders would otherwise meet as a 2px line between the
+   pair, which reads as a seam rather than a divider — so every button but the
+   last drops its right edge and shares its neighbour's left one. A group of
+   one renders as a plain button, which is what the health view needs. */
+.group { display: flex; align-items: stretch; }
+.group > .btn:not(:last-child) { border-right-width: 0; }
 .segItemOn { background: rgba(219, 0, 29, 0.14); color: var(--red-hi); }
 
 /* The mono eyebrow above a section — '// SECTION' in the mockups. */
