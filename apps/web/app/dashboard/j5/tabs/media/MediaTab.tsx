@@ -310,9 +310,14 @@ export default function MediaTab() {
                                 </button>
                             </div>
                         )}
-                        <Typography sx={{ ml: 'auto', fontFamily: 'var(--font-mono)', fontSize: '0.66rem', color: 'rgba(237,237,237,0.38)' }}>
-                            {total.toLocaleString('en-AU')} ITEMS{selected.size ? ` · ${selected.size} SELECTED` : ''}
-                        </Typography>
+                        {/* The selected line is rendered only when there is a
+                            selection — no reserved empty row, which would put
+                            the item count off the buttons' baseline for the
+                            whole time nothing is picked. */}
+                        <div className={s.count}>
+                            <span>{total.toLocaleString('en-AU')} ITEMS</span>
+                            {selected.size > 0 && <span>{selected.size} SELECTED</span>}
+                        </div>
                     </div>
 
                     {/* Above the grid, and it suppresses the grid's own empty

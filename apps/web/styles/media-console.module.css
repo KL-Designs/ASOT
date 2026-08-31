@@ -92,6 +92,25 @@
 .toolSort, .toolTag { min-width: 130px; }
 .toolAuthor { min-width: 150px; }
 .toolKind { min-width: 110px; }
+
+/* The item and selection counts, stacked rather than joined by a middle dot.
+   On one line the pair was the widest thing in the row and pushed the filters
+   left; a second line costs the toolbar height it already has.
+   `align-self` restates the row's flex-end deliberately — a two-line cell in a
+   flex row would otherwise stretch, and the block belongs on the buttons'
+   bottom edge rather than floating against the taller fields. */
+.count {
+    margin-left: auto;
+    align-self: flex-end;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    line-height: 1.35;
+    color: rgba(237, 237, 237, 0.38);
+    white-space: nowrap;
+}
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
