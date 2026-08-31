@@ -866,6 +866,30 @@ const MIGRATION_ITEMS = [
         args: ['--prefix', 'apps/web', 'run', 'strip:folder-numbers', '--'],
         cwd: ROOT,
     },
+    /* Dry-run first, then --apply, via runMigration's own flow — the trailing
+       '--' is what lets runMigration's appended '--apply' reach the script
+       rather than being eaten by npm as one of its own flags, exactly as for
+       the two items above. Runs through apps/web so it can import
+       lib/gallery/featured-order.ts, which holds the whole matching decision
+       and is unit-tested there.
+
+       Sets `featuredOrder` on one document per file in storage/gallery/featured
+       — the field the public rail reads and that nothing has ever written, because
+       Index: gallery media merges it into $setOnInsert and those documents were
+       inserted before it computed one. Where a featured file can be identified
+       with an archive original (exact bytes + exact pixel dimensions) the slot
+       goes to the ARCHIVE document instead, so the tile carries that item's
+       caption and credit; the dry run prints every file and which bucket it fell
+       into. Writes one field and nothing else: no inserts, no deletes, no merges.
+       Refuses to run at all once ANY document carries featuredOrder, so it can
+       never renumber a rotation J5 has curated in the console's Featured tab.
+       Run this after Index: gallery media, which is what creates the documents. */
+    {
+        label: '🗃️ Backfill: featured rail order',
+        command: 'npm',
+        args: ['--prefix', 'apps/web', 'run', 'backfill:featured-order', '--'],
+        cwd: ROOT,
+    },
     {
         label: '🗃️ Import: member history CSV',
         command: 'npm',
