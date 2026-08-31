@@ -772,6 +772,86 @@ describe('relocateMedia', () => {
         expect(doc.mission).toBe('Saturday')
     })
 
+    /* The user's report: bulk-reassigning a folder's worth of media into
+       another operation left the old folder standing, empty, in a tree they
+       browse in a file manager. An empty "4. Op Silent Ridge" is
+       indistinguishable there from one whose photographs went missing. */
+    test('the folder a file leaves is removed once it is empty, and so is its year', async () => {
+        const stage = join(contentDir, '2021', '4. Op Silent Ridge', 'I')
+        mkdirSync(stage, { recursive: true })
+        writeFileSync(join(stage, 'arma3_01.png'), 'BYTES')
+        mkdirSync(join(contentDir, '2022', '9. Op Copper Ridge'), { recursive: true })
+
+        const docs = {
+            [MEDIA_ID.toString()]: {
+                _id: MEDIA_ID,
+                storageKey: 'content:2021/4. Op Silent Ridge/I/arma3_01.png',
+                mission: 'I',
+                operationId: OP_ID,
+            },
+        }
+        const d = deps(docs, [{ _id: OP_ID, title: 'OPERATION Copper Ridge — Sat', date: new Date('2022-03-05T09:00:00Z') }])
+
+        await relocateMedia(d, MEDIA_ID)
+
+        // Every level the file used to occupy, all the way up to the year —
+        // the first operation of 2021 recreates it, and resolveOperationFolder
+        // already treats a missing year folder as "not an error".
+        expect(existsSync(stage)).toBe(false)
+        expect(existsSync(join(contentDir, '2021', '4. Op Silent Ridge'))).toBe(false)
+        expect(existsSync(join(contentDir, '2021'))).toBe(false)
+        // The content root itself is never a candidate, empty or not.
+        expect(existsSync(contentDir)).toBe(true)
+    })
+
+    test('a folder that still holds another file is left exactly where it is', async () => {
+        const stage = join(contentDir, '2021', '4. Op Silent Ridge', 'I')
+        mkdirSync(stage, { recursive: true })
+        writeFileSync(join(stage, 'arma3_01.png'), 'BYTES')
+        // A second photograph nobody moved. Pruning reads the directory rather
+        // than assuming the move emptied it, so this is what it sees.
+        writeFileSync(join(stage, 'arma3_02.png'), 'BYTES')
+        mkdirSync(join(contentDir, '2022', '9. Op Copper Ridge'), { recursive: true })
+
+        const docs = {
+            [MEDIA_ID.toString()]: {
+                _id: MEDIA_ID,
+                storageKey: 'content:2021/4. Op Silent Ridge/I/arma3_01.png',
+                mission: 'I',
+                operationId: OP_ID,
+            },
+        }
+        const d = deps(docs, [{ _id: OP_ID, title: 'OPERATION Copper Ridge — Sat', date: new Date('2022-03-05T09:00:00Z') }])
+
+        await relocateMedia(d, MEDIA_ID)
+
+        expect(existsSync(join(stage, 'arma3_02.png'))).toBe(true)
+        expect(existsSync(join(contentDir, '2021'))).toBe(true)
+    })
+
+    /* Publishing a submission moves it out of the FLAT media directory, which
+       is a sibling of the content tree and not part of it. Pruning is bounded
+       by the content root precisely so that directory — shared by every
+       pending upload — can never be removed by a publish that happens to empty
+       it. */
+    test('publishing the last staged upload does not remove the flat media directory', async () => {
+        const flat = join(root, 'media')
+        mkdirSync(flat, { recursive: true })
+        writeFileSync(join(flat, `${MEDIA_ID}.jpg`), 'BYTES')
+
+        const docs = {
+            [MEDIA_ID.toString()]: {
+                _id: MEDIA_ID, storageKey: `media:${MEDIA_ID}.jpg`, authorName: 'Koda', operationId: OP_ID,
+            } as Record<string, unknown>,
+        }
+        const d = deps(docs, [{ _id: OP_ID, title: 'OPERATION Silent Ridge — Sat', date: new Date('2021-08-14T09:00:00Z') }])
+
+        await relocateMedia({ ...d, mediaDir: flat }, MEDIA_ID)
+
+        expect(existsSync(join(flat, `${MEDIA_ID}.jpg`))).toBe(false)
+        expect(existsSync(flat)).toBe(true)
+    })
+
     test('a document whose file is missing is left alone and reported as null', async () => {
         const docs = {
             [MEDIA_ID.toString()]: {

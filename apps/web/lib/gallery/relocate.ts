@@ -1,6 +1,6 @@
 import { ObjectId } from 'mongodb'
 import type { Filter, FindOptions, UpdateFilter, WithId } from 'mongodb'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, unlinkSync } from 'fs'
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, renameSync, rmdirSync, unlinkSync } from 'fs'
 import path from 'path'
 
 import { buildContentPath, sanitizeSegment } from './content-path'
@@ -468,7 +468,56 @@ export async function relocateMedia(
         ...(Object.keys(unset).length ? { $unset: unset } : {}),
     })
 
+    // Last, and deliberately after the document is settled: this is tidying,
+    // and it must never be the reason a move fails. Bulk-reassigning a
+    // folder's worth of media empties the folder it came from, and the user
+    // browses this tree in a file manager outside the website — an empty
+    // "12. Op Somewhere" left standing there is litter they cannot tell from a
+    // folder whose photographs went missing.
+    pruneEmptyDirs(path.dirname(source), contentDir)
+
     return { from: fromKey, to: toKey }
+}
+
+/**
+ * Remove the directory a file just left, and each parent that is now empty
+ * too, stopping at the content root.
+ *
+ * Everything here is guarded because a leftover directory is cosmetic and the
+ * bytes are already where the database says they are — so every failure path
+ * gives up quietly rather than turning a completed move into an error.
+ *
+ *   - `root` is never removed and never climbed past. The containment test is
+ *     what stops a `media:` source (which sits in MEDIA_DIR, outside the
+ *     content tree) from pruning the flat upload directory, and what stops the
+ *     walk running off the top of the filesystem — path.dirname('/') is '/',
+ *     so the loop needs a bound that is not "we reached the parent of root".
+ *   - `lstatSync`, not `existsSync`/`statSync`: a symlinked directory must be
+ *     left alone rather than followed, because rmdir through one would be
+ *     removing something that only LOOKS like it is inside the tree.
+ *   - Only a genuinely empty directory goes. readdirSync is read every time
+ *     rather than assuming the move emptied it — another item may still be
+ *     filed there, and a `.DS_Store` or a stray Thumbs.db counts as content:
+ *     removing a directory that still holds something a human put there is
+ *     the one outcome worse than leaving an empty one.
+ */
+function pruneEmptyDirs(dir: string, root: string): void {
+    const stop = path.resolve(root)
+    let current = path.resolve(dir)
+
+    while (current !== stop && current.startsWith(stop + path.sep)) {
+        try {
+            if (lstatSync(current).isSymbolicLink()) return
+            if (readdirSync(current).length > 0) return
+            rmdirSync(current)
+        } catch {
+            // Gone already, not empty after all (another request filed
+            // something here between the read and the remove), or not
+            // readable. All three mean "stop climbing", never "fail the move".
+            return
+        }
+        current = path.dirname(current)
+    }
 }
 
 /** resolveStorageKey against the injected roots rather than the real ones. */
