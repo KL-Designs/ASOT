@@ -1010,6 +1010,28 @@ async function main() {
         process.stdout.write('\x1b[r')
     }
 
+    /* How many options a select may draw.
+
+       The menu pins its header inside a scroll region, so the prompt owns only
+       what is left below it — and @clack's select renders EVERY option unless
+       given a maxItems, with no scrolling and no clipping. Migrations passed
+       eighteen entries and the list drew straight through the header and off
+       the top of the screen. Recomputed per prompt rather than cached because
+       the terminal can be resized between two turns through this loop, and
+       because the header switches between its full and compact variants on
+       exactly that event.
+
+       The six covers what clack draws around the list itself: the message
+       line, the bar above and below, and the cursor's own row, with one spare
+       so the last option is never flush against the bottom edge. The floor of
+       five keeps the list usable rather than correct-but-unreadable on a
+       terminal too short to satisfy the arithmetic. */
+    function selectRows() {
+        const rows = process.stdout.rows || 40
+        const header = headerActive ? headerRowCount : COMPACT_HEADER_ROWS
+        return Math.max(5, rows - header - 6)
+    }
+
     resumeMenuHeader()
 
     while (true) {
@@ -1024,6 +1046,7 @@ async function main() {
                 { value: 'migrations', label: yellow('🗃️ Migrations') },
                 { value: 'quit', label: dim('🚪 Quit') },
             ],
+            maxItems: selectRows(),
         })
 
         if (p.isCancel(category) || category === 'quit') break
@@ -1037,6 +1060,7 @@ async function main() {
                 ...items.map((item, i) => ({ value: i, label: itemColor(item.label) })),
                 { value: 'back', label: dim('← Back') },
             ],
+            maxItems: selectRows(),
         })
 
         // The header keeps animating on its own through 'back' — this just
