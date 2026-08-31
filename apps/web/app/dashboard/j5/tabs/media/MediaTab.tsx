@@ -122,6 +122,24 @@ export default function MediaTab() {
         return () => clearTimeout(timer)
     }, [note])
 
+    /* The selection is page-scoped, so it has to die with the page.
+       `selected` holds ids, the client only ever holds one page of them, and
+       nothing used to clear it when the page or a filter changed — so paging on
+       with four tiles ticked left the toolbar reading "4 SELECTED" over sixty
+       different photographs, and the bulk panel still open on items the
+       reviewer could no longer see or check.
+
+       Keyed on `filters` and `page` rather than on `items`: `items` is a new
+       array after every refetch, including the `refresh()` a partially failed
+       bulk run does — and that one deliberately KEEPS the selection so the
+       reviewer can see which ids failed and retry them. `filters` only takes a
+       new identity when a filter actually changes. The guard is there because
+       this fires once on mount, where an unconditional `new Set()` would be a
+       fresh identity and a wasted render for nothing. */
+    useEffect(() => {
+        setSelected(prev => prev.size === 0 ? prev : new Set())
+    }, [filters, page])
+
     const toggle = useCallback((id: string) => {
         setSelected(prev => {
             const next = new Set(prev)
@@ -166,6 +184,9 @@ export default function MediaTab() {
     }, [items, captionEdits])
 
     const pages = Math.ceil(total / PAGE_SIZE)
+    /** Whether the loaded page is the whole of what the current filter matches
+     *  — the difference between "Select all" being the truth and being a lie. */
+    const pageIsEverything = total <= shown.length
 
     /* -1 covers both "nothing is open" and "what was open is no longer on this
        page" — a bulk run can move the viewed item out of the current filter
@@ -298,31 +319,75 @@ export default function MediaTab() {
                             ]}
                             className={s.toolKind}
                         />
-                        <button type='button' className={`${c.btn} ${c.btnGhost}`} onClick={() => { clear(); setSelected(new Set()) }}>
-                            Clear filters
-                        </button>
                         {/* Hidden in the Health view, which replaces the list
                             entirely — a layout toggle over a report that has
-                            neither layout does nothing but invite a click. */}
+                            neither layout, and a select-all over a report with
+                            nothing to select, do nothing but invite a click. */}
                         {filters.view !== 'health' && (
-                            <div className={c.seg} role='group' aria-label='Layout'>
+                            <>
+                                <div className={c.seg} role='group' aria-label='Layout'>
+                                    <button
+                                        type='button'
+                                        className={`${c.segItem} ${layout === 'grid' ? c.segItemOn : ''}`}
+                                        aria-pressed={layout === 'grid'}
+                                        onClick={() => setLayout('grid')}
+                                    >
+                                        Grid
+                                    </button>
+                                    <button
+                                        type='button'
+                                        className={`${c.segItem} ${layout === 'table' ? c.segItemOn : ''}`}
+                                        aria-pressed={layout === 'table'}
+                                        onClick={() => setLayout('table')}
+                                    >
+                                        Table
+                                    </button>
+                                </div>
+                                {/* One button, two jobs. Assigning an operation
+                                    to a folder's worth of photographs is this
+                                    tab's main task, and shift-click still asked
+                                    the reviewer to find both ends of the range.
+                                    The accessible name is computed rather than
+                                    fixed, because the action itself changes: a
+                                    name that still said "Select all" while the
+                                    button cleared the selection would be worse
+                                    than no name at all.
+
+                                    The label tells the truth about reach. The
+                                    library is paged at PAGE_SIZE and the client
+                                    holds only the ids on screen, so this can
+                                    only ever select what is loaded. For the case
+                                    that prompted it — one operation's folder of
+                                    27 items — that IS all of them, and it says
+                                    so. When the filter matches more than a page
+                                    it says "Select page" instead, so the word
+                                    "all" is never a claim about 4,781 items it
+                                    cannot make. */}
                                 <button
                                     type='button'
-                                    className={`${c.segItem} ${layout === 'grid' ? c.segItemOn : ''}`}
-                                    aria-pressed={layout === 'grid'}
-                                    onClick={() => setLayout('grid')}
+                                    className={c.btn}
+                                    disabled={selected.size === 0 && shown.length === 0}
+                                    aria-label={
+                                        selected.size > 0
+                                            ? `Clear the selection of ${selected.size} items`
+                                            : pageIsEverything
+                                                ? `Select all ${shown.length} items`
+                                                : `Select the ${shown.length} items on this page`
+                                    }
+                                    title={
+                                        selected.size > 0 || pageIsEverything
+                                            ? undefined
+                                            : `Selects the ${shown.length} items on this page. ${total.toLocaleString('en-AU')} match the current filters — selecting across pages is not supported.`
+                                    }
+                                    onClick={() => setSelected(prev => (
+                                        prev.size > 0 ? new Set() : new Set(shown.map(i => i.id))
+                                    ))}
                                 >
-                                    Grid
+                                    {selected.size > 0
+                                        ? `Clear (${selected.size})`
+                                        : pageIsEverything ? 'Select all' : 'Select page'}
                                 </button>
-                                <button
-                                    type='button'
-                                    className={`${c.segItem} ${layout === 'table' ? c.segItemOn : ''}`}
-                                    aria-pressed={layout === 'table'}
-                                    onClick={() => setLayout('table')}
-                                >
-                                    Table
-                                </button>
-                            </div>
+                            </>
                         )}
                         {/* The selected line is rendered only when there is a
                             selection — no reserved empty row, which would put
@@ -332,6 +397,21 @@ export default function MediaTab() {
                             <span>{total.toLocaleString('en-AU')} ITEMS</span>
                             {selected.size > 0 && <span>{selected.size} SELECTED</span>}
                         </div>
+                        {/* Last in the row, and last in the tab order with it,
+                            so the filter inputs run uninterrupted from the left
+                            and the row ends on the action that undoes them.
+                            Moved by relocating the markup rather than with a CSS
+                            `order`, which changes what is seen without changing
+                            what is tabbed — a keyboard user would reach the
+                            reset before the layout toggle that visibly comes
+                            first. */}
+                        <button
+                            type='button'
+                            className={`${c.btn} ${c.btnGhost} ${s.toolClear}`}
+                            onClick={() => { clear(); setSelected(new Set()) }}
+                        >
+                            Clear filters
+                        </button>
                     </div>
 
                     {/* Above the grid, and it suppresses the grid's own empty
