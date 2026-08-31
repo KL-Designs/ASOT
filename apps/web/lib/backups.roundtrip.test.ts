@@ -35,6 +35,9 @@ import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import type { ReadableStream as NodeWebReadableStream } from 'stream/web'
 import unzipper from 'unzipper'
+// Used by the empty-dump test below to build an archive this app would never
+// produce itself: a db-source/ with no db/ inside it.
+import archiver from 'archiver'
 
 const RESTIC_BIN = resolve(__dirname, '..', 'bin', process.platform === 'win32' ? 'restic.exe' : 'restic')
 const hasRestic = existsSync(RESTIC_BIN)
@@ -428,4 +431,115 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
         expect(docs[0].caption).toBe('Danger close')
         expect(docs[0].up).toBe(5)
     })
+
+    /* The database half of the same bug the three wipeMedia tests above cover,
+       and the one that actually bit: restoreDatabase() derives its collection
+       list from the .ejson files in the dump, so a collection that exists live
+       but is absent from the dump was never named and never dropped. A restore
+       to a point predating the gallery media console therefore left
+       gallery_media exactly as it was — the files rolled back, the index did
+       not, and the J5 rail went on drawing folders that only existed in the
+       database. runGalleryReconcile() runs after every revert and cannot fix
+       it: it matches files to records and never deletes or inserts. */
+    test('a clean restore drops a collection the backup does not contain', async () => {
+        await seed('db-wipe-original')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        // Created AFTER the snapshot, which is the whole point: the dump on
+        // disk holds no `added_after_the_backup.ejson`, so the restore loop
+        // never names this collection and only the wipe can remove it.
+        await mongo.db('asot-roundtrip').collection('added_after_the_backup')
+            .insertOne({ marker: 'only ever existed in the live database' })
+
+        await backups.revertToPoint(point, ['database'], { wipeDatabase: true })
+
+        const names = (await mongo.db('asot-roundtrip')
+            .listCollections({}, { nameOnly: true }).toArray()).map(c => c.name)
+        expect(names).not.toContain('added_after_the_backup')
+        // The dump's own collections still came back. Without this the test
+        // would pass just as happily against a wipe that emptied everything
+        // and restored nothing, which is the failure mode that matters most.
+        expect((await liveState()).db).toBe('db-wipe-original')
+    }, 300000)
+
+    // The other half of the default: saying nothing must not destroy anything.
+    // Mirrors 'the default restore still merges, leaving newer files alone' —
+    // the flag defaults to false in restoreDatabase(), revertToPoint() and the
+    // route, so a programmatic caller that never heard of it is unaffected.
+    test('the default restore leaves a collection the backup does not contain alone', async () => {
+        await seed('db-merge-original')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        const live = mongo.db('asot-roundtrip')
+        await live.collection('kept_by_the_default_restore')
+            .insertOne({ marker: 'still here' })
+
+        await backups.revertToPoint(point, ['database'])
+
+        const names = (await live.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name)
+        expect(names).toContain('kept_by_the_default_restore')
+        expect(await live.collection('kept_by_the_default_restore').countDocuments()).toBe(1)
+        expect((await liveState()).db).toBe('db-merge-original')
+
+        // Dropped here so the collection this test deliberately preserved
+        // cannot end up inside a later test's dump and quietly make a wipe
+        // assertion pass for the wrong reason.
+        await live.collection('kept_by_the_default_restore').drop().catch(() => {})
+    }, 300000)
+
+    /* The guard, tested from the dangerous side. The wipe sits INSIDE
+       `collectionNames.length > 0` for the same reason wipeMedia's sits inside
+       `if (gallery)`: it must run only once there is something to restore FROM.
+       A media wipe with no source leaves an empty gallery; a database wipe with
+       no source leaves no application. This drives the real upload path with an
+       archive whose db-source/ holds a manifest and no db/ directory at all —
+       the "missing dump directory" branch of restoreDatabase() — and asserts
+       nothing is lost with the flag on OR off. */
+    test('an archive carrying no collections wipes nothing, flag or no flag', async () => {
+        const zipPath = join(tempRoot, 'no-collections.zip')
+        const out = createWriteStream(zipPath)
+        const archive = archiver('zip', { zlib: { level: 0 } })
+        // `close` on the sink, not `finalize()`'s promise: the same flush race
+        // safeExtractZip()'s own comment records — finalize can resolve before
+        // the bytes are on disk, and unzipper would then open a short file.
+        const written = new Promise<void>((res, rej) => {
+            out.on('close', () => res())
+            out.on('error', rej)
+            archive.on('error', rej)
+        })
+        archive.pipe(out)
+        // db-source/ exists (so applyUploadedZip proceeds) but contains no
+        // db/ subdirectory, so restoreDatabase() sees collectionNames === [].
+        archive.append(
+            JSON.stringify({ version: 1, createdAt: new Date().toISOString(), collections: [] }),
+            { name: 'db-source/manifest.json' },
+        )
+        await archive.finalize()
+        await written
+
+        await seed('survives-an-empty-dump')
+        const live = mongo.db('asot-roundtrip')
+        await live.collection('never_in_any_dump').insertOne({ marker: 'untouched' })
+
+        // The flag ON is the case that would have destroyed the database.
+        await backups.applyUploadedZip(zipPath, ['database'], { wipeDatabase: true })
+
+        let names = (await live.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name)
+        expect(names).toContain('never_in_any_dump')
+        expect(names).toContain('sentinel')
+        expect((await liveState()).db).toBe('survives-an-empty-dump')
+
+        // And again with it off, so the assertion is about the guard rather
+        // than about the flag happening to be unset.
+        await backups.applyUploadedZip(zipPath, ['database'])
+
+        names = (await live.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name)
+        expect(names).toContain('never_in_any_dump')
+        expect((await liveState()).db).toBe('survives-an-empty-dump')
+
+        await live.collection('never_in_any_dump').drop().catch(() => {})
+        await rm(zipPath, { force: true }).catch(() => {})
+    }, 300000)
 })

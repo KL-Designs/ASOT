@@ -927,7 +927,21 @@ async function emptyDir(dir: string): Promise<void> {
     }
 }
 
-async function restoreDatabase(dumpDir: string): Promise<void> {
+// `wipeDatabase` drops every collection the LIVE database holds before the
+// dump's are reinserted, so the result matches the backup rather than being
+// the union of the two. Without it, only the collections the dump happens to
+// contain are dropped — a collection created after the backup was taken
+// survives a restore to a point before it existed. That is not hypothetical:
+// a restore to a point predating the gallery media console carried no
+// gallery_media.ejson, the files rolled back and the collection did not, and
+// the J5 rail went on drawing folders that existed only in the database.
+// runGalleryReconcile() cannot repair that — it matches files to records and
+// never deletes or inserts.
+//
+// Defaults to false HERE, exactly as `wipeMedia` does in revertToPoint(): a
+// programmatic caller that says nothing gets the non-destructive behaviour;
+// only a caller that asked destroys data. The dashboard is what ticks it on.
+async function restoreDatabase(dumpDir: string, wipeDatabase = false): Promise<void> {
     const mongoClient = new MongoClient(process.env.MONGO_URI!)
     try {
         await mongoClient.connect()
@@ -937,6 +951,37 @@ async function restoreDatabase(dumpDir: string): Promise<void> {
             ? readdirSync(dbDir).filter(f => f.endsWith('.ejson')).map(f => f.slice(0, -6)).sort()
             : []
 
+        /* The wipe sits INSIDE this guard for the same reason wipeMedia's sits
+           inside `if (gallery)` in revertToPoint(): it runs only once a source
+           to restore FROM has actually been located. `collectionNames` is
+           non-empty only when the dump directory exists and holds .ejson
+           files, so a dump that is empty, missing or unreadable cannot empty
+           the live database and leave nothing to put back. This is the more
+           dangerous of the two — a media wipe with no source leaves the
+           gallery empty but the database intact, while a database wipe with no
+           source is the whole application gone. */
+        if (wipeDatabase && collectionNames.length > 0) {
+            /* Every collection the live database reports, not the dump's list
+               and not a hardcoded one: the entire point is to catch the
+               collections nobody thought about, which is precisely the set a
+               hardcoded list would miss. Same enumeration dumpDatabase() uses,
+               so what a backup captures and what a wipe clears cannot drift. */
+            const liveCollections = await db.listCollections({}, { nameOnly: true }).toArray()
+            for (const info of liveCollections) {
+                // The driver normally hides these, but a restore is the wrong
+                // place to find out it did not: dropping an internal system.*
+                // collection fails at best and corrupts the database's own
+                // catalogue at worst.
+                if (info.name.startsWith('system.')) continue
+                // Swallowed like the per-collection drop below — a collection
+                // that disappears between the listing and the drop is already
+                // in the state this loop wanted it in.
+                await db.collection(info.name).drop().catch(() => {})
+            }
+        }
+
+        // Dropping a collection the wipe above already dropped is a no-op, so
+        // the two passes do not need to know about each other.
         for (const collName of collectionNames) {
             const docs = await readEjsonDocs(join(dbDir, `${collName}.ejson`))
             const coll = db.collection(collName)
@@ -1104,10 +1149,14 @@ export async function revertToPoint(
     // each collection — so this closes the gap between them, and the dashboard
     // ticks it by default for that reason.
     //
-    // The flag still defaults to false HERE. A programmatic caller that says
+    // `wipeDatabase` is the same idea one level deeper: it drops collections
+    // the dump does not contain AT ALL, so the database matches the backup
+    // rather than keeping whatever was created after it. See restoreDatabase().
+    //
+    // Both flags still default to false HERE. A programmatic caller that says
     // nothing should get the non-destructive behaviour; only a caller that
     // asked deletes files.
-    opts: { wipeMedia?: boolean } = {},
+    opts: { wipeMedia?: boolean; wipeDatabase?: boolean } = {},
 ): Promise<void> {
     // Claimed before anything else, including the safety backup. Throws rather
     // than returning quietly: the caller is about to be told its restore began.
@@ -1141,7 +1190,7 @@ export async function revertToPoint(
             const dbTarget = join(tmp, 'db-restore')
             await resticRestore(DB_REPO, point.dbSnapshotId, dbTarget)
             const dumpRoot = findByMarker(dbTarget, 'manifest.json')
-            await restoreDatabase(dumpRoot)
+            await restoreDatabase(dumpRoot, opts.wipeDatabase)
             restoredDatabase = true
         }
         if (point.mediaSnapshotId && (parts.includes('gallery') || parts.includes('uploads'))) {
@@ -1394,8 +1443,8 @@ export async function safeExtractZip(zipPath: string, destDir: string): Promise<
 export async function applyUploadedZip(
     zipPath: string,
     parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
-    // See revertToPoint() — same flag, same default, same reasoning.
-    opts: { wipeMedia?: boolean } = {},
+    // See revertToPoint() — same flags, same defaults, same reasoning.
+    opts: { wipeMedia?: boolean; wipeDatabase?: boolean } = {},
 ): Promise<void> {
     // Same claim-first rule as revertToPoint().
     const token = beginOperation('upload-revert')
@@ -1462,7 +1511,7 @@ export async function applyUploadedZip(
 
         if (hasDbSource) {
             await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring database…', stage: 'db-restore' })
-            await restoreDatabase(dbDir)
+            await restoreDatabase(dbDir, opts.wipeDatabase)
         }
 
         await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring media files…', stage: 'media-restore' })

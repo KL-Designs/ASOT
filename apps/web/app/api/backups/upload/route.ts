@@ -104,10 +104,16 @@ export async function POST(request: NextRequest) {
             // truthy.
             const wipeMedia = fields.wipeMedia === 'true'
 
+            // Same exact comparison, sharper consequence: this drops
+            // collections the archive does not contain at all, so everything
+            // created since it was made is destroyed. An absent field must
+            // read as off.
+            const wipeDatabase = fields.wipeDatabase === 'true'
+
             const path = tmpPath
             // Fire and forget; the archive is removed once the revert is done
             // with it, whether it succeeded or not.
-            applyUploadedZip(path, parts, { wipeMedia })
+            applyUploadedZip(path, parts, { wipeMedia, wipeDatabase })
                 .finally(() => unlink(path).catch(() => { }))
                 .catch(e => console.error('[backups] Upload-revert error:', e.message))
 
@@ -116,7 +122,7 @@ export async function POST(request: NextRequest) {
                 category: 'system',
                 performedBy: me.id,
                 performedByName: me.name ?? me.id,
-                details: { filename, parts, wipeMedia },
+                details: { filename, parts, wipeMedia, wipeDatabase },
             })
 
             settled = true
