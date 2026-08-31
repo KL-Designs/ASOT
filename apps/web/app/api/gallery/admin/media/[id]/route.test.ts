@@ -37,7 +37,7 @@ type Doc = Record<string, unknown>
 
 /** `vi.hoisted`, because vi.mock's factory is hoisted above every other
  *  statement in the file and may only reach state hoisted with it. */
-const state = vi.hoisted((): { docs: Record<string, Doc>, operations: Doc[] } => ({ docs: {}, operations: [] }))
+const state = vi.hoisted((): { docs: Record<string, Doc>, operations: Doc[], users: Doc[] } => ({ docs: {}, operations: [], users: [] }))
 
 vi.mock('@/lib/mongo', () => ({
     default: {
@@ -56,6 +56,14 @@ vi.mock('@/lib/mongo', () => ({
         operations: {
             async findOne(filter: { _id: ObjectId }) {
                 return state.operations.find(o => o._id instanceof ObjectId && o._id.equals(filter._id)) ?? null
+            },
+        },
+        users: {
+            // Matched on `id` — the Discord id (or, for a skeleton account, the
+            // ObjectId string standing in for one), which is what
+            // gallery_media.authorId holds. Never on _id.
+            async findOne(filter: { id: string }) {
+                return state.users.find(u => u.id === filter.id) ?? null
             },
         },
     },
@@ -127,7 +135,18 @@ function patch(id: ObjectId, body: unknown) {
     )
 }
 
+const MEMBER_ID = '2288100000000000001'
+const SKELETON_ID = '6a8000000000000000000042'
+
 beforeEach(() => {
+    state.users.length = 0
+    state.users.push(
+        { id: MEMBER_ID, globalName: 'nine', username: 'nine_au', guild: { displayName: 'CPL Nine' } },
+        // No `guild` at all: the fallback chain has to reach globalName, which
+        // is the shape a CSV-imported member is stored in.
+        { id: SKELETON_ID, isSkeletonAccount: true, globalName: 'PVT Archive', username: 'pvt_archive' },
+    )
+
     state.operations.length = 0
     state.operations.push({ _id: OP_ID, title: 'OPERATION Undated' })
 
@@ -309,5 +328,100 @@ describe('PATCH — reassigning the operation', () => {
         expect(res.status).toBe(400)
         expect(state.docs[EMBED_ID.toString()].operation).toBe('3. Op Somewhere Else')
         expect('operationId' in state.docs[EMBED_ID.toString()]).toBe(false)
+    })
+})
+
+/**
+ * The author pair.
+ *
+ * `gallery_media` has always carried `authorId` AND `authorName`, and
+ * submissions set both — but this route only ever wrote the name. That is not
+ * a missing feature. `authorId` is what grants the original submitter access
+ * to their own unpublished bytes (`api/gallery/media/[id]`, `.../poster`) and
+ * what the accept/reject notification is addressed to
+ * (`api/gallery/submissions/[id]`), so a reviewer correcting the credit on a
+ * submitted photo produced a document naming one member and pointing at
+ * another: the wrong person kept the access and would have kept the
+ * notifications, and nothing anywhere said so.
+ *
+ * Every test below asserts on BOTH fields, because a fix that gets one right
+ * and leaves the other is the defect.
+ */
+describe('PATCH — the author pair', () => {
+    test('linking a member writes both fields, and takes the name from the user record', async () => {
+        const res = await patch(LEGACY_ID, { authorId: MEMBER_ID, authorName: 'Whatever The Browser Had Cached' })
+        expect(res.status).toBe(200)
+
+        const doc = state.docs[LEGACY_ID.toString()]
+        expect(doc.authorId).toBe(MEMBER_ID)
+        // Not the string the client sent. A member renamed since the credit was
+        // written must be recorded under the name the roster has now, and a
+        // client is trusted to say WHICH member, never what they are called.
+        expect(doc.authorName).toBe('CPL Nine')
+    })
+
+    test('a skeleton account can be credited — most of the archive was shot by one', async () => {
+        await patch(LEGACY_ID, { authorId: SKELETON_ID })
+
+        const doc = state.docs[LEGACY_ID.toString()]
+        expect(doc.authorId).toBe(SKELETON_ID)
+        expect(doc.authorName).toBe('PVT Archive')
+    })
+
+    /* The bug itself. Before the fix this wrote the name and left `authorId`
+       exactly where it was, so the document credited Ghost Recon Dave while
+       still granting the original submitter owner access to the file. */
+    test('a typed name clears the link, so the two can never disagree', async () => {
+        state.docs[LEGACY_ID.toString()].authorId = MEMBER_ID
+        state.docs[LEGACY_ID.toString()].authorName = 'CPL Nine'
+
+        const res = await patch(LEGACY_ID, { authorId: null, authorName: 'Ghost Recon Dave' })
+        expect(res.status).toBe(200)
+
+        const doc = state.docs[LEGACY_ID.toString()]
+        expect(doc.authorName).toBe('Ghost Recon Dave')
+        expect('authorId' in doc).toBe(false)
+    })
+
+    test('clearing the author clears both fields, not just the name', async () => {
+        state.docs[LEGACY_ID.toString()].authorId = MEMBER_ID
+        state.docs[LEGACY_ID.toString()].authorName = 'CPL Nine'
+
+        await patch(LEGACY_ID, { authorId: null, authorName: '' })
+
+        const doc = state.docs[LEGACY_ID.toString()]
+        expect('authorId' in doc).toBe(false)
+        expect('authorName' in doc).toBe(false)
+    })
+
+    /* Rejected rather than quietly falling back to the name beside it: writing
+       that name would produce the same split one field further along — a
+       credit nobody chose, over an id that no longer resolves. */
+    test('an authorId matching no member is rejected, and nothing is written', async () => {
+        state.docs[LEGACY_ID.toString()].authorId = MEMBER_ID
+        state.docs[LEGACY_ID.toString()].authorName = 'CPL Nine'
+
+        const res = await patch(LEGACY_ID, { authorId: 'not-a-member', authorName: 'Nobody At All' })
+
+        expect(res.status).toBe(400)
+        const doc = state.docs[LEGACY_ID.toString()]
+        expect(doc.authorId).toBe(MEMBER_ID)
+        expect(doc.authorName).toBe('CPL Nine')
+    })
+
+    /* A regression guard rather than a bug reproduction — the old route also
+       left the author alone when the payload never mentioned it. It is here
+       because the new resolver has three outcomes and "change nothing" is the
+       one an over-eager clear would swallow: an inspector saving a caption
+       must not wipe a credit it never asked about. */
+    test('an edit that mentions no author leaves an existing credit alone', async () => {
+        state.docs[LEGACY_ID.toString()].authorId = MEMBER_ID
+        state.docs[LEGACY_ID.toString()].authorName = 'CPL Nine'
+
+        await patch(LEGACY_ID, { caption: 'Dawn patrol' })
+
+        const doc = state.docs[LEGACY_ID.toString()]
+        expect(doc.authorId).toBe(MEMBER_ID)
+        expect(doc.authorName).toBe('CPL Nine')
     })
 })

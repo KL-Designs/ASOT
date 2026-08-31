@@ -9,6 +9,7 @@ import { logAction } from '@/lib/logAction'
 import { operationFacets, type OperationFacetUpdate } from '@/lib/gallery/operation-facets'
 import { relocateMedia } from '@/lib/gallery/relocate'
 import { resolveStorageKey } from '@/lib/gallery/paths'
+import { resolveAuthor, describeAuthorWrite, type AuthorWrite } from '@/lib/gallery/author'
 
 /**
  * Editing one archive item.
@@ -29,6 +30,12 @@ import { resolveStorageKey } from '@/lib/gallery/paths'
  * the folder the migration found it in. relocateMedia would resolve `Unknown/`
  * for it and erase all of them, so it is left where it is unless the request
  * itself asks for an operation change. See `relocating` below.
+ *
+ * The author is a PAIR, not a name. See the resolveAuthor call below and
+ * lib/gallery/author.ts: writing `authorName` on its own is what left a
+ * corrected item naming one member while `authorId` still pointed at another.
+ * It has no bearing on `relocating` — an author change never moves a file, and
+ * must never be added to that condition.
  *
  * An item with no bytes — an embed, or a record whose transcode failed — has
  * no file to move, and relocateMedia returns early for it. Reassigning one
@@ -62,7 +69,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const doc = await Db.galleryMedia.findOne({ _id })
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const { caption, tags, authorName, operationId, mission } = await request.json().catch(() => ({}))
+    const { caption, tags, authorId, authorName, operationId, mission } = await request.json().catch(() => ({}))
 
     const set: Record<string, unknown> = {}
     const unset: Record<string, ''> = {}
@@ -81,9 +88,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         set.tags = known.map(t => t.slug)
     }
 
-    if (typeof authorName === 'string') {
-        const trimmed = authorName.trim().slice(0, 120)
-        if (trimmed) set.authorName = trimmed; else unset.authorName = ''
+    /* Both author fields or neither. This used to write `authorName` alone,
+       which is not a missing feature but a correctness bug: `authorId` grants
+       the original submitter access to their own unpublished bytes
+       (`api/gallery/media/[id]`, `.../poster`) and receives the accept/reject
+       notification (`api/gallery/submissions/[id]`), so correcting the name on
+       a submitted photo left the document naming one member while still
+       pointing at another. lib/gallery/author.ts decides which of link, name
+       or clear the payload asked for; the name of a linked author comes off
+       the user document rather than out of the request, so a member renamed
+       since the credit was written cannot be re-recorded under a stale label. */
+    const author = await resolveAuthor({ users: Db.users }, { authorId, authorName })
+    if (!author.ok) return NextResponse.json({ error: author.error }, { status: 400 })
+    let authorWrite: AuthorWrite | null = null
+    if (author.write) {
+        authorWrite = author.write
+        Object.assign(set, author.write.set)
+        Object.assign(unset, author.write.unset)
     }
 
     if (typeof mission === 'string') {
@@ -213,7 +234,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         entityId: id,
         actionUrl: '/dashboard/j5',
         target: doc.caption || doc.opLabel || undefined,
-        details: { moved: moving },
+        details: { moved: moving, ...(authorWrite ? { author: describeAuthorWrite(authorWrite) } : {}) },
     })
 
     const updated = await Db.galleryMedia.findOne({ _id })

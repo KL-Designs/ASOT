@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { Typography } from '@mui/material'
 
-import { Field, TextArea } from '@/app/dashboard/j5/controls/Field'
+import { AuthorPicker, type AuthorValue } from '@/app/dashboard/j5/controls/AuthorPicker'
+import { TextArea } from '@/app/dashboard/j5/controls/Field'
 import { Select, type SelectOption } from '@/app/dashboard/j5/controls/Select'
 import { TagPicker } from '@/app/dashboard/j5/controls/TagPicker'
 import { embedIframeSrc } from '@/lib/gallery/embeds'
@@ -53,7 +54,12 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
     const unlinkedName = !item.operationId ? (item.opLabel || item.operation) : null
 
     const [caption, setCaption] = useState(item.caption ?? '')
-    const [authorName, setAuthorName] = useState(item.authorName ?? '')
+    /* The pair, never one of them: `authorId` decides who can see this item
+       while it is unpublished and who its accept/reject notification goes to,
+       so a name edited on its own left the document naming one member and
+       pointing at another. AuthorPicker is what makes choosing between the two
+       a deliberate act — see its header. */
+    const [author, setAuthor] = useState<AuthorValue>({ id: item.authorId, name: item.authorName ?? '' })
     const [operationId, setOperationId] = useState(item.operationId ?? (unlinkedName ? UNLINKED : 'unknown'))
     const [chosen, setChosen] = useState<string[]>(item.tags)
     const [saving, setSaving] = useState(false)
@@ -69,7 +75,7 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
     // though the selection never changed.
     useEffect(() => {
         setCaption(item.caption ?? '')
-        setAuthorName(item.authorName ?? '')
+        setAuthor({ id: item.authorId, name: item.authorName ?? '' })
         setOperationId(item.operationId ?? (unlinkedName ? UNLINKED : 'unknown'))
         setChosen(item.tags)
         setConfirmDelete(false)
@@ -144,7 +150,12 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
             const res = await fetch(`/api/gallery/admin/media/${item.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ caption, authorName, tags: chosen, operationId: operationIdToSend }),
+                /* Both halves of the author, every time. `authorId` wins when
+                   it is set and the route reads the name off the user record;
+                   `authorId: null` with a name is free text, and the route
+                   $unsets the id so the two can never disagree. Sending only
+                   the name — what this used to do — is what let them. */
+                body: JSON.stringify({ caption, authorId: author.id, authorName: author.name, tags: chosen, operationId: operationIdToSend }),
             })
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}))
@@ -210,7 +221,10 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
                 </div>
             )}
 
-            <Field label='Author' value={authorName} onChange={setAuthorName} />
+            {/* Keyed on the item so the picker re-seeds which of its two
+                modes it is in when the selection changes — its mode is local
+                state, and the effect above only re-seeds the value. */}
+            <AuthorPicker key={item.id} value={author} onChange={setAuthor} />
 
             <TagPicker
                 label='Tags'

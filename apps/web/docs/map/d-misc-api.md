@@ -181,6 +181,15 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 ---
 
+### gallery/admin (1 file catalogued here)
+
+The rest of `app/api/gallery/admin/**` — the J5 media console's library/facets/tree/bulk/media/health endpoints — is not yet catalogued in any part file; this section holds the one route that is.
+
+#### /api/gallery/admin/members
+- **GET** — `{ members: [{ id, displayName, skeleton }] }`, the J5 author picker's roster. Deliberately **not** `/api/members` (gated on `PERMISSIONS.admin.massImport`, which a J5 curator does not hold, and excludes skeleton accounts) and **not** `/api/community/members` (any authenticated user, also excludes skeletons). Skeleton accounts are *included* here — the CSV-imported roster of the era the 2021 archive was photographed in is most of the people worth crediting — and flagged so the picker can label them; naming one as a photographer writes to the media document, never to the user, so the read-only-stub rule still holds. Display name via `memberDisplayName()` in `lib/gallery/author.ts` (`guild.displayName → guild.nickname → globalName → username → id`), sorted in JS because no index can order a fallback chain. Auth: `await hasPermission(me, 'gallery.manage')`. Collections: `Db.users`. Consumed by `app/dashboard/j5/controls/AuthorPicker.tsx` via `useMembers.ts`.
+
+---
+
 ### community (5 files)
 
 #### /api/community/callsigns

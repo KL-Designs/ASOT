@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Typography } from '@mui/material'
 
-import { Field } from '@/app/dashboard/j5/controls/Field'
+import { AuthorPicker, type AuthorValue } from '@/app/dashboard/j5/controls/AuthorPicker'
 import { Select, type SelectOption } from '@/app/dashboard/j5/controls/Select'
 import { TagPicker } from '@/app/dashboard/j5/controls/TagPicker'
 import s from '@/styles/media-console.module.css'
@@ -44,7 +44,10 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
 }) {
     const [operationId, setOperationId] = useState('')
     const [chosen, setChosen] = useState<string[]>([])
-    const [authorName, setAuthorName] = useState('')
+    /* Both halves — see AuthorPicker's header. A bulk credit written as a
+       bare name over sixty items is sixty rows that no longer agree with
+       whatever `authorId` each of them was carrying. */
+    const [author, setAuthor] = useState<AuthorValue>({ id: null, name: '' })
     const [busy, setBusy] = useState(false)
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [result, setResult] = useState<string | null>(null)
@@ -147,9 +150,22 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
                 <button type='button' className={c.btn} disabled={!chosen.length || busy} onClick={() => run('removeTags', { tags: chosen })}>Remove tags</button>
             </div>
 
-            <Field label='Set author' value={authorName} onChange={setAuthorName} />
-            <button type='button' className={c.btn} disabled={busy} onClick={() => run('setAuthor', { authorName })}>
-                {authorName.trim() ? `Set author on ${ids.length}` : `Clear author on ${ids.length}`}
+            <AuthorPicker label='Set author' value={author} onChange={setAuthor} />
+            <button
+                type='button'
+                className={c.btn}
+                disabled={busy}
+                onClick={() => run('setAuthor', { authorId: author.id, authorName: author.name })}
+            >
+                {/* Three outcomes, three labels: a bulk action over sixty
+                    photographs must say which of them is about to happen
+                    before it happens, and "Set author" covered a link, a typed
+                    credit and a wipe alike. */}
+                {author.id
+                    ? `Link ${ids.length} to this member`
+                    : author.name.trim()
+                        ? `Credit ${ids.length} to this name`
+                        : `Clear author on ${ids.length}`}
             </button>
 
             {result && <Typography sx={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.62)' }}>{result}</Typography>}

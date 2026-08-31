@@ -9,6 +9,7 @@ import { logAction } from '@/lib/logAction'
 import { operationFacets } from '@/lib/gallery/operation-facets'
 import { relocateMedia } from '@/lib/gallery/relocate'
 import { resolveStorageKey } from '@/lib/gallery/paths'
+import { resolveAuthor, describeAuthorWrite } from '@/lib/gallery/author'
 
 /**
  * One action over a selection.
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
     if (!me) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json().catch(() => ({}))
-    const { action, operationId, tags, authorName } = body
+    const { action, operationId, tags, authorId, authorName } = body
 
     const given: string[] = (Array.isArray(body.ids) ? body.ids : [])
         .filter((v: unknown): v is string => typeof v === 'string' && ObjectId.isValid(v))
@@ -79,6 +80,10 @@ export async function POST(request: NextRequest) {
 
     const failed: { id: string, error: string }[] = []
     let changed = 0
+    /* Recorded on the log entry below so the audit trail says whether a bulk
+       credit linked a member or wrote a name — the whole distinction the pair
+       exists to carry, and invisible from `count`/`changed` alone. */
+    let authorDetails: { author: string | null, authorId: string | null, linked: boolean } | null = null
 
     if (action === 'move') {
         let opId: ObjectId | null = null
@@ -167,10 +172,23 @@ export async function POST(request: NextRequest) {
             : { $pullAll: { tags: slugs } })
         changed = result.modifiedCount
     } else if (action === 'setAuthor') {
-        const name = String(authorName ?? '').trim().slice(0, 120)
-        const result = name
-            ? await Db.galleryMedia.updateMany({ _id: { $in: ids } }, { $set: { authorName: name } })
-            : await Db.galleryMedia.updateMany({ _id: { $in: ids } }, { $unset: { authorName: '' } })
+        /* Both fields, always — the same correctness bug the single-item route
+           carried, multiplied by the size of a selection. Writing `authorName`
+           alone over sixty items left sixty documents naming one member and
+           still pointing `authorId` at whoever uploaded each of them, which is
+           what grants access to an unpublished item and what its accept/reject
+           notification is sent to. lib/gallery/author.ts is the one decider,
+           and it reads a linked author's name off the user document rather
+           than trusting the name the client sent alongside the id. */
+        const author = await resolveAuthor({ users: Db.users }, { authorId, authorName })
+        if (!author.ok) return NextResponse.json({ error: author.error }, { status: 400 })
+        if (!author.write) return NextResponse.json({ error: 'No author given' }, { status: 400 })
+        authorDetails = describeAuthorWrite(author.write)
+
+        const result = await Db.galleryMedia.updateMany({ _id: { $in: ids } }, {
+            ...(Object.keys(author.write.set).length ? { $set: author.write.set } : {}),
+            ...(Object.keys(author.write.unset).length ? { $unset: author.write.unset } : {}),
+        })
         changed = result.modifiedCount
     } else if (action === 'delete') {
         const docs = await Db.galleryMedia.find({ _id: { $in: ids } }).toArray()
@@ -201,7 +219,7 @@ export async function POST(request: NextRequest) {
         entityType: 'gallery_media',
         entityId: ids[0].toString(),
         actionUrl: '/dashboard/j5',
-        details: { count: ids.length, changed, failed: failed.length },
+        details: { count: ids.length, changed, failed: failed.length, ...(authorDetails ? { author: authorDetails } : {}) },
     })
 
     return NextResponse.json({ success: true, changed, failed })

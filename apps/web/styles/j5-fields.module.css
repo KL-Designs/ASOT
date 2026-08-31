@@ -75,6 +75,17 @@
     color: var(--red-hi);
 }
 
+/* A quiet line under a field saying what the current choice will actually do
+   — the author picker's "this will not be linked to a member". Not .error:
+   nothing is wrong, and painting it red would make choosing a valid option
+   look like a mistake. Not .label either, which is the eyebrow ABOVE the box
+   and is set in caps at 9px; this is a sentence and has to read as one. */
+.hint {
+    font-size: 10.5px;
+    line-height: 1.5;
+    color: var(--txt-3);
+}
+
 /* ── text input ─────────────────────────────────────────────────────── */
 
 .input {
