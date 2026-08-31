@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
+import { MAX_FEATURED } from '@/lib/gallery/featured'
 
 /**
  * Setting the public featured rail's order.
@@ -12,9 +13,13 @@ import { hasPermission } from '@/lib/orbat/hasPermission'
  * the module comment on `/api/gallery/route.ts`) — this is the only route
  * that writes it. The body is the complete rotation, front to back; anything
  * live and currently ordered but absent from it drops out of the rail.
+ *
+ * It is no longer the only route that ADDS to the rail: `PATCH
+ * /api/gallery/admin/media/[id]` appends one item at a time from the Media
+ * tab's inspector. That one owns membership, this one owns arrangement, and
+ * both refuse at the same MAX_FEATURED — a cap only one of them enforced
+ * would let a reviewer build a rotation the other declines to save.
  */
-
-const MAX_IDS = 60   // a strip, not a gallery — see the brief this implements
 
 async function manager() {
     const me = await client.fetchMe().catch(() => null)
@@ -42,9 +47,9 @@ export async function PUT(request: NextRequest) {
         }
     }
 
-    if (given.length > MAX_IDS) {
+    if (given.length > MAX_FEATURED) {
         return NextResponse.json({
-            error: `Too many items: ${given.length} given, ${MAX_IDS} is the most the rail can hold.`,
+            error: `Too many items: ${given.length} given, ${MAX_FEATURED} is the most the rail can hold.`,
         }, { status: 400 })
     }
 

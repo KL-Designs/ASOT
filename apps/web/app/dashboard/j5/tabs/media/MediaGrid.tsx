@@ -47,7 +47,7 @@ export default function MediaGrid({ items, selected, onToggle, onRange, onOpen }
                     <button
                         key={item.id}
                         type='button'
-                        className={`${s.tile} ${on ? s.tileOn : ''}`}
+                        className={`${s.tile} ${item.featured ? s.tileFeatured : ''} ${on ? s.tileOn : ''}`}
                         aria-pressed={on}
                         aria-label={item.caption || item.opLabel || 'Untitled media'}
                         onClick={e => click(item.id, e.shiftKey)}
@@ -93,6 +93,26 @@ export default function MediaGrid({ items, selected, onToggle, onRange, onOpen }
                             <span className={s.check} />
 
                             <span className={s.badges}>
+                                {/* First in the stack rather than a fourth
+                                    thing pinned to the same 5px corner. The
+                                    badges share one anchor and one column, and
+                                    an item can be undated, unlinked, a video
+                                    AND featured at once — a star positioned
+                                    independently would sit on top of whichever
+                                    of those happened to be there, which is the
+                                    exact overlap the .badges stack was
+                                    introduced to end. aria-hidden with a real
+                                    label beside it: a screen reader announcing
+                                    "black star" is not the same sentence.
+                                    Amber is the token the NO DATE badge
+                                    already uses, so the console has one gold
+                                    rather than two that nearly match. */}
+                                {item.featured && (
+                                    <span className={s.star}>
+                                        <span aria-hidden>★</span>
+                                        <span className={s.srOnly}>In the featured rail</span>
+                                    </span>
+                                )}
                                 {/* A migrated item without operationId still
                                     carries a date — 1 January of its folder's
                                     year, written by the migration. What it

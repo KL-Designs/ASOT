@@ -589,6 +589,13 @@ export default function MediaTab() {
                                 // no longer on screen.
                                 onSaved={() => { setSelected(new Set()); setNote('Saved.'); refresh() }}
                                 onDeleted={() => { setSelected(new Set()); setNote('Deleted.'); refresh() }}
+                                // Refetch only. Featuring changes one field
+                                // and moves the item nowhere, so unlike a save
+                                // it never drops the item out of the current
+                                // view — clearing the selection would take the
+                                // reviewer off an item they are still editing,
+                                // for a change they made in passing.
+                                onFeaturedChanged={refresh}
                             />
                         ) : emptyInspector
                     })()

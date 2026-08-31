@@ -204,6 +204,15 @@ declare global {
          *  hand, so a reviewer is shown it rather than told about it. */
         storageKey: string | null
 
+        /** Whether this item is currently in the public featured rail — i.e.
+         *  whether `featuredOrder` is set on the document. A boolean rather
+         *  than the number itself: the Media tab decides membership (the
+         *  inspector's toggle, the grid's star), while the ORDER belongs to
+         *  the Featured tab and its whole-list PUT, and handing this surface a
+         *  position it cannot meaningfully change is how the two would come to
+         *  disagree about which of them owns the sequence. */
+        featured: boolean
+
         up: number
         down: number
         publishedAt: string | null

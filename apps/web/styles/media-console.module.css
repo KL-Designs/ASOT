@@ -219,6 +219,16 @@
 }
 .tileBox img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tile:focus-visible { outline: 1px solid var(--red); outline-offset: 1px; }
+
+/* In the public featured rail. --amber is the token the NO DATE badge already
+   uses — one gold in this console rather than a second one that nearly
+   matches it. */
+.tileFeatured { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
+/* After .tileFeatured on purpose, so equal specificity hands the frame to
+   selection when a tile is both. Red is the state the reviewer is actively
+   manipulating and the one a bulk action acts on, so it must never be the
+   signal that gets painted over; gold is still readable from the star, which
+   selection does not touch. */
 .tileOn { border-color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
 
 .check {
@@ -258,6 +268,17 @@
    everything and is stated rather than flagged. */
 .badgeWarn { background: rgba(216, 172, 69, 0.92); color: #1a1400; }
 .badgeQuiet { background: rgba(0, 0, 0, 0.55); color: rgba(255, 255, 255, 0.5); }
+
+/* A glyph, not a badge: the three badges below it are words a reviewer reads,
+   and a fourth reading FEATURED would make the stack a paragraph. The shadow
+   is not decoration — a thumbnail is an arbitrary photograph, and gold on a
+   bright sky has no contrast at all without something dark behind it. */
+.star {
+    font-size: 14px;
+    line-height: 1;
+    color: var(--amber);
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(0, 0, 0, 0.9);
+}
 
 .cap {
     position: absolute;
@@ -315,6 +336,9 @@
    border-collapse, and one on every <td> would draw a line down each column. */
 .tblRowOn { background: rgba(219, 0, 29, 0.1); box-shadow: inset 2px 0 0 var(--red); }
 .tblNum { font-variant-numeric: tabular-nums; }
+/* The table's half of the tile's star. No shadow here — it sits on the
+   panel's own dark surface rather than on a photograph. */
+.tblStar { color: var(--amber); }
 .tblPick { width: 24px; }
 .tblPick input { accent-color: var(--red); cursor: pointer; }
 
@@ -437,6 +461,19 @@
     gap: 8px;
 }
 .preview { aspect-ratio: 16 / 10; border: 1px solid rgba(255, 255, 255, 0.06); }
+
+/* The featured toggle and the state it reports, on one line. Wraps rather than
+   squeezing: at the inspector's 320px the button and the phrase beside it do
+   not always fit, and a clipped "In the featured ra…" says less than a
+   second line costs. */
+.featuredRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.featuredNow {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--amber);
+}
 .preview img, .preview video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
 .preview iframe { width: 100%; height: 100%; border: 0; display: block; }
 .previewEmpty {

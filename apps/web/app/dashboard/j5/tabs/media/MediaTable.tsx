@@ -86,6 +86,14 @@ export default function MediaTable({ items, selected, sort, onToggle, onRange, o
                             </button>
                         </th>
                         <th scope='col'>Size</th>
+                        {/* A column of its own rather than a mark tucked
+                            beside the caption. The table is the layout for
+                            working through three hundred rows, and "which of
+                            these is in the rail" is a question you answer by
+                            running an eye down one column — which a glyph
+                            floating at the end of a variable-length caption
+                            cannot be read as. */}
+                        <th scope='col'>Featured</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -293,6 +301,15 @@ function Row({ item, on, onClick, onCaptionSaved }: {
                     : <span className={s.muted}>Undated</span>}
             </td>
             <td className={s.tblNum}>{sizeLabel(item)}</td>
+            <td>
+                {/* Same pairing as the grid's tile badge: the glyph is hidden
+                    from assistive tech and a real phrase sits beside it, so
+                    the column reads as a sentence rather than as "black
+                    star" / "em dash". */}
+                {item.featured
+                    ? <span className={s.tblStar}><span aria-hidden>★</span><span className={s.srOnly}>In the featured rail</span></span>
+                    : <span className={s.muted}><span aria-hidden>—</span><span className={s.srOnly}>Not featured</span></span>}
+            </td>
         </tr>
     )
 }

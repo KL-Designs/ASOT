@@ -40,12 +40,19 @@ type Operation = { id: string, title: string, date: string | null }
  */
 const UNLINKED = '__unlinked__'
 
-export default function Inspector({ item, operations, tags, onSaved, onDeleted }: {
+export default function Inspector({ item, operations, tags, onSaved, onDeleted, onFeaturedChanged }: {
     item: AdminMediaAPI
     operations: Operation[]
     tags: { slug: string, label: string }[]
     onSaved: () => void
     onDeleted: () => void
+    /** Refetch the library, WITHOUT clearing the selection the way onSaved
+     *  does. Featuring is a one-click change to this item that leaves every
+     *  field in this panel exactly as it was, so unmounting the panel over it
+     *  — which is what onSaved's `setSelected(new Set())` does — would take
+     *  the reviewer off the item they were still working on. The refetch is
+     *  what repaints the star on the tile behind the inspector. */
+    onFeaturedChanged: () => void
 }) {
     // A migrated item can hold a folder-derived name (`opLabel`/`operation`)
     // with no `operationId` at all — none of the operation records in the
@@ -66,6 +73,13 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
     const [operationId, setOperationId] = useState(item.operationId ?? (unlinkedName ? UNLINKED : 'unknown'))
     const [chosen, setChosen] = useState<string[]>(item.tags)
     const [saving, setSaving] = useState(false)
+    /* Held locally as well as on `item` so the button flips the instant the
+       PATCH returns. The refetch that follows lands a moment later and agrees
+       with it; without this the label would still read "Add to featured" for
+       as long as the library takes to come back, which on this archive is long
+       enough to be clicked twice. */
+    const [featured, setFeatured] = useState(item.featured)
+    const [featuring, setFeaturing] = useState(false)
     const [confirmDelete, setConfirmDelete] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -81,6 +95,7 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
         setAuthor({ id: item.authorId, name: item.authorName ?? '' })
         setOperationId(item.operationId ?? (unlinkedName ? UNLINKED : 'unknown'))
         setChosen(item.tags)
+        setFeatured(item.featured)
         setConfirmDelete(false)
         setError(null)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately item.id only, see comment above
@@ -128,6 +143,39 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
             note: op.date ? String(new Date(op.date).getFullYear()) : undefined,
         })),
     ]
+
+    /* One click, one field, no Save. The rest of this panel is a form the
+       reviewer submits when they have finished editing it; this is a switch,
+       and making it wait for Save would mean a reviewer who only wants to
+       feature a photograph has to save a caption they did not touch — which,
+       for a LINKED upload, also renames the file on disk (see the route's
+       header). Sending `featured` alone keeps the request to the one field. */
+    async function toggleFeatured() {
+        const next = !featured
+        setFeaturing(true)
+        setError(null)
+        try {
+            const res = await fetch(`/api/gallery/admin/media/${item.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ featured: next }),
+            })
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                // The server's own sentence: the one refusal a reviewer will
+                // actually meet here is the rail being full, and "Could not
+                // save." would not tell them to go and remove one.
+                setError(typeof data.error === 'string' ? data.error : 'Could not change the featured state.')
+                return
+            }
+            setFeatured(next)
+            onFeaturedChanged()
+        } catch {
+            setError('Could not reach the server.')
+        } finally {
+            setFeaturing(false)
+        }
+    }
 
     async function save() {
         setSaving(true)
@@ -199,6 +247,25 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
 
             <div className={s.preview}>
                 <Preview item={item} />
+            </div>
+
+            {/* Above the fields, because it is not one of them: it takes
+                effect on click rather than on Save. The button says what the
+                click will DO — a button labelled "Featured" leaves a reviewer
+                guessing whether it is a state or a command — and the line
+                beside it says what the item currently is. */}
+            <div className={s.featuredRow}>
+                <button
+                    type='button'
+                    className={`${c.btn} ${featured ? c.btnGhost : ''}`}
+                    disabled={featuring || saving}
+                    onClick={toggleFeatured}
+                >
+                    {featuring
+                        ? (featured ? 'Removing…' : 'Adding…')
+                        : (featured ? 'Remove from featured' : 'Add to featured')}
+                </button>
+                {featured && <span className={s.featuredNow}>★ In the featured rail</span>}
             </div>
 
             <TextArea label='Caption' value={caption} onChange={setCaption} rows={3} />

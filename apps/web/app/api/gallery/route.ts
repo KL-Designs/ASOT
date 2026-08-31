@@ -93,8 +93,16 @@ export async function GET() {
         // differently — and differently between two requests.
         Db.galleryTags.find({ retired: false }).sort({ order: 1, _id: 1 }).toArray(),
         Db.galleryMedia
+            /* `_id` tie-break, for the same reason the tags query above needs
+               one: two documents can carry the same `featuredOrder`. The
+               per-item toggle in `PATCH /api/gallery/admin/media/[id]` appends
+               at "current highest + 1", so two reviewers featuring an item at
+               the same moment both read the same highest and both write it.
+               On `featuredOrder` alone Mongo is then free to return that pair
+               in either order, and the rail visibly reshuffles between two
+               requests — the same instability, and the same fix. */
             .find({ status: 'live', featuredOrder: { $exists: true } })
-            .sort({ featuredOrder: 1 })
+            .sort({ featuredOrder: 1, _id: 1 })
             .toArray(),
     ])
 

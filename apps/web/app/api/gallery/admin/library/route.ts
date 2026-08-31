@@ -80,6 +80,11 @@ export async function GET(request: NextRequest) {
         durationSec: doc.durationSec ?? null,
         bytes: doc.bytes ?? null,
         storageKey: doc.storageKey ?? null,
+        /* Membership of the featured rail, not its position. `featuredOrder`
+           is the rail's whole source of truth, so its presence is the whole
+           answer; the number is deliberately not sent, because arrangement is
+           the Featured tab's job and this tab only toggles membership. */
+        featured: doc.featuredOrder !== undefined,
         up: doc.up ?? 0,
         down: doc.down ?? 0,
         publishedAt: doc.publishedAt ? doc.publishedAt.toISOString() : null,

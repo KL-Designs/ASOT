@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 
 import type { RelocateDeps } from '@/lib/gallery/relocate'
+import { MAX_FEATURED } from '@/lib/gallery/featured'
 
 /**
  * Reassigning an operation on an item with no bytes — and the narrower sibling
@@ -39,11 +40,39 @@ type Doc = Record<string, unknown>
  *  statement in the file and may only reach state hoisted with it. */
 const state = vi.hoisted((): { docs: Record<string, Doc>, operations: Doc[], users: Doc[] } => ({ docs: {}, operations: [], users: [] }))
 
+/* Hoisted with the state for the same reason: the mongo mock's factory calls
+   these, and a plain function declaration below would not exist yet when it
+   runs. `typeof === 'number'` rather than a cast — a Doc's fields are unknown,
+   and "is this document in the featured rail" is exactly the question the
+   route's own `featuredOrder !== undefined` asks. */
+const { featuredDocs, orderOf } = vi.hoisted(() => ({
+    featuredDocs: () => Object.values(state.docs).filter(d => typeof d.featuredOrder === 'number'),
+    orderOf: (d: Doc) => typeof d.featuredOrder === 'number' ? d.featuredOrder : -1,
+}))
+
 vi.mock('@/lib/mongo', () => ({
     default: {
         galleryMedia: {
-            async findOne(filter: { _id: ObjectId }) {
-                return state.docs[filter._id.toString()] ?? null
+            /* Two shapes of read, because the route makes two. The first is
+               the document being edited, by _id. The second is the featured
+               rail's current highest `featuredOrder`, which arrives as
+               `{ featuredOrder: { $exists: true } }` with a descending sort —
+               a mock that only understood _id would answer that with null and
+               every append would silently land on 0, on top of whatever is
+               already there. */
+            async findOne(
+                filter: { _id?: ObjectId, featuredOrder?: { $exists: boolean } },
+                options?: { sort?: { featuredOrder?: number } },
+            ) {
+                if (filter._id) return state.docs[filter._id.toString()] ?? null
+
+                const direction = options?.sort?.featuredOrder === -1 ? -1 : 1
+                const ordered = featuredDocs().sort((a, b) => direction * (orderOf(a) - orderOf(b)))
+                return ordered[0] ?? null
+            },
+            async countDocuments() {
+                // The only countDocuments this route makes is the rail's size.
+                return featuredDocs().length
             },
             async updateOne(filter: { _id: ObjectId }, update: { $set?: Doc, $unset?: Record<string, ''> }) {
                 const doc = state.docs[filter._id.toString()]
@@ -423,5 +452,119 @@ describe('PATCH — the author pair', () => {
         const doc = state.docs[LEGACY_ID.toString()]
         expect(doc.authorId).toBe(MEMBER_ID)
         expect(doc.authorName).toBe('CPL Nine')
+    })
+})
+
+/**
+ * The featured rail, one item at a time.
+ *
+ * `featuredOrder` on `gallery_media` is the public rail's entire source of
+ * truth, and until this route accepted `featured` the only writer was the
+ * Featured tab's whole-list PUT — there was no way to add one photograph
+ * without re-sending the other fifty-nine. This owns MEMBERSHIP; that route
+ * still owns arrangement, which is why adding appends and re-adding never
+ * renumbers.
+ *
+ * The last test in this block is the one that matters most and looks least
+ * like a featured test at all: featuring is a field on the same PATCH that
+ * relocates files, and b8d70341 established that only the REQUEST asking for
+ * an operation may move an item's bytes. A `featured` flag that leaked into
+ * that condition would relocate an unlinked archive photograph to Unknown/ and
+ * destroy the operation, mission, year and date its folder gave it — the
+ * exact defect a caption edit used to cause, with a new trigger.
+ */
+describe('PATCH — the featured rail', () => {
+    test('featuring the first item starts the rail at 0', async () => {
+        const res = await patch(LEGACY_ID, { featured: true })
+        expect(res.status).toBe(200)
+        expect(state.docs[LEGACY_ID.toString()].featuredOrder).toBe(0)
+    })
+
+    test('featuring appends one past the current highest, and touches nothing else', async () => {
+        state.docs[EMBED_ID.toString()].featuredOrder = 0
+        state.docs[UPLOAD_ID.toString()].featuredOrder = 7
+
+        const res = await patch(LEGACY_ID, { featured: true })
+        expect(res.status).toBe(200)
+
+        expect(state.docs[LEGACY_ID.toString()].featuredOrder).toBe(8)
+        // The rotation the Featured tab curated is untouched — appending
+        // must never renumber the items already in it.
+        expect(state.docs[EMBED_ID.toString()].featuredOrder).toBe(0)
+        expect(state.docs[UPLOAD_ID.toString()].featuredOrder).toBe(7)
+    })
+
+    /* Re-stating a slot rather than appending it again. A stale tab, a double
+       click, or a reviewer checking their work sends `featured: true` for an
+       item that already is: appending would drag a tile J5 deliberately put at
+       the front of the rail all the way to the back. */
+    test('re-featuring something already featured keeps its slot', async () => {
+        state.docs[EMBED_ID.toString()].featuredOrder = 4
+        state.docs[LEGACY_ID.toString()].featuredOrder = 1
+
+        const res = await patch(LEGACY_ID, { featured: true })
+        expect(res.status).toBe(200)
+        expect(state.docs[LEGACY_ID.toString()].featuredOrder).toBe(1)
+    })
+
+    /* $unset, not a sentinel value. The rail's query is
+       `featuredOrder: { $exists: true }` (api/gallery/route.ts), so writing -1
+       or null would leave the item in the rail with a strange position rather
+       than out of it. */
+    test('unfeaturing removes the field outright', async () => {
+        state.docs[LEGACY_ID.toString()].featuredOrder = 3
+
+        const res = await patch(LEGACY_ID, { featured: false })
+        expect(res.status).toBe(200)
+        expect('featuredOrder' in state.docs[LEGACY_ID.toString()]).toBe(false)
+    })
+
+    /* Nothing is written, so the route's existing "Nothing to change" answer
+       is the honest one. The point of the assertion is the second line: an
+       unguarded `unset.featuredOrder = ''` would have made this a 200 that
+       reported a change to a field the document never had. */
+    test('unfeaturing something that was never featured changes nothing', async () => {
+        const res = await patch(LEGACY_ID, { featured: false })
+        expect(res.status).toBe(400)
+        expect(await res.json()).toEqual({ error: 'Nothing to change' })
+    })
+
+    /* The cap the Featured tab's PUT has always enforced, applied at the point
+       an item is added. Without it a reviewer can toggle a sixty-first item in
+       and only find out when a drag in the Featured tab is refused, with
+       nothing to connect the failure to the toggle that caused it. */
+    test('the rail refuses a sixty-first item, and writes nothing', async () => {
+        for (let i = 0; i < MAX_FEATURED; i++) {
+            const id = new ObjectId()
+            state.docs[id.toString()] = { _id: id, source: 'youtube', featuredOrder: i }
+        }
+
+        const res = await patch(LEGACY_ID, { featured: true })
+        expect(res.status).toBe(400)
+        expect(String((await res.json()).error)).toContain(String(MAX_FEATURED))
+        expect('featuredOrder' in state.docs[LEGACY_ID.toString()]).toBe(false)
+    })
+
+    /* The load-bearing one. LEGACY_ID is the shape at risk — bytes on disk, a
+       folder-derived operation/mission/year/date, no operationId — and
+       relocateMedia resolves an absent operationId to Unknown/, moving the
+       bytes and unsetting every one of those fields. Nothing in this request
+       mentions the operation, so nothing about the operation may change. */
+    test('featuring an unlinked archive item does not re-file it', async () => {
+        const res = await patch(LEGACY_ID, { featured: true })
+        expect(res.status).toBe(200)
+
+        const doc = state.docs[LEGACY_ID.toString()]
+        expect(doc.featuredOrder).toBe(0)
+        expect(doc.operation).toBe('5. Op Atlantic Shield')
+        expect(doc.opLabel).toBe('Op Atlantic Shield')
+        expect(doc.mission).toBe('I')
+        expect(doc.year).toBe('2023')
+        expect(doc.takenAt).toEqual(LEGACY_TAKEN_AT)
+        expect(doc.storageKey).toBe(LEGACY_KEY)
+
+        // And the bytes never moved.
+        expect(existsSync(join(fixture.contentDir, ...LEGACY_SEGMENTS))).toBe(true)
+        expect(existsSync(join(fixture.contentDir, 'Unknown'))).toBe(false)
     })
 })

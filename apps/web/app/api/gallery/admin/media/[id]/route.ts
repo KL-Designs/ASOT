@@ -11,6 +11,7 @@ import { operationFacets, type OperationFacetUpdate } from '@/lib/gallery/operat
 import { relocateMedia } from '@/lib/gallery/relocate'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 import { resolveAuthor, describeAuthorWrite, type AuthorWrite } from '@/lib/gallery/author'
+import { MAX_FEATURED } from '@/lib/gallery/featured'
 
 /**
  * Editing one archive item.
@@ -47,6 +48,10 @@ import { resolveAuthor, describeAuthorWrite, type AuthorWrite } from '@/lib/gall
  * documents whose storageKey starts with content:/legacy:, which an embed
  * never has). Those items get their facets from operationFacets() instead,
  * in the same write that sets the id.
+ *
+ * `featured` is the one field here that touches a SECOND surface — the public
+ * featured rail — and it is deliberately kept out of the relocation decision
+ * below. See the `featured` block for why that separation is load-bearing.
  */
 
 async function manager() {
@@ -70,7 +75,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const doc = await Db.galleryMedia.findOne({ _id })
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const { caption, tags, authorId, authorName, operationId, mission } = await request.json().catch(() => ({}))
+    const { caption, tags, authorId, authorName, operationId, mission, featured } = await request.json().catch(() => ({}))
 
     const set: Record<string, unknown> = {}
     const unset: Record<string, ''> = {}
@@ -111,6 +116,65 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (typeof mission === 'string') {
         const trimmed = mission.trim().slice(0, 60)
         if (trimmed) set.mission = trimmed; else unset.mission = ''
+    }
+
+    /* Membership of the public featured rail, one item at a time.
+
+       `featuredOrder` on `gallery_media` is the rail's entire source of truth,
+       and until now the only thing that wrote it was the Featured tab's
+       whole-list PUT — so there was no way to add one photograph to the
+       rotation without re-sending the other fifty-nine. This adds and removes;
+       arrangement stays with that route. Adding appends, so a tile a reviewer
+       dragged to the front stays at the front.
+
+       It must never join the `relocating` condition below, and it is written
+       here — above that block — so it cannot drift into it. b8d70341 made
+       relocation derive from what the REQUEST asks for, precisely so a field
+       that is not the operation cannot re-file an item: featuring an unlinked
+       archive photograph would otherwise relocate it to Unknown/, $unsetting
+       the operation, opLabel, year and mission the migration read off its
+       folder and nulling its date, because relocateMedia re-derives its
+       destination from an operationId this document does not have.
+
+       `$unset`, not a sentinel: the rail's query is `featuredOrder: { $exists:
+       true }`, so any number at all — including -1 — is still in the rail. */
+    if (typeof featured === 'boolean') {
+        if (!featured) {
+            // Guarded, so unfeaturing something that was never featured
+            // contributes nothing and falls through to the "Nothing to change"
+            // answer below rather than writing an $unset for a missing field.
+            if (doc.featuredOrder !== undefined) unset.featuredOrder = ''
+        } else if (doc.featuredOrder !== undefined) {
+            /* Already in the rail. Its existing slot is re-stated rather than
+               skipped: skipping would leave a `{ featured: true }` payload
+               with nothing to write and answer 400 "Nothing to change", which
+               is a baffling failure for a control whose whole job is to make a
+               true statement true. Re-appending would be worse — it would send
+               a tile J5 dragged to the front all the way to the back. */
+            set.featuredOrder = doc.featuredOrder
+        } else {
+            /* One past the current highest, read live rather than from a
+               stored counter — the PUT above $unsets what drops out of the
+               rotation, so a counter would keep climbing past holes nobody can
+               see. Two concurrent PATCHes can still read the same highest and
+               both write it; that is a duplicate `featuredOrder`, and it is
+               why the rail's query sorts on `_id` as well (see the featured
+               find in app/api/gallery/route.ts) — the same tie-break the
+               gallery tags needed, for the same reason. Without it the rail's
+               order flips between two requests. */
+            const featuredCount = await Db.galleryMedia.countDocuments({ featuredOrder: { $exists: true } })
+            if (featuredCount >= MAX_FEATURED) {
+                return NextResponse.json({
+                    error: `The featured rail already holds ${MAX_FEATURED} items, which is its limit. Remove one in the Featured tab before adding another.`,
+                }, { status: 400 })
+            }
+
+            const highest = await Db.galleryMedia.findOne(
+                { featuredOrder: { $exists: true } },
+                { projection: { featuredOrder: 1 }, sort: { featuredOrder: -1 } },
+            )
+            set.featuredOrder = typeof highest?.featuredOrder === 'number' ? highest.featuredOrder + 1 : 0
+        }
     }
 
     /* Whether this item's bytes are about to move decides who writes the four
@@ -245,7 +309,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         entityId: id,
         actionUrl: '/dashboard/j5',
         target: doc.caption || doc.opLabel || undefined,
-        details: { moved: moving, ...(authorWrite ? { author: describeAuthorWrite(authorWrite) } : {}) },
+        details: { moved: moving, ...(typeof featured === 'boolean' ? { featured } : {}), ...(authorWrite ? { author: describeAuthorWrite(authorWrite) } : {}) },
     })
 
     const updated = await Db.galleryMedia.findOne({ _id })
