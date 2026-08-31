@@ -55,6 +55,23 @@ function campaignOp(id: ObjectId, title: string, missionId: ObjectId, daySlot: '
     }
 }
 
+/* An operation J2's board DISPLAYS inside a campaign mission but that carries
+   no CampaignMission link — `campaignId` and nothing else. The board's second
+   pass in lib/operations/board.ts infers the mission from the TITLE into a
+   synthetic `t:{stripped}` entry, and a real CampaignMission document is only
+   written when someone presses the organiser's "Auto-group" button, so this is
+   the state every campaign is in until that happens. The user's "Operation
+   Trinity" sat here with six operations. */
+function campaignOnlyOp(id: ObjectId, title: string, daySlot: 'saturday' | 'sunday' | null, date = '2026-05-16T09:00:00Z'): Record<string, unknown> {
+    return {
+        _id: id,
+        title,
+        date: new Date(date),
+        campaignId: CAMPAIGN_ID,
+        ...(daySlot ? { daySlot } : {}),
+    }
+}
+
 /** A minimal stand-in for the four collections relocate touches. */
 function deps(
     docs: Record<string, Record<string, unknown>>,
@@ -268,8 +285,7 @@ describe('resolveOperationFolder', () => {
        than Unknown/ — the member picked a real operation and it has a real
        date, so throwing away its year and folder would lose more than the
        campaign level ever added. */
-    test('a deleted campaign, a deleted mission, a missing mission and a mismatched one all file as single missions', async () => {
-        const OTHER_CAMPAIGN = new ObjectId('6a8000000000000000000099')
+    test('a deleted campaign and a campaign that resolves to nothing both file as single missions', async () => {
         const op = campaignOp(OP_ID, 'OPERATION Trinity I — Sat', MISSION_ID, 'saturday')
         const single = { year: '2026', campaign: null, operation: '1. Op Trinity I', mission: 'Saturday' }
 
@@ -279,27 +295,118 @@ describe('resolveOperationFolder', () => {
             OP_ID,
         )).toEqual(single)
 
+        // Neither collection holds anything at all — the campaignId names no
+        // campaign, so there is no folder for one and nothing to honour.
+        expect(await resolveOperationFolder(deps({}, [op]), OP_ID)).toEqual(single)
+
+        // The third remaining reason — a campaign name that sanitizes to
+        // nothing — is pinned by the traversal test below, which is where the
+        // reasoning about sanitizeSegment lives.
+    })
+
+    /* THE test for this change. J2's board infers a campaign's missions from
+       operation titles and only writes CampaignMission records when someone
+       presses "Auto-group", so `campaignId` with no `campaignMissionId` is a
+       common, legitimate state — and it used to file as a single mission,
+       which gave the user "16. Op Trinity I", "17. Op Trinity II" and
+       "18. Op Trinity III" as three sibling top-level folders. The campaign is
+       an explicit fact on the document, so it is honoured; the mission level
+       is simply absent. Each folder is created between calls exactly as
+       relocateMedia's mkdir would, because resolving reads the disk. */
+    test('three campaign operations with no CampaignMission records share one campaign folder', async () => {
+        const SAT_1 = new ObjectId('6a8000000000000000000101')
+        const SAT_2 = new ObjectId('6a8000000000000000000102')
+        const SUN_1 = new ObjectId('6a8000000000000000000103')
+
+        const d = deps({}, [
+            campaignOnlyOp(SAT_1, 'OPERATION Trinity I — Sat', 'saturday', '2026-05-16T09:00:00Z'),
+            campaignOnlyOp(SAT_2, 'OPERATION Trinity II — Sat', 'saturday', '2026-05-23T09:00:00Z'),
+            campaignOnlyOp(SUN_1, 'OPERATION Trinity I — Sun', 'sunday', '2026-05-17T09:00:00Z'),
+        ], [campaignDoc('Operation Trinity')], [])
+
+        /* `campaign` is null and the campaign's folder arrives in `operation`:
+           this is the single-mission grammar with the campaign's name on the
+           top folder, which is the only reading buildContentPath can emit and
+           parseContentPath can read back unchanged. See
+           resolveOperationFolder's own comment. */
+        const expected = { year: '2026', campaign: null, operation: '1. Op Trinity', mission: 'Saturday' }
+        expect(await resolveOperationFolder(d, SAT_1)).toEqual(expected)
+        mkdirSync(join(contentDir, '2026', '1. Op Trinity', 'Saturday'), { recursive: true })
+
+        expect(await resolveOperationFolder(d, SAT_2)).toEqual(expected)
+        expect(await resolveOperationFolder(d, SUN_1))
+            .toEqual({ year: '2026', campaign: null, operation: '1. Op Trinity', mission: 'Sunday' })
+
+        // One folder for the campaign, not one per mission. Before this
+        // change the three calls returned '1. Op Trinity I', '2. Op Trinity II'
+        // and '3. Op Trinity I' and the year held three directories.
+        expect(readdirSync(join(contentDir, '2026'))).toEqual(['1. Op Trinity'])
+    })
+
+    /* The mission is never reconstructed from the title. board.ts's detectRoman
+       would read "I" out of this one, and that inference is safe in a display
+       layer and not in something that MOVES FILES — the "— Sun" suffix is in
+       the fixture deliberately, and so is the absence of a day folder. */
+    test('a campaign operation with no mission and no daySlot gets the campaign folder alone', async () => {
+        const d = deps({}, [campaignOnlyOp(OP_ID, 'OPERATION Trinity I — Sun', null)],
+            [campaignDoc('Operation Trinity')], [])
+
+        expect(await resolveOperationFolder(d, OP_ID))
+            .toEqual({ year: '2026', campaign: null, operation: '1. Op Trinity', mission: null })
+    })
+
+    /* Each of these is an unusable MISSION beside a known-good campaign, and
+       every one of them now drops the mission LEVEL rather than falling back
+       to a top-level operation folder. The mismatch case is the one that
+       changed meaning most: a mission moved to another campaign says nothing
+       about whether this operation's own campaign is real. */
+    test('a deleted mission, a missing mission, a mismatched one and a half-linked operation all file under the campaign with no mission level', async () => {
+        const OTHER_CAMPAIGN = new ObjectId('6a8000000000000000000099')
+        const op = campaignOp(OP_ID, 'OPERATION Trinity I — Sat', MISSION_ID, 'saturday')
+        const campaignOnly = { year: '2026', campaign: null, operation: '1. Op Trinity', mission: 'Saturday' }
+
         // The mission is gone.
         expect(await resolveOperationFolder(
             deps({}, [op], [campaignDoc('Operation Trinity')], [missionDoc(MISSION_ID, 'Operation Trinity I', { isDeleted: true })]),
             OP_ID,
-        )).toEqual(single)
+        )).toEqual(campaignOnly)
 
-        // Neither collection holds anything at all.
-        expect(await resolveOperationFolder(deps({}, [op]), OP_ID)).toEqual(single)
+        // The campaignMissionId names nothing.
+        expect(await resolveOperationFolder(
+            deps({}, [op], [campaignDoc('Operation Trinity')], []),
+            OP_ID,
+        )).toEqual(campaignOnly)
 
         // The mission belongs to a different campaign than the operation names.
         expect(await resolveOperationFolder(
             deps({}, [op], [campaignDoc('Operation Trinity')], [missionDoc(MISSION_ID, 'Operation Trinity I', { campaignId: OTHER_CAMPAIGN })]),
             OP_ID,
-        )).toEqual(single)
+        )).toEqual(campaignOnly)
 
-        // A campaignId with no campaignMissionId beside it — half-linked.
-        const halfLinked = { _id: OP_ID, title: 'OPERATION Trinity I — Sat', date: new Date('2026-05-16T09:00:00Z'), daySlot: 'saturday', campaignId: CAMPAIGN_ID }
+        // A campaignId with no campaignMissionId beside it — half-linked, and
+        // the state the user's six Trinity operations were actually in.
         expect(await resolveOperationFolder(
-            deps({}, [halfLinked], [campaignDoc('Operation Trinity')], []),
+            deps({}, [campaignOnlyOp(OP_ID, 'OPERATION Trinity I — Sat', 'saturday')], [campaignDoc('Operation Trinity')], []),
             OP_ID,
-        )).toEqual(single)
+        )).toEqual(campaignOnly)
+
+        // A mission whose name is only punctuation: no folder to name, so no
+        // mission level — and NOT an empty segment joined into the path.
+        expect(await resolveOperationFolder(
+            deps({}, [op], [campaignDoc('Operation Trinity')], [missionDoc(MISSION_ID, '...')]),
+            OP_ID,
+        )).toEqual(campaignOnly)
+    })
+
+    // isSingleMission is checked before the campaign is ever read, so it still
+    // beats a campaignId that has no mission beside it — the case that would
+    // otherwise now resolve to a campaign folder rather than being ignored.
+    test('isSingleMission beats a campaignId with no mission record', async () => {
+        const d = deps({}, [{ ...campaignOnlyOp(OP_ID, 'OPERATION Trinity I — Sat', 'saturday'), isSingleMission: true }],
+            [campaignDoc('Operation Trinity')], [])
+
+        expect(await resolveOperationFolder(d, OP_ID))
+            .toEqual({ year: '2026', campaign: null, operation: '1. Op Trinity I', mission: 'Saturday' })
     })
 
     /* A campaign name is free text from the J2 dashboard, and it now reaches a
@@ -556,6 +663,75 @@ describe('relocateMedia', () => {
         expect(doc.campaign).toBe('1. Op Trinity')
         expect(doc.operation).toBe('Operation Trinity I')
         expect(doc.opLabel).toBe('Operation Trinity I')
+        expect(doc.mission).toBe('Saturday')
+    })
+
+    /* The three-directory half of the grammar, written by the producer that
+       reads it back the same way. The document must carry NO `campaign`: the
+       path has no folder for one, and parseContentPath reads three directories
+       as operation + mission, so a `campaign` here would be a facet the disk
+       contradicts the moment anyone reconciles. */
+    test('a campaign operation with no mission record files three levels deep and writes no campaign facet', async () => {
+        const flat = join(root, 'media')
+        mkdirSync(flat, { recursive: true })
+        writeFileSync(join(flat, `${MEDIA_ID}.jpg`), 'BYTES')
+
+        const docs = {
+            [MEDIA_ID.toString()]: {
+                _id: MEDIA_ID, storageKey: `media:${MEDIA_ID}.jpg`, authorName: 'Koda', operationId: OP_ID,
+            } as Record<string, unknown>,
+        }
+        const d = deps(docs, [campaignOnlyOp(OP_ID, 'OPERATION Trinity I — Sat', 'saturday')],
+            [campaignDoc('Operation Trinity')], [])
+
+        const result = await relocateMedia({ ...d, mediaDir: flat }, MEDIA_ID)
+
+        // Before this change: `2026/1. Op Trinity I/Saturday/…`, one numbered
+        // folder per mission of the campaign.
+        const expected = `2026/1. Op Trinity/Saturday/Koda [${MEDIA_ID}].jpg`
+        expect(result?.to).toBe(`content:${expected}`)
+        expect(existsSync(join(contentDir, ...expected.split('/')))).toBe(true)
+
+        const doc = docs[MEDIA_ID.toString()]
+        expect(doc.year).toBe('2026')
+        expect('campaign' in doc).toBe(false)
+        expect(doc.operation).toBe('1. Op Trinity')
+        expect(doc.opLabel).toBe('Op Trinity')
+        expect(doc.mission).toBe('Saturday')
+    })
+
+    /* The mission record disappearing must move the file UP one level, not out
+       of the campaign entirely — and the stale `campaign` facet has to go with
+       it, because the folder it names no longer has anything under it. */
+    test('an item loses the mission level, and its campaign facet, when the CampaignMission record is gone', async () => {
+        const stage = join(contentDir, '2026', '1. Op Trinity', 'Operation Trinity I', 'Saturday')
+        mkdirSync(stage, { recursive: true })
+        writeFileSync(join(stage, `Koda [${MEDIA_ID}].jpg`), 'BYTES')
+
+        const docs = {
+            [MEDIA_ID.toString()]: {
+                _id: MEDIA_ID,
+                storageKey: `content:2026/1. Op Trinity/Operation Trinity I/Saturday/Koda [${MEDIA_ID}].jpg`,
+                authorName: 'Koda',
+                operationId: OP_ID,
+                year: '2026',
+                campaign: '1. Op Trinity',
+                operation: 'Operation Trinity I',
+                mission: 'Saturday',
+            } as Record<string, unknown>,
+        }
+        // The campaign still exists; only the mission link is unusable, so the
+        // existing '1. Op Trinity' folder is reused rather than a second one
+        // being minted beside it.
+        const d = deps(docs, [campaignOp(OP_ID, 'OPERATION Trinity I — Sat', MISSION_ID, 'saturday')],
+            [campaignDoc('Operation Trinity')], [])
+
+        const result = await relocateMedia(d, MEDIA_ID)
+
+        expect(result?.to).toBe(`content:2026/1. Op Trinity/Saturday/Koda [${MEDIA_ID}].jpg`)
+        const doc = docs[MEDIA_ID.toString()]
+        expect('campaign' in doc).toBe(false)
+        expect(doc.operation).toBe('1. Op Trinity')
         expect(doc.mission).toBe('Saturday')
     })
 

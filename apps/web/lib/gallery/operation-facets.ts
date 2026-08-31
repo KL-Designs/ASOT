@@ -143,7 +143,14 @@ export async function operationFacets(
        standalone operation has to LOSE this, not merely stop having it
        rewritten — the rail filters on the field, and reconcile is structurally
        blind to an embed (rule 4 needs a `content:` storageKey, which one never
-       has), so nothing else would ever notice. */
+       has), so nothing else would ever notice.
+
+       An operation in a campaign that has no CampaignMission record yet takes
+       the unset branch, with the campaign's own folder name arriving in
+       `operation` instead. That is not a miss: resolveOperationFolder decides
+       it for both producers at once, and it is what makes an embed land in the
+       same rail row as a photograph filed into
+       `{year}/{campaign}/{Saturday}`. */
     if (campaign) set.campaign = campaign
     else unset.campaign = ''
 

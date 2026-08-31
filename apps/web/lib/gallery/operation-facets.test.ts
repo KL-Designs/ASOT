@@ -248,6 +248,43 @@ describe('operationFacets', () => {
         expect(cleared?.$set.mission).toBe('Saturday')
     })
 
+    /* An operation whose campaign is known but whose CampaignMission record
+       does not exist yet — J2's board infers those from titles until someone
+       presses Auto-group, so it is the state most campaigns are in. The embed
+       has to land in the row a photograph from the same operation lands in,
+       and relocateMedia files that photograph at
+       `2026/1. Op Trinity/Saturday/…` with NO campaign facet, so this must
+       clear `campaign` and put the campaign's folder name in `operation`. */
+    test('a campaign operation with no mission record fills operation from the campaign and clears the campaign facet', async () => {
+        const CAMPAIGN_ID = new ObjectId('6a8000000000000000000010')
+        const campaigns: WithId<OperationCampaign>[] = [{
+            _id: CAMPAIGN_ID, name: 'Operation Trinity', createdBy: 'seed', createdAt: '2026-01-01T00:00:00.000Z', isDeleted: false,
+        }]
+        const ops = [{
+            _id: OP_ID,
+            title: 'OPERATION Trinity I — Sat',
+            date: new Date('2026-05-16T09:00:00Z'),
+            campaignId: CAMPAIGN_ID,
+            daySlot: 'saturday',
+        }]
+
+        const fields = await operationFacets(deps(ops, campaigns, []), OP_ID.toString())
+
+        expect(fields?.$set).toEqual({
+            operationId: OP_ID,
+            operation: '1. Op Trinity',
+            opLabel: 'Op Trinity',
+            mission: 'Saturday',
+            year: '2026',
+            takenAt: new Date('2026-05-16T09:00:00Z'),
+        })
+        // Unset, not merely omitted: an embed reassigned out of a campaign
+        // mission and into this state would otherwise keep pointing at a
+        // campaign folder its bytes are no longer under, and nothing else
+        // revisits an embed's facets.
+        expect(fields?.$unset).toEqual({ campaign: '' })
+    })
+
     /* The one field this function is allowed to differ from relocateMedia on.
        It has an operation id and no media document, so it cannot tell a legacy
        archive item's mission folder from a stale day — and the caller that

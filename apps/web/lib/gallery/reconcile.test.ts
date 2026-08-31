@@ -159,6 +159,41 @@ describe('reconcile', () => {
         expect(docs[0].operationId).toEqual(OP_ID)
     })
 
+    /* The campaign-with-no-mission grammar. Three directories, so the walk and
+       parseContentPath both already handle it — this pins that nothing has to
+       change for it, and that reconcile does NOT invent a `campaign` for the
+       campaign-named folder it finds there. relocateMedia wrote this document
+       with no campaign either, so the two agree. */
+    test('a file under a campaign folder with no mission level keeps no campaign facet', async () => {
+        const name = `Koda — Trinity [${A}].jpg`
+        write(`2026/16. Op Trinity/Saturday/${name}`)
+
+        const docs: Doc[] = [{
+            _id: A,
+            storageKey: `content:2026/23. Op New Winter/${name}`,   // stale — the file moved
+            year: '2026', operation: '23. Op New Winter', operationId: OP_ID,
+        }]
+        const ops: Doc[] = [{ _id: OP_ID, title: 'OPERATION Trinity I — Sat', date: new Date('2026-05-16T09:00:00Z') }]
+
+        const report = await reconcile(deps(docs, ops))
+
+        expect(report.matchedById).toBe(1)
+        expect(report.missingFiles).toEqual([])
+        expect(docs[0].storageKey).toBe(`content:2026/16. Op Trinity/Saturday/${name}`)
+        expect('campaign' in docs[0]).toBe(false)
+        expect(docs[0].operation).toBe('16. Op Trinity')
+        expect(docs[0].mission).toBe('Saturday')
+
+        /* The documented, move-only cost of this grammar, pinned rather than
+           hidden: the folder is named after the CAMPAIGN and no operation is
+           titled "Operation Trinity", so operationFor() cannot resolve one and
+           the link is dropped. It takes a human MOVING the file to reach here
+           — an unmoved file is never re-derived at all — and resolving it
+           would mean querying the campaign list from a pass that currently
+           only walks a tree. */
+        expect('operationId' in docs[0]).toBe(false)
+    })
+
     /* Out of a campaign folder and into a plain operation folder. The disk is
        the source of truth on this side, so the document must stop claiming the
        campaign — the same rule `operation` and `mission` have always followed,

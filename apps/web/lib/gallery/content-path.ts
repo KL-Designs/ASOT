@@ -2,10 +2,19 @@
  * The shape of a path inside storage/gallery/content.
  *
  *     {year}/{campaign}/{mission}/{Saturday|Sunday}/{file}  a campaign mission
+ *     {year}/{campaign}/{Saturday|Sunday}/{file}   a campaign, no mission yet
  *     {year}/{operation}/{Saturday|Sunday}/{file}           a single mission
  *     {year}/{operation}/{mission}/{file}   legacy files, from the old tree
  *     {year}/{operation}/{file}             published submissions — no day
  *     Unknown/{file}                        no operation, or none resolvable
+ *
+ * The second and third shapes are the same shape. An operation whose campaign
+ * is known but whose CampaignMission record does not exist yet (J2's board
+ * infers those from titles until someone presses Auto-group) is filed under
+ * the campaign folder with no mission level, and that path is written and read
+ * back as the single-mission grammar with a campaign's name on the top folder
+ * — `campaign` stays null on both sides. See relocate.ts's
+ * resolveOperationFolder for why any other reading breaks the round trip.
  *
  * The campaign level exists because J2 already models one. Deriving the top
  * folder from the operation title alone gave three sibling top-level folders
@@ -111,7 +120,15 @@ export function parseContentPath(relative: string): ContentFacets | null {
        campaign-with-no-day file that a human MOVES loses its `campaign` facet
        on the next reconcile (an unmoved one is never re-derived at all — see
        reconcile.ts's pending push). An operation with no day slot is one J2
-       has not finished filling in. */
+       has not finished filling in.
+
+       A FOURTH producer of this depth was added deliberately, and it is the
+       one that costs nothing: `{year}/{campaign}/{Saturday|Sunday}` — an
+       operation in a campaign whose CampaignMission record does not exist yet.
+       relocate.ts writes that path with `campaign: null` precisely so this
+       reading is the correct one for it too, rather than adding a case that
+       would have to guess which of four producers a three-folder path came
+       from. Nothing here needed to change for it; that is the point. */
     if (dirs.length === 3) return { year, campaign: null, operation: dirs[1], mission: dirs[2], file }
 
     // Four directories can only have come from the campaign grammar: the

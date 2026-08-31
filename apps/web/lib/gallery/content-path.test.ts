@@ -94,6 +94,24 @@ describe('parseContentPath', () => {
         })
     })
 
+    /* The campaign-with-no-mission grammar, which relocate.ts writes for an
+       operation whose campaign is known but whose CampaignMission record does
+       not exist yet. It is deliberately the SAME three-folder shape as a
+       single mission with a day slot, and it reads back with `campaign: null`
+       — which is exactly the facets relocate.ts wrote it with, so nothing is
+       lost on the round trip. Reading `dirs[1]` as a campaign whenever
+       `dirs[2]` is a day name would look like an improvement and would relabel
+       every legacy `{year}/{op}/Saturday` folder in the archive. */
+    test('a campaign folder followed straight by a day folder is operation and mission, not campaign and mission', () => {
+        expect(parseContentPath('2026/16. Op Trinity/Saturday/Koda [6a93].jpg')).toEqual({
+            year: '2026',
+            campaign: null,
+            operation: '16. Op Trinity',
+            mission: 'Saturday',
+            file: 'Koda [6a93].jpg',
+        })
+    })
+
     test('a year folder that is a range is kept verbatim', () => {
         expect(parseContentPath('2022 - 2023/8. Op Atlantic Shield/II/x.jpg')?.year).toBe('2022 - 2023')
     })
@@ -128,6 +146,12 @@ describe('buildContentPath', () => {
             { year: '2026', campaign: null, operation: '23. Op New Winter', mission: null, file: 'y.mp4' },
             { year: '2026', campaign: '1. Op Trinity', operation: 'Operation Trinity I', mission: 'Saturday', file: 'z.jpg' },
             { year: '2026', campaign: null, operation: '5. Op Lone Wolf', mission: 'Sunday', file: 'w.jpg' },
+            // A campaign with no mission level. Identical in shape to the
+            // line above, which is the whole reason it round-trips: the
+            // campaign's name is in `operation` because that is the folder
+            // directly above the day, and `campaign` names a folder that has
+            // another folder under it.
+            { year: '2026', campaign: null, operation: '16. Op Trinity', mission: 'Saturday', file: 'v.jpg' },
         ]) {
             expect(parseContentPath(buildContentPath(f))).toEqual(f)
         }

@@ -93,9 +93,10 @@ export function operationYear(date: Date): string {
 /**
  * The four folder names an operation resolves to.
  *
- * `operation` is always the level DIRECTLY above the file's day folder, which
- * is the campaign mission for a campaign op and the operation itself for a
- * single mission. That is deliberate: it keeps the facet the public rail and
+ * `operation` is always the level DIRECTLY above the file's day folder: the
+ * campaign mission for a campaign op that has one, the CAMPAIGN for one that
+ * does not, and the operation itself for a single mission. That is deliberate:
+ * it keeps the facet the public rail and
  * the Media tab already group on ("operation") naming the same kind of thing
  * it always has — one weekend's worth of photographs — and lets `campaign` be
  * purely additive, absent on every legacy document.
@@ -112,14 +113,34 @@ export type OperationFolder = {
 const DAY_FOLDER: Record<'saturday' | 'sunday', string> = { saturday: 'Saturday', sunday: 'Sunday' }
 
 /**
- * The campaign and campaign-mission folder names for an operation, or null
- * when it is a single mission.
+ * The campaign folder for an operation, and the campaign-mission folder under
+ * it when there is one — or null when this is a single mission.
  *
- * Every "no" is a single mission rather than an error or an `Unknown` folder.
- * A campaign that has been deleted, a `campaignMissionId` pointing at nothing,
- * a mission filed under a different campaign than the operation names — all of
- * those describe an operation whose campaign link is stale, and a stale link
- * must not be able to stop an accepted submission from being filed at all.
+ * The CAMPAIGN alone decides whether this is a campaign at all. `mission` is
+ * allowed to be null, and that is not a degraded answer: J2's board builds a
+ * campaign's mission list in two passes (`groupOperations` in
+ * lib/operations/board.ts), and the second pass INFERS missions from operation
+ * TITLES into synthetic entries that exist only in the rendered board. A real
+ * `CampaignMission` document is only written when someone presses the
+ * organiser's "Auto-group" button, so an operation shown under a mission for
+ * months can carry nothing but `campaignId` — a common, legitimate state, not
+ * a broken one. Returning null for it filed the user's "Operation Trinity" —
+ * six operations, three missions of two days each — as "16. Op Trinity I",
+ * "17. Op Trinity II" and "18. Op Trinity III": three sibling top-level
+ * folders for one campaign, the exact report the campaign level was added to
+ * fix, reached by a second route.
+ *
+ * So: honour the fact, omit the level. The campaign is an explicit field on
+ * the operation document; the mission is not, and is never reconstructed from
+ * the title here. `detectRoman`/`detectDaySlot`-style inference is safe in a
+ * display layer that can be re-rendered and is not safe in something that
+ * MOVES FILES — a wrong guess writes a folder a human then has to find.
+ *
+ * Every "no campaign" is a single mission rather than an error or an `Unknown`
+ * folder. A campaign that has been deleted, a `campaignId` naming nothing, a
+ * campaign whose name sanitizes away — all describe an operation whose
+ * campaign link is stale, and a stale link must not be able to stop an
+ * accepted submission from being filed at all.
  *
  * `isSingleMission` is checked first because it is the field J2 sets to say
  * "this one is standalone" explicitly; an operation can carry it alongside a
@@ -128,10 +149,9 @@ const DAY_FOLDER: Record<'saturday' | 'sunday', string> = { saturday: 'Saturday'
 async function resolveCampaignFolders(
     deps: RelocateDeps,
     op: WithId<Operation>,
-): Promise<{ campaign: string, mission: string } | null> {
+): Promise<{ campaign: string, mission: string | null } | null> {
     if (op.isSingleMission) return null
-    if (!op.campaignId || typeof op.campaignMissionId !== 'string') return null
-    if (!ObjectId.isValid(op.campaignMissionId)) return null
+    if (!op.campaignId) return null
 
     /* Read as `unknown` and narrowed rather than trusted: `Operation.campaignId`
        is declared ObjectId, but campaign_missions stores its own `campaignId`
@@ -145,6 +165,46 @@ async function resolveCampaignFolders(
             : null
     if (!campaignId) return null
 
+    /* Read BEFORE the mission, and on its own. The mission checks used to sit
+       above this and return null for the whole function, so an operation with
+       a perfectly good campaign and no mission never reached the campaign
+       lookup at all — the bug above. The order now matches the meaning: the
+       campaign gates, the mission only adds a level. */
+    const campaign = await deps.campaigns.findOne({ _id: campaignId })
+    if (!campaign || campaign.isDeleted) return null
+
+    // Free text an admin typed into the J2 organiser, so it goes through
+    // sanitizeSegment before it is ever joined into a path. A name that
+    // sanitizes to nothing (one that was only punctuation, or "..") leaves no
+    // folder to name, which is a single mission, not an empty segment in the
+    // middle of a path.
+    const campaignFolder = sanitizeSegment(String(campaign.name ?? ''))
+    if (!campaignFolder) return null
+
+    return { campaign: campaignFolder, mission: await resolveMissionFolder(deps, op, campaignId) }
+}
+
+/**
+ * The campaign-mission folder name, or null when the operation has no usable
+ * link to one.
+ *
+ * Every null here drops the mission LEVEL and leaves the campaign folder
+ * standing — it never falls back to the single-mission grammar, because the
+ * campaign that folder is named after is still a known-good fact on the
+ * document. That includes the mismatch check below, which previously fell all
+ * the way back to a top-level operation folder: a mission moved to another
+ * campaign says nothing about whether THIS operation's campaign is real.
+ */
+async function resolveMissionFolder(
+    deps: RelocateDeps,
+    op: WithId<Operation>,
+    campaignId: ObjectId,
+): Promise<string | null> {
+    // Absent for every operation the board only INFERS into a mission, and
+    // malformed for one written by an older build; both mean "no mission
+    // level", and neither is worth a database round trip.
+    if (typeof op.campaignMissionId !== 'string' || !ObjectId.isValid(op.campaignMissionId)) return null
+
     const mission = await deps.campaignMissions.findOne({ _id: new ObjectId(op.campaignMissionId) })
     if (!mission || mission.isDeleted) return null
     // The mission must belong to the campaign the operation names. They are
@@ -153,19 +213,12 @@ async function resolveCampaignFolders(
     // is no longer part of.
     if (String(mission.campaignId) !== campaignId.toHexString()) return null
 
-    const campaign = await deps.campaigns.findOne({ _id: campaignId })
-    if (!campaign || campaign.isDeleted) return null
-
-    // Both names are free text an admin typed into the J2 organiser, so both
-    // go through sanitizeSegment before they are ever joined into a path.
-    // Either one sanitizing to nothing (a name that was only punctuation)
-    // leaves no folder to name, which is a single mission, not an empty
-    // segment in the middle of a path.
-    const campaignFolder = sanitizeSegment(String(campaign.name ?? ''))
-    const missionFolder = sanitizeSegment(String(mission.name ?? ''))
-    if (!campaignFolder || !missionFolder) return null
-
-    return { campaign: campaignFolder, mission: missionFolder }
+    // Free text, same door as the campaign name. `|| null` rather than a
+    // truthiness check on the caller's side: a mission named only punctuation
+    // has no folder to name, and an empty segment joined into a path would
+    // collapse into a doubled slash that parseContentPath re-reads at the
+    // wrong depth.
+    return sanitizeSegment(String(mission.name ?? '')) || null
 }
 
 /**
@@ -268,8 +321,27 @@ export async function resolveOperationFolder(
        ordering of the same thing. It needs no minting either: a verbatim name
        always resolves to the same folder, which is what makes re-filing the
        same operation idempotent. */
-    if (campaignFolders) return { year, campaign: top, operation: campaignFolders.mission, mission: day }
+    if (campaignFolders?.mission) return { year, campaign: top, operation: campaignFolders.mission, mission: day }
 
+    /* Two cases share this line, and they produce the same SHAPE on purpose:
+       a single mission, and a campaign with no mission level under it. Both
+       are `{year}/{n}. {top}/{day}/{file}`; the only difference is that the
+       top folder is named after the campaign in the second, which is what
+       stops three missions of one campaign minting three siblings.
+
+       `campaign` is deliberately null in the second case rather than the
+       folder name, and the alternatives are both broken rather than merely
+       worse. buildContentPath joins every non-null level, so returning the
+       campaign here AS WELL would emit `{year}/{campaign}/{campaign}/{day}` —
+       a folder repeated; returning it INSTEAD of `operation` would emit
+       `Unknown/` (buildContentPath needs an operation, deliberately, so a
+       campaign is never alone in a path). Null is also the only answer
+       parseContentPath can agree with: it reads three directories as
+       operation + mission, an ambiguity it resolves in favour of the legacy
+       tree and that this must not make worse, so reading this path back off
+       the disk returns exactly these facets and the document and the bytes
+       never disagree. The `campaign` facet means "there is another folder
+       under this one", and here there is not. */
     return { year, campaign: null, operation: top, mission: day }
 }
 
@@ -315,12 +387,16 @@ export async function relocateMedia(
      *      it must win over whatever the document happens to be carrying —
      *      otherwise an item filed before the slot was set would keep a stale
      *      folder forever.
-     *   2. Nothing, when the item is in a campaign but the operation has no
-     *      day slot. The campaign-mission folder above it IS the level a legacy
+     *   2. Nothing, when the item is under a campaign MISSION folder but the
+     *      operation has no day slot. That folder IS the level a legacy
      *      "I"/"II" folder used to occupy — the archive's own mission level,
      *      now derived from the campaign organiser instead of guessed from a
      *      folder name — so carrying the old one through as well would nest one
-     *      mission label inside another.
+     *      mission label inside another. A campaign with no mission level
+     *      (`campaign` is null there — see resolveOperationFolder) does NOT
+     *      take this branch: nothing occupies that level, so the legacy folder
+     *      is preserved exactly as it is for a single mission, which is the
+     *      grammar that case shares.
      *   3. The mission the document already has, otherwise. Reassigning a
      *      legacy file's operation must not silently flatten its mission
      *      folder, which is the case this clause has always covered.

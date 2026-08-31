@@ -371,7 +371,18 @@ export async function reconcile(deps: ReconcileDeps): Promise<ReconcileReport> {
            same reasoning `operation` and `mission` have always used. Note that
            a three-directory path never carries a campaign (see
            parseContentPath): reading one back out of an ambiguous depth is the
-           one thing that could invent a campaign for an operation folder. */
+           one thing that could invent a campaign for an operation folder.
+
+           That covers the campaign-with-no-mission grammar
+           (`{year}/{campaign}/{Saturday|Sunday}`) without a line of its own:
+           relocate.ts writes those documents with no `campaign` either, so
+           the path and the record already agree and this branch is a no-op for
+           them. `operationFor` below is the part that cannot see them — the
+           folder is named after the CAMPAIGN, and no operation is titled that
+           — so a file a human MOVES out of one loses its operationId. It is
+           the same narrow, move-only cost the paragraph above describes, it
+           needs the campaign list to fix, and reading the database here would
+           put a query behind a pass that currently only walks a tree. */
         if (item.facets.campaign) set.campaign = item.facets.campaign; else unset.campaign = ''
         if (item.facets.operation) {
             set.operation = item.facets.operation
