@@ -313,6 +313,30 @@ tick this"; `sortPhotos`, `groupByOperation`, `archiveStats`.
 - `Lightbox.tsx` — generic over archive photo / featured shot / SOTM. Download + copy link.
 - `icons.tsx` — the line icon set, kept off MUI so the toolbar reads as one kit.
 
+#### app/(landing)/gallery/submit/
+Gated on `gallery.submit` (`page.tsx`: login first, then the key — no Discord-role arm, so it is
+false for everyone until granted in the Roles Manager).
+- `SubmitClient.tsx` — the composer. Owns the `Draft[]`, the batch operation/tags, the upload
+  phase and which draft is open in the preview overlay. A photo's `thumb` is a live object URL; a
+  video's is a canvas-grabbed `data:` frame from `readVideo()`, which revokes the blob it probed
+  the file with as soon as it has that frame — twenty 500MB files must not stay registered for
+  the session.
+- `_components/ItemCard.tsx` — one draft, in two shapes: an editable form before submission, a
+  read-only progress row once `upload` is passed in. The preview affordance covers the whole
+  thumbnail and is deliberately rendered *before* the duration pill and remove button, which
+  therefore paint above it and keep their own corners clickable.
+- `_components/PreviewOverlay.tsx` — one draft, full size, before it is submitted: `<video>` for
+  an uploaded clip, an `embedIframeSrc` iframe for YouTube/Twitch (`parent` host read at render,
+  not module scope — Twitch refuses to play otherwise), `<img>` for a photo. Not the archive's
+  `Lightbox`, which carries Download, Copy Link, a vote bar and prev/next stepping, none of which
+  mean anything for something not in the archive yet. Creates the video's object URL on mount and
+  revokes it on unmount, so only the clip actually being watched is registered; nothing extra is
+  retained either way, since `draft.file` holds the File for the session regardless. No autoplay —
+  unmuted autoplay is blocked by every major browser and muting strips audio that is often the
+  point of the clip.
+- `upload.ts` — the XHR send/retry machinery and `UploadState`; unit-tested in `upload.test.ts`
+  (the only part of this page a vitest runner configured for pure modules can reach).
+
 ---
 
 ### /join — Application Form

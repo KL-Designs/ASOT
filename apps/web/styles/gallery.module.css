@@ -1540,6 +1540,129 @@
     border-color: var(--red);
 }
 
+/* Covers the whole thumbnail so the tile itself is the target. Carries no
+   z-index on purpose: .itemDuration and .itemRemove come after it in the DOM
+   and so paint above it, which is what keeps the remove corner clickable. */
+.itemPreview {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: background .12s ease;
+}
+
+.itemPreview:hover,
+.itemPreview:focus-visible {
+    background: rgba(6, 7, 9, .42);
+}
+
+.itemPreviewMark {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-1);
+    border-radius: 50%;
+    background: rgba(6, 7, 9, .72);
+    color: var(--txt-2);
+    font-size: 15px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity .12s ease, color .12s ease, border-color .12s ease;
+}
+
+.itemPreview:hover .itemPreviewMark,
+.itemPreview:focus-visible .itemPreviewMark {
+    opacity: 1;
+    color: #fff;
+    border-color: var(--red);
+}
+
+/* The draft preview overlay. Shares the lightbox's z-index and ground so the
+   two can never read as different depths, but none of its furniture — a draft
+   has no neighbours to step through, no score and nothing to download. */
+.previewBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(5, 6, 7, .96);
+    backdrop-filter: blur(8px);
+    display: grid;
+    place-items: center;
+    padding: 48px 24px;
+}
+
+.previewFrame {
+    position: relative;
+    width: min(1100px, 100%);
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+}
+
+.previewStage {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    background: #000;
+    border: 1px solid var(--line-1);
+}
+
+.previewMedia {
+    display: block;
+    width: 100%;
+    max-height: 76vh;
+    object-fit: contain;
+}
+
+/* An iframe cannot size itself to its content, so it is given the shape
+   rather than asked for one. */
+.previewEmbed {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: 76vh;
+    border: 0;
+    background: #000;
+}
+
+.previewClose {
+    position: absolute;
+    top: -38px;
+    right: 0;
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    background: rgba(6, 7, 9, .78);
+    border: 1px solid var(--line-2);
+    color: var(--txt-2);
+    font-size: 17px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.previewClose:hover {
+    color: #fff;
+    border-color: var(--red);
+}
+
+.previewLabel {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    color: var(--txt-3);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .itemBody {
     padding: 12px;
     display: flex;
