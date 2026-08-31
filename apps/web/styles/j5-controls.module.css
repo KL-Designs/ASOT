@@ -18,6 +18,14 @@
     padding: 6px 12px;
     white-space: nowrap;
     cursor: pointer;
+    /* Same 30px as .surface and .seg. A button sized purely by its padding and
+       12px type came out two pixels shorter than the selects it shares a
+       toolbar row with, which reads as a misalignment rather than as a
+       smaller button. inline-flex so the label centres in the taller box. */
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     transition: border-color 120ms var(--nav-ease), background 120ms var(--nav-ease);
 }
 .btn:hover:not(:disabled) { border-color: rgba(219, 0, 29, 0.5); background: rgba(219, 0, 29, 0.06); }
