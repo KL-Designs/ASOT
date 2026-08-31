@@ -436,4 +436,85 @@ describe('reconcile', () => {
         expect(docs[0].operationId).toEqual(LANZE)
         expect(docs[1].operationId).toEqual(OP_ID)
     })
+
+    /* THE round trip. A backup export re-adds the "{n}. " order prefix that
+       folders on disk no longer carry (lib/gallery/export-numbering.ts), so
+       re-importing that zip hands reconcile a folder named differently from
+       every storageKey in the database. It has to come back to the SAME
+       documents rather than reading as a new set of operations, which it does
+       through rule 1: the filename still carries [id], so the item is matched
+       by id and its facets are re-derived from wherever the file now sits.
+
+       opLabel is the assertion that matters most — splitOperation strips the
+       prefix the export added, so what the gallery and the console PRINT is
+       identical either side of the round trip even though the folder is not. */
+    test('a numbered folder from a backup export reconciles back onto the same document', async () => {
+        const name = `Koda — Danger close [${A}].jpg`
+        // What the extracted zip put on disk: the export numbered the folder.
+        write(`2026/3. Op Silent Ridge/Saturday/${name}`)
+
+        const docs: Doc[] = [{
+            _id: A,
+            // What relocate.ts wrote when the item was published: no prefix.
+            storageKey: `content:2026/Op Silent Ridge/Saturday/${name}`,
+            caption: 'Danger close', tags: ['funny'], authorName: 'Koda', up: 3, down: 1,
+            year: '2026', operation: 'Op Silent Ridge', opLabel: 'Op Silent Ridge',
+            mission: 'Saturday', operationId: OP_ID,
+        }]
+        const ops: Doc[] = [{ _id: OP_ID, title: 'OPERATION Silent Ridge — Sat', date: new Date('2026-08-14T09:00:00Z') }]
+
+        const report = await reconcile(deps(docs, ops))
+
+        // One document, matched. NOT a new operation, and nothing reported
+        // missing — which is what it would look like if the rename had broken
+        // the match.
+        expect(report.matchedById).toBe(1)
+        expect(report.notIndexed).toEqual([])
+        expect(report.missingFiles).toEqual([])
+
+        expect(docs[0].storageKey).toBe(`content:2026/3. Op Silent Ridge/Saturday/${name}`)
+        expect(docs[0].operation).toBe('3. Op Silent Ridge')
+        // Unchanged across the round trip: splitOperation takes the prefix
+        // straight back off, so nothing the reader sees moved.
+        expect(docs[0].opLabel).toBe('Op Silent Ridge')
+        expect(docs[0].operationId).toEqual(OP_ID)
+        expect(docs[0].mission).toBe('Saturday')
+        expect(docs[0].caption).toBe('Danger close')
+        expect(docs[0].tags).toEqual(['funny'])
+        expect(docs[0].up).toBe(3)
+    })
+
+    /* Why the export refuses to renumber a folder that already carries a
+       prefix. The legacy archive's filenames predate media ids, so those
+       documents can only be matched by PATH — rule 2 — and rule 2 compares the
+       storageKey to the path character for character. */
+    test('a legacy folder the export left alone still matches by path', async () => {
+        write('2021/15. Op Black Hills/I/arma3_01.png')
+
+        const docs: Doc[] = [{ _id: A, storageKey: 'legacy:2021/15. Op Black Hills/I/arma3_01.png' }]
+        const report = await reconcile(deps(docs))
+
+        expect(report.matchedByPath).toBe(1)
+        expect(report.missingFiles).toEqual([])
+        expect(report.notIndexed).toEqual([])
+    })
+
+    /* The counterfactual, pinned rather than described: this is what the
+       export's "never add a second prefix" rule buys. Renaming that same
+       legacy folder loses the path match and there is no id in the filename to
+       fall back on, so the file reports as not-indexed AND its document as
+       missing — in front of a human holding a delete button. */
+    test('renaming a legacy folder would report its file and its document as unmatched', async () => {
+        write('2021/1. Op Black Hills/I/arma3_01.png')
+
+        const docs: Doc[] = [{ _id: A, storageKey: 'legacy:2021/15. Op Black Hills/I/arma3_01.png' }]
+        const report = await reconcile(deps(docs))
+
+        expect(report.matchedById).toBe(0)
+        expect(report.matchedByPath).toBe(0)
+        expect(report.notIndexed).toHaveLength(1)
+        expect(report.notIndexed[0].path).toBe('2021/1. Op Black Hills/I/arma3_01.png')
+        expect(report.missingFiles).toHaveLength(1)
+        expect(report.missingFiles[0].storageKey).toBe('legacy:2021/15. Op Black Hills/I/arma3_01.png')
+    })
 })
