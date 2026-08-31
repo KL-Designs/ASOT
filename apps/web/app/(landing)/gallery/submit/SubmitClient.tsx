@@ -428,7 +428,7 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
 
     if (phase === 'done') {
         return (
-            <div className={s.subPage}>
+            <div className={`${s.subPage} ${s.subPageDone}`}>
                 <div className={s.subShell}>
                     <div className={s.doneCard}>
                         <span className={ui.kicker}>Submitted</span>

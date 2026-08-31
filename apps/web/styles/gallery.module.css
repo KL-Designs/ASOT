@@ -1706,6 +1706,21 @@
     text-transform: uppercase;
 }
 
+/* The submitted screen is one card and nothing else, so it centres in the
+   height .subPage already reserves rather than sitting under the fold's worth
+   of empty space below it. A modifier, not a change to .subPage: every other
+   phase of this page is a form that grows past the viewport and must stay
+   top-aligned, or its first field would start halfway down the screen.
+   padding-bottom is zeroed here because .subPage's 80px would otherwise push
+   the card that far above the true centre. */
+.subPageDone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 0;
+}
+.subPageDone .subShell { padding-top: 0; width: 100%; }
+
 .doneCard {
     border: 1px solid var(--line-2);
     border-top: 2px solid var(--live);
