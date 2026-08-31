@@ -1718,6 +1718,11 @@
     align-items: center;
     justify-content: center;
     padding-bottom: 0;
+    /* .subPage's own 100vh starts BELOW the navbar, so centring inside it put
+       the card a navbar's height under the middle of the screen. 96px is the
+       allowance this stylesheet already uses for exactly that (see the
+       lightbox rule above), and matches navbar.module.css and donate. */
+    min-height: calc(100vh - 96px);
 }
 .subPageDone .subShell { padding-top: 0; width: 100%; }
 
