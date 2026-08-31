@@ -73,8 +73,21 @@ function toLightboxItem(item: PendingItem, tags: Tag[]): LightboxItem {
  *  enforces "a reason is required". */
 type RejectTarget = { ids: string[] } | null
 
-export default function SubmissionsTab() {
+export default function SubmissionsTab({ onPendingChange }: {
+    /** Reports how many items are still awaiting review, so J5Panel's tab
+     *  badge empties the moment the last one is accepted rather than at the
+     *  next page load. Optional: the tab has to stand on its own wherever it
+     *  is mounted without a panel around it. */
+    onPendingChange?: (count: number) => void
+} = {}) {
     const { batches, tags, operations, loading, patch, accept, acceptBatch, reject, saveState, busy, error } = useSubmissions()
+
+    /* Not while `loading`: batches is [] before the first fetch answers, and
+       reporting that would blank the badge on every mount and then refill it. */
+    useEffect(() => {
+        if (loading) return
+        onPendingChange?.(batches.reduce((n, b) => n + b.items.length, 0))
+    }, [batches, loading, onPendingChange])
 
     const [rejectTarget, setRejectTarget] = useState<RejectTarget>(null)
     const [rejectReason, setRejectReason] = useState('')

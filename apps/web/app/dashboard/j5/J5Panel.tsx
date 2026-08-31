@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { useEffect, useState } from 'react'
 import { Typography, Tabs, Tab } from '@mui/material'
 import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
@@ -39,6 +40,34 @@ export default function J5Panel({
 }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
 
+    /* How many submissions are waiting, for the Submissions tab's badge.
+
+       Fetched here rather than read out of the tab, because the whole point is
+       to be visible BEFORE anyone opens it — a reviewer should not have to
+       click through to find out there is nothing to do. Fetched once: the tab
+       reports its own count back through onPendingChange for the rest of the
+       session, so accepting the last item empties the badge without a second
+       request.
+
+       Null until it is known, and a failed fetch leaves it null rather than
+       showing 0 — "no badge" honestly means "not known", while a 0 badge would
+       claim the queue is empty on the strength of a request that never
+       answered. */
+    const [pending, setPending] = useState<number | null>(null)
+    useEffect(() => {
+        if (!canReviewGallery) return
+        let cancelled = false
+        void (async () => {
+            try {
+                const res = await fetch('/api/gallery/submissions/pending')
+                if (!res.ok) return
+                const data = await res.json()
+                if (!cancelled && Array.isArray(data.items)) setPending(data.items.length)
+            } catch { /* decoration: the tab itself still works */ }
+        })()
+        return () => { cancelled = true }
+    }, [canReviewGallery])
+
     /* Keyed by name, not by position. Submissions and Tags are permission-gated,
        and MUI indexes tabs by their position among the ones actually rendered —
        so a member holding gallery.tags but not gallery.review would otherwise
@@ -46,9 +75,9 @@ export default function J5Panel({
        both the <Tab> list and the panel body from it means a hidden tab can
        never shift what another index means; the position is computed, never
        assumed. */
-    const allTabs: { key: string, label: string, pinLabel: string, visible: boolean, render: () => React.ReactNode }[] = [
+    const allTabs: { key: string, label: string, pinLabel: string, visible: boolean, badge?: number, render: () => React.ReactNode }[] = [
         { key: 'media', label: 'Media', pinLabel: 'J5 — Media', visible: true, render: () => (canManageGallery ? <MediaTab /> : <GalleryOperationsTab />) },
-        { key: 'submissions', label: 'Submissions', pinLabel: 'J5 — Submissions', visible: canReviewGallery, render: () => <SubmissionsTab /> },
+        { key: 'submissions', label: 'Submissions', pinLabel: 'J5 — Submissions', visible: canReviewGallery, badge: pending ?? undefined, render: () => <SubmissionsTab onPendingChange={setPending} /> },
         { key: 'featured', label: 'Featured', pinLabel: 'J5 — Featured', visible: true, render: () => <FeaturedTab /> },
         { key: 'sotm', label: 'Screenshot of month', pinLabel: 'J5 — SOTM', visible: true, render: () => <SotmTab canManage={canManageMembers} /> },
         { key: 'tags', label: 'Tags', pinLabel: 'J5 — Tags', visible: canManageGalleryTags, render: () => <GalleryTagsTab /> },
@@ -142,7 +171,33 @@ export default function J5Panel({
                             {visibleTabs.map((t, i) => (
                                 <Tab
                                     key={t.key}
-                                    label={<PinTabLabel label={t.label} pinLabel={t.pinLabel} href='/dashboard/j5' tabIndex={i} />}
+                                    label={
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                                            <PinTabLabel label={t.label} pinLabel={t.pinLabel} href='/dashboard/j5' tabIndex={i} />
+                                            {/* Hidden at zero rather than shown as "0": an empty
+                                                queue is the normal state, and a badge that is
+                                                always there stops being a signal. */}
+                                            {t.badge ? (
+                                                <span
+                                                    aria-label={`${t.badge} awaiting review`}
+                                                    style={{
+                                                        fontFamily: 'var(--font-mono)',
+                                                        fontSize: '0.58rem',
+                                                        lineHeight: 1,
+                                                        letterSpacing: '0.04em',
+                                                        padding: '3px 5px',
+                                                        minWidth: 16,
+                                                        textAlign: 'center',
+                                                        color: '#fff',
+                                                        background: 'var(--red)',
+                                                        border: '1px solid var(--red)',
+                                                    }}
+                                                >
+                                                    {t.badge > 99 ? '99+' : t.badge}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                    }
                                     sx={tabSx}
                                 />
                             ))}
