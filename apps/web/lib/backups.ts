@@ -10,6 +10,11 @@ import { createInterface } from 'readline'
 import { EJSON } from 'bson'
 import { MongoClient, FindCursor } from 'mongodb'
 import archiver, { type Archiver } from 'archiver'
+// The one gallery import here, and deliberately from the module that owns the
+// path rather than a second `join(GALLERY_DIR, 'thumbs')` — two spellings of
+// one directory is how an exclude silently stops matching. paths.ts imports
+// only `path`, so this pulls in no server-only dependency.
+import { THUMB_DIR } from '@/lib/gallery/paths'
 import { extract as tarExtract } from 'tar-stream'
 import unzipper from 'unzipper'
 
@@ -351,12 +356,27 @@ interface ResticBackupSummary { message_type: 'summary'; snapshot_id: string }
 // regardless of hostname.
 const RESTIC_HOST = 'asot-backups'
 
+/* The gallery's thumbnail cache. Every entry is regenerated on demand from a
+   file that is itself in this backup, so backing them up stores a second copy
+   of the whole archive at reduced size — roughly 120MB of files that also
+   churn, since a caption edit renames the source and mints a new thumbnail
+   while the old one lingers. Excluding it keeps the media repo the archive
+   rather than the archive plus a derivative of it.
+
+   It is excluded from RESTORE for free: nothing puts back what was never
+   backed up, and a restored gallery simply regenerates its thumbnails the
+   first time the Media tab is opened. A `wipeMedia` restore empties the
+   gallery tree including this directory, which is exactly right — a thumbnail
+   of a file the snapshot does not contain is a thumbnail of nothing. */
+const BACKUP_EXCLUDES = [THUMB_DIR]
+
 async function resticBackup(repo: string, paths: string[], tag: string, extraTags: string[] = []): Promise<string> {
     await ensureRepoInitialized(repo)
     const tagArgs = ['--tag', tag, ...extraTags.flatMap(t => ['--tag', t])]
+    const excludeArgs = BACKUP_EXCLUDES.flatMap(dir => ['--exclude', dir])
     const stdout = await runRestic(
         repo,
-        ['backup', ...paths, ...tagArgs, '--host', RESTIC_HOST, '--json'],
+        ['backup', ...paths, ...excludeArgs, ...tagArgs, '--host', RESTIC_HOST, '--json'],
         [3], // "completed with some source files unreadable" — routine on a live directory, not a failure
     )
     const summary = stdout.trim().split('\n').filter(Boolean)
