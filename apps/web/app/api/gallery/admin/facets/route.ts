@@ -32,6 +32,10 @@ type TreeRow = {
         mission?: string | null
     }
     count: number
+    /* The operation's date, for ordering. Null when nothing in the group has
+       one — $min over all-missing yields null, not 0, so an undated operation
+       cannot masquerade as 1 January 1970 and sort first. */
+    earliest: Date | null
 }
 
 export async function GET() {
@@ -63,7 +67,7 @@ export async function GET() {
         Db.galleryHealth.findOne({}),
         Db.galleryMedia.aggregate<TreeRow>([
             { $match: live },
-            { $group: { _id: { year: '$year', campaign: '$campaign', operation: '$operation', opLabel: '$opLabel', mission: '$mission' }, count: { $sum: 1 } } },
+            { $group: { _id: { year: '$year', campaign: '$campaign', operation: '$operation', opLabel: '$opLabel', mission: '$mission' }, count: { $sum: 1 }, earliest: { $min: '$takenAt' } } },
         ]).toArray(),
         Db.galleryTags.find({}).toArray(),
         Db.galleryMedia.aggregate<{ _id: string, count: number }>([
@@ -102,7 +106,7 @@ export async function GET() {
        would. */
     const UNSET = '\u0000'
 
-    type OpNode = { labelCounts: Map<string, number>, count: number, missions: Map<string, number> }
+    type OpNode = { labelCounts: Map<string, number>, count: number, missions: Map<string, number>, earliest: number | null }
     type OpMap = Map<string, OpNode>
     /* Two buckets per year: the campaigns, and the operations that belong to
        none. Not one tree with a synthetic "no campaign" node in it — most of
@@ -143,10 +147,15 @@ export async function GET() {
             ops = year.operations
         }
 
-        const op = ops.get(opKey) ?? { labelCounts: new Map<string, number>(), count: 0, missions: new Map<string, number>() }
+        const op = ops.get(opKey) ?? { labelCounts: new Map<string, number>(), count: 0, missions: new Map<string, number>(), earliest: null }
         ops.set(opKey, op)
 
         op.count += row.count
+        /* An operation spans several rows here — one per mission — so the
+           operation's date is the earliest across them, not whichever row
+           arrived last. */
+        const rowDate = row.earliest ? row.earliest.getTime() : null
+        if (rowDate !== null && (op.earliest === null || rowDate < op.earliest)) op.earliest = rowDate
         // opLabel isn't picked here, only tallied: $group makes no promise
         // about row order, so "whichever row happened to arrive first" would
         // make the label flip between otherwise identical calls whenever an
@@ -189,8 +198,35 @@ export async function GET() {
     /* One renderer for both places an operation row appears — directly under a
        year, and under one of that year's campaigns. A second copy is how the
        two would come to sort differently or disagree about `unset`. */
+    /* Chronological, and NOT by folder name. The name used to carry the order
+       as a numeric prefix, so a name sort was a date sort by proxy; now that
+       new folders are minted unnumbered, that proxy sorts every one of them
+       after every legacy folder — digits collate before letters — which is
+       exactly the "single operations show up below all the campaigns" the
+       rail was reported for. An operation with no date sorts last, for the
+       same reason `Unknown` does: missing information is not the start of the
+       year. The name is the tie-break only, so the order is stable. */
+    const byDate = (a: number | null, b: number | null, aKey: string, bKey: string): number => {
+        if (a !== b) {
+            if (a === null) return 1
+            if (b === null) return -1
+            return a - b
+        }
+        return aKey.localeCompare(bKey, undefined, { numeric: true })
+    }
+
+    /* A campaign is as old as its earliest operation, so it sorts among the
+       year's operations on the same scale rather than in a block of its own. */
+    const campaignDate = (ops: OpMap): number | null => {
+        let earliest: number | null = null
+        for (const op of ops.values()) {
+            if (op.earliest !== null && (earliest === null || op.earliest < earliest)) earliest = op.earliest
+        }
+        return earliest
+    }
+
     const operationRows = (ops: OpMap): LibraryOperationRow[] =>
-        orderedEntries(ops, (a, b) => a.localeCompare(b, undefined, { numeric: true }))
+        orderedEntries(ops, (a, b) => byDate(ops.get(a)?.earliest ?? null, ops.get(b)?.earliest ?? null, a, b))
             .map(([opKey, op]) => ({
                 operation: opKey === UNSET ? 'Unknown' : opKey,
                 opLabel: majorityLabel(op.labelCounts),
@@ -230,7 +266,7 @@ export async function GET() {
                 // read as empty in the rail while its rows still listed.
                 count: [...year.campaigns.values()].reduce((n, ops) => n + total(ops), 0) + total(year.operations),
                 campaigns: [...year.campaigns.entries()]
-                    .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+                    .sort(([aKey, aOps], [bKey, bOps]) => byDate(campaignDate(aOps), campaignDate(bOps), aKey, bKey))
                     .map(([campaign, ops]) => ({ campaign, count: total(ops), operations: operationRows(ops) })),
                 operations: operationRows(year.operations),
             })),
