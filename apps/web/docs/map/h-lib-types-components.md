@@ -215,6 +215,15 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `parseBoardFilter` / `isFiltered` / `escapeRegex` / `PAGE_SIZE` — the filter as a value both the query and the UI agree on. `escapeRegex` matters: without it a stray `(` in the search box is a driver-level syntax error and `.*` is a search that matches everything.
 - `monthKey` / `fillMonths` — the histogram's buckets. Empty months are filled in deliberately: a histogram drawn only from months that exist makes a six-month break look like one step, which is exactly the shape it exists to show.
 
+### lib/operations/normalise-campaign.ts
+- The pure half of campaign auto-grouping: `detectDaySlot` / `detectRomanSuffix` / `ROMAN_ORDER` / `planNormalise(ops)`. Turns "Operation Lost Army IV — SUN" into a mission group, and returns the ops it *cannot* group (no Roman numeral suffix) alongside the ones it can rather than dropping them — the all-campaigns endpoint has to name them, since a silent skip makes a partial run read as a clean sweep.
+- **No `lib/mongo.ts` import, on purpose.** That module throws at import time without `MONGO_URI`, so anything touching it is untestable and unimportable from a client component.
+- **Deliberately not shared with `lib/operations/board.ts`'s `detectDaySlot`/`detectRoman`,** whose regexes are currently identical. The board *infers* a grouping to draw the public archive and is free to be generous (it already pairs ops with no numeral at all under a "·" label); this module decides what gets *written*, and a wrong `campaignMissionId` is a record a human unpicks. Both files carry a cross-reference comment so a change to either is a conscious decision.
+
+### lib/operations/normalise-campaign-run.ts
+- `runCampaignNormalise(campaign, createdBy)` — the Mongo half, lifted verbatim out of `app/api/operations/campaigns/[id]/normalise/route.ts` so `POST /api/operations/campaigns/normalise-all` can run the identical pass. Idempotent: only ops with no `campaignMissionId` are considered, and a mission already carrying the name it would mint is reused.
+- Returns `{ campaignId, campaignName, considered, groups, created, linked, skipped[] }` — enough for the per-campaign route to reproduce its two original "nothing to do" messages unchanged, and enough for the all-campaigns route to report a per-campaign breakdown.
+
 ### lib/operations/template-document.ts
 - `buildTemplateDocument()` / `applyTemplateDocument(ydoc)` — dev-only: a filled-in operation document (five-paragraph orders, a Zeus page, platoon orders, an AAR) written straight into the live `Y.Doc`. An empty document exercises none of the editor, and neither does typing “test test test” into one section.
 - **Client-side by necessity.** Writing it server-side means writing `yjsState`, which Hocuspocus reads only once — on the first connection — so the write lands under whatever is already in memory and is overwritten by the next save. Applying it to the shared document is the same path “+ Add Section” takes: it syncs to every viewer and persists normally.

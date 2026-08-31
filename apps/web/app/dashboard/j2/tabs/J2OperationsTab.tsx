@@ -36,6 +36,33 @@ type StatusFilter = typeof ALL_STATUSES[number]
 type TypeFilter = 'All' | 'Campaigns' | 'Single Missions'
 type ViewMode = 'list' | 'bin'
 
+/** One campaign's line in the `POST /api/operations/campaigns/normalise-all`
+ *  response. Mirrors `CampaignNormaliseOutcome` in
+ *  `lib/operations/normalise-campaign-run.ts` — not imported from there because
+ *  that module reaches `lib/mongo.ts`, which a client bundle must never pull in. */
+interface NormaliseCampaignReport {
+    campaignId: string
+    campaignName: string
+    considered: number
+    groups: number
+    created: number
+    linked: number
+    skipped: { id: string; title: string; reason: string }[]
+    error?: string
+}
+
+interface NormaliseAllResult {
+    totals: {
+        campaigns: number
+        campaignsTouched: number
+        created: number
+        linked: number
+        skipped: number
+        failed: number
+    }
+    campaigns: NormaliseCampaignReport[]
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status?: string }) {
@@ -2490,6 +2517,12 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
     const [convertOp, setConvertOp] = useState<Operation | null>(null)
     const [autoOrganiseOpen, setAutoOrganiseOpen] = useState(false)
 
+    // Auto-group across every campaign at once — the per-campaign button's job,
+    // run over the long tail of campaigns whose ops predate campaign missions.
+    const [normalisingAll, setNormalisingAll] = useState(false)
+    const [normaliseAllReport, setNormaliseAllReport] = useState<NormaliseAllResult | null>(null)
+    const [normaliseAllError, setNormaliseAllError] = useState<string | null>(null)
+
     // Undo toast
     const [undoItem, setUndoItem] = useState<{ id: string; title: string } | null>(null)
     const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -2617,6 +2650,28 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
         } finally { setPurgingId(null); setConfirmPurgeId(null) }
     }
 
+    async function normaliseAllCampaigns() {
+        setNormalisingAll(true)
+        setNormaliseAllError(null)
+        setNormaliseAllReport(null)
+        try {
+            const res = await fetch('/api/operations/campaigns/normalise-all', { method: 'POST' })
+            if (!res.ok) {
+                setNormaliseAllError(res.status === 403 ? 'You do not have permission to auto-group campaigns.' : `Auto-group failed (${res.status}).`)
+                return
+            }
+            const data: NormaliseAllResult = await res.json()
+            setNormaliseAllReport(data)
+            // Clearing the loaded flag re-runs the campaigns effect, which
+            // refetches every campaign's missions — the run has just created
+            // some, and the rows would otherwise still show the old hierarchy.
+            setCampaignsLoaded(false)
+            fetchMissions()
+        } catch {
+            setNormaliseAllError('Auto-group failed — the request did not complete.')
+        } finally { setNormalisingAll(false) }
+    }
+
     const handleDuplicate = useCallback(() => {
         fetchMissions()
     }, [fetchMissions])
@@ -2715,6 +2770,17 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
         ;(campaignsByStatus[s] ?? (campaignsByStatus[s] = [])).push(c)
     }
 
+    // Ops attached to a campaign but not yet folded into one of its missions —
+    // the same set each campaign row gates its own "⟳ Auto-group" button on,
+    // summed across every campaign. Counted from `campaigns` rather than from
+    // `campaignId` alone so an op pointing at a deleted campaign, which the
+    // endpoint skips, does not offer a button that would appear to do nothing.
+    const allCampaignIds = new Set(campaigns.map(c => c._id.toString()))
+    const ungroupedOpCount = missions.filter(op => {
+        const cid = op.campaignId?.toString()
+        return !!cid && allCampaignIds.has(cid) && !op.campaignMissionId && !op.isSingleMission
+    }).length
+
     // Standalone grouped by status
     const standaloneByStatus: Record<string, Operation[]> = { Active: [], Upcoming: [], 'In Development': [], Completed: [] }
     for (const op of paginatedStandalone) {
@@ -2806,6 +2872,97 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                             })}
                         </div>
                     </div>
+
+                    {/* Auto-group every campaign at once. Hidden when there is
+                        nothing to group, mirroring each campaign row's own gate. */}
+                    {(ungroupedOpCount > 0 || normalisingAll || normaliseAllReport || normaliseAllError) && (
+                        <div style={{ marginBottom: 10 }}>
+                            {ungroupedOpCount > 0 && (
+                                <button
+                                    onClick={normaliseAllCampaigns}
+                                    disabled={normalisingAll}
+                                    title={`Auto-group ${ungroupedOpCount} unlinked op${ungroupedOpCount !== 1 ? 's' : ''} across every campaign into mission hierarchies`}
+                                    style={{
+                                        all: 'unset', cursor: normalisingAll ? 'not-allowed' : 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: 5,
+                                        padding: '4px 10px',
+                                        fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+                                        color: normalisingAll ? 'rgba(16,185,129,0.3)' : 'rgba(16,185,129,0.7)',
+                                        border: '1px solid rgba(16,185,129,0.25)',
+                                        transition: 'all 0.15s',
+                                    }}
+                                    onMouseEnter={e => { if (!normalisingAll) { e.currentTarget.style.color = 'rgba(16,185,129,1)'; e.currentTarget.style.borderColor = 'rgba(16,185,129,0.5)' } }}
+                                    onMouseLeave={e => { if (!normalisingAll) { e.currentTarget.style.color = 'rgba(16,185,129,0.7)'; e.currentTarget.style.borderColor = 'rgba(16,185,129,0.25)' } }}
+                                >
+                                    {normalisingAll ? 'Grouping…' : `⟳ Auto-group ${ungroupedOpCount} op${ungroupedOpCount !== 1 ? 's' : ''} in all campaigns`}
+                                </button>
+                            )}
+
+                            {normaliseAllError && (
+                                <div style={{ marginTop: 8, padding: '6px 10px', border: '1px solid rgba(219,0,29,0.35)', background: 'rgba(219,0,29,0.06)', fontSize: '0.68rem', color: 'rgba(219,0,29,0.85)' }}>
+                                    {normaliseAllError}
+                                </div>
+                            )}
+
+                            {/* The breakdown, not just a total. An op with no Roman
+                                numeral suffix is skipped in silence, so a run that
+                                grouped 40 and left 6 alone would otherwise read as a
+                                clean sweep — and those 6 need a human to rename them. */}
+                            {normaliseAllReport && (() => {
+                                const notable = normaliseAllReport.campaigns.filter(c =>
+                                    c.created > 0 || c.linked > 0 || c.skipped.length > 0 || c.error)
+                                const t = normaliseAllReport.totals
+                                return (
+                                    <div style={{ marginTop: 8, border: '1px solid rgba(16,185,129,0.2)', background: 'rgba(16,185,129,0.04)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderBottom: notable.length > 0 ? '1px solid rgba(16,185,129,0.12)' : 'none' }}>
+                                            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(16,185,129,0.8)' }}>
+                                                Grouped {t.linked} op{t.linked !== 1 ? 's' : ''} into {t.created} new mission{t.created !== 1 ? 's' : ''} across {t.campaignsTouched} campaign{t.campaignsTouched !== 1 ? 's' : ''}
+                                            </span>
+                                            {t.skipped > 0 && (
+                                                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,160,0,0.85)' }}>
+                                                    · {t.skipped} skipped
+                                                </span>
+                                            )}
+                                            {t.failed > 0 && (
+                                                <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.85)' }}>
+                                                    · {t.failed} failed
+                                                </span>
+                                            )}
+                                            <button onClick={() => setNormaliseAllReport(null)} title='Dismiss' style={{ all: 'unset', cursor: 'pointer', marginLeft: 'auto', color: 'rgba(237,237,237,0.3)', display: 'flex' }}>
+                                                <Close style={{ fontSize: 14 }} />
+                                            </button>
+                                        </div>
+
+                                        {notable.length > 0 && (
+                                            <div style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {notable.map(c => (
+                                                    <div key={c.campaignId}>
+                                                        <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.7)' }}>
+                                                            <span style={{ fontWeight: 700, color: 'rgba(100,150,237,0.8)' }}>{c.campaignName}</span>
+                                                            {c.error
+                                                                ? <span style={{ color: 'rgba(219,0,29,0.85)' }}> — failed: {c.error}</span>
+                                                                : <span> — {c.linked} op{c.linked !== 1 ? 's' : ''} grouped, {c.created} mission{c.created !== 1 ? 's' : ''} created</span>}
+                                                        </div>
+                                                        {c.skipped.length > 0 && (
+                                                            <div style={{ fontSize: '0.66rem', color: 'rgba(219,160,0,0.8)', paddingLeft: 10, marginTop: 2 }}>
+                                                                {c.skipped.length} not grouped (no Roman numeral in the title — rename or link by hand): {c.skipped.map(s => s.title).join(', ')}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {notable.length === 0 && (
+                                            <div style={{ padding: '6px 10px', fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)', fontStyle: 'italic' }}>
+                                                Nothing to group — every campaign&apos;s operations are already in a mission.
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })()}
+                        </div>
+                    )}
 
                     {/* Status-grouped unified view: Active → Upcoming → In Development → Completed */}
                     {STATUS_ORDER.map(status => {

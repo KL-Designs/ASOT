@@ -13,7 +13,7 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 | Part | File | Scope |
 |---|---|---|
 | A | [a-admin-api.md](a-admin-api.md) | `app/api/admin/**` — 78 routes (activity, tickets, calendar, j1, j4 mastersheet/member-emails, meetings, members, orbat, quiz, retired) |
-| B | [b-operations-j2-api.md](b-operations-j2-api.md) | `app/api/operations/**` + `app/api/j2/**` — 52 routes (ops CRUD, campaigns, attendance, OCAP, J2 workspace, dev-checks) |
+| B | [b-operations-j2-api.md](b-operations-j2-api.md) | `app/api/operations/**` + `app/api/j2/**` — 53 routes (ops CRUD, campaigns, attendance, OCAP, J2 workspace, dev-checks) |
 | C | [c-training-tickets-sops-api.md](c-training-tickets-sops-api.md) | `app/api/training/**`, `training-docs/**`, `tickets/**` (community feedback), `sops/**`, `backups/**` — 50 routes |
 | D | [d-misc-api.md](d-misc-api.md) | Everything else under `app/api/**` — teamspeak, cron, applications (public join flow), me, gallery, community, uploads, minigame, members, notifications, misc single-route features — 79 routes |
 | E | [e-dashboard-j1-j4.md](e-dashboard-j1-j4.md) | `app/dashboard/j1/**`–`j4/**` — recruitment, mission-making, training, administration panels |
@@ -45,6 +45,7 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 | ORBAT Role Groups / Chain of Command (visual graph editor, Role/Group parent hierarchy, cycle detection) | A (`/api/admin/orbat/groups/**`, `/api/admin/orbat/roles/[roleId]` parent fields), F (`dashboard/orbat/ChainOfCommandPanel.tsx`), H (`types/orbat-role-group.d.ts`, `lib/orbat/chainOfCommand.ts`) — design spec: `docs/superpowers/specs/2026-08-09-orbat-chain-of-command-design.md`, `docs/superpowers/specs/2026-08-09-orbat-role-groups-design.md` |
 | Member Sync (Discord role + TeamSpeak group drift report/fix across every member, Roles Manager tab) | A (`/api/admin/orbat/member-sync`, `/api/admin/orbat/member-sync/apply`), F (`dashboard/orbat/MemberSyncTab.tsx`), H (`lib/orbat/member-sync.ts`) |
 | Operations (briefings, lifecycle, publish, campaigns, templates, recycle bin) | B, E (`j2/tabs/J2OperationsTab.tsx`), G (`/operations`, `/operations/[id]`, `/operations/[id]/edit`), H (`types/operation.d.ts`) |
+| Campaign auto-grouping / normalise (turning ops that carry a `campaignId` but no `campaignMissionId` into real missions, per campaign or across all of them) | B (`/api/operations/campaigns/[id]/normalise`, `/api/operations/campaigns/normalise-all`), H (`lib/operations/normalise-campaign.ts`, `normalise-campaign-run.ts`), E (`j2/tabs/J2OperationsTab.tsx` — the per-campaign and all-campaigns buttons) |
 | Attendance / RSVP / confirmation / Lead Zeus / reservist allocation | B (`/api/operations/[id]/attendance/**`), F (`components/operations/AttendancePanel.tsx` etc. — see H), H (`lib/attendance/**`, `types/attendance.d.ts`) |
 | Live attendance board / slot roster / reservist pool / drag-to-place | B (`/api/operations/[id]/attendance/roster`), H (`lib/attendance/roster.ts` + `snapshot.ts` + `actions.ts`, `components/operations/board/**`), G (`app/operations/[id]/page.tsx` renders it full-width) |
 | OCAP after-action recordings | B (`/api/operations/ocap/**`), G (`OcapLinkPanel.tsx`, `OcapStatsPanel.tsx`), H (`lib/ocap.ts`) |
