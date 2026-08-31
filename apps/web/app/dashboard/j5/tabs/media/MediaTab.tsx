@@ -14,6 +14,7 @@ import Inspector from './Inspector'
 import LibraryRail from './LibraryRail'
 import MediaGrid from './MediaGrid'
 import MediaTable from './MediaTable'
+import Viewer from './Viewer'
 import { useLibrary } from './useLibrary'
 import s from '@/styles/media-console.module.css'
 import c from '@/styles/j5-controls.module.css'
@@ -59,6 +60,12 @@ export default function MediaTab() {
        so neither had anywhere left to put its own confirmation — from the
        reviewer's seat, Save made the panel disappear and said nothing. */
     const [note, setNote] = useState<string | null>(null)
+    /* The item open in the fullscreen viewer, held as an id rather than an
+       index. An index would silently point at a different photograph after a
+       refetch reordered or shortened the page; an id that is no longer here
+       resolves to -1 below and closes the viewer, which is the honest
+       outcome. */
+    const [viewing, setViewing] = useState<string | null>(null)
 
     // Fetched once — the picker's own list of operations/tags rather than the
     // filter facets in `facets`, which only carry the ones already in use on
@@ -159,6 +166,13 @@ export default function MediaTab() {
     }, [items, captionEdits])
 
     const pages = Math.ceil(total / PAGE_SIZE)
+
+    /* -1 covers both "nothing is open" and "what was open is no longer on this
+       page" — a bulk run can move the viewed item out of the current filter
+       while the viewer is up, and a viewer showing an item the grid behind it
+       no longer contains is the state that would then step into the wrong
+       photograph. Derived rather than stored, so the two can never disagree. */
+    const viewIndex = viewing === null ? -1 : shown.findIndex(i => i.id === viewing)
 
     /* One element, two callers: the "nothing selected" column and the branch
        where the single selected id is no longer on this page. Both are the
@@ -373,7 +387,11 @@ export default function MediaTab() {
                             selected={selected}
                             onToggle={toggle}
                             onRange={range}
-                            onOpen={toggle}
+                            // Double-click and Enter open the viewer. This
+                            // used to be `toggle` — the same thing a single
+                            // click does — so the console's largest view of a
+                            // photograph was the inspector's 320px preview.
+                            onOpen={setViewing}
                         />
                     )}
 
@@ -443,6 +461,19 @@ export default function MediaTab() {
                         )
                         : emptyInspector}
             </div>
+
+            {/* Outside .work, because the viewer is position: fixed over the
+                whole page and .work is the grid that owns the three columns —
+                nesting it inside would put a fixed overlay inside a scrolling
+                grid cell for no reason. */}
+            {viewIndex >= 0 && (
+                <Viewer
+                    items={shown}
+                    index={viewIndex}
+                    onIndex={next => setViewing(shown[next].id)}
+                    onClose={() => setViewing(null)}
+                />
+            )}
         </div>
     )
 }

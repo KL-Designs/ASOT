@@ -437,3 +437,98 @@
     .work { grid-template-columns: 1fr; }
     .rail { border-right: 0; border-bottom: 1px solid rgba(219, 0, 29, 0.14); max-height: 240px; }
 }
+
+/* ── fullscreen viewer ──────────────────────────────────────────────── */
+
+/* Opaque black, not the public lightbox's translucent scrim. This exists to
+   judge a photograph, and a console panel showing through the backdrop at 12%
+   white changes what the photograph looks like.
+   z-index above 1300, which is MUI's modal layer — the dashboard shell around
+   this tab is MUI, and a viewer that renders under a drawer is a viewer that
+   cannot be closed. */
+.view {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: flex;
+    flex-direction: column;
+    background: #000;
+}
+
+/* The padding is what keeps the picture clear of the three floating controls
+   positioned over this box: the close button top-right, prev/next at the
+   vertical centre of each side. */
+.viewStage {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 46px 96px 14px;
+}
+.viewStage img,
+.viewStage video {
+    /* `contain`, not the tile's `cover`: a thumbnail may crop, a viewer may
+       not — cropping the thing somebody opened in order to see all of it. The
+       max-height needs the flex parent's min-height: 0 above it, or the stage
+       refuses to shrink below its content and a tall image runs off screen. */
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.viewNote {
+    font-family: var(--font-cond);
+    font-size: 13px;
+    color: rgba(237, 237, 237, 0.5);
+    margin: 0;
+}
+
+/* Caption and operation, and deliberately nothing else — this is not a second
+   inspector. A fixed strip rather than an overlay on the image, so it never
+   sits on top of the part of the shot being looked at. */
+.viewMeta {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 16px 14px;
+    border-top: 1px solid rgba(219, 0, 29, 0.18);
+    min-width: 0;
+}
+.viewCap {
+    font-family: var(--font-cond);
+    font-size: 15px;
+    color: var(--foreground);
+    /* The one line allowed to be long: a caption can be a sentence, and
+       wrapping it would push the strip's height around as the viewer steps. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.viewOp {
+    flex: none;
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+}
+
+/* Absolute over the stage rather than in a bar of their own: a control bar
+   would take height from the picture on every item, and these three are only
+   ever aimed at, never read. No height or padding rules — .btn is 30px and
+   the console's controls all match it. */
+.viewClose { position: absolute; top: 12px; right: 14px; }
+.viewNav { position: absolute; top: 50%; transform: translateY(-50%); }
+.viewPrev { left: 14px; }
+.viewNext { right: 14px; }
+
+/* Below roughly a phone's width the side buttons would take more of the stage
+   than the picture, so they drop to the bottom corners and the padding that
+   was reserving room for them comes back. */
+@media (max-width: 560px) {
+    .viewStage { padding: 46px 14px 14px; }
+    .viewNav { top: auto; bottom: 12px; transform: none; }
+}

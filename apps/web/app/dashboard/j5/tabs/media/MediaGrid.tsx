@@ -29,6 +29,8 @@ export default function MediaGrid({ items, selected, onToggle, onRange, onOpen }
     selected: Set<string>
     onToggle: (id: string) => void
     onRange: (fromId: string, toId: string) => void
+    /** Opens the fullscreen viewer — double-click, or Enter on a focused tile.
+     *  Not the same gesture as selection, which is a single click. */
     onOpen: (id: string) => void
 }) {
     const click = useRangeSelect(onToggle, onRange)
@@ -50,6 +52,19 @@ export default function MediaGrid({ items, selected, onToggle, onRange, onOpen }
                         aria-label={item.caption || item.opLabel || 'Untitled media'}
                         onClick={e => click(item.id, e.shiftKey)}
                         onDoubleClick={() => onOpen(item.id)}
+                        // Enter opens the viewer; Space still selects. A
+                        // <button>'s default action for Enter is to fire a
+                        // click, which here means toggling selection, so this
+                        // has to preventDefault — without it the viewer would
+                        // open on top of a selection nobody asked for, and
+                        // closing it would leave that tile ticked. Space is
+                        // untouched and remains the keyboard path to the
+                        // selection the single click already owns.
+                        onKeyDown={e => {
+                            if (e.key !== 'Enter') return
+                            e.preventDefault()
+                            onOpen(item.id)
+                        }}
                     >
                         {/* Everything sits inside this box rather than directly
                             in the <button>, because the button cannot hold the
