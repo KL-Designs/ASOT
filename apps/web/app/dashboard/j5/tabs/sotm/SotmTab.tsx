@@ -286,7 +286,7 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                 <section className={s.zone}>
                     <div className={s.zoneHead}>
                         <Typography className={s.zoneTitle}>Past winners ({history.length})</Typography>
-                        <span className={s.zoneNote} style={{ marginLeft: 'auto' }}>Newest first. A file migrated from the old sotm/ folder has no recorded date and will not appear here until it is next set.</span>
+                        <span className={s.zoneNote} style={{ marginLeft: 'auto' }}>Newest first. A pick migrated from the old sotm/ folder joins this list when it is replaced, dated by when it was set.</span>
                     </div>
 
                     {historyLoading ? <TacticalSkeleton rows={2} /> : history.length === 0 ? (

@@ -770,7 +770,10 @@ const PERMISSIONS = {
          *
          * Used by:
          *  - `app/dashboard/j5/tabs/GalleryTagsTab.tsx`
-         *  - `app/api/gallery/tags/route.ts` (POST/PATCH — GET is public)
+         *  - `app/api/gallery/tags/route.ts` (POST/PATCH. GET is public, but
+         *    branches on this key: retired tags, and the usage counts a
+         *    caller opts into with `?counts=1`, are returned only to a
+         *    holder.)
          */
         tags: [],
     },

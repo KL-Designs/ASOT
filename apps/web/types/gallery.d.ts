@@ -19,7 +19,15 @@ declare global {
         /** The gallery_media document this points at. Absent only on a
          *  record that predates the library picker. */
         mediaId?: string
-        dateTaken: string
+        /**
+         * When the photograph was taken. Absent when the picked media has no
+         * `takenAt` — the normal state for anything whose operation is
+         * Unknown. Optional rather than defaulted, because the alternative
+         * is publishing the date it was *picked* under the label "Taken" on
+         * the homepage, the gallery banner and the lightbox. Every consumer
+         * guards on it.
+         */
+        dateTaken?: string
         credit: string
         setAt: string
         setBy: string

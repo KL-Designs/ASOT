@@ -205,15 +205,19 @@ export default function Page() {
 
     const openSotm = useCallback(() => {
         if (!sotm) return
+        // The Taken row is dropped rather than shown empty when the picked
+        // media has no takenAt — an unguarded `new Date(undefined)` renders
+        // "Invalid Date" as though it were the date of the photograph.
+        const rows: [string, string][] = [['Credit', sotm.credit]]
+        if (sotm.dateTaken) {
+            rows.push(['Taken', new Date(sotm.dateTaken).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })])
+        }
         setSingleImage({
             src: '/api/gallery/sotm/image',
             poster: null,
             kicker: 'Screenshot of the month',
             title: sotm.operationTitle || 'This month',
-            rows: [
-                ['Credit', sotm.credit],
-                ['Taken', new Date(sotm.dateTaken).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })],
-            ],
+            rows,
             file: sotm.filename,
             kind: 'image',
             source: 'upload',

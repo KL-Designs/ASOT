@@ -17,9 +17,14 @@ async function canManage() {
  * the gallery is a public page. Retired tags are included only for a manager,
  * who has to see them to bring one back.
  *
- * Usage counts are computed here too, but only inside that same `all` branch
- * — an anonymous or non-manager call never touches the aggregation below, so
- * the public/cheap path this route exists for stays exactly that cheap.
+ * Usage counts are computed here too, but only for a manager who explicitly
+ * asks with `?counts=1` — GalleryTagsTab is the only caller that does.
+ * Permission alone is the wrong guard: the other three callers
+ * (gallery/submit/SubmitClient.tsx, j5/tabs/media/MediaTab.tsx,
+ * j5/tabs/submissions/useSubmissions.ts) all discard the count, so gating on
+ * the key alone means a J5 lead opening the *public* submit page pays for an
+ * unindexed $match/$unwind/$group across every live gallery_media document,
+ * on the public site's critical path, for a value nobody reads.
  *
  * They are NOT read from GET /api/gallery/admin/facets, which already
  * computes the identical `{ slug, label, count }` shape: that route is
@@ -33,15 +38,22 @@ async function canManage() {
  * everyone who can reach the tab, at the cost of one small aggregation only
  * a manager's request ever pays for.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
     const all = await canManage()
+    const wantsCounts = all && new URL(request.url).searchParams.get('counts') === '1'
     const tags = await Db.galleryTags
         .find(all ? {} : { retired: false })
-        .sort({ order: 1 })
+        // `_id` tie-break, per the rule library-query.ts states: `order`
+        // values are not guaranteed unique across active and retired tags
+        // (POST assigns countDocuments(), which counts retired ones), and
+        // Mongo's order between equal sort keys is unspecified — without
+        // this the tab and the public facet rail can list a colliding pair
+        // in different sequences, and the tie can flip between requests.
+        .sort({ order: 1, _id: 1 })
         .toArray()
 
     let counts = new Map<string, number>()
-    if (all) {
+    if (wantsCounts) {
         const rows = await Db.galleryMedia.aggregate<{ _id: string, count: number }>([
             { $match: { status: 'live' } },
             { $unwind: '$tags' },
@@ -57,11 +69,11 @@ export async function GET() {
             label: t.label,
             order: t.order,
             retired: t.retired,
-            // Omitted rather than 0 for a non-manager caller — the public
-            // facet rail and submit form have never carried this field, and
-            // sending a fabricated 0 would claim knowledge this response
-            // deliberately didn't pay to compute.
-            ...(all ? { count: counts.get(t.slug) ?? 0 } : {}),
+            // Omitted rather than 0 for a caller that didn't ask — the
+            // public facet rail and submit form have never carried this
+            // field, and sending a fabricated 0 would claim knowledge this
+            // response deliberately didn't pay to compute.
+            ...(wantsCounts ? { count: counts.get(t.slug) ?? 0 } : {}),
         })),
     })
 }

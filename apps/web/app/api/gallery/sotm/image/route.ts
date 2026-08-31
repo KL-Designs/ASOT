@@ -45,7 +45,12 @@ export async function GET() {
     let filePath: string | null = null
 
     if (mediaId && ObjectId.isValid(mediaId)) {
-        const media = await db.galleryMedia.findOne({ _id: new ObjectId(mediaId) })
+        // `status: 'live'` for the same reason /api/gallery/media/[id]
+        // refuses anything that isn't public: moving an item to `hidden` is
+        // the manual "take this down now" lever, and without this check the
+        // bytes stay readable here — and on the homepage masthead — after
+        // it has been pulled.
+        const media = await db.galleryMedia.findOne({ _id: new ObjectId(mediaId), status: 'live' })
         filePath = media?.storageKey ? resolveStorageKey(media.storageKey) : null
     } else {
         const filename = typeof doc.filename === 'string' ? doc.filename : null

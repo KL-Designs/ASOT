@@ -269,8 +269,10 @@ export async function getGalleryTiles(limit = 6): Promise<GalleryTile[]> {
         }))
     }
 
-    // No item in rotation yet — the strip renders nothing rather than a
-    // row of broken images.
+    // A database error must not take the homepage down with it: the strip
+    // renders nothing and the rest of the page still serves. An empty
+    // rotation is not this case and never reaches here — find().toArray()
+    // returns [] and maps to [] on the happy path.
     catch { return [] }
 }
 

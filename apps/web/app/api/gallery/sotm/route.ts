@@ -34,6 +34,46 @@ function str(v: unknown): string | null {
 }
 
 /**
+ * Enter the outgoing pick into the past-winners record before the pointer
+ * that names it is overwritten.
+ *
+ * Only a legacy record needs this. A library pick gained `sotmAt` the moment
+ * it was set (see PUT below), but the file migrated from `storage/gallery/
+ * sotm` never did — the migration deliberately left it unset because a file
+ * mtime would have been a fabricated date. Its own `setAt` is not a
+ * fabrication: it is when this application recorded the pick.
+ *
+ * Without this, the first library pick ever made deletes the previous
+ * winner from history permanently — the pointer stops naming it, no media
+ * document is flagged, and no UI anywhere can create the flag afterwards.
+ * Spec 6.8 requires past winners to stay listed.
+ */
+async function stampOutgoingLegacyWinner(existing: Record<string, unknown> | null): Promise<void> {
+    if (!existing) return
+    // A mediaId-based record is already flagged on its own media document.
+    if (str(existing.mediaId)) return
+
+    const filename = str(existing.filename)
+    if (!filename) return
+
+    const setAt = str(existing.setAt)
+    const stampedAt = setAt ? new Date(setAt) : null
+    // No usable recorded date means there is nothing honest to write. Losing
+    // the row is better than inventing the month it won.
+    if (!stampedAt || Number.isNaN(stampedAt.getTime())) return
+
+    await db.galleryMedia.updateOne(
+        // `sotm:{file}` is the key the migration indexed this directory
+        // under (scripts/index-gallery.mjs). basename() because the stored
+        // string is a display name with no guarantee of being a bare one.
+        // The `$exists: false` guard means a real recorded date is never
+        // overwritten by this backfill.
+        { storageKey: `sotm:${path.basename(filename)}`, sotmAt: { $exists: false } },
+        { $set: { sotmAt: stampedAt, sotmCredit: str(existing.credit) ?? '' } },
+    )
+}
+
+/**
  * One tile for the library picker or the past-winners list. `sotmAt`/
  * `sotmCredit` are null for a plain browse tile and populated for a winner.
  */
@@ -108,10 +148,11 @@ export async function GET(request: NextRequest) {
 /**
  * PUT — replace the current pick with a media library item: `{ mediaId, credit }`.
  *
- * Writes `sotmAt`/`sotmCredit` onto the media document itself (what makes it
- * findable by the `history` view above and, per the brief, the one field the
- * migration deliberately never backfills for the file that came from
- * `sotm/`) and records the pointer in siteSettings.
+ * Records the pointer in siteSettings and writes `sotmAt`/`sotmCredit` onto
+ * the media document itself (what makes it findable by the `history` view
+ * above and, per the brief, the one field the migration deliberately never
+ * backfills for the file that came from `sotm/` — which is why the outgoing
+ * pick is stamped here too, see stampOutgoingLegacyWinner).
  *
  * The siteSettings document is still written in the old flat shape —
  * `filename`, `dateTaken`, `operationTitle` and all — even though every one
@@ -134,7 +175,14 @@ export async function PUT(request: NextRequest) {
     if (!mediaId || !ObjectId.isValid(mediaId)) return NextResponse.json({ error: 'mediaId is required' }, { status: 400 })
     if (!credit) return NextResponse.json({ error: 'credit is required' }, { status: 400 })
 
-    const media = await db.galleryMedia.findOne({ _id: new ObjectId(mediaId), status: 'live' })
+    // `kind`/`source` repeat the browse view's filter above rather than
+    // trusting the picker to have applied it. Without them a curl PUT — or a
+    // UI regression that widens the picker — can point SOTM at an mp4:
+    // image/route.ts would then readFileSync the whole clip into heap on
+    // every request and serve it as image/jpeg, and Hero.tsx,
+    // GalleryBanner.tsx and the join page would each render it in an <img>.
+    // One accepted write, three broken public mastheads.
+    const media = await db.galleryMedia.findOne({ _id: new ObjectId(mediaId), status: 'live', kind: 'image', source: 'upload' })
     if (!media?.storageKey) return NextResponse.json({ error: 'Media not found' }, { status: 404 })
 
     const resolved = resolveStorageKey(media.storageKey)
@@ -143,31 +191,59 @@ export async function PUT(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     const now = new Date()
 
-    // Set on the media document first, siteSettings second — if the process
-    // dies in between, the pointer either still names the old pick (whose
-    // own sotmAt/sotmCredit are untouched) or names this one after it has
-    // already gained sotmAt. Either way GET never resolves to a media
-    // document that isn't actually marked as a winner.
-    await db.galleryMedia.updateOne(
-        { _id: media._id },
-        { $set: { sotmAt: now, sotmCredit: credit } },
-    )
+    // Read the outgoing pointer before it is overwritten — after the write
+    // below there is no way left to find out what it named.
+    const outgoing = await db.siteSettings.findOne({ _id: SETTING_ID })
+    await stampOutgoingLegacyWinner(outgoing)
 
     const record: Record<string, unknown> = {
         mediaId,
         filename: path.basename(resolved),
         credit,
-        dateTaken: (media.takenAt ?? now).toISOString(),
         setAt: now.toISOString(),
         setBy: me?.id ?? 'unknown',
     }
-    if (media.operationId) record.operationId = media.operationId.toString()
-    if (media.opLabel) record.operationTitle = media.opLabel
+    const clear: Record<string, ''> = {}
 
+    /* $unset rather than simply not $setting: this is an upsert onto the
+       outgoing pick's own document, so a field the new pick has no value for
+       would otherwise keep the previous winner's — the homepage would
+       caption the new photograph with the old one's operation.
+
+       dateTaken is omitted outright when takenAt is null (the normal state
+       for an item whose operation is Unknown, and those are in the picker).
+       Defaulting it to `now` publishes today's date under the label "Taken"
+       on the homepage, the gallery banner and the lightbox for a screenshot
+       that may be three years old — the same invention the brief refused for
+       sotmAt, arrived at from the other direction. */
+    const put = (key: string, value: string | null | undefined) => {
+        if (value) record[key] = value
+        else clear[key] = ''
+    }
+    put('dateTaken', media.takenAt?.toISOString())
+    put('operationId', media.operationId?.toString())
+    put('operationTitle', media.opLabel)
+
+    // siteSettings first, the media flag second — the reverse of the order
+    // this originally used, and deliberately so (the same choice
+    // admin/featured/order/route.ts makes for the same reason).
+    //
+    // If the process dies between the two, a written pointer with an
+    // unflagged media document means only "the current pick is missing from
+    // Past Winners until the next write": invisible on every public page and
+    // repaired by re-picking. The other order fails into a media document
+    // flagged as a winner that was never displayed anywhere, and nothing in
+    // this codebase ever $unsets sotmAt — DELETE deliberately does not — so
+    // that phantom row is permanent and uncorrectable from the console.
     await db.siteSettings.updateOne(
         { _id: SETTING_ID },
-        { $set: record },
+        Object.keys(clear).length ? { $set: record, $unset: clear } : { $set: record },
         { upsert: true }
+    )
+
+    await db.galleryMedia.updateOne(
+        { _id: media._id },
+        { $set: { sotmAt: now, sotmCredit: credit } },
     )
 
     return NextResponse.json({ success: true })
@@ -188,8 +264,13 @@ export async function DELETE() {
         // library photograph that must survive clearing the pointer, not a
         // file this route is free to delete.
         if (!mediaId && filename) {
-            const filePath = path.join(SOTM_DIR, filename)
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+            // basename() plus the containment assertion, the same pair the
+            // read side in image/route.ts uses. This is an unlinkSync on a
+            // path assembled from a stored string: a `../` in that string
+            // would delete a file outside SOTM_DIR entirely, and the only
+            // writer that sanitised it (the removed POST) is gone.
+            const filePath = path.join(SOTM_DIR, path.basename(filename))
+            if (filePath.startsWith(SOTM_DIR + path.sep) && fs.existsSync(filePath)) fs.unlinkSync(filePath)
         }
         await db.siteSettings.deleteOne({ _id: SETTING_ID })
     }

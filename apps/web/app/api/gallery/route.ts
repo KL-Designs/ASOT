@@ -86,7 +86,12 @@ function fileFor(m: GalleryMedia): string | null {
 export async function GET() {
     const [docs, tags, featuredDocs] = await Promise.all([
         Db.galleryMedia.find(ARCHIVE_FILTER).toArray(),
-        Db.galleryTags.find({ retired: false }).sort({ order: 1 }).toArray(),
+        // `_id` tie-break, matching /api/gallery/tags: two tags can share an
+        // `order` (POST assigns countDocuments(), which counts retired tags,
+        // so a restored one lands inside the active range), and without the
+        // tie-break the facet rail and the J5 tab can order that pair
+        // differently — and differently between two requests.
+        Db.galleryTags.find({ retired: false }).sort({ order: 1, _id: 1 }).toArray(),
         Db.galleryMedia
             .find({ status: 'live', featuredOrder: { $exists: true } })
             .sort({ featuredOrder: 1 })

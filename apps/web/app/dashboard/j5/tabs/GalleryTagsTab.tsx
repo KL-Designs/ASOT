@@ -7,9 +7,10 @@ import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
     type DragEndEvent,
 } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import { planTagReorder, byTagOrder } from '@/lib/gallery/tag-order'
 import c from '@/styles/j5-controls.module.css'
 
 /** `count` is only ever present for the manager this tab is gated to — see
@@ -39,11 +40,12 @@ const rowStyle = {
  *  selection) and a set of ordinary buttons. Spreading dnd-kit's listeners
  *  across the whole row the way FeaturedTab's tile does would turn every
  *  click into a potential drag start instead. */
-function TagRow({ tag, index, total, busyId, renameValue, onRename, onCommitRename, onMove, onRetire, maxCount }: {
+function TagRow({ tag, index, total, busyId, reordering, renameValue, onRename, onCommitRename, onMove, onRetire, maxCount }: {
     tag: Tag
     index: number
     total: number
     busyId: string | null
+    reordering: boolean
     renameValue: string
     onRename: (value: string) => void
     onCommitRename: () => void
@@ -51,7 +53,11 @@ function TagRow({ tag, index, total, busyId, renameValue, onRename, onCommitRena
     onRetire: () => void
     maxCount: number
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tag.id })
+    // Disabled while a previous drag's PATCH fan-out is still in flight —
+    // a second drag would compute its plan from optimistic state that the
+    // first refresh() then overwrites, snapping the rows back to a stale
+    // order.
+    const { listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tag.id, disabled: reordering })
     const pct = Math.round(((tag.count ?? 0) / maxCount) * 100)
 
     return (
@@ -60,11 +66,20 @@ function TagRow({ tag, index, total, busyId, renameValue, onRename, onCommitRena
             className='flex items-center gap-1 px-3 py-1.5'
             style={{ ...rowStyle, transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
         >
+            {/* listeners only, never dnd-kit's `attributes`: those put
+                role='button', tabIndex={0} and aria-roledescription='sortable'
+                on this handle, and only a PointerSensor is registered — so a
+                keyboard or screen-reader user would tab onto a control that
+                announces itself as sortable and then does nothing on
+                Space/Enter/arrows. The arrow buttons beside it are the
+                accessible path, so the handle is hidden from that tree
+                entirely rather than advertising a second one that isn't
+                there. */}
             <span
-                {...attributes}
                 {...listeners}
-                style={{ color: 'rgba(237,237,237,0.3)', cursor: 'grab', display: 'flex', touchAction: 'none' }}
-                aria-label='Drag to reorder'
+                aria-hidden='true'
+                tabIndex={-1}
+                style={{ color: 'rgba(237,237,237,0.3)', cursor: reordering ? 'progress' : 'grab', display: 'flex', touchAction: 'none' }}
             >
                 <DragIndicator sx={{ fontSize: 16 }} />
             </span>
@@ -122,11 +137,18 @@ export default function GalleryTagsTab() {
     const [adding, setAdding] = useState(false)
     const [renaming, setRenaming] = useState<Record<string, string>>({})
     const [busyId, setBusyId] = useState<string | null>(null)
+    // Held across a drag's whole PATCH fan-out and the refresh() after it —
+    // see onDragEnd.
+    const [reordering, setReordering] = useState(false)
 
     const refresh = useCallback(async () => {
         setLoading(true)
         try {
-            const res = await fetch('/api/gallery/tags')
+            // ?counts=1 — the aggregation is opt-in rather than implied by
+            // the permission, so a J5 lead holding gallery.tags does not pay
+            // for a collection scan every time they open the public submit
+            // form, which discards the counts. See the route's comment.
+            const res = await fetch('/api/gallery/tags?counts=1')
             const data = await res.json()
             setTags(data.tags ?? [])
         } finally {
@@ -136,7 +158,11 @@ export default function GalleryTagsTab() {
 
     useEffect(() => { refresh() }, [refresh])
 
-    const active = tags.filter(t => !t.retired).sort((a, b) => a.order - b.order)
+    // byTagOrder, not a bare order comparison: two tags can hold the same
+    // `order` (POST assigns countDocuments(), which counts retired tags), and
+    // the server's own sort now breaks that tie on _id — the two have to
+    // agree or the tab and the public facet rail show the pair differently.
+    const active = tags.filter(t => !t.retired).sort(byTagOrder)
     const retired = tags.filter(t => t.retired).sort((a, b) => a.label.localeCompare(b.label))
 
     async function addTag() {
@@ -189,36 +215,46 @@ export default function GalleryTagsTab() {
     }
 
     // Dragging can move a tag past more than one neighbour in a single
-    // gesture, unlike the arrow buttons' single-step swap — so every tag
-    // whose position actually changed gets its `order` renormalised to its
-    // new index, not just the two endpoints. Optimistic locally, same as
-    // FeaturedTab's rotation drag: the row reflects the drop immediately and
-    // `refresh()` reconciles once every write lands.
+    // gesture, unlike the arrow buttons' single-step swap — so the whole
+    // vocabulary is renormalised to 0..n-1 and only the rows that actually
+    // moved are written. That decision lives in lib/gallery/tag-order.ts
+    // rather than here: it is the part that chooses which documents get a
+    // PATCH, and logic inside a component cannot be imported by a test.
+    // Optimistic locally, same as FeaturedTab's rotation drag: the rows
+    // reflect the drop immediately and `refresh()` reconciles once every
+    // write lands.
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
     async function onDragEnd(e: DragEndEvent) {
+        // A second drag started while the first one's fan-out is still in
+        // flight would plan from optimistic state that the first refresh()
+        // then overwrites — the rows snap back to a stale order. The
+        // handles are disabled for the same reason; this is the guard for
+        // a gesture already in progress when that flag went up.
+        if (reordering) return
+
         const { active: dragged, over } = e
-        if (!over || dragged.id === over.id) return
-        const oldIndex = active.findIndex(t => t.id === dragged.id)
-        const newIndex = active.findIndex(t => t.id === over.id)
-        if (oldIndex < 0 || newIndex < 0) return
+        if (!over) return
+        const plan = planTagReorder(tags, String(dragged.id), String(over.id))
+        // Null means the drag moved nothing, or named a row that is no
+        // longer in the list — leave state alone rather than re-rendering
+        // and re-fetching for nothing.
+        if (!plan) return
 
-        const reordered = arrayMove(active, oldIndex, newIndex)
-        const changed = reordered.filter((t, i) => t.order !== i)
-
-        setTags(prev => prev.map(t => {
-            const i = reordered.findIndex(r => r.id === t.id)
-            return i < 0 ? t : { ...t, order: i }
-        }))
-
-        await Promise.all(changed.map(t =>
-            fetch('/api/gallery/tags', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: t.id, order: reordered.indexOf(t) }),
-            }),
-        ))
-        await refresh()
+        setReordering(true)
+        setTags(plan.tags)
+        try {
+            await Promise.all(plan.writes.map(w =>
+                fetch('/api/gallery/tags', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: w.id, order: w.order }),
+                }),
+            ))
+            await refresh()
+        } finally {
+            setReordering(false)
+        }
     }
 
     // Every bar is drawn relative to whichever tag is used most, so a glance
@@ -269,6 +305,7 @@ export default function GalleryTagsTab() {
                                     index={i}
                                     total={active.length}
                                     busyId={busyId}
+                                    reordering={reordering}
                                     renameValue={renaming[tag.id] ?? tag.label}
                                     onRename={value => setRenaming(prev => ({ ...prev, [tag.id]: value }))}
                                     onCommitRename={() => commitRename(tag)}
