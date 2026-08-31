@@ -34,6 +34,10 @@ type Props = {
     statusLabel?: string
     statusTone?: 'progress' | 'ok' | 'warn' | 'error'
     onRetry?: () => void
+    /** Opens this draft full size. Not offered once the batch is under way —
+     *  the card is read-only from that point, and a video's object URL would
+     *  be competing with the upload reading the same file. */
+    onPreview?: () => void
 }
 
 /**
@@ -46,9 +50,16 @@ type Props = {
  */
 export default function ItemCard({
     draft, operations, tags, onCaption, onToggleTag, onOperation, onRemove,
-    upload, statusLabel, statusTone, onRetry,
+    upload, statusLabel, statusTone, onRetry, onPreview,
 }: Props) {
     const submitting = upload !== undefined
+
+    // A Twitch draft has no provider thumbnail, so its tile is the placeholder
+    // mark — still worth opening, since the whole point is checking you picked
+    // the right clip. Anything with a file or an embed can be previewed; only
+    // a draft with neither (which nothing currently creates) cannot.
+    const previewable = !submitting && !!onPreview && (!!draft.file || !!draft.embed)
+    const isMoving = draft.durationSec !== undefined || !!draft.embed
 
     return (
         <div className={s.itemCard}>
@@ -59,6 +70,20 @@ export default function ItemCard({
                     <span className={s.itemThumbMark}>
                         {draft.embed ? PROVIDER_LABEL[draft.embed.provider] : draft.durationSec !== undefined ? 'Video' : 'Photo'}
                     </span>
+                )}
+                {/* Covers the tile rather than sitting inside it, so the whole
+                    thumbnail is the target — but rendered before the remove
+                    button below, which therefore stacks above it and keeps its
+                    own corner clickable. */}
+                {previewable && (
+                    <button
+                        type='button'
+                        className={s.itemPreview}
+                        onClick={onPreview}
+                        aria-label={isMoving ? 'Preview this video' : 'Preview this photo'}
+                    >
+                        <span className={s.itemPreviewMark} aria-hidden='true'>{isMoving ? '▶' : '⤢'}</span>
+                    </button>
                 )}
                 {draft.durationSec ? <span className={s.itemDuration}>{formatDuration(draft.durationSec)}</span> : null}
                 {!submitting && (

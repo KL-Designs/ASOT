@@ -8,6 +8,7 @@ import { parseEmbedUrl, type ParsedEmbed } from '@/lib/gallery/embeds'
 import type { GalleryStatus } from '@/lib/gallery/status'
 import { runUploads, sendOverXhr, type SendFn, type UploadJob, type UploadState } from './upload'
 import ItemCard from './_components/ItemCard'
+import PreviewOverlay from './_components/PreviewOverlay'
 import s from '@/styles/gallery.module.css'
 import ui from '@/styles/ui.module.css'
 
@@ -169,6 +170,11 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
 
     const [embedText, setEmbedText] = useState('')
     const [embedError, setEmbedError] = useState<string | null>(null)
+
+    // Which draft is open full size, by localId rather than by object: the
+    // draft is replaced on every caption keystroke, and holding the old one
+    // would leave the overlay showing a stale copy of a card still on screen.
+    const [previewId, setPreviewId] = useState<string | null>(null)
 
     const [phase, setPhase] = useState<Phase>('compose')
     const [batchId, setBatchId] = useState<string | null>(null)
@@ -448,6 +454,16 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
 
     const submitting = phase === 'uploading'
 
+    // Resolved from the live list every render rather than held as its own
+    // copy, so removing the card underneath the overlay closes it and an edit
+    // to the draft can never leave the overlay showing a stale one. Closed
+    // outright once the batch is under way: the card is read-only from that
+    // point, and a preview reading the same file the upload is streaming has
+    // nothing to offer.
+    const previewDraft = (!submitting && previewId)
+        ? drafts.find(d => d.localId === previewId) ?? null
+        : null
+
     return (
         <div className={s.subPage}>
             <div className={s.subShell}>
@@ -564,6 +580,7 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
                                     onToggleTag={slug => toggleDraftTag(d.localId, slug)}
                                     onOperation={v => updateDraft(d.localId, { operationId: v || null })}
                                     onRemove={() => removeDraft(d.localId)}
+                                    onPreview={() => setPreviewId(d.localId)}
                                     upload={submitting ? uploadState[d.localId] ?? { phase: 'queued', progress: 0 } : undefined}
                                     statusLabel={row?.label}
                                     statusTone={row?.tone}
@@ -583,6 +600,17 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
                     </div>
                 )}
             </div>
+
+            {previewDraft && (
+                <PreviewOverlay
+                    // Keyed so switching straight from one card's preview to
+                    // another remounts the player rather than swapping `src`
+                    // under a video that is already playing.
+                    key={previewDraft.localId}
+                    draft={previewDraft}
+                    onClose={() => setPreviewId(null)}
+                />
+            )}
         </div>
     )
 }
