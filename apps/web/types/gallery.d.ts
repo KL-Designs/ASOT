@@ -143,6 +143,14 @@ declare global {
         src: string | null
         poster: string | null
 
+        /** The grid tile's image: a ~400px WebP the thumbnail route resizes
+         *  once and caches (lib/gallery/thumbs.ts). Distinct from `src`, which
+         *  stays the full-size original for the inspector's preview and the
+         *  viewer — a 178px tile pulling a 3.8MB screenshot is what made the
+         *  Media tab lag. Null only when there is nothing on disk to resize:
+         *  an embed whose poster fetch failed. */
+        thumb: string | null
+
         /** Embeds only — what tells a reviewer which YouTube/Twitch video a
          *  row is, since an embed has no storageKey and src is always null
          *  for it. Mirrors GalleryItemAPI's fields of the same name. */

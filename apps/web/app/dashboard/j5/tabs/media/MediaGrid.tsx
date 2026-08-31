@@ -10,6 +10,13 @@ import s from '@/styles/media-console.module.css'
  * local API route, and the optimiser would re-encode every one of them. Lazy
  * loading does the work instead.
  *
+ * What it loads is `item.thumb` — a ~400px WebP the thumbnail route resizes
+ * once and caches, not the original. The tile is about 178px wide and the
+ * archive's originals average 3.8MB, so at sixty a page this element used to
+ * pull roughly 200MB and hand the browser sixty 4K screenshots to downscale.
+ * That was the lag, and it is why the fallback chain below ends at `src`
+ * rather than starting there.
+ *
  * Shift-click extends a range from the last tile clicked, because assigning an
  * operation to a folder's worth of photographs is the tab's main job and
  * ticking sixty boxes one at a time is not a workflow. That behaviour lives in
@@ -55,8 +62,17 @@ export default function MediaGrid({ items, selected, onToggle, onRange, onOpen }
                             a <div>: a button's content model is phrasing
                             content. */}
                         <span className={s.tileBox}>
-                            {(item.poster ?? item.src)
-                                ? <img src={item.poster ?? item.src ?? ''} alt='' loading='lazy' decoding='async' />
+                            {/* No width/height attributes, deliberately.
+                                They exist to reserve space before the bytes
+                                arrive, and .tileBox already gives this element
+                                a definite 16:10 box that object-fit crops into
+                                — so there is no layout shift to prevent, and
+                                stating a size the file does not have would be
+                                a lie the decoder acts on. `poster` and `src`
+                                remain as fallbacks for the one case `thumb` is
+                                null: an embed whose poster fetch failed. */}
+                            {(item.thumb ?? item.poster ?? item.src)
+                                ? <img src={item.thumb ?? item.poster ?? item.src ?? ''} alt='' loading='lazy' decoding='async' />
                                 : null}
 
                             <span className={s.check} />

@@ -11,6 +11,11 @@ own app directory, e.g. `apps/web` or `apps/bot`), so code reads/writes via `../
 ## Layout
 
 - `gallery/`, `milpacs/`, `uploads/`, `snapshots/` — web app user-uploaded/generated content.
+  `gallery/thumbs/` is the one derived directory in that set: ~400px WebP tiles the
+  J5 Media grid asks `/api/gallery/media/[id]/thumb` for, written on the first request
+  for each item and re-generated whenever the source file is newer. Safe to delete
+  wholesale at any time — it costs one resize per item to rebuild. Nothing prunes it,
+  so it grows to roughly one small file per media document (~25KB each).
 - `db-backups/`, `media-backups/` — restic repositories (deduplicating, hourly,
   tiered retention) backing the J4 dashboard's Backups tab. `backup-meta/`
   holds the shared status/retention-config files for both. Snapshots tagged

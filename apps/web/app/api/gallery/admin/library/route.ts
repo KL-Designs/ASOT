@@ -23,6 +23,18 @@ function srcFor(doc: GalleryMedia): string | null {
     return doc.storageKey ? `/api/gallery/media/${doc._id.toString()}` : null
 }
 
+/* The tile's image, and deliberately not `src`.
+   `src` above is the full-size original — 3.8MB for a typical archive
+   screenshot — and the grid was rendering sixty of them at 178px wide, about
+   200MB a page. The thumbnail route resizes to ~400px WebP once and caches it.
+   Guarded on there being bytes at all rather than on `source`: an embed has no
+   storageKey and so no `src`, but it does have a fetched poster, and that is
+   exactly the frame its tile should show. */
+function thumbFor(doc: GalleryMedia): string | null {
+    if (!doc.storageKey && !doc.posterKey) return null
+    return `/api/gallery/media/${doc._id.toString()}/thumb`
+}
+
 export async function GET(request: NextRequest) {
     const me = await client.fetchMe().catch(() => null)
     if (!me || !await hasPermission(me, 'gallery.manage')) {
@@ -48,6 +60,7 @@ export async function GET(request: NextRequest) {
         source: doc.source,
         src: srcFor(doc),
         poster: doc.posterKey ? `/api/gallery/media/${doc._id.toString()}/poster` : null,
+        thumb: thumbFor(doc),
         embedId: doc.embedId ?? null,
         embedKind: doc.embedKind ?? null,
         embedUrl: doc.embedUrl ?? null,

@@ -27,6 +27,14 @@ export const STAGING_DIR = path.join(GALLERY_ROOT, 'staging')
 export const FEATURED_DIR = path.join(GALLERY_ROOT, 'featured')
 export const SOTM_DIR = path.join(GALLERY_ROOT, 'sotm')
 
+/* Generated, not uploaded: the grid's downscaled thumbnails, cached here so a
+   page view resizes nothing. It sits under storage/gallery because that whole
+   subtree is bind-mounted into the container (docker-compose.yml) — a cache
+   inside the image would be discarded on every deploy and rebuilt 4,781 files
+   at a time. Nothing but lib/gallery/thumbs.ts names a file in here, and it
+   derives every one of them from a validated media id. */
+export const THUMB_DIR = path.join(GALLERY_ROOT, 'thumbs')
+
 /** A media filename this application wrote: an ObjectId hex, an optional
  *  _poster suffix, and an extension. Nothing else. */
 const MEDIA_FILE = /^[0-9a-f]{24}(_poster)?\.[a-z0-9]{2,5}$/

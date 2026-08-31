@@ -247,8 +247,13 @@ function Row({ item, on, onClick, onCaptionSaved }: {
                     tabIndex={-1}
                     onClick={e => onClick(item.id, e.shiftKey)}
                 >
-                    {(item.poster ?? item.src)
-                        ? <img src={item.poster ?? item.src ?? ''} alt='' loading='lazy' decoding='async' />
+                    {/* The grid's thumbnail, in a 48x30 cell — the reason
+                        this is `thumb` and not `src` matters more here than
+                        anywhere: a table row shows the picture smaller than
+                        the grid does, and it was fetching the same 3.8MB
+                        original to do it. */}
+                    {(item.thumb ?? item.poster ?? item.src)
+                        ? <img src={item.thumb ?? item.poster ?? item.src ?? ''} alt='' loading='lazy' decoding='async' />
                         : null}
                 </button>
             </td>

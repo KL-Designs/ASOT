@@ -157,7 +157,10 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 ---
 
-### gallery (5 files, excludes admin/*)
+### gallery (6 files, excludes admin/*)
+
+#### /api/gallery/media/[id]/thumb
+- **GET** — the grid tile's image: a ~400px WebP resized once from the original (or, for a video/embed, from its existing `posterKey` still — no ffmpeg on this path) and cached on disk under `storage/gallery/thumbs/{id}-{width}.webp`. Exists because the J5 Media tab was rendering full-size originals in 178px tiles: 4,781 archive files averaging 3.8MB, sixty a page, ~200MB per page view. Size/format/path logic is in `lib/gallery/thumbs.ts` (`THUMB_WIDTH`, `THUMB_QUALITY`, `thumbPath` — the id is re-validated against `/^[0-9a-f]{24}$/` and the resolved path asserted inside `THUMB_DIR`). Cache entries are invalidated against the **source's** mtime, and the weak ETag is over the source's size+mtime plus the width — no `immutable`, for the reason `/api/gallery/media/[id]` documents. Generation writes to a temp name and `rename()`s into place so concurrent requests never read a half-written file; any resize failure logs and 307-redirects to the full-size media/poster route, so a broken pipeline degrades to slow rather than to blank tiles. Auth: same gate as `/api/gallery/media/[id]` — public for `live`, author or `gallery.review` for `pending`/`processing`, 404 (never 403) otherwise. Collections: `Db.galleryMedia`. Consumed by `MediaGrid.tsx` and `MediaTable.tsx` via `AdminMediaAPI.thumb` from `/api/gallery/admin/library`.
 
 #### /api/gallery/featured
 - **GET** — `?img=` serves a static file from `./gallery/featured/<img>` (no path-traversal guard beyond existence check). Auth: public/no auth.
