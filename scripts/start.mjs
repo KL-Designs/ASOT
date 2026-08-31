@@ -845,6 +845,27 @@ const MIGRATION_ITEMS = [
         args: ['--prefix', 'apps/web', 'run', 'reconcile:gallery', '--'],
         cwd: ROOT,
     },
+    /* Dry-run first, then --apply, via runMigration's own flow — the trailing
+       '--' is what lets runMigration's appended '--apply' reach the script
+       rather than being eaten by npm as one of its own flags, exactly as for
+       Reconcile: gallery disk above. Runs through apps/web so it can import
+       lib/gallery/naming.ts: it has to agree with splitOperation about what an
+       order prefix IS, character for character, and a hand-copied regex that
+       disagreed would rename a folder the application still reads as numbered.
+
+       Takes the '{n}. ' prefix off every operation folder that still carries
+       one and rewrites the storage keys and facets of every document filed
+       under it. Renames only — nothing is deleted, nothing is merged: a strip
+       that would collide with an existing folder is reported and skipped.
+       Idempotent, and re-running it is also how a half-applied folder (renamed
+       on disk, documents not yet updated) is finished. Run this after Index:
+       gallery media, since it reads gallery_media for the keys to rewrite. */
+    {
+        label: '🗃️ Strip: gallery folder numbers',
+        command: 'npm',
+        args: ['--prefix', 'apps/web', 'run', 'strip:folder-numbers', '--'],
+        cwd: ROOT,
+    },
     {
         label: '🗃️ Import: member history CSV',
         command: 'npm',
