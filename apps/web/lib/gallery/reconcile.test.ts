@@ -127,6 +127,61 @@ describe('reconcile', () => {
         expect(report.missingFiles).toEqual([])
     })
 
+    /* The campaign grammar is one directory deeper than anything the walk had
+       to reach before. A depth cap left where it was would not report these
+       files as unreadable or not-indexed — it would never descend into the day
+       folder at all, so every campaign item would come back under
+       missingFiles, in front of a human holding a delete button. */
+    test('a file four folders deep is scanned, matched, and gets the campaign facet from its path', async () => {
+        const name = `Koda — Trinity [${A}].jpg`
+        write(`2026/1. Op Trinity/Operation Trinity I/Saturday/${name}`)
+
+        const docs: Doc[] = [{
+            _id: A,
+            storageKey: `content:2026/23. Op New Winter/${name}`,   // stale — the file moved
+            caption: 'Trinity', tags: [], up: 0, down: 0,
+            year: '2026', operation: '23. Op New Winter',
+        }]
+        const ops: Doc[] = [{ _id: OP_ID, title: 'OPERATION Trinity I — Sat', date: new Date('2026-05-16T09:00:00Z') }]
+
+        const report = await reconcile(deps(docs, ops))
+
+        expect(report.matchedById).toBe(1)
+        expect(report.missingFiles).toEqual([])
+        expect(docs[0].storageKey).toBe(`content:2026/1. Op Trinity/Operation Trinity I/Saturday/${name}`)
+        expect(docs[0].campaign).toBe('1. Op Trinity')
+        expect(docs[0].operation).toBe('Operation Trinity I')
+        expect(docs[0].mission).toBe('Saturday')
+        // operationFor() matches on the level above the day folder, which for
+        // a campaign item is the campaign MISSION — and "Operation Trinity I"
+        // normalises to the same key as the operation titled
+        // "OPERATION Trinity I — Sat".
+        expect(docs[0].operationId).toEqual(OP_ID)
+    })
+
+    /* Out of a campaign folder and into a plain operation folder. The disk is
+       the source of truth on this side, so the document must stop claiming the
+       campaign — the same rule `operation` and `mission` have always followed,
+       and the reason each of them is written-or-unset rather than only
+       written. */
+    test('a file dragged out of a campaign folder loses the campaign facet', async () => {
+        const name = `Koda — Trinity [${A}].jpg`
+        write(`2026/9. Op Elsewhere/${name}`)
+
+        const docs: Doc[] = [{
+            _id: A,
+            storageKey: `content:2026/1. Op Trinity/Operation Trinity I/Saturday/${name}`,
+            year: '2026', campaign: '1. Op Trinity', operation: 'Operation Trinity I', mission: 'Saturday',
+        }]
+
+        await reconcile(deps(docs, []))
+
+        expect(docs[0].storageKey).toBe(`content:2026/9. Op Elsewhere/${name}`)
+        expect('campaign' in docs[0]).toBe(false)
+        expect(docs[0].operation).toBe('9. Op Elsewhere')
+        expect('mission' in docs[0]).toBe(false)
+    })
+
     // Everything scripts/index-gallery.mjs has written so far is keyed
     // `legacy:`. Matching only `content:` would report every record in the
     // archive missing and every file not-indexed on the same pass.

@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { logAction } from '@/lib/logAction'
+import { galleryDeps } from '@/lib/gallery/deps'
 import { operationFacets, type OperationFacetUpdate } from '@/lib/gallery/operation-facets'
 import { relocateMedia } from '@/lib/gallery/relocate'
 import { resolveStorageKey } from '@/lib/gallery/paths'
@@ -150,7 +151,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         // One validator for both branches, so "No such operation" means the
         // same thing whether or not the item has a file behind it.
         const facets = await operationFacets(
-            { media: Db.galleryMedia, operations: Db.operations },
+            galleryDeps(),
             operationId === null || operationId === 'unknown' ? 'unknown' : String(operationId),
         )
         if (!facets) return NextResponse.json({ error: 'No such operation' }, { status: 400 })
@@ -188,7 +189,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
        repair. */
     if (relocating) {
         try {
-            const result = await relocateMedia({ media: Db.galleryMedia, operations: Db.operations }, _id)
+            const result = await relocateMedia(galleryDeps(), _id)
             if (!result && pendingFacets) {
                 // relocateMedia found no file behind doc.storageKey and returned
                 // without writing anything — `relocating` above only checked that

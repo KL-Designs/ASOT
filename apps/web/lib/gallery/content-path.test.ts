@@ -27,19 +27,19 @@ describe('sanitizeSegment', () => {
 describe('parseContentPath', () => {
     test('four segments — a legacy file with a mission', () => {
         expect(parseContentPath('2021/4. Op Silent Ridge/I/arma3_01.png')).toEqual({
-            year: '2021', operation: '4. Op Silent Ridge', mission: 'I', file: 'arma3_01.png',
+            year: '2021', campaign: null, operation: '4. Op Silent Ridge', mission: 'I', file: 'arma3_01.png',
         })
     })
 
     test('three segments — a published submission with no mission', () => {
         expect(parseContentPath('2026/23. Op New Winter/Koda [6a93].mp4')).toEqual({
-            year: '2026', operation: '23. Op New Winter', mission: null, file: 'Koda [6a93].mp4',
+            year: '2026', campaign: null, operation: '23. Op New Winter', mission: null, file: 'Koda [6a93].mp4',
         })
     })
 
     test('two segments under Unknown', () => {
         expect(parseContentPath('Unknown/Reaper.jpg')).toEqual({
-            year: null, operation: null, mission: null, file: 'Reaper.jpg',
+            year: null, campaign: null, operation: null, mission: null, file: 'Reaper.jpg',
         })
     })
 
@@ -47,13 +47,13 @@ describe('parseContentPath', () => {
     // Unknown" — a human reorganising a backup can nest a folder under it.
     test('a folder nested under Unknown is the operation, not the year', () => {
         expect(parseContentPath('Unknown/SomeFolder/x.jpg')).toEqual({
-            year: null, operation: 'SomeFolder', mission: null, file: 'x.jpg',
+            year: null, campaign: null, operation: 'SomeFolder', mission: null, file: 'x.jpg',
         })
     })
 
     test('two folders nested under Unknown is operation and mission, still no year', () => {
         expect(parseContentPath('Unknown/SomeFolder/Mission/x.jpg')).toEqual({
-            year: null, operation: 'SomeFolder', mission: 'Mission', file: 'x.jpg',
+            year: null, campaign: null, operation: 'SomeFolder', mission: 'Mission', file: 'x.jpg',
         })
     })
 
@@ -62,7 +62,35 @@ describe('parseContentPath', () => {
     // than dropping the file.
     test('two segments under a year', () => {
         expect(parseContentPath('2021/loose.jpg')).toEqual({
-            year: '2021', operation: null, mission: null, file: 'loose.jpg',
+            year: '2021', campaign: null, operation: null, mission: null, file: 'loose.jpg',
+        })
+    })
+
+    test('five segments — a campaign mission with a day folder', () => {
+        expect(parseContentPath('2026/1. Op Trinity/Operation Trinity I/Saturday/Koda [6a93].jpg')).toEqual({
+            year: '2026',
+            campaign: '1. Op Trinity',
+            operation: 'Operation Trinity I',
+            mission: 'Saturday',
+            file: 'Koda [6a93].jpg',
+        })
+    })
+
+    /* The ambiguity parseContentPath resolves in favour of the legacy tree. A
+       campaign mission whose operation has no day slot writes exactly this
+       shape, and so does every one of the archive's thousands of legacy files;
+       nothing in the path tells them apart, so the reading that is correct for
+       the archive wins and no campaign is invented for a folder that is far
+       more likely to be an operation. Pinned so the choice cannot be reversed
+       by accident — reading dirs[1] as a campaign here would relabel the whole
+       legacy tree on the next reconcile. */
+    test('three folders stay operation and mission — a campaign is never read out of an ambiguous depth', () => {
+        expect(parseContentPath('2026/1. Op Trinity/Operation Trinity I/Koda [6a93].jpg')).toEqual({
+            year: '2026',
+            campaign: null,
+            operation: '1. Op Trinity',
+            mission: 'Operation Trinity I',
+            file: 'Koda [6a93].jpg',
         })
     })
 
@@ -79,7 +107,10 @@ describe('parseContentPath', () => {
             'x.jpg',
             '',
             '/',
+            // Six segments: one level deeper than the campaign grammar can
+            // produce, so it is malformed rather than lenient.
             '2021/a/b/c/d/x.jpg',
+            '2021/1. Op Trinity/Mission I/Saturday/../../../.env',
         ]) {
             expect(parseContentPath(bad), bad).toBeNull()
         }
@@ -93,15 +124,26 @@ describe('parseContentPath', () => {
 describe('buildContentPath', () => {
     test('round-trips each shape', () => {
         for (const f of [
-            { year: '2021', operation: '4. Op Silent Ridge', mission: 'I', file: 'x.png' },
-            { year: '2026', operation: '23. Op New Winter', mission: null, file: 'y.mp4' },
+            { year: '2021', campaign: null, operation: '4. Op Silent Ridge', mission: 'I', file: 'x.png' },
+            { year: '2026', campaign: null, operation: '23. Op New Winter', mission: null, file: 'y.mp4' },
+            { year: '2026', campaign: '1. Op Trinity', operation: 'Operation Trinity I', mission: 'Saturday', file: 'z.jpg' },
+            { year: '2026', campaign: null, operation: '5. Op Lone Wolf', mission: 'Sunday', file: 'w.jpg' },
         ]) {
             expect(parseContentPath(buildContentPath(f))).toEqual(f)
         }
     })
 
+    /* A campaign with no operation beside it is the one shape that would break
+       the round-trip above: `{year}/{campaign}/{file}` reads straight back as
+       an OPERATION named after the campaign. The Unknown guard is what makes
+       it unreachable, and this pins that rather than the guard's wording. */
+    test('a campaign with no operation is Unknown, never a two-folder path', () => {
+        expect(buildContentPath({ year: '2026', campaign: '1. Op Trinity', operation: null, file: 'y.jpg' }))
+            .toBe(`${UNKNOWN_FOLDER}/y.jpg`)
+    })
+
     test('no operation means Unknown, and the year is dropped with it', () => {
-        expect(buildContentPath({ year: '2026', operation: null, file: 'y.jpg' }))
+        expect(buildContentPath({ year: '2026', campaign: null, operation: null, file: 'y.jpg' }))
             .toBe(`${UNKNOWN_FOLDER}/y.jpg`)
         expect(buildContentPath({ file: 'y.jpg' })).toBe(`${UNKNOWN_FOLDER}/y.jpg`)
     })

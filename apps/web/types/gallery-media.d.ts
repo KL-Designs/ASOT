@@ -24,6 +24,8 @@ declare global {
 
         /**
          * Where the bytes are. The prefix names the directory.
+         *   'content:{year}/{campaign}/{mission}/{day}/{file}' -> a campaign mission
+         *   'content:{year}/{op}/{day}/{file}'      -> a single mission with a day slot
          *   'content:{year}/{op}/{mission}/{file}'  -> storage/gallery/content/...
          *   'content:{year}/{op}/{file}'            -> a published submission, no mission
          *   'content:Unknown/{file}'                -> no operation resolved
@@ -50,12 +52,23 @@ declare global {
         embedUrl?: string
 
         /**
-         * The folder-tree facets. All present on a migrated item; derived from
-         * the chosen operation on a new one, and all absent together when the
-         * submitter chose Unknown. `mission` only ever comes from the tree —
-         * new submissions have no mission.
+         * The folder-tree facets, one per level of the content path. All
+         * present on a migrated item; derived from the chosen operation on a
+         * new one, and all absent together when the submitter chose Unknown.
+         *
+         * `campaign` is the newest and the only optional-by-design one: an
+         * operation that belongs to one of J2's campaigns files under the
+         * campaign, and `operation` then names the CAMPAIGN MISSION rather than
+         * the operation. A single mission and every legacy archive item simply
+         * have no campaign, which is why adding the level needed no migration —
+         * year -> operation -> mission still describes them exactly.
+         *
+         * `mission` is `Saturday`/`Sunday` for anything filed under the new
+         * grammar (from `Operation.daySlot`), and the legacy archive's own
+         * mission folder for everything the migration indexed.
          */
         year?: string
+        campaign?: string
         operation?: string
         opLabel?: string
         mission?: string

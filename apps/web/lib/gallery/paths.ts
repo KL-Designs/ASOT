@@ -71,11 +71,15 @@ export function resolveStorageKey(key: string): string | null {
         if (!rest) return null
 
         const segments = rest.split('/')
-        // Two, three or four: Unknown/file, year/operation/file, and the
-        // original year/operation/mission/file. Empty segments are rejected
-        // rather than filtered, because here they mean a malformed key rather
-        // than a human's stray slash.
-        if (segments.length < 2 || segments.length > 4) return null
+        // Two to five: Unknown/file, year/operation/file, the original
+        // year/operation/mission/file, and year/campaign/mission/day/file. The
+        // cap has to move with content-path.ts's own — every gallery route
+        // resolves its bytes through here, so a cap left one level short would
+        // make every campaign item 404 while its database record looked
+        // perfectly healthy. Empty segments are rejected rather than filtered,
+        // because here they mean a malformed key rather than a human's stray
+        // slash.
+        if (segments.length < 2 || segments.length > 5) return null
         if (segments.some(s => !s || s === '.' || s === '..' || s.includes('\\'))) return null
 
         const resolved = path.resolve(CONTENT_DIR, ...segments)

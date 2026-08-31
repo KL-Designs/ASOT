@@ -10,6 +10,7 @@ import { logAction } from '@/lib/logAction'
 import { canTransition } from '@/lib/gallery/status'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 import { fetchEmbedPoster } from '@/lib/gallery/poster'
+import { galleryDeps } from '@/lib/gallery/deps'
 import { operationFacets } from '@/lib/gallery/operation-facets'
 import { relocateMedia } from '@/lib/gallery/relocate'
 
@@ -69,7 +70,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
        filter entries for what is really one operation. */
     if (operationId !== undefined) {
         const fields = await operationFacets(
-            { media: Db.galleryMedia, operations: Db.operations },
+            galleryDeps(),
             operationId === null ? 'unknown' : String(operationId),
         )
         if (!fields) return NextResponse.json({ error: 'No such operation' }, { status: 400 })
@@ -135,7 +136,7 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
        relocateMedia returns null for them without doing anything. */
     if (doc.source === 'upload') {
         try {
-            await relocateMedia({ media: Db.galleryMedia, operations: Db.operations }, doc._id)
+            await relocateMedia(galleryDeps(), doc._id)
         } catch (err) {
             console.error('[gallery] failed to file media into the content tree', id, err)
             return NextResponse.json({

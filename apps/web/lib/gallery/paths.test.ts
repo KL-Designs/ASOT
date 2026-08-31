@@ -13,6 +13,15 @@ describe('contentKey', () => {
 })
 
 describe('resolveStorageKey — content', () => {
+    /* The campaign grammar's own depth. Every gallery route resolves its bytes
+       through resolveStorageKey, so a cap left at four here would have made
+       every campaign item 404 while its database record looked perfectly
+       healthy — the failure would show as broken tiles, not as an error. */
+    test('five segments — a campaign mission under its day folder', () => {
+        expect(resolveStorageKey('content:2026/1. Op Trinity/Operation Trinity I/Saturday/x.jpg'))
+            .toBe(path.join(CONTENT_DIR, '2026', '1. Op Trinity', 'Operation Trinity I', 'Saturday', 'x.jpg'))
+    })
+
     test('four segments', () => {
         expect(resolveStorageKey('content:2021/4. Op Silent Ridge/I/x.png'))
             .toBe(path.join(CONTENT_DIR, '2021', '4. Op Silent Ridge', 'I', 'x.png'))
@@ -54,7 +63,9 @@ describe('resolveStorageKey — content', () => {
             'content:2021//x.png',
             'content:2021\\4. Op\\x.png',
             'content:x.png',
-            'content:a/b/c/d/e.png',
+            // Six: one level deeper than the campaign grammar can produce.
+            'content:a/b/c/d/e/f.png',
+            'content:2026/1. Op Trinity/Operation Trinity I/Saturday/../../../.env',
             'content:',
         ]) {
             expect(resolveStorageKey(bad), bad).toBeNull()

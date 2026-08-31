@@ -21,7 +21,7 @@ import { operationYear } from './relocate'
  *
  * Four rules, in this order:
  *   1. the filename carries `[id]` and that record exists -> match by id, and
- *      re-read year/operation/mission from the folders it now sits in;
+ *      re-read year/campaign/operation/mission from the folders it now sits in;
  *   2. no id, but the path is some record's storageKey    -> match by path
  *      (legacy files, which were never renamed);
  *   3. the file matches no record either way              -> report it;
@@ -237,14 +237,20 @@ export async function reconcile(deps: ReconcileDeps): Promise<ReconcileReport> {
     }[] = []
 
     /* Walked with an explicit depth cap rather than unbounded recursion: the
-       tree is at most year/operation/mission deep, and a symlink loop in a
+       tree is at most year/campaign/mission/day deep, and a symlink loop in a
        restored backup must not spin forever. (withFileTypes reports a symlink
        as neither a file nor a directory, so those are already skipped; the cap
-       is what survives a junction or bind mount that reports as a real one.) */
+       is what survives a junction or bind mount that reports as a real one.)
+
+       The cap moves with the grammar, and silently: a cap of 3 against a
+       four-directory campaign path does not report those files as unreadable
+       or not-indexed, it never descends into the day folder at all — so every
+       campaign item would be reported as a missing file by rule 4, in front of
+       a human holding a delete button. */
     walk(contentDir, [], 0)
 
     function walk(dir: string, trail: string[], depth: number): void {
-        if (depth > 3) return
+        if (depth > 4) return
 
         let entries: Dirent[]
         try {
@@ -358,6 +364,15 @@ export async function reconcile(deps: ReconcileDeps): Promise<ReconcileReport> {
         const unset: Record<string, ''> = {}
 
         if (item.facets.year) set.year = item.facets.year; else unset.year = ''
+        /* Written from the path like every other facet here, because on this
+           side the DISK is the source of truth. A file a human dragged out of
+           a campaign folder and into a plain operation folder has been taken
+           out of that campaign, and the document must stop claiming it — the
+           same reasoning `operation` and `mission` have always used. Note that
+           a three-directory path never carries a campaign (see
+           parseContentPath): reading one back out of an ambiguous depth is the
+           one thing that could invent a campaign for an operation folder. */
+        if (item.facets.campaign) set.campaign = item.facets.campaign; else unset.campaign = ''
         if (item.facets.operation) {
             set.operation = item.facets.operation
             set.opLabel = splitOperation(item.facets.operation).label

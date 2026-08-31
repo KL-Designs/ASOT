@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { ObjectId } from 'mongodb'
+import type { WithId } from 'mongodb'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
@@ -50,10 +51,36 @@ function operationsFixture(ops: Record<string, unknown>[]) {
     }
 }
 
+/* J2's campaign organiser. Real OperationCampaign/CampaignMission values
+   rather than `as never` — both shapes are small enough to satisfy honestly,
+   and satisfying them is what makes the string-vs-ObjectId difference between
+   `CampaignMission.campaignId` and `Operation.campaignId` a fact the compiler
+   holds this fixture to. Empty by default: most tests here are about an
+   operation with no campaign, and an empty organiser is exactly that. */
+function campaignFixtures(campaigns: WithId<OperationCampaign>[] = [], missions: WithId<CampaignMission>[] = []) {
+    return {
+        campaigns: {
+            async findOne(filter: { _id: ObjectId }) {
+                return campaigns.find(c => c._id.equals(filter._id)) ?? null
+            },
+        },
+        campaignMissions: {
+            async findOne(filter: { _id: ObjectId }) {
+                return missions.find(m => m._id.equals(filter._id)) ?? null
+            },
+        },
+    }
+}
+
 /** operationFacets() never calls deps.media — resolveOperationFolder() only
- *  reads deps.operations and deps.contentDir — but RelocateDeps requires
- *  `media` structurally, so a stand-in that is never invoked is supplied. */
-function deps(ops: Record<string, unknown>[]): RelocateDeps {
+ *  reads deps.operations, deps.campaigns/campaignMissions and deps.contentDir
+ *  — but RelocateDeps requires `media` structurally, so a stand-in that is
+ *  never invoked is supplied. */
+function deps(
+    ops: Record<string, unknown>[],
+    campaigns: WithId<OperationCampaign>[] = [],
+    missions: WithId<CampaignMission>[] = [],
+): RelocateDeps {
     return {
         contentDir,
         media: {
@@ -61,6 +88,7 @@ function deps(ops: Record<string, unknown>[]): RelocateDeps {
             async updateOne() { return {} },
         },
         operations: operationsFixture(ops),
+        ...campaignFixtures(campaigns, missions),
     }
 }
 
@@ -198,7 +226,7 @@ describe('operationFacets agrees with relocateMedia', () => {
             } as Record<string, unknown>,
         }
         await relocateMedia(
-            { contentDir, mediaDir, media: mediaFixture(docs), operations: operationsFixture(ops) },
+            { contentDir, mediaDir, media: mediaFixture(docs), operations: operationsFixture(ops), ...campaignFixtures() },
             UPLOAD_ID,
         )
         const uploadDoc = docs[UPLOAD_ID.toString()]
@@ -226,7 +254,7 @@ describe('operationFacets agrees with relocateMedia', () => {
             } as Record<string, unknown>,
         }
         await relocateMedia(
-            { contentDir, mediaDir, media: mediaFixture(docs), operations: operationsFixture(ops) },
+            { contentDir, mediaDir, media: mediaFixture(docs), operations: operationsFixture(ops), ...campaignFixtures() },
             UPLOAD_ID,
         )
         const uploadDoc = docs[UPLOAD_ID.toString()]

@@ -9,6 +9,7 @@ import { STAGING_DIR } from '@/lib/gallery/paths'
 import { enqueue } from '@/lib/gallery/queue'
 import { checkFile, checkItemCount, kindForMime } from '@/lib/gallery/limits'
 import { parseEmbedUrl } from '@/lib/gallery/embeds'
+import { galleryDeps } from '@/lib/gallery/deps'
 import { operationFacets } from '@/lib/gallery/operation-facets'
 
 /**
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
        rejecting the upload outright over a stale option would throw away the
        bytes they just spent five minutes sending. */
     const facets = await operationFacets(
-        { media: Db.galleryMedia, operations: Db.operations },
+        galleryDeps(),
         field('operationId'),
     )
 

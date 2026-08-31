@@ -6,6 +6,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { logAction } from '@/lib/logAction'
+import { galleryDeps } from '@/lib/gallery/deps'
 import { operationFacets } from '@/lib/gallery/operation-facets'
 import { relocateMedia } from '@/lib/gallery/relocate'
 import { resolveStorageKey } from '@/lib/gallery/paths'
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
                     await Db.galleryMedia.updateOne({ _id }, opId
                         ? { $set: { operationId: opId } }
                         : { $unset: { operationId: '' } })
-                    await relocateMedia({ media: Db.galleryMedia, operations: Db.operations }, _id)
+                    await relocateMedia(galleryDeps(), _id)
                 } else {
                     /* No bytes — an embed, or a record whose transcode failed.
                        relocateMedia returns null for it without doing
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
                        before the loop so an embed sees any folder an upload
                        earlier in this same selection has just created. */
                     const facets = await operationFacets(
-                        { media: Db.galleryMedia, operations: Db.operations },
+                        galleryDeps(),
                         opId ? opId.toString() : 'unknown',
                     )
                     if (!facets) {
