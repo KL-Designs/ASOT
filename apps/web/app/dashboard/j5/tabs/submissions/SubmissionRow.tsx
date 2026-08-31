@@ -1,24 +1,15 @@
 'use client'
 
-import { Autocomplete, Chip, CircularProgress, TextField, Typography } from '@mui/material'
+import { CircularProgress, Typography } from '@mui/material'
 import { Done, Close, OpenInFull, Warning } from '@mui/icons-material'
 
+import { TextArea } from '@/app/dashboard/j5/controls/Field'
+import { Select } from '@/app/dashboard/j5/controls/Select'
+import { TagPicker } from '@/app/dashboard/j5/controls/TagPicker'
 import { embedIframeSrc } from '@/lib/gallery/embeds'
 import type { OperationOption, PatchFields, PendingItem, Tag } from './useSubmissions'
 import s from '@/styles/j5-console.module.css'
 import c from '@/styles/j5-controls.module.css'
-
-const inputSx = {
-    '& .MuiOutlinedInput-root': {
-        borderRadius: 0,
-        fontSize: '0.78rem',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
-        '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
-    },
-    '& .MuiInputLabel-root': { fontSize: '0.78rem' },
-    '& .MuiInputLabel-root.Mui-focused': { color: 'var(--red)' },
-}
 
 function formatDuration(totalSec: number): string {
     const m = Math.floor(totalSec / 60)
@@ -79,6 +70,11 @@ export default function SubmissionRow({ item, tags, operations, saveState, busy,
 }) {
     const opValue = item.operationId ?? 'unknown'
     const operationOptions = [{ id: 'unknown', title: 'Unknown', date: null }, ...operations]
+    /* Filtered against the live vocabulary, so a slug that has since been
+       retired is not shown — and, because this is also what an edit sends
+       back, is dropped from the item by the next patch. Kept exactly as the
+       Autocomplete had it: whether that is right is a question about the
+       queue's behaviour, not about which control draws it. */
     const selectedTags = tags.filter(t => item.tags.includes(t.slug))
 
     // Publishing an item with nothing behind it is exactly the failure the
@@ -122,42 +118,36 @@ export default function SubmissionRow({ item, tags, operations, saveState, busy,
                     </div>
                 )}
 
-                <TextField
+                <TextArea
                     className={s.wide}
                     label='Caption'
                     value={item.caption}
-                    onChange={e => onPatch({ caption: e.target.value })}
-                    multiline
-                    minRows={2}
-                    size='small'
-                    fullWidth
-                    sx={inputSx}
+                    onChange={caption => onPatch({ caption })}
+                    rows={2}
                 />
 
-                <Autocomplete
-                    size='small'
-                    options={operationOptions}
-                    getOptionLabel={o => o.title}
-                    isOptionEqualToValue={(o, v) => o.id === v.id}
-                    value={operationOptions.find(o => o.id === opValue) ?? null}
-                    onChange={(_, v) => onPatch({ operationId: v?.id ?? 'unknown' })}
-                    renderInput={params => <TextField {...params} label='Operation' sx={inputSx} />}
+                <Select
+                    label='Operation'
+                    searchable
+                    value={opValue}
+                    onChange={operationId => onPatch({ operationId })}
+                    options={operationOptions.map(o => ({
+                        value: o.id,
+                        label: o.title,
+                        // The year, because operation titles repeat across
+                        // them — two "Op Storm"s a year apart are otherwise
+                        // the same row twice. 'unknown' has no date and so
+                        // carries no note.
+                        note: o.date ? String(new Date(o.date).getFullYear()) : undefined,
+                    }))}
                 />
 
-                <Autocomplete
-                    multiple
-                    size='small'
-                    options={tags}
-                    value={selectedTags}
-                    getOptionLabel={t => t.label}
-                    isOptionEqualToValue={(o, v) => o.slug === v.slug}
-                    onChange={(_, v) => onPatch({ tags: v.map(t => t.slug) })}
-                    renderInput={params => <TextField {...params} label='Tags' sx={inputSx} />}
-                    renderTags={(value, getTagProps) =>
-                        value.map((t, i) => (
-                            <Chip {...getTagProps({ index: i })} key={t.slug} label={t.label} size='small' sx={{ fontSize: '0.68rem', height: 20, borderRadius: '2px' }} />
-                        ))
-                    }
+                <TagPicker
+                    label='Tags'
+                    value={selectedTags.map(t => t.slug)}
+                    onChange={slugs => onPatch({ tags: slugs })}
+                    options={tags.map(t => t.slug)}
+                    labelFor={slug => tags.find(t => t.slug === slug)?.label ?? slug}
                 />
 
                 <Typography className={`${s.techline} ${s.wide}`}>{techline(item)}</Typography>

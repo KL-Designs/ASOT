@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { TextField, Typography, LinearProgress } from '@mui/material'
+import { Typography, LinearProgress } from '@mui/material'
 
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import { Field } from '@/app/dashboard/j5/controls/Field'
 import mc from '@/styles/media-console.module.css'
 import s from '@/styles/j5-console.module.css'
 import c from '@/styles/j5-controls.module.css'
@@ -26,21 +27,6 @@ import c from '@/styles/j5-controls.module.css'
    is gallery.manage-gated, and a J5 lead without gallery.manage would 403 on
    the very thing this tab exists for. See the route's own comment.
    ============================================================================ */
-
-const inputSx = {
-    '& .MuiOutlinedInput-root': {
-        borderRadius: 0,
-        fontSize: '0.82rem',
-        color: '#ededed',
-        background: 'rgba(255,255,255,0.04)',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
-        '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
-    },
-    '& .MuiInputLabel-root': { fontSize: '0.82rem', color: 'rgba(237,237,237,0.4)' },
-    '& .MuiInputLabel-root.Mui-focused': { color: 'var(--red)' },
-    '& .MuiInputBase-input': { color: '#ededed' },
-}
 
 function fmtDate(iso: string | null | undefined): string {
     if (!iso) return '—'
@@ -261,13 +247,12 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                     )}
 
                     <div className='flex gap-3 items-end flex-wrap mt-4'>
-                        <TextField
+                        <Field
                             label='Credit (photographer)'
                             value={credit}
-                            onChange={e => setCredit(e.target.value)}
-                            size='small'
-                            sx={{ ...inputSx, minWidth: 240 }}
+                            onChange={setCredit}
                             placeholder='e.g. Cpl. Smith'
+                            className='min-w-[240px]'
                         />
                         <button
                             type='button'

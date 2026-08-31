@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
+import { CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Typography } from '@mui/material'
 import { Done } from '@mui/icons-material'
 
+import { TextArea } from '@/app/dashboard/j5/controls/Field'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import Lightbox, { type LightboxItem } from '@/app/(landing)/gallery/_components/Lightbox'
@@ -11,16 +12,6 @@ import SubmissionRow from './SubmissionRow'
 import { useSubmissions, type PendingItem, type Tag } from './useSubmissions'
 import s from '@/styles/j5-console.module.css'
 import c from '@/styles/j5-controls.module.css'
-
-const inputSx = {
-    '& .MuiOutlinedInput-root': {
-        borderRadius: 0,
-        fontSize: '0.78rem',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
-        '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
-    },
-}
 
 function timeAgo(iso: string) {
     const diff  = Date.now() - new Date(iso).getTime()
@@ -202,16 +193,12 @@ export default function SubmissionsTab() {
                     <Typography fontSize='0.78rem' style={{ color: 'rgba(237,237,237,0.5)' }}>
                         The file is deleted and the submitter is notified with this reason. This cannot be undone.
                     </Typography>
-                    <TextField
+                    <TextArea
                         autoFocus
-                        fullWidth
-                        multiline
-                        minRows={2}
-                        size='small'
+                        rows={2}
                         label='Reason (required)'
                         value={rejectReason}
-                        onChange={e => setRejectReason(e.target.value)}
-                        sx={inputSx}
+                        onChange={setRejectReason}
                     />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>

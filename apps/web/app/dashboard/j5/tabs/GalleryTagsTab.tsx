@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Typography, TextField, IconButton, Tooltip } from '@mui/material'
+import { Typography, IconButton, Tooltip } from '@mui/material'
 import { Add, ArrowUpward, ArrowDownward, RestoreFromTrash, Delete, DragIndicator } from '@mui/icons-material'
 import {
     DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -11,24 +11,13 @@ import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-
 import { CSS } from '@dnd-kit/utilities'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import { planTagReorder, byTagOrder } from '@/lib/gallery/tag-order'
+import { Field } from '@/app/dashboard/j5/controls/Field'
 import c from '@/styles/j5-controls.module.css'
 
 /** `count` is only ever present for the manager this tab is gated to — see
  *  the route's own comment on why it's computed there rather than read from
  *  admin/facets. */
 type Tag = { id: string, slug: string, label: string, order: number, retired: boolean, count?: number }
-
-const inputSx = {
-    '& .MuiOutlinedInput-root': {
-        borderRadius: 0,
-        fontSize: '0.82rem',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
-        '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
-    },
-    '& .MuiInputLabel-root': { fontSize: '0.82rem' },
-    '& .MuiInputLabel-root.Mui-focused': { color: 'var(--red)' },
-}
 
 const rowStyle = {
     border: '1px solid rgba(219,0,29,0.08)',
@@ -91,13 +80,17 @@ function TagRow({ tag, index, total, busyId, reordering, renameValue, onRename, 
                     <ArrowDownward sx={{ fontSize: 14 }} />
                 </IconButton>
             </div>
-            <TextField
-                variant='standard'
+            {/* Unlabelled on purpose — the row is one tag, and an eyebrow over
+                every row would repeat "LABEL" down the whole vocabulary.
+                Enter blurs, which is what commits the rename; `currentTarget`
+                rather than `target` is the input this handler is bound to, so
+                it needs no cast to reach blur(). */}
+            <Field
                 value={renameValue}
-                onChange={e => onRename(e.target.value)}
+                onChange={onRename}
                 onBlur={onCommitRename}
-                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                sx={{ flex: 1, '& .MuiInput-input': { fontSize: '0.8rem' } }}
+                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                className='flex-1'
             />
             {/* The bar and the number both encode the same count — the bar is
                 what makes a glance across the whole list legible, the number
@@ -276,14 +269,15 @@ export default function GalleryTagsTab() {
                 </Typography>
             </div>
 
-            <div className='flex gap-2'>
-                <TextField
-                    size='small'
+            {/* items-end: the field's label sits above its box, so the Add
+                button lines up with the box rather than with the label. */}
+            <div className='flex gap-2 items-end'>
+                <Field
                     label='New tag label'
                     value={newLabel}
-                    onChange={e => setNewLabel(e.target.value)}
+                    onChange={setNewLabel}
                     onKeyDown={e => { if (e.key === 'Enter') addTag() }}
-                    sx={{ ...inputSx, flex: 1 }}
+                    className='flex-1'
                 />
                 <button type='button' className={`${c.btn} ${c.btnPrimary}`} disabled={adding || !newLabel.trim()} onClick={addTag}>
                     <Add sx={{ fontSize: 14, marginRight: '4px', verticalAlign: 'middle' }} />

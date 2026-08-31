@@ -69,7 +69,7 @@ export function Field({ label, value, onChange, placeholder, type = 'text', pref
 }
 
 /** The same box, grown for a caption or a note. */
-export function TextArea({ label, value, onChange, placeholder, rows = 3, error, disabled, onBlur, className }: {
+export function TextArea({ label, value, onChange, placeholder, rows = 3, error, disabled, autoFocus, onBlur, className }: {
     label?: string
     value: string
     onChange: (value: string) => void
@@ -77,6 +77,10 @@ export function TextArea({ label, value, onChange, placeholder, rows = 3, error,
     rows?: number
     error?: string
     disabled?: boolean
+    /** Mirrors Field's. A dialog whose only job is collecting one sentence —
+     *  the submissions queue's reject reason — put the cursor in the box on
+     *  open, and this is a control swap, not a change to how it behaves. */
+    autoFocus?: boolean
     onBlur?: () => void
     className?: string
 }) {
@@ -93,6 +97,7 @@ export function TextArea({ label, value, onChange, placeholder, rows = 3, error,
                     rows={rows}
                     placeholder={placeholder}
                     disabled={disabled}
+                    autoFocus={autoFocus}
                     aria-invalid={error ? true : undefined}
                     aria-errormessage={error ? `${id}-err` : undefined}
                     onChange={e => onChange(e.target.value)}

@@ -4,11 +4,12 @@ import { useState, useEffect, useRef, useCallback, memo } from 'react'
 import Image from 'next/image'
 import {
     Typography, Button, Checkbox,
-    Dialog, DialogTitle, DialogContent, DialogActions, TextField,
+    Dialog, DialogTitle, DialogContent, DialogActions,
     IconButton, Collapse, Tooltip, LinearProgress, CircularProgress,
 } from '@mui/material'
 import { Add, Delete, Upload, ExpandMore, ExpandLess, Done } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import { Field } from '@/app/dashboard/j5/controls/Field'
 
 const PREVIEW_SIZE = 320
 
@@ -493,7 +494,13 @@ export default function GalleryOperationsTab() {
                     {addContext?.type === 'year' ? 'Add Year' : addContext?.type === 'operation' ? 'Add Operation' : 'Add Stage'}
                 </DialogTitle>
                 <DialogContent>
-                    <TextField autoFocus fullWidth size='small' label={addContext?.type === 'year' ? 'Year (e.g. 2026)' : addContext?.type === 'operation' ? 'Operation name (e.g. 1. Op Storm)' : 'Stage name (e.g. III)'} value={addInput} onChange={e => setAddInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') createFolder() }} sx={{ mt: 0.5 }} />
+                    <Field
+                        autoFocus
+                        label={addContext?.type === 'year' ? 'Year (e.g. 2026)' : addContext?.type === 'operation' ? 'Operation name (e.g. 1. Op Storm)' : 'Stage name (e.g. III)'}
+                        value={addInput}
+                        onChange={setAddInput}
+                        onKeyDown={e => { if (e.key === 'Enter') createFolder() }}
+                    />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Button onClick={() => { setAddContext(null); setAddInput('') }} sx={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem' }}>Cancel</Button>
@@ -506,7 +513,18 @@ export default function GalleryOperationsTab() {
                 <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <Typography fontSize='0.82rem' style={{ color: 'rgba(237,237,237,0.65)' }}>This will permanently delete {deleteTarget?.label} and all its contents. This cannot be undone.</Typography>
                     <Typography fontSize='0.75rem' style={{ color: 'rgba(237,237,237,0.4)' }}>Type <span style={{ color: 'rgba(237,237,237,0.85)', fontFamily: 'monospace' }}>{deleteTarget?.name}</span> to confirm.</Typography>
-                    <TextField autoFocus fullWidth size='small' placeholder={deleteTarget?.name} value={deleteConfirmInput} onChange={e => setDeleteConfirmInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && deleteConfirmInput === deleteTarget?.name) deleteFolder() }} sx={{ '& .MuiOutlinedInput-root': { '& fieldset': { borderColor: 'rgba(219,0,29,0.42)' }, '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.5)' }, '&.Mui-focused fieldset': { borderColor: 'var(--red)' } } }} />
+                    {/* Labelled where the MUI field was not: the box only had
+                        the folder name as a placeholder, which disappears the
+                        moment anything is typed and left the control with no
+                        accessible name at all. */}
+                    <Field
+                        autoFocus
+                        label='Folder name'
+                        placeholder={deleteTarget?.name}
+                        value={deleteConfirmInput}
+                        onChange={setDeleteConfirmInput}
+                        onKeyDown={e => { if (e.key === 'Enter' && deleteConfirmInput === deleteTarget?.name) deleteFolder() }}
+                    />
                 </DialogContent>
                 <DialogActions sx={{ px: 3, pb: 2 }}>
                     <Button onClick={() => { setDeleteTarget(null); setDeleteConfirmInput('') }} sx={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem' }}>Cancel</Button>
