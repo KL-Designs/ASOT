@@ -27,6 +27,30 @@ export function splitOperation(folder: string): { label: string, order: number }
 }
 
 /**
+ * The operation name to SHOW for one piece of media.
+ *
+ * `opLabel` is already the prefix-stripped form — every producer writes it as
+ * `splitOperation(folder).label` — so it is returned as it is rather than
+ * re-split, which would eat the leading digits of a name that legitimately
+ * starts with one. The RAW folder name is only ever the fallback, for a
+ * migrated document written before `opLabel` existed, and that is the one that
+ * still has to be stripped: without this, the J5 console showed
+ * "15. Op Black Hills" in the media table, the inspector and the viewer.
+ *
+ * A number in a folder name is a storage detail. Nothing user-facing prints
+ * it; the whole point of moving the ordering into the database is that it
+ * stopped being part of the name at all.
+ */
+export function operationDisplayName(
+    opLabel: string | null | undefined,
+    operation: string | null | undefined,
+): string | null {
+    if (opLabel) return opLabel
+    if (operation) return splitOperation(operation).label
+    return null
+}
+
+/**
  * Reduce a folder label or an operation title to a comparable core.
  *
  * The two sides are structurally different, not merely formatted differently:

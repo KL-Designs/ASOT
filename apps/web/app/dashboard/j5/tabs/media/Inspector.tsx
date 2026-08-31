@@ -8,6 +8,7 @@ import { TextArea } from '@/app/dashboard/j5/controls/Field'
 import { Select, type SelectOption } from '@/app/dashboard/j5/controls/Select'
 import { TagPicker } from '@/app/dashboard/j5/controls/TagPicker'
 import { embedIframeSrc } from '@/lib/gallery/embeds'
+import { operationDisplayName } from '@/lib/gallery/naming'
 import s from '@/styles/media-console.module.css'
 import c from '@/styles/j5-controls.module.css'
 
@@ -51,7 +52,9 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
     // database normalise to that folder. `unlinkedName` is that name, only
     // when there is no link to show instead; it drives both the select's
     // starting value below and the extra option that displays it.
-    const unlinkedName = !item.operationId ? (item.opLabel || item.operation) : null
+    // Through operationDisplayName so a migrated item that has only the raw
+    // folder name shows "Op Black Hills", never "15. Op Black Hills".
+    const unlinkedName = !item.operationId ? operationDisplayName(item.opLabel, item.operation) : null
 
     const [caption, setCaption] = useState(item.caption ?? '')
     /* The pair, never one of them: `authorId` decides who can see this item

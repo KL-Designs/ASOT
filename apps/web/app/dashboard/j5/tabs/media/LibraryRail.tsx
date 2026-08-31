@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+import { splitOperation } from '@/lib/gallery/naming'
 import type { LibraryView } from '@/lib/gallery/library-query'
 import s from '@/styles/media-console.module.css'
 
@@ -189,7 +190,15 @@ export default function LibraryRail({ facets, view, year, yearUnset, campaign, c
                                         }}
                                     >
                                         <span className={s.caret}>{openCampaigns.has(cKey) ? '▾' : '▸'}</span>
-                                        {c.campaign}
+                                        {/* The stripped label, like the
+                                            operation row above already does:
+                                            a campaign folder minted before
+                                            this change is named
+                                            "1. Op Trinity", and the number is
+                                            a storage detail. The click above
+                                            still sends the RAW name, which is
+                                            what the filter keys on. */}
+                                        {splitOperation(c.campaign).label}
                                         <span className={s.count}>{n(c.count)}</span>
                                     </button>
 

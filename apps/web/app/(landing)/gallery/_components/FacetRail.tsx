@@ -4,6 +4,7 @@ import React from 'react'
 
 import { CheckIcon, ChevronDown } from './icons'
 import { matches, type Facet, type Filters, type Photo } from '../gallery-data'
+import { operationDisplayName } from '@/lib/gallery/naming'
 import s from '@/styles/gallery.module.css'
 
 /* ============================================================================
@@ -95,7 +96,10 @@ export default function FacetRail({ photos, filters, tags, onToggle }: {
         // milliseconds now (see /api/gallery/route.ts), not the folder's
         // leading number, which new folders no longer carry.
         .sort((a, b) => a.opOrder - b.opOrder || (a.opLabel ?? '').localeCompare(b.opLabel ?? ''))
-        .map(p => ({ value: p.operation, label: p.opLabel ?? p.operation, count: opCounts.get(p.operation) ?? 0 }))
+        // The VALUE stays the raw folder name — it is what the filter keys on
+        // — while the LABEL is the prefix-stripped form, so a legacy folder
+        // never shows as "15. Op Black Hills" in the rail.
+        .map(p => ({ value: p.operation, label: operationDisplayName(p.opLabel, p.operation) ?? p.operation, count: opCounts.get(p.operation) ?? 0 }))
 
     /*
        Mission only exists inside an operation.

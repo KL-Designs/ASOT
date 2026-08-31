@@ -4,6 +4,7 @@ import type { Filter } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
+import { splitOperation } from '@/lib/gallery/naming'
 
 /**
  * The Media tab's left rail.
@@ -114,10 +115,17 @@ export async function GET() {
     for (const row of tree) {
         const yearKey = row._id.year ?? UNSET
         const opKey = row._id.operation ?? UNSET
-        // Falls back to the operation's own display value (not a hardcoded
-        // 'Unknown') so a literal-'Unknown' operation with no opLabel still
-        // shows 'Unknown' rather than the control-character key leaking out.
-        const opLabel = row._id.opLabel ?? (opKey === UNSET ? 'Unknown' : opKey)
+        /* Falls back to the operation's own display value (not a hardcoded
+           'Unknown') so a literal-'Unknown' operation with no opLabel still
+           shows 'Unknown' rather than the control-character key leaking out.
+
+           That fallback is a FOLDER name, so it goes through splitOperation:
+           a legacy folder carries the storage layer's order prefix, and this
+           row is what the console's rail prints. `opLabel` itself is already
+           the stripped form (every producer writes splitOperation(...).label)
+           and is deliberately not re-split, which would eat the leading digits
+           of a name that legitimately starts with one. */
+        const opLabel = row._id.opLabel ?? (opKey === UNSET ? 'Unknown' : splitOperation(opKey).label)
 
         const year = years.get(yearKey) ?? { campaigns: new Map<string, OpMap>(), operations: new Map() }
         years.set(yearKey, year)

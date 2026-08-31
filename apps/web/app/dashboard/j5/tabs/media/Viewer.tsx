@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 
+import { operationDisplayName } from '@/lib/gallery/naming'
 import s from '@/styles/media-console.module.css'
 import c from '@/styles/j5-controls.module.css'
 
@@ -107,7 +108,9 @@ export default function Viewer({ items, index, onIndex, onClose }: {
     }
 
     const caption = item.caption || 'Untitled'
-    const operation = item.opLabel || item.operation || 'Unknown operation'
+    // Not the raw folder name: it carries the order prefix on every legacy
+    // item, and a number in a folder name is a storage detail.
+    const operation = operationDisplayName(item.opLabel, item.operation) || 'Unknown operation'
 
     return (
         <div

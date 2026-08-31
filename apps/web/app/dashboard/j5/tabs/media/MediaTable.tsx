@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { LibrarySort } from '@/lib/gallery/library-query'
+import { operationDisplayName } from '@/lib/gallery/naming'
 import { useRangeSelect } from './selection'
 import s from '@/styles/media-console.module.css'
 
@@ -217,7 +218,7 @@ function Row({ item, on, onClick, onCaptionSaved }: {
        an operation record at all, and 'Unknown' is a word two different
        things legitimately produce (see Inspector's UNLINKED comment). The
        column says which of the two this row is. */
-    const unlinkedName = !item.operationId ? (item.opLabel || item.operation) : null
+    const unlinkedName = !item.operationId ? operationDisplayName(item.opLabel, item.operation) : null
     const label = item.caption || item.opLabel || 'untitled media'
 
     return (
@@ -273,8 +274,13 @@ function Row({ item, on, onClick, onCaptionSaved }: {
                 )}
             </td>
             <td>
+                {/* Both branches go through operationDisplayName: the raw
+                    `operation` fallback is a FOLDER name, and a legacy folder
+                    carries the storage layer's order prefix. This column read
+                    "15. Op Black Hills" for every migrated item with no
+                    opLabel. */}
                 {item.operationId
-                    ? (item.opLabel || item.operation || <span className={s.muted}>Unknown</span>)
+                    ? (operationDisplayName(item.opLabel, item.operation) || <span className={s.muted}>Unknown</span>)
                     : unlinkedName
                         ? <>{unlinkedName} <span className={s.muted}>— from folder, not linked</span></>
                         : <span className={s.muted}>Unknown</span>}

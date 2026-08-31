@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { findByOperationKey, fullKey, splitOperation, strippedKey } from './naming'
+import { findByOperationKey, fullKey, operationDisplayName, splitOperation, strippedKey } from './naming'
 
 describe('splitOperation', () => {
     test('strips a numeric prefix and keeps it for sorting', () => {
@@ -31,6 +31,33 @@ describe('splitOperation', () => {
 
     test('trims surrounding whitespace', () => {
         expect(splitOperation('  3.  Op Ash  ')).toEqual({ label: 'Op Ash', order: 3 })
+    })
+})
+
+describe('operationDisplayName', () => {
+    /* A number in a folder name is a storage detail, and every surface that
+       fell back to the raw folder printed it: the J5 media table, the
+       inspector, the viewer and the public facet rail all showed
+       "15. Op Black Hills" for a migrated item that has no opLabel. */
+    test('strips the order prefix off the raw folder fallback', () => {
+        expect(operationDisplayName(null, '15. Op Black Hills')).toBe('Op Black Hills')
+        expect(operationDisplayName(undefined, '9. Op Copper Ridge (Lanze Verde)'))
+            .toBe('Op Copper Ridge (Lanze Verde)')
+    })
+
+    /* opLabel is ALREADY the stripped form — every producer writes it as
+       splitOperation(folder).label — so re-splitting it would be a second bite
+       at a name that has none left to give, and would eat the leading digits
+       of an operation that legitimately starts with one. */
+    test('returns opLabel untouched rather than splitting it twice', () => {
+        expect(operationDisplayName('Op Black Hills', '15. Op Black Hills')).toBe('Op Black Hills')
+        expect(operationDisplayName('1st Recon Sweep', null)).toBe('1st Recon Sweep')
+    })
+
+    test('an empty label falls through to the folder, and no name at all is null', () => {
+        expect(operationDisplayName('', 'Op Unnumbered')).toBe('Op Unnumbered')
+        expect(operationDisplayName(null, null)).toBeNull()
+        expect(operationDisplayName(undefined, undefined)).toBeNull()
     })
 })
 
