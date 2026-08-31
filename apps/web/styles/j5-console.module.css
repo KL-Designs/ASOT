@@ -59,6 +59,10 @@
 .techline {
     font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em;
     color: rgba(237, 237, 237, 0.38);
+    /* The element is a <p> now, and a browser's default paragraph margin would
+       push the row's own padding out by a line. MUI's Typography was resetting
+       this for us; owning the element means owning that too. */
+    margin: 0;
 }
 .warn { color: var(--amber); font-size: 12px; line-height: 1.6; }
 

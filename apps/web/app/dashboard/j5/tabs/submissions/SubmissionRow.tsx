@@ -1,6 +1,6 @@
 'use client'
 
-import { CircularProgress, Typography } from '@mui/material'
+import { CircularProgress } from '@mui/material'
 import { Done, Close, OpenInFull, Warning } from '@mui/icons-material'
 
 import { TextArea } from '@/app/dashboard/j5/controls/Field'
@@ -150,7 +150,12 @@ export default function SubmissionRow({ item, tags, operations, saveState, busy,
                     labelFor={slug => tags.find(t => t.slug === slug)?.label ?? slug}
                 />
 
-                <Typography className={`${s.techline} ${s.wide}`}>{techline(item)}</Typography>
+                {/* A plain <p>, not MUI's Typography: Typography's emotion styles
+                    land after this stylesheet, so its body1 default (1rem) beat
+                    .techline's 10px and the line rendered at kicker size. Every
+                    other control on these tabs is already off MUI for the same
+                    class of reason. */}
+                <p className={`${s.techline} ${s.wide}`}>{techline(item)}</p>
             </div>
 
             <div className={s.actions}>
