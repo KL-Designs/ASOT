@@ -136,6 +136,30 @@ describe('resolveOperationFolder', () => {
         expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: '2021', campaign: null, operation: '4. Op Silent Ridge', mission: null })
     })
 
+    /* The claim the whole "no prefix on new folders" change rests on, pinned
+       rather than assumed: matching goes through splitOperation(folder).label,
+       which strips "15. " BEFORE comparing, so an operation whose photographs
+       already live in a numbered legacy folder still resolves to that folder.
+       Get this wrong and every one of the archive's numbered folders gains an
+       unnumbered twin the first time someone submits a photograph for it —
+       two folders holding one operation, which is the split facet rail this
+       subsystem exists to prevent.
+
+       The second assertion is the same operation asked twice with the folder
+       now gone: only THEN is a name minted, and it is the unnumbered one. */
+    test('an operation whose folder is already numbered reuses it rather than minting an unnumbered twin', async () => {
+        mkdirSync(join(contentDir, '2021', '15. Op Black Hills'), { recursive: true })
+        const d = deps({}, [{ _id: OP_ID, title: 'OPERATION Black Hills', date: new Date('2021-04-10T09:00:00Z') }])
+
+        expect(await resolveOperationFolder(d, OP_ID))
+            .toEqual({ year: '2021', campaign: null, operation: '15. Op Black Hills', mission: null })
+        expect(readdirSync(join(contentDir, '2021'))).toEqual(['15. Op Black Hills'])
+
+        rmSync(join(contentDir, '2021', '15. Op Black Hills'), { recursive: true })
+        expect(await resolveOperationFolder(d, OP_ID))
+            .toEqual({ year: '2021', campaign: null, operation: 'Op Black Hills', mission: null })
+    })
+
     /* Final review, important 5: the archive's two parenthetical folders sit
        beside operations whose titles do not repeat the parenthetical.
        Matching only on the full key could not see either, so accepting a
@@ -169,17 +193,17 @@ describe('resolveOperationFolder', () => {
             .toEqual({ year: '2021', campaign: null, operation: '9. Op Copper Ridge (Lanze Verde)', mission: null })
     })
 
-    test('creates the next numbered folder name when nothing matches', async () => {
+    test('mints an unnumbered folder when nothing matches, beside folders that are numbered', async () => {
         mkdirSync(join(contentDir, '2021', '1. Op Armoured Spearhead'), { recursive: true })
         mkdirSync(join(contentDir, '2021', '7. Op Copper Ridge'), { recursive: true })
         const d = deps({}, [{ _id: OP_ID, title: 'OPERATION Brand New \u2014 Sun', date: new Date('2021-11-02T09:00:00Z') }])
 
-        expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: '2021', campaign: null, operation: '8. Op Brand New', mission: null })
+        expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: '2021', campaign: null, operation: 'Op Brand New', mission: null })
     })
 
-    test('a year with no folders yet starts at 1', async () => {
+    test('an empty year mints a name that is the same on every call', async () => {
         const d = deps({}, [{ _id: OP_ID, title: 'OPERATION First \u2014 Sat', date: new Date('2027-01-09T09:00:00Z') }])
-        expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: '2027', campaign: null, operation: '1. Op First', mission: null })
+        expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: '2027', campaign: null, operation: 'Op First', mission: null })
     })
 
     // year stays null — there is no date to file a year folder under — but
@@ -197,7 +221,7 @@ describe('resolveOperationFolder', () => {
         // January in any timezone ahead of UTC — exactly the case
         // operationYear() exists to pin down.
         const d = deps({}, [{ _id: OP_ID, title: 'OPERATION Boundary \u2014 Sun', date: new Date('2025-12-31T23:30:00Z') }])
-        expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: '2025', campaign: null, operation: '1. Op Boundary', mission: null })
+        expect(await resolveOperationFolder(d, OP_ID)).toEqual({ year: '2025', campaign: null, operation: 'Op Boundary', mission: null })
     })
 
     /* THE test for this change. The user linked media into three operations of
@@ -206,7 +230,7 @@ describe('resolveOperationFolder', () => {
        different titles that match nothing and each mint their own number.
        Resolving reads the disk, so each folder is created between calls exactly
        as relocateMedia's mkdir would. */
-    test('three missions of one campaign share one numbered campaign folder', async () => {
+    test('three missions of one campaign share one campaign folder', async () => {
         const SAT_1 = new ObjectId('6a8000000000000000000101')
         const SAT_2 = new ObjectId('6a8000000000000000000102')
         const SAT_3 = new ObjectId('6a8000000000000000000103')
@@ -225,19 +249,19 @@ describe('resolveOperationFolder', () => {
         ])
 
         expect(await resolveOperationFolder(d, SAT_1))
-            .toEqual({ year: '2026', campaign: '1. Op Trinity', operation: 'Operation Trinity I', mission: 'Saturday' })
-        mkdirSync(join(contentDir, '2026', '1. Op Trinity', 'Operation Trinity I', 'Saturday'), { recursive: true })
+            .toEqual({ year: '2026', campaign: 'Op Trinity', operation: 'Operation Trinity I', mission: 'Saturday' })
+        mkdirSync(join(contentDir, '2026', 'Op Trinity', 'Operation Trinity I', 'Saturday'), { recursive: true })
 
         expect(await resolveOperationFolder(d, SAT_2))
-            .toEqual({ year: '2026', campaign: '1. Op Trinity', operation: 'Operation Trinity II', mission: 'Saturday' })
-        mkdirSync(join(contentDir, '2026', '1. Op Trinity', 'Operation Trinity II', 'Saturday'), { recursive: true })
+            .toEqual({ year: '2026', campaign: 'Op Trinity', operation: 'Operation Trinity II', mission: 'Saturday' })
+        mkdirSync(join(contentDir, '2026', 'Op Trinity', 'Operation Trinity II', 'Saturday'), { recursive: true })
 
         expect(await resolveOperationFolder(d, SAT_3))
-            .toEqual({ year: '2026', campaign: '1. Op Trinity', operation: 'Operation Trinity III', mission: 'Saturday' })
+            .toEqual({ year: '2026', campaign: 'Op Trinity', operation: 'Operation Trinity III', mission: 'Saturday' })
 
         // The year holds exactly one top-level folder, which is the whole
         // point: before this, it held three.
-        expect(readdirSync(join(contentDir, '2026'))).toEqual(['1. Op Trinity'])
+        expect(readdirSync(join(contentDir, '2026'))).toEqual(['Op Trinity'])
     })
 
     test('the Sunday half of a campaign mission is a sibling of the Saturday half, not a second folder', async () => {
@@ -246,7 +270,7 @@ describe('resolveOperationFolder', () => {
             [campaignDoc('Operation Trinity')], [missionDoc(MISSION_ID, 'Operation Trinity I')])
 
         expect(await resolveOperationFolder(d, SUN))
-            .toEqual({ year: '2026', campaign: '1. Op Trinity', operation: 'Operation Trinity I', mission: 'Sunday' })
+            .toEqual({ year: '2026', campaign: 'Op Trinity', operation: 'Operation Trinity I', mission: 'Sunday' })
     })
 
     /* An operation J2 has attached to a campaign mission but not yet given a
@@ -257,7 +281,7 @@ describe('resolveOperationFolder', () => {
             [campaignDoc('Operation Trinity')], [missionDoc(MISSION_ID, 'Operation Trinity I')])
 
         expect(await resolveOperationFolder(d, OP_ID))
-            .toEqual({ year: '2026', campaign: '1. Op Trinity', operation: 'Operation Trinity I', mission: null })
+            .toEqual({ year: '2026', campaign: 'Op Trinity', operation: 'Operation Trinity I', mission: null })
     })
 
     test('a single mission with a day slot gets the day folder directly under its own folder', async () => {
@@ -266,7 +290,7 @@ describe('resolveOperationFolder', () => {
         }])
 
         expect(await resolveOperationFolder(d, OP_ID))
-            .toEqual({ year: '2026', campaign: null, operation: '1. Op Lone Wolf', mission: 'Saturday' })
+            .toEqual({ year: '2026', campaign: null, operation: 'Op Lone Wolf', mission: 'Saturday' })
     })
 
     // The field exists to mark an operation explicitly standalone, so it has
@@ -277,7 +301,7 @@ describe('resolveOperationFolder', () => {
             [campaignDoc('Operation Trinity')], [missionDoc(MISSION_ID, 'Operation Trinity I')])
 
         expect(await resolveOperationFolder(d, OP_ID))
-            .toEqual({ year: '2026', campaign: null, operation: '1. Op Trinity I', mission: 'Saturday' })
+            .toEqual({ year: '2026', campaign: null, operation: 'Op Trinity I', mission: 'Saturday' })
     })
 
     /* Each of these is a stale link, not an error: the media still has to be
@@ -287,7 +311,7 @@ describe('resolveOperationFolder', () => {
        campaign level ever added. */
     test('a deleted campaign and a campaign that resolves to nothing both file as single missions', async () => {
         const op = campaignOp(OP_ID, 'OPERATION Trinity I — Sat', MISSION_ID, 'saturday')
-        const single = { year: '2026', campaign: null, operation: '1. Op Trinity I', mission: 'Saturday' }
+        const single = { year: '2026', campaign: null, operation: 'Op Trinity I', mission: 'Saturday' }
 
         // The campaign is gone.
         expect(await resolveOperationFolder(
@@ -329,18 +353,18 @@ describe('resolveOperationFolder', () => {
            top folder, which is the only reading buildContentPath can emit and
            parseContentPath can read back unchanged. See
            resolveOperationFolder's own comment. */
-        const expected = { year: '2026', campaign: null, operation: '1. Op Trinity', mission: 'Saturday' }
+        const expected = { year: '2026', campaign: null, operation: 'Op Trinity', mission: 'Saturday' }
         expect(await resolveOperationFolder(d, SAT_1)).toEqual(expected)
-        mkdirSync(join(contentDir, '2026', '1. Op Trinity', 'Saturday'), { recursive: true })
+        mkdirSync(join(contentDir, '2026', 'Op Trinity', 'Saturday'), { recursive: true })
 
         expect(await resolveOperationFolder(d, SAT_2)).toEqual(expected)
         expect(await resolveOperationFolder(d, SUN_1))
-            .toEqual({ year: '2026', campaign: null, operation: '1. Op Trinity', mission: 'Sunday' })
+            .toEqual({ year: '2026', campaign: null, operation: 'Op Trinity', mission: 'Sunday' })
 
         // One folder for the campaign, not one per mission. Before this
         // change the three calls returned '1. Op Trinity I', '2. Op Trinity II'
         // and '3. Op Trinity I' and the year held three directories.
-        expect(readdirSync(join(contentDir, '2026'))).toEqual(['1. Op Trinity'])
+        expect(readdirSync(join(contentDir, '2026'))).toEqual(['Op Trinity'])
     })
 
     /* The mission is never reconstructed from the title. board.ts's detectRoman
@@ -352,7 +376,7 @@ describe('resolveOperationFolder', () => {
             [campaignDoc('Operation Trinity')], [])
 
         expect(await resolveOperationFolder(d, OP_ID))
-            .toEqual({ year: '2026', campaign: null, operation: '1. Op Trinity', mission: null })
+            .toEqual({ year: '2026', campaign: null, operation: 'Op Trinity', mission: null })
     })
 
     /* Each of these is an unusable MISSION beside a known-good campaign, and
@@ -363,7 +387,7 @@ describe('resolveOperationFolder', () => {
     test('a deleted mission, a missing mission, a mismatched one and a half-linked operation all file under the campaign with no mission level', async () => {
         const OTHER_CAMPAIGN = new ObjectId('6a8000000000000000000099')
         const op = campaignOp(OP_ID, 'OPERATION Trinity I — Sat', MISSION_ID, 'saturday')
-        const campaignOnly = { year: '2026', campaign: null, operation: '1. Op Trinity', mission: 'Saturday' }
+        const campaignOnly = { year: '2026', campaign: null, operation: 'Op Trinity', mission: 'Saturday' }
 
         // The mission is gone.
         expect(await resolveOperationFolder(
@@ -406,7 +430,7 @@ describe('resolveOperationFolder', () => {
             [campaignDoc('Operation Trinity')], [])
 
         expect(await resolveOperationFolder(d, OP_ID))
-            .toEqual({ year: '2026', campaign: null, operation: '1. Op Trinity I', mission: 'Saturday' })
+            .toEqual({ year: '2026', campaign: null, operation: 'Op Trinity I', mission: 'Saturday' })
     })
 
     /* A campaign name is free text from the J2 dashboard, and it now reaches a
@@ -420,15 +444,15 @@ describe('resolveOperationFolder', () => {
         expect(await resolveOperationFolder(
             deps({}, [op], [campaignDoc('..')], [missionDoc(MISSION_ID, 'Operation Trinity I')]),
             OP_ID,
-        )).toEqual({ year: '2026', campaign: null, operation: '1. Op Trinity I', mission: 'Saturday' })
+        )).toEqual({ year: '2026', campaign: null, operation: 'Op Trinity I', mission: 'Saturday' })
 
         const slashed = await resolveOperationFolder(
             deps({}, [op], [campaignDoc('Trinity/../..')], [missionDoc(MISSION_ID, '../Escape')]),
             OP_ID,
         )
         // 'Trinity/../..' loses its separators to ILLEGAL and its trailing dots
-        // to the final trim, leaving a plain folder name to be numbered.
-        expect(slashed.campaign).toBe('1. Trinity')
+        // to the final trim, leaving a plain folder name.
+        expect(slashed.campaign).toBe('Trinity')
         expect(slashed.operation).toBe('..Escape')
         for (const segment of [slashed.campaign, slashed.operation]) {
             expect(segment).not.toContain('/')
@@ -654,13 +678,13 @@ describe('relocateMedia', () => {
 
         const result = await relocateMedia({ ...d, mediaDir: flat }, MEDIA_ID)
 
-        const expected = `2026/1. Op Trinity/Operation Trinity I/Saturday/Koda [${MEDIA_ID}].jpg`
+        const expected = `2026/Op Trinity/Operation Trinity I/Saturday/Koda [${MEDIA_ID}].jpg`
         expect(result?.to).toBe(`content:${expected}`)
         expect(existsSync(join(contentDir, ...expected.split('/')))).toBe(true)
 
         const doc = docs[MEDIA_ID.toString()]
         expect(doc.year).toBe('2026')
-        expect(doc.campaign).toBe('1. Op Trinity')
+        expect(doc.campaign).toBe('Op Trinity')
         expect(doc.operation).toBe('Operation Trinity I')
         expect(doc.opLabel).toBe('Operation Trinity I')
         expect(doc.mission).toBe('Saturday')
@@ -688,14 +712,14 @@ describe('relocateMedia', () => {
 
         // Before this change: `2026/1. Op Trinity I/Saturday/…`, one numbered
         // folder per mission of the campaign.
-        const expected = `2026/1. Op Trinity/Saturday/Koda [${MEDIA_ID}].jpg`
+        const expected = `2026/Op Trinity/Saturday/Koda [${MEDIA_ID}].jpg`
         expect(result?.to).toBe(`content:${expected}`)
         expect(existsSync(join(contentDir, ...expected.split('/')))).toBe(true)
 
         const doc = docs[MEDIA_ID.toString()]
         expect(doc.year).toBe('2026')
         expect('campaign' in doc).toBe(false)
-        expect(doc.operation).toBe('1. Op Trinity')
+        expect(doc.operation).toBe('Op Trinity')
         expect(doc.opLabel).toBe('Op Trinity')
         expect(doc.mission).toBe('Saturday')
     })
@@ -765,10 +789,10 @@ describe('relocateMedia', () => {
 
         const result = await relocateMedia(d, MEDIA_ID)
 
-        expect(result?.to).toBe(`content:2026/2. Op Trinity I/Saturday/Koda [${MEDIA_ID}].jpg`)
+        expect(result?.to).toBe(`content:2026/Op Trinity I/Saturday/Koda [${MEDIA_ID}].jpg`)
         const doc = docs[MEDIA_ID.toString()]
         expect('campaign' in doc).toBe(false)
-        expect(doc.operation).toBe('2. Op Trinity I')
+        expect(doc.operation).toBe('Op Trinity I')
         expect(doc.mission).toBe('Saturday')
     })
 

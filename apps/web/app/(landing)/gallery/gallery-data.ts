@@ -87,6 +87,12 @@ export function sortPhotos(list: Photo[], sort: SortKey): Photo[] {
         if (y === null) return -1
         return (y - x) * dir
     }
+    /* `opOrder` is the operation's date in epoch milliseconds (see
+       /api/gallery/route.ts), so this is chronological, oldest operation
+       first, with undated items at the end — it used to be the folder's
+       leading number, which new folders no longer carry. Within one year the
+       resulting order is the same as the numbers gave; across years it is now
+       strictly chronological instead of grouping every "1." folder together. */
     const byOp = (a: Photo, b: Photo) =>
         a.opOrder - b.opOrder || (a.opLabel ?? '').localeCompare(b.opLabel ?? '')
 

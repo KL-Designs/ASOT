@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import type { Filter } from 'mongodb'
 
 import Db from '@/lib/mongo'
-import { splitOperation } from '@/lib/gallery/naming'
 import { wilsonScore } from '@/lib/gallery/ranking'
 
 /**
@@ -113,7 +112,28 @@ export async function GET() {
         year: m.year ?? null,
         operation: m.operation ?? null,
         opLabel: m.opLabel ?? null,
-        opOrder: m.operation ? splitOperation(m.operation).order : Number.MAX_SAFE_INTEGER,
+        /* The operation's DATE, as epoch milliseconds — not the folder's
+           leading number any more.
+
+           New folders carry no "{n}. " prefix (see relocate.ts), and
+           splitOperation returns MAX_SAFE_INTEGER for a folder without one, so
+           reading the order out of the name would have collapsed every new
+           operation onto the same rank and left the gallery's operation
+           ordering to the alphabetical tiebreak. The number was never really
+           an order anyway: it was minted as "highest + 1", so backfilling an
+           older operation gave it the highest rank in its year.
+
+           `takenAt` is the same operation date both facet producers already
+           write (relocate.ts and operation-facets.ts), so no stored counter is
+           needed — and a stored rank would go stale the moment someone
+           backfills an older operation, where a date does not. Computed here
+           rather than in the three consumers so the "no date sorts LAST" rule
+           lives in one place: MAX_SAFE_INTEGER keeps an undated item at the
+           end of an ascending sort, exactly where splitOperation used to put
+           an unnumbered folder, and matches sortPhotos' own comment that an
+           unknown operation is missing information, not the beginning of
+           time. */
+        opOrder: m.takenAt ? m.takenAt.getTime() : Number.MAX_SAFE_INTEGER,
         mission: m.mission ?? null,
         takenAt: m.takenAt ? m.takenAt.toISOString() : null,
 

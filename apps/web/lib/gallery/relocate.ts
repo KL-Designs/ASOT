@@ -72,8 +72,6 @@ export type RelocateDeps = {
     mediaDir?: string
 }
 
-const ORDER_PREFIX = /^\s*(\d+)/
-
 /**
  * The year an operation's date files under.
  *
@@ -229,11 +227,15 @@ async function resolveMissionFolder(
  * duplicate folder next to them. Creates nothing on disk; it only returns the
  * names.
  *
- * The numbered two-tier match below applies to whatever occupies the
+ * The two-tier match below applies to whatever occupies the
  * top-level-within-year slot: the CAMPAIGN for a campaign mission, the
  * operation for a single mission. That is the whole point of the campaign
- * level — three missions of one campaign now compete for one numbered folder
- * instead of minting three siblings.
+ * level — three missions of one campaign now compete for one folder instead
+ * of minting three siblings.
+ *
+ * A folder minted here carries NO "{n}. " prefix; existing numbered folders
+ * are matched and reused exactly as they are, and nothing is renamed. See the
+ * comment on `top` below for where the ordering went instead.
  */
 export async function resolveOperationFolder(
     deps: RelocateDeps,
@@ -296,24 +298,51 @@ export async function resolveOperationFolder(
        campaign, which is the report this whole level was added for. */
     const topName = campaignFolders ? campaignFolders.campaign : title
 
+    /* The match is what reuses an EXISTING folder, and it is why dropping the
+       order prefix below is safe: it compares splitOperation(folder).label,
+       which strips "15. " off a legacy folder before comparing, against the
+       operation's own title. A new submission for an operation whose
+       photographs already live in "15. Op Black Hills" therefore still
+       resolves to THAT folder rather than minting an unnumbered twin beside
+       it — the duplicate folder, and the split facet rail, this whole
+       resolver exists to prevent. */
     const match = findByOperationKey(topName, existing, folder => splitOperation(folder).label)
 
-    const highest = existing.reduce((max, folder) => {
-        const m = folder.match(ORDER_PREFIX)
-        return m ? Math.max(max, parseInt(m[1], 10)) : max
-    }, 0)
-
-    // splitOperation's label, not the raw title: the folder convention is
-    // "8. Op Brand New", not "8. OPERATION Brand New — Sun". A campaign name
-    // is shortened by the same two rules, so "Operation Trinity" becomes
-    // "Op Trinity" and reads as one of the year's numbered folders rather
-    // than as a different species of thing sitting beside them.
+    // The folder convention is "Op Brand New", not
+    // "OPERATION Brand New — Sun". A campaign name is shortened by the same
+    // two rules, so "Operation Trinity" becomes "Op Trinity" and reads as one
+    // of the year's folders rather than as a different species of thing
+    // sitting beside them.
     const label = topName
         .replace(/\s*[\u2014\u2013-]\s*(sat|sun|saturday|sunday)\s*$/i, '')
         .replace(/^operation\s+/i, 'Op ')
         .trim()
 
-    const top = match ?? sanitizeSegment(`${highest + 1}. ${label}`)
+    /* NO order prefix on a newly minted folder. The number used to be minted
+       here as `highest + 1` — a scan of the year's folders for the largest
+       leading integer — which made it INSERTION order rather than date order,
+       so backfilling an older operation gave it the highest number in its
+       year. The order lives in the database now (`takenAt`, written by this
+       same function's callers), and lib/gallery/export-numbering.ts puts
+       numbers back onto the folder names inside a downloaded backup, which is
+       the one place a human ever read them.
+
+       ORDER_PREFIX and splitOperation stay in naming.ts regardless: the whole
+       legacy archive is numbered, nothing is being renamed, and a re-imported
+       export is numbered too.
+
+       Minting is now IDEMPOTENT, which is the second safety property: the
+       name is a pure function of the label, so a match that somehow missed an
+       existing unnumbered folder would "mint" that same folder rather than a
+       second one — where `highest + 1` produced a new name on every run.
+
+       The `|| sanitizeSegment(topName)` fallback covers a name that survives
+       sanitizing but not the shortening above (a campaign literally named
+       "— Sat" reduces to the empty string), which `highest + 1` used to hide
+       by prepending a digit. Both empty means there is genuinely no folder to
+       name, and buildContentPath then sends the file to Unknown/ — the same
+       answer a campaign or mission whose name sanitizes away already gets. */
+    const top = match ?? (sanitizeSegment(label) || sanitizeSegment(topName) || null)
 
     /* The campaign-mission folder is its `name` verbatim — no order prefix.
        The sequence is already in the name J2 gives it ("Operation Trinity I",

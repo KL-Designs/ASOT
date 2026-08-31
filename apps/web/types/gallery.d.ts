@@ -66,7 +66,12 @@ declare global {
         year: string | null
         operation: string | null
         opLabel: string | null
-        /** MAX_SAFE_INTEGER when the folder carried no ordering prefix. */
+        /** The operation's date as epoch milliseconds, so an ascending sort
+         *  is chronological; MAX_SAFE_INTEGER when the item has no date, which
+         *  keeps it last. Derived in /api/gallery from `takenAt` — NOT from a
+         *  "{n}. " prefix on the folder name, which new folders no longer
+         *  carry and which was insertion order rather than date order even
+         *  when they did. */
         opOrder: number
         mission: string | null
         takenAt: string | null

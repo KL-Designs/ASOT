@@ -169,7 +169,7 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 - **GET** — `?year&operation&stage&img` serves a gallery content image from `./gallery/content/...`; validates each path segment against `SAFE_SEGMENT` regex and resolves within `CONTENT_BASE` to block traversal. Auth: public/no auth.
 
 #### /api/gallery
-- **GET** — walks `./gallery/featured` and `./gallery/content/{year}/{operation}/{stage}` directories on disk and returns the full gallery tree as JSON. Auth: public/no auth. (Filesystem-only, no DB.)
+- **GET** — the public gallery as one flat list of `GalleryItemAPI`, plus the curated `featured` rail and the tag vocabulary. Reads `Db.galleryMedia` (`ARCHIVE_FILTER`: `status: 'live'`, excluding `featured:`/`sotm:` fixtures), `Db.galleryTags` and the `featuredOrder` rail — **not** a directory walk, despite what this entry said before the Mongo migration. `opOrder` is the operation's date as epoch milliseconds (`takenAt`), `MAX_SAFE_INTEGER` when undated so it sorts last: it is **not** read from a `{n}. ` folder prefix any more, because new folders carry none and the number was insertion order rather than date order even when they did. `sortPhotos`/`FacetRail` both sort on it. Auth: public/no auth. Collections: `Db.galleryMedia`, `Db.galleryTags`.
 
 #### /api/gallery/sotm/image
 - **GET** — serves the current "Screenshot of the Month" image file from `./gallery/sotm/<filename>` per `Db.siteSettings` doc `_id: 'screenshotOfMonth'`. Auth: public/no auth. Collections: `Db.siteSettings`.

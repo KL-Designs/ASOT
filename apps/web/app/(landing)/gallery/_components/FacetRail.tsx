@@ -91,6 +91,9 @@ export default function FacetRail({ photos, filters, tags, onToggle }: {
     const operations: Option[] = [...new Map(
         photos.filter((p): p is Photo & { operation: string } => !!p.operation).map(p => [p.operation, p]),
     ).values()]
+        // Oldest operation first: `opOrder` is the operation's date in epoch
+        // milliseconds now (see /api/gallery/route.ts), not the folder's
+        // leading number, which new folders no longer carry.
         .sort((a, b) => a.opOrder - b.opOrder || (a.opLabel ?? '').localeCompare(b.opLabel ?? ''))
         .map(p => ({ value: p.operation, label: p.opLabel ?? p.operation, count: opCounts.get(p.operation) ?? 0 }))
 
