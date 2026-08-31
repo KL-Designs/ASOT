@@ -7,6 +7,35 @@
    j5-controls.module.css instead — this module owns position, that one owns
    appearance. Text fields, selects and autocompletes still stay MUI. */
 
+/* ONE height for the console, and the three columns share it.
+
+   The rail, the grid, the table and the inspector each used to carry a
+   viewport cap of their own — 70vh, 62vh, 62vh, 70vh — inside a box whose own
+   height came from whichever of them was tallest. That is three scrollbars on
+   screen at once on a 1440p display, on two different scales, with the whole
+   dashboard page scrolling behind them as a fourth, and the inspector's
+   Save/Delete row pushed under the fold because its 70vh started below the
+   navbar and the tab chrome. Raising the four numbers cannot fix that: they
+   are four independent scroll boxes, and the symptom is that there are four.
+
+   So the height is stated once, here, and the columns take it: grid items
+   stretch to their track by default, so each one is exactly this tall and
+   scrolls only when its OWN content overflows it.
+
+   Why a custom property rather than a plain `calc(100dvh - …)`: the distance
+   from the top of the viewport to this box is not a constant anybody can write
+   down. The navbar's status strip collapses on scroll, the quick-links rail
+   above the tabs renders nothing, one row or two depending on how many links
+   J5 has, and the tab bar wraps on a narrow window. MediaTab measures that
+   offset and writes it here (see its `--console-h` effect); the fallback is
+   only what the first paint uses before the effect runs, and it is deliberately
+   conservative — too short is a smaller console, too tall is the bug above.
+
+   `height`, not `max-height`, and content-independent on purpose. Nothing in
+   this chain — .dash is `height: 100%` of a flex item sized from its content —
+   hands down a definite height, so a console sized from its content would let
+   the rail's own tree decide how tall the console is, which is how the four
+   caps came to exist in the first place. */
 .work {
     position: relative; /* anchors CornerBrackets, which positions itself absolutely */
     display: grid;
@@ -14,15 +43,24 @@
     gap: 0;
     border: 1px solid rgba(219, 0, 29, 0.18);
     background: rgba(255, 255, 255, 0.012);
-    min-height: 560px;
+    height: var(--console-h, calc(100dvh - 300px));
+    /* The floor from before, lowered: with the height now measured, a laptop
+       whose viewport leaves less than this gets a console that overflows the
+       fold, and 560 made that happen on a 768px-tall screen. */
+    min-height: 480px;
 }
-.work > * { min-width: 0; }
+/* `min-height: 0` is the load-bearing half. A grid item's automatic minimum
+   size is its CONTENT, so a column with `overflow-y: auto` and 4,781 tiles in
+   it refuses to be shorter than all of them and pushes the track — and with it
+   the console — back to exactly the height the caps above were introduced to
+   contain. Without this line every rule below appears to do nothing. */
+.work > * { min-width: 0; min-height: 0; }
 
 /* ── rail ───────────────────────────────────────────────────────────── */
+/* No cap of its own — the track .work gives it is the cap. See .work. */
 .rail {
     border-right: 1px solid rgba(219, 0, 29, 0.14);
     padding: 10px 0;
-    max-height: 70vh;
     overflow-y: auto;
 }
 .railHead {
@@ -78,8 +116,14 @@
 .caret { width: 9px; flex: none; font-size: 9px; color: rgba(237, 237, 237, 0.38); }
 
 /* ── centre ─────────────────────────────────────────────────────────── */
-.centre { display: flex; flex-direction: column; }
+/* min-height: 0 again, for the same reason .work > * needs it: this is a flex
+   column, and its scrolling body below is a flex item whose automatic minimum
+   is its content. */
+.centre { display: flex; flex-direction: column; min-height: 0; }
 .tools {
+    /* Never shrinks and never grows: the toolbar is the fixed furniture at the
+       top of the column, and the pane below it is what absorbs the height. */
+    flex: none;
     display: flex;
     /* flex-end, not centre: the fields carry their label ABOVE the box, so
        centring the row lines up the labels and leaves the boxes and the
@@ -122,9 +166,31 @@
     gap: 8px;
     padding: 12px;
     align-content: start;
+    /* The cap here is for the OTHER two consumers of this class — the Featured
+       and SOTM tabs, which drop .grid into an ordinary page section that has no
+       console around it to bound it. Inside .work it is overridden below;
+       leaving it in place there would put the console back to two nested
+       scrollboxes on different scales, which is the whole bug. */
     max-height: 62vh;
     overflow-y: auto;
 }
+
+/* The console's scrolling body: the tile grid, the table, and the Health
+   report's wrapper. `flex: 1 1 auto` rather than `flex: 1` deliberately —
+   `flex: 1` sets `flex-basis: 0`, and under the breakpoint below .centre is an
+   auto-height column, where a zero-basis item contributes no content height at
+   all and the pane collapses to nothing. `auto` keeps its content as the basis
+   and still absorbs the console's free space when there is a height to
+   absorb. */
+.centre .grid, .tblWrap, .scrollPane {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+/* The Health view brings no scroll container of its own — it is a plain padded
+   div — so it gets one here rather than overflowing a console that now has a
+   fixed height and would simply paint it over whatever sits below. */
+.scrollPane { overflow-y: auto; }
 .tile {
     /* Block, not the UA's inline-block: an inline-level grid item sits on a
        line box and picks up the descender gap under it. */
@@ -211,9 +277,10 @@
 
 /* The same items as .grid, laid out for the other job: the grid is for
    recognising a shot, this is for working through three hundred of them. Its
-   own scroll box, sized like the grid's, so the tools bar above and the pager
-   below stay put while the rows move. */
-.tblWrap { max-height: 62vh; overflow: auto; }
+   own scroll box — sized by the console rather than by a cap of its own, like
+   the grid beside it — so the tools bar above and the pager below stay put
+   while the rows move. */
+.tblWrap { overflow: auto; }
 .tbl {
     width: 100%;
     border-collapse: collapse;
@@ -335,6 +402,9 @@
     font-size: 13px;
 }
 .pager {
+    /* Fixed furniture, like .tools at the other end of the column: the pane
+       between them is the only thing that gives up height. */
+    flex: none;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -350,7 +420,10 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    max-height: 70vh;
+    /* No cap of its own — the console's height is the cap, which is what puts
+       .actions (margin-top: auto) on the bottom edge of a box that is on
+       screen. The old 70vh started below the navbar and the tab chrome, so the
+       Save/Delete row ended up under the fold and needed a second scroll. */
     overflow-y: auto;
 }
 .inspHead {
@@ -432,7 +505,17 @@
    A container query on .work would state this directly instead of deriving it,
    but nothing in this codebase uses them yet. */
 @media (max-width: 1360px) {
-    .work { grid-template-columns: 190px 1fr; }
+    /* The inspector stops being a column and becomes a second row, and a
+       second row cannot share the one height: two auto rows inside a fixed
+       height would each be stretched to about half of it, giving the grid a
+       quarter of the screen and the inspector a half-empty box under it. So
+       below this width the console goes back to being as tall as it needs to
+       be and the panes carry their own caps again — which is also what keeps
+       `max-height: none` on the inspector honest: it is only unbounded because
+       nothing above it is bounded either. */
+    .work { grid-template-columns: 190px 1fr; height: auto; }
+    .rail { max-height: 62vh; }
+    .centre .grid, .tblWrap { flex: none; max-height: 62vh; }
     .insp { grid-column: 1 / -1; border-left: 0; border-top: 1px solid rgba(219, 0, 29, 0.14); max-height: none; }
 }
 /* 900 for the same reason, not the old 760: the shell's sidebar is still there

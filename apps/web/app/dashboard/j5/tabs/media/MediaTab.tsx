@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Typography } from '@mui/material'
 
 import { PAGE_SIZE, type LibrarySort } from '@/lib/gallery/library-query'
@@ -66,6 +66,62 @@ export default function MediaTab() {
        resolves to -1 below and closes the viewer, which is the honest
        outcome. */
     const [viewing, setViewing] = useState<string | null>(null)
+
+    /* The console's height, measured rather than guessed.
+
+       media-console.module.css gives .work one height and lets its three
+       columns share it, which is what replaced the four independent 62vh/70vh
+       scroll boxes the tab used to be. That height has to be "from the top of
+       this box to the bottom of the window" — and nothing in CSS can say that,
+       because the distance above the box is not a constant: the navbar's status
+       strip collapses when the page scrolls, the quick-links rail above the
+       tabs renders nothing, one row, or two depending on how many links J5 has,
+       and the tab bar wraps on a narrow window. A hard `calc(100dvh - 300px)`
+       would be right on exactly one machine, and wrong in the direction that
+       puts the inspector's Save row back under the fold on the rest.
+
+       Only the OFFSET is measured; the height falls out of it. Writing it back
+       as a custom property keeps every rule that consumes it in the stylesheet
+       where the rest of the layout lives. */
+    const workRef = useRef<HTMLDivElement | null>(null)
+    useEffect(() => {
+        const el = workRef.current
+        if (!el) return
+
+        let last = -1
+        const measure = () => {
+            /* Document-relative, not viewport-relative. getBoundingClientRect
+               is measured from the top of the WINDOW, so on its own it would
+               shrink the console by exactly as much as the reader had scrolled
+               — the panel would shed height as you scrolled down it. Adding
+               scrollY back gives the offset that does not move. */
+            const top = el.getBoundingClientRect().top + window.scrollY
+            const h = Math.round(window.innerHeight - top)
+            /* Only on a real change. The property resizes the console, the
+               console resizes the body, and the observer below fires on that —
+               rewriting the same value each time is the feedback loop browsers
+               report as "ResizeObserver loop completed with undelivered
+               notifications". The offset itself cannot move when only .work's
+               own height changes (everything it measures sits above it), so
+               this converges after one pass. */
+            if (Math.abs(h - last) < 1) return
+            last = h
+            el.style.setProperty('--console-h', `${h}px`)
+        }
+
+        measure()
+        /* document.body, not .work: what moves this number is the chrome ABOVE
+           the console — the quick-links rail appearing when its fetch lands,
+           the tab bar wrapping, the navbar's strip collapsing — and none of
+           that is inside the element being sized. */
+        const observer = new ResizeObserver(measure)
+        observer.observe(document.body)
+        window.addEventListener('resize', measure)
+        return () => {
+            observer.disconnect()
+            window.removeEventListener('resize', measure)
+        }
+    }, [])
 
     // Fetched once — the picker's own list of operations/tags rather than the
     // filter facets in `facets`, which only carry the ones already in use on
@@ -211,7 +267,7 @@ export default function MediaTab() {
 
     return (
         <div>
-            <div className={s.work}>
+            <div className={s.work} ref={workRef}>
                 <CornerBrackets />
                 <LibraryRail
                     facets={facets}
@@ -457,7 +513,15 @@ export default function MediaTab() {
                         // separate screen — the rail, tools bar and
                         // inspector column stay exactly as they are; only
                         // the grid and pager give way to the report.
-                        <HealthView onChanged={refresh} />
+                        <div className={s.scrollPane}>
+                            {/* HealthView is a plain padded div with no scroll
+                                container of its own. That was survivable while
+                                the console grew to fit it; now that the console
+                                has one fixed height, an uncontained report
+                                would simply paint over the pager and the panel
+                                edge below it. */}
+                            <HealthView onChanged={refresh} />
+                        </div>
                     ) : loading ? <TacticalSkeleton /> : error && items.length === 0 ? null : layout === 'table' ? (
                         <MediaTable
                             items={shown}
