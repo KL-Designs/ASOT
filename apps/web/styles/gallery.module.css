@@ -488,6 +488,41 @@
     height: 16px;
 }
 
+/* All / Photos / Video. Text rather than icons — unlike the view segment,
+   there's no shape that reads as "photos only" at a glance, and three words
+   are no wider than three glyphs would have been. */
+.mediaseg {
+    display: flex;
+    border: 1px solid var(--line-1);
+    border-radius: 2px;
+    overflow: hidden;
+    height: 38px;
+}
+
+.mediaseg button {
+    padding: 0 12px;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+    background: none;
+    border: 0;
+    transition: background .16s, color .16s;
+    cursor: pointer;
+}
+
+.mediaseg button+button {
+    border-left: 1px solid var(--line-1);
+}
+
+.mediaseg button.on {
+    background: var(--red);
+    color: #fff;
+}
+
 /* ---------- active-filter pills ------------------------------------------- */
 
 .pills {
@@ -881,6 +916,66 @@
     height: 13px;
 }
 
+/*
+   Sits opposite `.zoom` — top-left rather than top-right — so a video's
+   duration and a freshly-published item's NEW marker never compete with the
+   expand icon for the same corner. A column rather than a row: an item that
+   is both a video and newly published stacks two badges instead of widening
+   past the tile's own edge.
+*/
+.badges {
+    position: absolute;
+    top: 9px;
+    left: 9px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+
+.badgeNew,
+.badgeVideo,
+.badgeScore {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 7px;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.badgeNew {
+    background: var(--red);
+    color: #fff;
+}
+
+.badgeVideo {
+    background: rgba(6, 7, 9, .78);
+    border: 1px solid var(--line-2);
+    color: var(--txt-1);
+}
+
+.badgeVideo svg {
+    width: 9px;
+    height: 9px;
+    flex: none;
+}
+
+/* Only rendered once somebody has actually voted — see VoteBar's own
+   `total > 0` guard for why an unvoted item shows nothing at all here. */
+.badgeScore {
+    background: rgba(6, 7, 9, .78);
+    border: 1px solid var(--line-2);
+    color: var(--live);
+    font-variant-numeric: tabular-nums;
+}
+
 /* ---------- grouped by operation ------------------------------------------ */
 
 .opgroup {
@@ -1003,6 +1098,19 @@
     object-fit: contain;
 }
 
+/* Fixed to 16:9 rather than sized off the stage the way a photograph is —
+   neither a <video> nor a provider's own iframe reports intrinsic dimensions
+   the way an <img> does, so there is nothing here to size against. */
+.lbVideo,
+.lbEmbed {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    aspect-ratio: 16 / 9;
+    border: 0;
+    background: #000;
+}
+
 .lbNav {
     position: absolute;
     top: 50%;
@@ -1110,6 +1218,15 @@
     overflow-wrap: anywhere;
 }
 
+/* Body text, not another label/value row — the caption is what a member
+   actually wrote about this item, not a fact the archive recorded. */
+.lbCaption {
+    margin: 18px 0 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--txt-2);
+}
+
 .lbRows {
     margin-top: 22px;
     border-top: 1px solid var(--line-1);
@@ -1135,6 +1252,19 @@
     overflow-wrap: anywhere;
 }
 
+/* Reuses .tagChip from the submit page's item cards rather than a lightbox-
+   specific chip — same control, same meaning: pick a tag, see more of it. */
+.lbTags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 16px;
+}
+
+.lbVote {
+    margin-top: 18px;
+}
+
 .lbActs {
     margin-top: auto;
     padding-top: 24px;
@@ -1146,6 +1276,561 @@
 .lbActs>* {
     flex: 1;
     min-width: 120px;
+}
+
+/* ---------- submit page ---------------------------------------------------- */
+
+/*
+   No banner here — the page this feeds isn't being browsed, it's a form, and
+   a 300px hero over a form reads as padding before the point. The kicker/h2/
+   lede trio from ui.module.css does the same job at a fifth of the height.
+*/
+.subPage {
+    background: var(--ink-0);
+    min-height: 100vh;
+    padding-bottom: 80px;
+}
+
+.subShell {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 48px var(--pad) 0;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.subHead {
+    margin-bottom: 4px;
+}
+
+.subHead h1 {
+    margin-top: 10px;
+}
+
+.subDefaults {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+    padding: 18px 20px;
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+}
+
+.subField {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 200px;
+}
+
+.subField:last-child {
+    flex: 1;
+}
+
+.subFieldLabel {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+/* ---------- dropzone -------------------------------------------------- */
+
+.dropzone {
+    border: 1px dashed var(--line-2);
+    background: var(--ink-1);
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .16s, background .16s;
+}
+
+.dropzone:hover,
+.dropzoneOver {
+    border-color: var(--red-dim);
+    background: rgba(224, 35, 60, .06);
+}
+
+.dropzoneText {
+    font-family: var(--font-disp);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+}
+
+.dropzoneSub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.embedRow {
+    display: flex;
+    gap: 10px;
+}
+
+.embedInput {
+    flex: 1;
+    height: 40px;
+    padding: 0 14px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    border-radius: 2px;
+    font-size: 13.5px;
+    font-family: var(--font-ui);
+    color: var(--txt-1);
+    outline: none;
+    transition: border-color .16s, background .16s;
+}
+
+.embedInput::placeholder {
+    color: var(--txt-3);
+}
+
+.embedInput:focus {
+    border-color: var(--red);
+    background: var(--ink-3);
+}
+
+.embedError {
+    margin: -12px 0 0;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    color: var(--red-hi);
+}
+
+/* ---------- rejected files ---------------------------------------------- */
+
+.rejects {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    background: var(--line-1);
+    border: 1px solid var(--line-1);
+}
+
+.rejectRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--ink-1);
+}
+
+.rejectName {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--txt-2);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
+}
+
+.rejectReason {
+    flex: 1;
+    font-size: 12.5px;
+    color: var(--red-hi);
+}
+
+.rejectRow button {
+    width: 20px;
+    height: 20px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    background: none;
+    border: 0;
+    color: var(--txt-3);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+    transition: color .14s;
+}
+
+.rejectRow button:hover {
+    color: var(--red);
+}
+
+/* ---------- item cards --------------------------------------------------- */
+
+.itemsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+}
+
+.itemCard {
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    display: flex;
+    flex-direction: column;
+}
+
+.itemThumb {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: var(--ink-2);
+    overflow: hidden;
+}
+
+.itemThumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.itemThumbMark {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.itemDuration {
+    position: absolute;
+    right: 7px;
+    bottom: 7px;
+    padding: 2px 6px;
+    background: rgba(6, 7, 9, .82);
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .08em;
+    color: var(--txt-1);
+    border-radius: 2px;
+}
+
+.itemRemove {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    background: rgba(6, 7, 9, .78);
+    border: 1px solid var(--line-2);
+    color: var(--txt-2);
+    font-size: 15px;
+    line-height: 1;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: color .14s, border-color .14s;
+}
+
+.itemRemove:hover {
+    color: #fff;
+    border-color: var(--red);
+}
+
+.itemBody {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.itemCaption {
+    resize: none;
+    height: 52px;
+    padding: 8px 10px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    border-radius: 2px;
+    font-size: 12.5px;
+    font-family: var(--font-ui);
+    color: var(--txt-1);
+    outline: none;
+    transition: border-color .16s;
+}
+
+.itemCaption::placeholder {
+    color: var(--txt-3);
+}
+
+.itemCaption:focus {
+    border-color: var(--red);
+}
+
+.itemCaptionRo {
+    font-size: 12.5px;
+    color: var(--txt-2);
+    line-height: 1.4;
+    min-height: 18px;
+}
+
+.itemTags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tagChip {
+    height: 24px;
+    padding: 0 9px;
+    border-radius: 2px;
+    border: 1px solid var(--line-2);
+    background: var(--ink-2);
+    color: var(--txt-3);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    transition: border-color .14s, color .14s, background .14s;
+    cursor: pointer;
+}
+
+.tagChip:hover {
+    color: var(--txt-1);
+}
+
+.tagChipOn {
+    background: rgba(224, 35, 60, .1);
+    border-color: var(--red-dim);
+    color: var(--red-hi);
+}
+
+.itemOpSelect {
+    height: 34px;
+    padding: 0 10px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--txt-2);
+    outline: none;
+    cursor: pointer;
+}
+
+/* ---------- upload progress ----------------------------------------------- */
+
+.bar {
+    height: 4px;
+    background: var(--ink-2);
+    border: 1px solid var(--line-1);
+    overflow: hidden;
+}
+
+.barFill {
+    height: 100%;
+    background: var(--red);
+    transition: width .2s var(--nav-ease);
+}
+
+.rowState {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+}
+
+.rowStateProgress {
+    color: var(--txt-2);
+}
+
+.rowStateOk {
+    color: var(--live);
+}
+
+.rowStateWarn {
+    color: var(--amber);
+}
+
+.rowStateError {
+    color: var(--red-hi);
+}
+
+.retryBtn {
+    padding: 3px 9px;
+    border: 1px solid var(--red-dim);
+    background: rgba(224, 35, 60, .1);
+    color: var(--red-hi);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: background .14s;
+}
+
+.retryBtn:hover {
+    background: rgba(224, 35, 60, .2);
+}
+
+/* ---------- submit bar / done -------------------------------------------- */
+
+.submitBar {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 20px;
+    background: rgba(8, 9, 10, .94);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--line-1);
+}
+
+.submitCount {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: .14em;
+    color: var(--txt-2);
+    text-transform: uppercase;
+}
+
+/* The submitted screen is one card and nothing else, so it centres in the
+   height .subPage already reserves rather than sitting under the fold's worth
+   of empty space below it. A modifier, not a change to .subPage: every other
+   phase of this page is a form that grows past the viewport and must stay
+   top-aligned, or its first field would start halfway down the screen.
+   padding-bottom is zeroed here because .subPage's 80px would otherwise push
+   the card that far above the true centre. */
+.subPageDone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: 0;
+    /* .subPage's own 100vh starts BELOW the navbar, so centring inside it put
+       the card a navbar's height under the middle of the screen. 96px is the
+       allowance this stylesheet already uses for exactly that (see the
+       lightbox rule above), and matches navbar.module.css and donate. */
+    min-height: calc(100vh - 96px);
+}
+.subPageDone .subShell { padding-top: 0; width: 100%; }
+
+.doneCard {
+    border: 1px solid var(--line-2);
+    border-top: 2px solid var(--live);
+    background: var(--ink-1);
+    padding: 40px 36px;
+    text-align: center;
+}
+
+.doneText {
+    color: var(--txt-2);
+    font-size: 14.5px;
+    margin: 14px 0 26px;
+}
+
+.doneActions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* ---------- vote ------------------------------------------------------------ */
+
+/*
+   Two buttons and a proportion bar, not a single score — "63% liked this"
+   only means something alongside how many votes that is, so the count stays
+   on the buttons rather than being folded into one number.
+
+   Buttons carry no class of their own when at rest, so their base look comes
+   from the `.vote button` descendant selector rather than a class every button
+   would otherwise need. `.voteOn` is the button's *only* class when pressed
+   (VoteBar swaps rather than appends), so `.vote button.voteOn` — not a bare
+   `.voteOn` — is what it takes to outrank `.vote button` on the properties
+   both set; a bare class selector loses to that combination regardless of
+   which rule comes later in the file.
+*/
+.vote {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.vote button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    height: 26px;
+    padding: 0 8px;
+    border: 1px solid var(--line-2);
+    border-radius: 2px;
+    background: none;
+    color: var(--txt-3);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .14s, color .14s, background .14s;
+    cursor: pointer;
+}
+
+.vote button svg {
+    width: 12px;
+    height: 12px;
+    flex: none;
+}
+
+.vote button:hover {
+    color: var(--txt-1);
+    border-color: var(--txt-3);
+}
+
+.vote button.voteOn {
+    border-color: var(--red);
+    color: var(--red-hi);
+    background: rgba(224, 35, 60, .1);
+}
+
+/* The share of up to (up + down). An item nobody has voted on renders none of
+   this — see VoteBar's `total > 0` guard — because an empty track reads as
+   "0% liked" rather than as "no votes yet", and those are different claims. */
+.voteBar {
+    width: 46px;
+    height: 4px;
+    flex: none;
+    border: 1px solid var(--line-1);
+    background: var(--ink-2);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.voteBarFill {
+    height: 100%;
+    background: var(--live);
+    transition: width .2s var(--nav-ease);
+}
+
+.voteN {
+    color: var(--txt-3);
+    font-variant-numeric: tabular-nums;
+}
+
+.voteHint {
+    color: var(--red-hi);
+    white-space: nowrap;
 }
 
 /* ---------- responsive ---------------------------------------------------- */

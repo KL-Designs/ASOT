@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useCallback, useLayoutEffect, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react'
 
 import Button from '@/components/ui/Button'
-import { ExpandIcon } from './icons'
-import { groupByOperation, type Photo } from '../gallery-data'
+import { ExpandIcon, PlayIcon } from './icons'
+import { formatDuration, groupByOperation, type Photo } from '../gallery-data'
+import { isNewlyPublished } from '@/lib/gallery/freshness'
 import type { GridView } from './Toolbar'
 import s from '@/styles/gallery.module.css'
 
@@ -71,7 +72,7 @@ function Tile({ photo, onOpen, span, onRatio }: {
             className={s.tile}
             onClick={onOpen}
             style={span ? { gridRow: `span ${span}` } : undefined}
-            aria-label={`Open ${photo.opLabel}, ${photo.mission}`}
+            aria-label={`Open ${photo.opLabel ?? 'gallery item'}${photo.mission ? `, ${photo.mission}` : ''}`}
         >
             {/*
                 A plain <img>, not next/image. Two reasons and both are about
@@ -80,9 +81,13 @@ function Tile({ photo, onOpen, span, onRatio }: {
                 real proportions, which only arrive with `naturalWidth` once the
                 browser has the file. Lazy loading is doing the heavy lifting
                 instead — the archive is far too large to fetch eagerly.
+
+                `poster ?? src`: every video and embed carries a poster, so this
+                only ever falls through to `src` for a still image, which has
+                none.
             */}
             <img
-                src={photo.src}
+                src={photo.poster ?? photo.src ?? undefined}
                 alt=''
                 loading='lazy'
                 decoding='async'
@@ -91,12 +96,33 @@ function Tile({ photo, onOpen, span, onRatio }: {
                     if (img.naturalHeight > 0) onRatio(photo.id, img.naturalWidth / img.naturalHeight)
                 }}
             />
+
+            <span className={s.badges}>
+                {/* Keyed on publishedAt, never takenAt — see freshness.ts. A
+                    migrated item has no publishedAt and so never earns this. */}
+                {isNewlyPublished(photo.publishedAt) && <span className={s.badgeNew}>NEW</span>}
+                {photo.kind === 'video' && (
+                    <span className={s.badgeVideo}>
+                        <PlayIcon />
+                        {photo.durationSec
+                            ? formatDuration(photo.durationSec)
+                            : photo.source === 'youtube' ? 'YouTube' : photo.source === 'twitch' ? 'Twitch' : 'Video'}
+                    </span>
+                )}
+                {/* Only once somebody has actually voted — see VoteBar's own
+                    `total > 0` guard for why an unvoted item shows nothing. */}
+                {(photo.up + photo.down) > 0 && <span className={s.badgeScore}>▲ {photo.up - photo.down}</span>}
+            </span>
+
             <span className={s.zoom}><ExpandIcon /></span>
             <span className={s.meta}>
-                <span className={s.metaT}>{photo.opLabel}</span>
+                {/* The caption is the more specific thing a member wrote about
+                    this exact photograph; opLabel is what's left when nobody
+                    did. */}
+                <span className={s.metaT}>{photo.caption || photo.opLabel || 'Unknown operation'}</span>
                 <span className={s.metaS}>
-                    <b>{photo.mission}</b>
-                    <span>{photo.year}</span>
+                    {photo.mission && <b>{photo.mission}</b>}
+                    <span>{photo.year ?? ''}</span>
                 </span>
             </span>
         </button>
@@ -120,6 +146,29 @@ export default function PhotoGrid({ photos, view, shown, onShowMore, onOpen, onC
 }) {
     const [gridRef, colWidth] = useColumnWidth()
     const [ratios, setRatios] = useState<Record<string, number>>({})
+
+    /*
+       Seeded from the database rather than left for `onLoad`, for every item
+       that stored its own width/height — new uploads always do; migrated
+       files mostly do, from the audit that indexed them. That removes the
+       reflow this grid used to show as each image finished downloading and
+       only then claimed its real span. `onLoad` stays wired below as the
+       fallback for the items this can't cover, and it simply overwrites this
+       estimate with the same number once the image lands.
+    */
+    useEffect(() => {
+        setRatios(prev => {
+            let changed = false
+            const next = { ...prev }
+            for (const p of photos) {
+                if (next[p.id] === undefined && p.width && p.height) {
+                    next[p.id] = p.width / p.height
+                    changed = true
+                }
+            }
+            return changed ? next : prev
+        })
+    }, [photos])
 
     /*
        Masonry only once there is a measurement to build it from. A tile's image
@@ -168,7 +217,10 @@ export default function PhotoGrid({ photos, view, shown, onShowMore, onOpen, onC
         return (
             <div>
                 {visible.map(group => {
-                    const missions = new Set(group.photos.map(p => p.mission)).size
+                    // Filtered before counting: a Set that let nulls through would
+                    // count every missionless item in the group as one shared
+                    // "mission", understating the real total by one.
+                    const missions = new Set(group.photos.map(p => p.mission).filter((m): m is string => !!m)).size
                     const hidden = group.photos.length - GROUP_PREVIEW
 
                     return (

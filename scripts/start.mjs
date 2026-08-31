@@ -815,6 +815,81 @@ const MIGRATION_ITEMS = [
     // indexes the kit rating/copy routes upsert against; must run before this
     // feature ships.
     { label: '🗃️ Create indexes: kit ratings & copies', script: 'scripts/2026-08-19-kit-rating-indexes.mjs', cwd: ROOT },
+    // Dry-run first, then --apply, via runMigration's own flow. Writes one
+    // gallery_media document per file already in storage and seeds the tag
+    // vocabulary. Must run before the gallery starts reading Mongo, and it is
+    // safe to re-run afterwards — J5 keeps uploading through their own tab.
+    { label: '🗃️ Index: gallery media', script: 'scripts/index-gallery.mjs', cwd: ROOT },
+    // Dry-run first, then --apply, via runMigration's own flow. Moves anything
+    // still flat under storage/gallery/media into the content tree under its
+    // readable name; idempotent, and safe to re-run for the same reason as
+    // the indexer above. Run this after Index: gallery media has run at least
+    // once, since it reads gallery_media for authorName/caption.
+    { label: '🗃️ Relocate: flat gallery media', script: 'scripts/relocate-flat-media.mjs', cwd: ROOT },
+    /* Dry-run first, then --apply, via runMigration's own flow — hence the
+       trailing '--', which is what lets runMigration's appended '--apply'
+       reach the script rather than being eaten by npm as one of its own
+       flags. Runs through apps/web so it can import lib/gallery/reconcile.ts
+       itself: reconcile is the one piece of this feature that must not be
+       duplicated into an .mjs, since a second copy disagreeing with the first
+       about what matches what is the exact defect it exists to catch.
+
+       Walks the content tree and makes gallery_media agree with it — a file
+       moved by hand into a different operation folder takes that operation.
+       Deletes and inserts nothing; a record with no file and a file with no
+       record are both reported, never resolved. Until Plan B's Health view
+       ships this is the only trigger outside a backup restore. */
+    {
+        label: '🗃️ Reconcile: gallery disk',
+        command: 'npm',
+        args: ['--prefix', 'apps/web', 'run', 'reconcile:gallery', '--'],
+        cwd: ROOT,
+    },
+    /* Dry-run first, then --apply, via runMigration's own flow — the trailing
+       '--' is what lets runMigration's appended '--apply' reach the script
+       rather than being eaten by npm as one of its own flags, exactly as for
+       Reconcile: gallery disk above. Runs through apps/web so it can import
+       lib/gallery/naming.ts: it has to agree with splitOperation about what an
+       order prefix IS, character for character, and a hand-copied regex that
+       disagreed would rename a folder the application still reads as numbered.
+
+       Takes the '{n}. ' prefix off every operation folder that still carries
+       one and rewrites the storage keys and facets of every document filed
+       under it. Renames only — nothing is deleted, nothing is merged: a strip
+       that would collide with an existing folder is reported and skipped.
+       Idempotent, and re-running it is also how a half-applied folder (renamed
+       on disk, documents not yet updated) is finished. Run this after Index:
+       gallery media, since it reads gallery_media for the keys to rewrite. */
+    {
+        label: '🗃️ Strip: gallery folder numbers',
+        command: 'npm',
+        args: ['--prefix', 'apps/web', 'run', 'strip:folder-numbers', '--'],
+        cwd: ROOT,
+    },
+    /* Dry-run first, then --apply, via runMigration's own flow — the trailing
+       '--' is what lets runMigration's appended '--apply' reach the script
+       rather than being eaten by npm as one of its own flags, exactly as for
+       the two items above. Runs through apps/web so it can import
+       lib/gallery/featured-order.ts, which holds the whole matching decision
+       and is unit-tested there.
+
+       Sets `featuredOrder` on one document per file in storage/gallery/featured
+       — the field the public rail reads and that nothing has ever written, because
+       Index: gallery media merges it into $setOnInsert and those documents were
+       inserted before it computed one. Where a featured file can be identified
+       with an archive original (exact bytes + exact pixel dimensions) the slot
+       goes to the ARCHIVE document instead, so the tile carries that item's
+       caption and credit; the dry run prints every file and which bucket it fell
+       into. Writes one field and nothing else: no inserts, no deletes, no merges.
+       Refuses to run at all once ANY document carries featuredOrder, so it can
+       never renumber a rotation J5 has curated in the console's Featured tab.
+       Run this after Index: gallery media, which is what creates the documents. */
+    {
+        label: '🗃️ Backfill: featured rail order',
+        command: 'npm',
+        args: ['--prefix', 'apps/web', 'run', 'backfill:featured-order', '--'],
+        cwd: ROOT,
+    },
     {
         label: '🗃️ Import: member history CSV',
         command: 'npm',
@@ -935,6 +1010,28 @@ async function main() {
         process.stdout.write('\x1b[r')
     }
 
+    /* How many options a select may draw.
+
+       The menu pins its header inside a scroll region, so the prompt owns only
+       what is left below it — and @clack's select renders EVERY option unless
+       given a maxItems, with no scrolling and no clipping. Migrations passed
+       eighteen entries and the list drew straight through the header and off
+       the top of the screen. Recomputed per prompt rather than cached because
+       the terminal can be resized between two turns through this loop, and
+       because the header switches between its full and compact variants on
+       exactly that event.
+
+       The six covers what clack draws around the list itself: the message
+       line, the bar above and below, and the cursor's own row, with one spare
+       so the last option is never flush against the bottom edge. The floor of
+       five keeps the list usable rather than correct-but-unreadable on a
+       terminal too short to satisfy the arithmetic. */
+    function selectRows() {
+        const rows = process.stdout.rows || 40
+        const header = headerActive ? headerRowCount : COMPACT_HEADER_ROWS
+        return Math.max(5, rows - header - 6)
+    }
+
     resumeMenuHeader()
 
     while (true) {
@@ -949,6 +1046,7 @@ async function main() {
                 { value: 'migrations', label: yellow('🗃️ Migrations') },
                 { value: 'quit', label: dim('🚪 Quit') },
             ],
+            maxItems: selectRows(),
         })
 
         if (p.isCancel(category) || category === 'quit') break
@@ -962,6 +1060,7 @@ async function main() {
                 ...items.map((item, i) => ({ value: i, label: itemColor(item.label) })),
                 { value: 'back', label: dim('← Back') },
             ],
+            maxItems: selectRows(),
         })
 
         // The header keeps animating on its own through 'back' — this just

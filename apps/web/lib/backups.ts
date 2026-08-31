@@ -10,6 +10,15 @@ import { createInterface } from 'readline'
 import { EJSON } from 'bson'
 import { MongoClient, FindCursor } from 'mongodb'
 import archiver, { type Archiver } from 'archiver'
+// The one gallery import here, and deliberately from the module that owns the
+// path rather than a second `join(GALLERY_DIR, 'thumbs')` — two spellings of
+// one directory is how an exclude silently stops matching. paths.ts imports
+// only `path`, so this pulls in no server-only dependency.
+import { THUMB_DIR } from '@/lib/gallery/paths'
+// Same rule as THUMB_DIR above: pure, imports nothing but ./naming, and in
+// particular does not reach @/lib/mongo — the numbering itself is built by the
+// caller and handed to openDownloadZipStream().
+import { numberContentEntry } from '@/lib/gallery/export-numbering'
 import { extract as tarExtract } from 'tar-stream'
 import unzipper from 'unzipper'
 
@@ -351,12 +360,27 @@ interface ResticBackupSummary { message_type: 'summary'; snapshot_id: string }
 // regardless of hostname.
 const RESTIC_HOST = 'asot-backups'
 
+/* The gallery's thumbnail cache. Every entry is regenerated on demand from a
+   file that is itself in this backup, so backing them up stores a second copy
+   of the whole archive at reduced size — roughly 120MB of files that also
+   churn, since a caption edit renames the source and mints a new thumbnail
+   while the old one lingers. Excluding it keeps the media repo the archive
+   rather than the archive plus a derivative of it.
+
+   It is excluded from RESTORE for free: nothing puts back what was never
+   backed up, and a restored gallery simply regenerates its thumbnails the
+   first time the Media tab is opened. A `wipeMedia` restore empties the
+   gallery tree including this directory, which is exactly right — a thumbnail
+   of a file the snapshot does not contain is a thumbnail of nothing. */
+const BACKUP_EXCLUDES = [THUMB_DIR]
+
 async function resticBackup(repo: string, paths: string[], tag: string, extraTags: string[] = []): Promise<string> {
     await ensureRepoInitialized(repo)
     const tagArgs = ['--tag', tag, ...extraTags.flatMap(t => ['--tag', t])]
+    const excludeArgs = BACKUP_EXCLUDES.flatMap(dir => ['--exclude', dir])
     const stdout = await runRestic(
         repo,
-        ['backup', ...paths, ...tagArgs, '--host', RESTIC_HOST, '--json'],
+        ['backup', ...paths, ...excludeArgs, ...tagArgs, '--host', RESTIC_HOST, '--json'],
         [3], // "completed with some source files unreadable" — routine on a live directory, not a failure
     )
     const summary = stdout.trim().split('\n').filter(Boolean)
@@ -907,7 +931,21 @@ async function emptyDir(dir: string): Promise<void> {
     }
 }
 
-async function restoreDatabase(dumpDir: string): Promise<void> {
+// `wipeDatabase` drops every collection the LIVE database holds before the
+// dump's are reinserted, so the result matches the backup rather than being
+// the union of the two. Without it, only the collections the dump happens to
+// contain are dropped — a collection created after the backup was taken
+// survives a restore to a point before it existed. That is not hypothetical:
+// a restore to a point predating the gallery media console carried no
+// gallery_media.ejson, the files rolled back and the collection did not, and
+// the J5 rail went on drawing folders that existed only in the database.
+// runGalleryReconcile() cannot repair that — it matches files to records and
+// never deletes or inserts.
+//
+// Defaults to false HERE, exactly as `wipeMedia` does in revertToPoint(): a
+// programmatic caller that says nothing gets the non-destructive behaviour;
+// only a caller that asked destroys data. The dashboard is what ticks it on.
+async function restoreDatabase(dumpDir: string, wipeDatabase = false): Promise<void> {
     const mongoClient = new MongoClient(process.env.MONGO_URI!)
     try {
         await mongoClient.connect()
@@ -917,6 +955,37 @@ async function restoreDatabase(dumpDir: string): Promise<void> {
             ? readdirSync(dbDir).filter(f => f.endsWith('.ejson')).map(f => f.slice(0, -6)).sort()
             : []
 
+        /* The wipe sits INSIDE this guard for the same reason wipeMedia's sits
+           inside `if (gallery)` in revertToPoint(): it runs only once a source
+           to restore FROM has actually been located. `collectionNames` is
+           non-empty only when the dump directory exists and holds .ejson
+           files, so a dump that is empty, missing or unreadable cannot empty
+           the live database and leave nothing to put back. This is the more
+           dangerous of the two — a media wipe with no source leaves the
+           gallery empty but the database intact, while a database wipe with no
+           source is the whole application gone. */
+        if (wipeDatabase && collectionNames.length > 0) {
+            /* Every collection the live database reports, not the dump's list
+               and not a hardcoded one: the entire point is to catch the
+               collections nobody thought about, which is precisely the set a
+               hardcoded list would miss. Same enumeration dumpDatabase() uses,
+               so what a backup captures and what a wipe clears cannot drift. */
+            const liveCollections = await db.listCollections({}, { nameOnly: true }).toArray()
+            for (const info of liveCollections) {
+                // The driver normally hides these, but a restore is the wrong
+                // place to find out it did not: dropping an internal system.*
+                // collection fails at best and corrupts the database's own
+                // catalogue at worst.
+                if (info.name.startsWith('system.')) continue
+                // Swallowed like the per-collection drop below — a collection
+                // that disappears between the listing and the drop is already
+                // in the state this loop wanted it in.
+                await db.collection(info.name).drop().catch(() => {})
+            }
+        }
+
+        // Dropping a collection the wipe above already dropped is a no-op, so
+        // the two passes do not need to know about each other.
         for (const collName of collectionNames) {
             const docs = await readEjsonDocs(join(dbDir, `${collName}.ejson`))
             const coll = db.collection(collName)
@@ -1022,6 +1091,57 @@ function findDirNamed(root: string, name: string): string | null {
     return null
 }
 
+/**
+ * Reconcile the gallery after a restore.
+ *
+ * A backup can be downloaded, reorganised in a file manager and re-uploaded —
+ * that is the point of the readable content tree. This is what reads those
+ * moves back in: a file carrying its media id is matched by it and takes the
+ * operation of whichever folder it now sits in.
+ *
+ * Runs after a restore of the gallery tree OR of the database — rolling back
+ * either half is what makes the two disagree.
+ *
+ * Never fatal. The restore itself has already succeeded by the time this runs,
+ * and failing the whole operation because the index could not be refreshed
+ * would report a successful restore as a failure. The report lands in
+ * gallery_health either way, and it can be re-run by hand from the repo root's
+ * `npm start` menu (Migrations -> Reconcile: gallery disk). There is no button
+ * for it in the app yet: the Health view that will carry one is Plan B.
+ *
+ * The imports are dynamic rather than top-level ones: `lib/gallery/reconcile.ts`
+ * reaches `lib/mongo.ts`, and a static import would pull a database connection
+ * into this module at load time — lib/backups.roundtrip.test.ts boots its own
+ * MongoMemoryServer and sets process.env.TEMP *before* importing backups.ts,
+ * because DB_DUMP_DIR is derived from os.tmpdir() at module load. A top-level
+ * `import './gallery/reconcile'` would run before that setup and connect to
+ * whatever Mongo happens to be configured, or throw trying.
+ */
+async function runGalleryReconcile(): Promise<void> {
+    try {
+        const { reconcile } = await import('./gallery/reconcile')
+        const Db = (await import('./mongo')).default
+
+        // acceptsRealCollections() in reconcile.ts pins that a real
+        // Collection<GalleryMedia> / Collection<Operation> satisfy
+        // ReconcileDeps with no adapter and no cast — so the collections are
+        // handed over as-is.
+        const report = await reconcile({
+            media: Db.galleryMedia,
+            operations: Db.operations,
+        })
+
+        await Db.galleryHealth.replaceOne({}, report, { upsert: true })
+
+        console.log(
+            `[backups] gallery reconcile: ${report.scanned} scanned, ${report.relocated.length} relocated, ` +
+            `${report.notIndexed.length} not indexed, ${report.missingFiles.length} missing`,
+        )
+    } catch (e: unknown) {
+        console.error('[backups] gallery reconcile after restore failed:', e instanceof Error ? e.message : String(e))
+    }
+}
+
 // ── Revert ────────────────────────────────────────────────────────────────────
 
 export async function revertToPoint(
@@ -1033,10 +1153,14 @@ export async function revertToPoint(
     // each collection — so this closes the gap between them, and the dashboard
     // ticks it by default for that reason.
     //
-    // The flag still defaults to false HERE. A programmatic caller that says
+    // `wipeDatabase` is the same idea one level deeper: it drops collections
+    // the dump does not contain AT ALL, so the database matches the backup
+    // rather than keeping whatever was created after it. See restoreDatabase().
+    //
+    // Both flags still default to false HERE. A programmatic caller that says
     // nothing should get the non-destructive behaviour; only a caller that
     // asked deletes files.
-    opts: { wipeMedia?: boolean } = {},
+    opts: { wipeMedia?: boolean; wipeDatabase?: boolean } = {},
 ): Promise<void> {
     // Claimed before anything else, including the safety backup. Throws rather
     // than returning quietly: the caller is about to be told its restore began.
@@ -1062,12 +1186,16 @@ export async function revertToPoint(
         // is no undo for what follows, so the restore does not happen.
         await runSafetyBackup()
 
+        let restoredDatabase = false
+        let restoredGallery = false
+
         if (point.dbSnapshotId && parts.includes('database')) {
             await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring database…', stage: 'db-restore' })
             const dbTarget = join(tmp, 'db-restore')
             await resticRestore(DB_REPO, point.dbSnapshotId, dbTarget)
             const dumpRoot = findByMarker(dbTarget, 'manifest.json')
-            await restoreDatabase(dumpRoot)
+            await restoreDatabase(dumpRoot, opts.wipeDatabase)
+            restoredDatabase = true
         }
         if (point.mediaSnapshotId && (parts.includes('gallery') || parts.includes('uploads'))) {
             await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring media files…', stage: 'media-restore' })
@@ -1092,7 +1220,26 @@ export async function revertToPoint(
                 if (opts.wipeMedia) await emptyDir(UPLOADS_DIR)
                 await copyDirRecursive(uploads, UPLOADS_DIR)
             }
+            // `gallery`, not `parts.includes('gallery')`: that flag only means
+            // the caller asked, while `gallery` also means the snapshot
+            // actually held one (findDirNamed above). A media restore that
+            // turns out to carry no gallery tree moved nothing to reconcile.
+            restoredGallery = !!gallery
         }
+
+        /* Either half moving is enough. The index and the disk are the two
+           sides reconcile compares, so rolling back EITHER is what makes them
+           disagree — and a database-only revert is the worst case, not an
+           exempt one: gallery_media goes back to a dump taken before files
+           were reorganised while the tree on disk stays current, so every tile
+           whose file has moved since renders 404. Guarding on the gallery
+           alone left exactly that revert unreconciled.
+
+           Deliberately outside the media block and after both: reconcile
+           compares the database against the disk, so it cannot run between the
+           two being settled. */
+        if (restoredGallery || restoredDatabase) await runGalleryReconcile()
+
         await writeOwnedStatus(token, { state: 'idle' })
         console.log(`[backups] Revert to ${point.id} complete`)
     } catch (e: unknown) {
@@ -1117,12 +1264,25 @@ export async function revertToPoint(
 // emitting one would produce a disaster-recovery zip this app itself cannot
 // ingest. The restore-to-disk version dropped them only as a side effect of
 // copyDirRecursive() refusing to follow them; here the rule is explicit.
-export function zipEntryNameFor(prefix: string, header: { name: string; type?: string | null }): string | null {
+//
+// `rename` is the one hook into that contract: the gallery download passes a
+// function that puts the "{n}. " order prefix back onto an operation folder
+// (lib/gallery/export-numbering.ts), because folders on disk no longer carry
+// one and a zip is read in a file manager with nothing to sort it. It is
+// applied HERE rather than at the call site so the renamed name is still the
+// name this function returns — the compatibility contract has to cover the
+// string that actually goes into the zip, not the one before the rewrite.
+export function zipEntryNameFor(
+    prefix: string,
+    header: { name: string; type?: string | null },
+    rename?: (name: string, isDirectory: boolean) => string,
+): string | null {
     if (header.type === 'symlink' || header.type === 'link') return null
     if (header.type !== 'file' && header.type !== 'directory') return null
+    const name = rename ? rename(header.name, header.type === 'directory') : header.name
     // restic emits paths relative to the dumped subfolder, so this is just a
     // prefix join — 'db/users.ejson' becomes 'db-source/db/users.ejson'.
-    return `${prefix}/${header.name}`
+    return `${prefix}/${name}`
 }
 
 // Streams one snapshot subtree out of restic and straight into the archive.
@@ -1136,6 +1296,7 @@ function appendSnapshotSubtree(
     snapshotId: string,
     sourcePath: string,
     prefix: string,
+    rename?: (name: string, isDirectory: boolean) => string,
 ): Promise<void> {
     return new Promise<void>((resolveJob, reject) => {
         const child = spawn(
@@ -1149,7 +1310,7 @@ function appendSnapshotSubtree(
 
         const extract = tarExtract()
         extract.on('entry', (header, stream, next) => {
-            const name = zipEntryNameFor(prefix, header)
+            const name = zipEntryNameFor(prefix, header, rename)
             if (!name) {
                 // Still has to be drained, or tar-stream stalls on it.
                 stream.on('end', next)
@@ -1197,13 +1358,29 @@ function appendSnapshotSubtree(
 //
 // The response carries no Content-Length in exchange (the size isn't knowable
 // until it's built), so the browser shows an indeterminate progress bar.
+//
+// `galleryNumbering` is what puts the "{n}. " order prefix back onto the
+// operation folders inside gallery/content — see lib/gallery/export-
+// numbering.ts for the rules, and why an already-numbered folder must come
+// out byte-identical. It is passed in rather than computed here because
+// building it reads gallery_media, and lib/backups.ts must stay importable
+// without a live Mongo connection (@/lib/mongo opens one at module load, and
+// this module's own tests import it with no database at all). Omitted, the
+// zip carries the folder names exactly as they sit on disk.
 export async function openDownloadZipStream(
     point: BackupPoint,
     parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
+    opts: { galleryNumbering?: ReadonlyMap<string, string> } = {},
 ): Promise<ReadableStream<Uint8Array>> {
     // Resolved up front so a bad snapshot id still fails as a real HTTP error,
     // before any bytes commit the response.
-    const jobs: { repo: string; snapshotId: string; sourcePath: string; prefix: string }[] = []
+    const jobs: {
+        repo: string
+        snapshotId: string
+        sourcePath: string
+        prefix: string
+        rename?: (name: string, isDirectory: boolean) => string
+    }[] = []
 
     if (point.dbSnapshotId && parts.includes('database')) {
         const [dbPath] = await snapshotSourcePaths(DB_REPO, point.dbSnapshotId)
@@ -1223,7 +1400,15 @@ export async function openDownloadZipStream(
             // 'gallery' / 'uploads' — the live directory names, which are also
             // what applyUploadedZip() restores from.
             const prefix = toResticTreePath(sourcePath).split('/').filter(Boolean).pop() ?? 'media'
-            jobs.push({ repo: MEDIA_REPO, snapshotId: point.mediaSnapshotId, sourcePath, prefix })
+            /* Only the gallery subtree, and only when a numbering was built.
+               uploads/ is department files with no operation folders in it,
+               and numberContentEntry would refuse them anyway — but keying on
+               the prefix says so rather than relying on that. */
+            const numbering = opts.galleryNumbering
+            const rename = prefix === 'gallery' && numbering && numbering.size
+                ? (name: string, isDirectory: boolean) => numberContentEntry(name, isDirectory, numbering)
+                : undefined
+            jobs.push({ repo: MEDIA_REPO, snapshotId: point.mediaSnapshotId, sourcePath, prefix, rename })
         }
     }
 
@@ -1234,7 +1419,7 @@ export async function openDownloadZipStream(
     void (async () => {
         try {
             for (const job of jobs) {
-                await appendSnapshotSubtree(archive, job.repo, job.snapshotId, job.sourcePath, job.prefix)
+                await appendSnapshotSubtree(archive, job.repo, job.snapshotId, job.sourcePath, job.prefix, job.rename)
             }
             await archive.finalize()
         } catch (e: unknown) {
@@ -1300,8 +1485,8 @@ export async function safeExtractZip(zipPath: string, destDir: string): Promise<
 export async function applyUploadedZip(
     zipPath: string,
     parts: readonly BackupPart[] = ALL_BACKUP_PARTS,
-    // See revertToPoint() — same flag, same default, same reasoning.
-    opts: { wipeMedia?: boolean } = {},
+    // See revertToPoint() — same flags, same defaults, same reasoning.
+    opts: { wipeMedia?: boolean; wipeDatabase?: boolean } = {},
 ): Promise<void> {
     // Same claim-first rule as revertToPoint().
     const token = beginOperation('upload-revert')
@@ -1368,7 +1553,7 @@ export async function applyUploadedZip(
 
         if (hasDbSource) {
             await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring database…', stage: 'db-restore' })
-            await restoreDatabase(dbDir)
+            await restoreDatabase(dbDir, opts.wipeDatabase)
         }
 
         await writeOwnedStatus(token, { state: 'reverting', message: 'Restoring media files…', stage: 'media-restore' })
@@ -1383,6 +1568,19 @@ export async function applyUploadedZip(
             if (opts.wipeMedia) await emptyDir(UPLOADS_DIR)
             await copyDirRecursive(uploads, UPLOADS_DIR)
         }
+
+        /* Both the database and the media tree are settled by here — reconcile
+           compares the two, so it cannot run between them.
+
+           Either half moving is enough. `hasUploads` is excluded because
+           uploads/ really is a separate tree (department files, not the
+           content tree reconcile walks) — but the DATABASE is not separate at
+           all: a db-source-only ZIP rolls gallery_media back to a dump taken
+           before files were reorganised while the tree on disk stays current,
+           which is the restore that leaves the index MOST out of step with the
+           disk. Guarding on hasGallery alone left it the one restore that
+           never reconciled, and every tile whose file had moved rendered 404. */
+        if (hasGallery || hasDbSource) await runGalleryReconcile()
 
         await writeOwnedStatus(token, { state: 'idle' })
         console.log('[backups] Upload-revert complete')

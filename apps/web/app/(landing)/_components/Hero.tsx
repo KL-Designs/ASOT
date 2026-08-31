@@ -186,8 +186,15 @@ export default function Hero({ sotm, roster, opCard }: {
                     <span className={s.dot} />
                     <span>{sotm.credit}</span>
                     {sotm.operationTitle && <><span className={s.dot} /><span>{sotm.operationTitle}</span></>}
-                    <span className={s.dot} />
-                    <span>{new Date(sotm.dateTaken).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                    {/* Guarded: dateTaken is absent for a pick whose media
+                        carries no takenAt, and an unguarded `new Date(undefined)`
+                        renders the literal text "Invalid Date" on the masthead. */}
+                    {sotm.dateTaken && (
+                        <>
+                            <span className={s.dot} />
+                            <span>{new Date(sotm.dateTaken).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </>
+                    )}
                     <span className={s.cue}>Scroll <i /></span>
                 </div>
             )}

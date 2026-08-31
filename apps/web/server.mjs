@@ -714,6 +714,21 @@ setInterval(runImageCleanup, 60 * 60 * 1000)
 httpServer.listen(port, '0.0.0.0', () => {
     console.log(`> Next.js ready on http://0.0.0.0:${port}`)
     console.log(`> Collab WebSocket on ws://0.0.0.0:${port}/collab`)
+
+    // Anything left mid-transcode by a restart is either redone or handed to a
+    // reviewer — see lib/gallery/queue.ts. Failure here is not fatal: it means
+    // a handful of submissions wait for the next restart, not that the site is
+    // down.
+    fetch(`http://127.0.0.1:${port}/api/gallery/internal/sweep`, { method: 'POST', headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+        .then(res => {
+            if (!res.ok) {
+                console.error(`[gallery] sweep HTTP ${res.status} — check CRON_SECRET`)
+                return null
+            }
+            return res.json()
+        })
+        .then(data => { if (data?.swept) console.log(`[gallery] swept ${data.swept} interrupted upload(s)`) })
+        .catch(err => console.warn('[gallery] startup sweep failed:', err.message))
 })
 
 // ── Calendar reminders cron (every 1 minute) ─────────────────────────────────

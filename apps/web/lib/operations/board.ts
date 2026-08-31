@@ -24,6 +24,13 @@
 // that only understood the modern shape would show seven years of history as
 // unrelated singletons.
 
+// `lib/operations/normalise-campaign.ts` has its own copy of the two functions
+// below, with the same regexes, kept separate on purpose: these infer a
+// grouping in order to *draw* the archive and can afford to be generous, while
+// that module's decide what gets *written* into `campaignMissionId`. If you
+// change a pattern here, read the note at the top of that file and decide
+// whether the write path should follow — do not assume it already has.
+
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'] as const
 
 export function detectDaySlot(title: string): { stripped: string; day: 'saturday' | 'sunday' | null } {

@@ -25,7 +25,7 @@ import s from '@/styles/gallery.module.css'
  * identical tiles, so the seam is invisible and the loop never ends.
  */
 export default function FeaturedRail({ images, onOpen }: {
-    images: string[]
+    images: FeaturedItemAPI[]
     onOpen: (index: number) => void
 }) {
     const rail = useRef<HTMLDivElement>(null)
@@ -103,7 +103,7 @@ export default function FeaturedRail({ images, onOpen }: {
        a click on whichever tile happens to be under the cursor. Past the slop
        threshold that click is swallowed on the way down.
     */
-    const drag = useRef<{ id: number; startX: number; startLeft: number; moved: number } | null>(null)
+    const drag = useRef<{ id: number; startX: number; startLeft: number; moved: number; captured: boolean } | null>(null)
     const dragged = useRef(false)
     const [dragging, setDragging] = useState(false)
     const DRAG_SLOP = 4
@@ -114,9 +114,7 @@ export default function FeaturedRail({ images, onOpen }: {
         if (e.pointerType !== 'mouse' || e.button !== 0) return
         const el = rail.current
         if (!el) return
-        drag.current = { id: e.pointerId, startX: e.clientX, startLeft: el.scrollLeft, moved: 0 }
-        el.setPointerCapture(e.pointerId)
-        setDragging(true)
+        drag.current = { id: e.pointerId, startX: e.clientX, startLeft: el.scrollLeft, moved: 0, captured: false }
     }
 
     function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
@@ -125,6 +123,24 @@ export default function FeaturedRail({ images, onOpen }: {
         if (!d || !el || e.pointerId !== d.id) return
         const dx = e.clientX - d.startX
         d.moved = Math.max(d.moved, Math.abs(dx))
+
+        /*
+           Capture is taken here rather than on pointerdown, and only once the
+           gesture has proved itself a drag.
+
+           A captured pointer retargets its pointerup to the capturing element,
+           and the browser dispatches the click at the common ancestor of the
+           down and up targets — so capturing on pointerdown moved every click
+           from the tile <button> up to this <div>, and no click ever reached
+           onOpen. That is why clicking a featured photograph did nothing while
+           dragging worked fine.
+        */
+        if (!d.captured && d.moved > DRAG_SLOP) {
+            el.setPointerCapture(e.pointerId)
+            d.captured = true
+            setDragging(true)
+        }
+
         el.scrollLeft = d.startLeft - dx
     }
 
@@ -136,7 +152,7 @@ export default function FeaturedRail({ images, onOpen }: {
         const d = drag.current
         const el = rail.current
         if (!d || !el || e.pointerId !== d.id) return
-        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
+        if (d.captured && el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId)
         dragged.current = d.moved > DRAG_SLOP
         drag.current = null
         setDragging(false)
@@ -176,7 +192,7 @@ export default function FeaturedRail({ images, onOpen }: {
             >
                 {[...images, ...images].map((img, i) => (
                     <button
-                        key={`${img}-${i}`}
+                        key={`${img.id}-${i}`}
                         type='button'
                         className={s.railItem}
                         onClick={() => onOpen(i % images.length)}
@@ -186,7 +202,15 @@ export default function FeaturedRail({ images, onOpen }: {
                         aria-hidden={i >= images.length}
                         tabIndex={i >= images.length ? -1 : undefined}
                     >
-                        <img src={`/api/gallery/featured?img=${encodeURIComponent(img)}`} alt='' loading='lazy' decoding='async' />
+                        {/* The 800px thumbnail, not the original. A tile is
+                            280x158 CSS px and this archive's originals are 4K
+                            screenshots averaging 3.8MB — the rail rendered
+                            every one of them at full resolution, twice over
+                            (the list is duplicated to make the loop seamless),
+                            on the gallery's first paint. `src` is still what
+                            the lightbox opens. Falls back to the original when
+                            there is nothing on disk to resize. */}
+                        <img src={img.thumb ?? img.src} alt='' loading='lazy' decoding='async' />
                     </button>
                 ))}
             </div>

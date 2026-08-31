@@ -1,0 +1,268 @@
+/* The J5 console's input language — the companion to j5-controls.module.css.
+
+   That file owns things you press; this owns things you type into or choose
+   from. Split for the same reason: a button and a field share a border colour
+   and nothing else, and merging them produced a file where changing a focus
+   ring meant reading past forty lines of button states.
+
+   Why these exist at all, rather than MUI with sx overrides: MUI's outlined
+   inputs float their label through a notch in a rounded border, and the notch
+   is the shape. You cannot square the corners and keep it — the label ends up
+   sitting on a straight line it was drawn to interrupt. The dashboard's own
+   language puts a mono eyebrow ABOVE a hard-edged box, so that is what these
+   do. The Select popup is ours too: MUI's Menu renders through a portal with
+   Paper's elevation tint, which is where the translucent red wash in the
+   toolbar came from. */
+
+/* ── the shared field shell ─────────────────────────────────────────── */
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0; /* so a field in a flex toolbar can shrink instead of forcing overflow */
+}
+
+/* The eyebrow, matching '// MY TASKS' on the dashboard but without the slashes:
+   inside a dense toolbar those read as content rather than as chrome. */
+.label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+    white-space: nowrap;
+}
+.field:focus-within .label { color: var(--txt-2); }
+
+/* Every control surface — input, select trigger, tag box — is this box.
+   One definition so a focus ring can never be right in one place and wrong
+   in another. */
+.surface {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 30px;
+    padding: 0 9px;
+    box-sizing: border-box;
+    border: 1px solid var(--grey);
+    background: rgba(255, 255, 255, 0.02);
+    font-family: var(--font-cond);
+    font-size: 13.5px;
+    letter-spacing: 0.01em;
+    color: var(--foreground);
+    text-align: left;
+    transition: border-color 120ms var(--nav-ease), background 120ms var(--nav-ease);
+}
+.surface:hover:not(:disabled):not(.disabled) { border-color: rgba(255, 255, 255, 0.22); }
+.surface:focus-visible,
+.surface:focus-within,
+.surfaceOpen {
+    outline: none;
+    border-color: var(--red);
+    background: rgba(219, 0, 29, 0.05);
+}
+.disabled, .surface:disabled { opacity: 0.4; cursor: default; }
+
+/* Invalid is a state the field can be left in, so it outranks focus. */
+.invalid, .invalid:focus-within { border-color: var(--red-hi); }
+.error {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    color: var(--red-hi);
+}
+
+/* A quiet line under a field saying what the current choice will actually do
+   — the author picker's "this will not be linked to a member". Not .error:
+   nothing is wrong, and painting it red would make choosing a valid option
+   look like a mistake. Not .label either, which is the eyebrow ABOVE the box
+   and is set in caps at 9px; this is a sentence and has to read as one. */
+.hint {
+    font-size: 10.5px;
+    line-height: 1.5;
+    color: var(--txt-3);
+}
+
+/* ── text input ─────────────────────────────────────────────────────── */
+
+.input {
+    flex: 1;
+    min-width: 0;
+    height: 28px;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    padding: 0;
+}
+.input:focus { outline: none; }
+.input::placeholder { color: var(--txt-3); }
+
+/* Chrome paints its own yellow autofill background over ours and ignores
+   background-color; the inset shadow is the only thing that covers it. */
+.input:-webkit-autofill {
+    -webkit-text-fill-color: var(--foreground);
+    box-shadow: inset 0 0 0 100px var(--ink-2);
+}
+
+.textarea {
+    width: 100%;
+    min-height: 62px;
+    resize: vertical;
+    padding: 6px 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    line-height: 1.45;
+}
+.textarea:focus { outline: none; }
+.textarea::placeholder { color: var(--txt-3); }
+.surfaceMulti { align-items: flex-start; padding-top: 2px; padding-bottom: 2px; }
+
+/* The affix slot — a search glyph, a unit, a clear button. Mono so it reads as
+   chrome rather than as part of the value. */
+.affix {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--txt-3);
+    flex: none;
+}
+.clear {
+    flex: none;
+    border: 0;
+    background: transparent;
+    color: var(--txt-3);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1;
+    padding: 2px 3px;
+    cursor: pointer;
+}
+.clear:hover { color: var(--red-hi); }
+.clear:focus-visible { outline: 1px solid var(--red); outline-offset: 1px; }
+
+/* ── select ─────────────────────────────────────────────────────────── */
+
+.selectWrap { position: relative; }
+
+.value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.placeholder { color: var(--txt-3); }
+
+/* A CSS caret rather than a glyph: at 13px a '▾' sits off the optical centre
+   in every one of the four families this dashboard loads. */
+.caret {
+    flex: none;
+    width: 0;
+    height: 0;
+    border-left: 3.5px solid transparent;
+    border-right: 3.5px solid transparent;
+    border-top: 4px solid var(--txt-3);
+    transition: transform 120ms var(--nav-ease);
+}
+.surfaceOpen .caret { transform: rotate(180deg); border-top-color: var(--red-hi); }
+
+.popup {
+    position: absolute;
+    z-index: 30;
+    left: 0;
+    min-width: 100%;
+    max-height: 264px;
+    display: flex;
+    flex-direction: column;
+    /* Solid, not translucent: these open over photographs. A tinted panel over
+       a bright screenshot made the option text unreadable in the toolbar. */
+    background: var(--ink-2);
+    border: 1px solid var(--line-2);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.66);
+}
+.popupDown { top: calc(100% + 3px); }
+.popupUp { bottom: calc(100% + 3px); }
+
+.search {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 9px;
+    border-bottom: 1px solid var(--line-1);
+}
+.searchInput {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    font-family: var(--font-cond);
+    font-size: 13px;
+    color: var(--foreground);
+}
+.searchInput:focus { outline: none; }
+.searchInput::placeholder { color: var(--txt-3); }
+
+.list { overflow-y: auto; padding: 3px 0; margin: 0; list-style: none; }
+
+.option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px 5px 8px;
+    font-family: var(--font-cond);
+    font-size: 13.5px;
+    color: rgba(237, 237, 237, 0.82);
+    cursor: pointer;
+    /* The selected marker is a left border on every row, transparent until it
+       matters, so selecting a row cannot shift the text by 2px. */
+    border-left: 2px solid transparent;
+}
+.optionActive { background: rgba(219, 0, 29, 0.14); color: var(--foreground); }
+.optionOn { border-left-color: var(--red); color: var(--red-hi); }
+.optionMuted { color: var(--txt-3); font-style: italic; }
+.optionNote {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    color: var(--txt-3);
+}
+.optionActive .optionNote { color: var(--txt-2); }
+
+.empty {
+    padding: 10px;
+    font-family: var(--font-cond);
+    font-size: 13px;
+    color: var(--txt-3);
+}
+
+/* ── tag picker ─────────────────────────────────────────────────────── */
+
+.tagBox { flex-wrap: wrap; gap: 4px; padding: 4px 6px; min-height: 30px; }
+.tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 4px 2px 7px;
+    border: 1px solid rgba(219, 0, 29, 0.45);
+    background: rgba(219, 0, 29, 0.12);
+    font-family: var(--font-cond);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--foreground);
+    white-space: nowrap;
+}
+.tagX {
+    border: 0;
+    background: transparent;
+    color: rgba(237, 237, 237, 0.5);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1;
+    padding: 1px 2px;
+    cursor: pointer;
+}
+.tagX:hover { color: var(--red-hi); }
+.tagX:focus-visible { outline: 1px solid var(--red); outline-offset: 1px; }
+.tagInput { flex: 1; min-width: 70px; height: 22px; }

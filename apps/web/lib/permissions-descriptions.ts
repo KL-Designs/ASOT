@@ -42,6 +42,9 @@ export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
     'communityTickets.manage': 'Manage all community tickets, including private and deleted ones.',
 
     'gallery.manage': 'Manage the media gallery — folders, images, featured photo, Shot of the Month.',
+    'gallery.submit': 'Submit photos, video and YouTube/Twitch links to the gallery for review.',
+    'gallery.review': 'Review submitted gallery media — accept, reject, or correct its caption, tags and operation.',
+    'gallery.tags': 'Manage the gallery tag vocabulary.',
 
     'attendance.confirm': 'Confirm member attendance after an operation has run.',
 

@@ -24,7 +24,7 @@
  * Skips (rather than fails) when the restic binary isn't present, so a fresh
  * clone that hasn't run scripts/ensure-restic.mjs yet still gets a green suite.
  */
-import { describe, test, expect, beforeAll, afterAll, vi } from 'vitest'
+import { describe, test, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import { MongoMemoryServer } from 'mongodb-memory-server'
 import { MongoClient } from 'mongodb'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, statSync, createWriteStream } from 'fs'
@@ -35,9 +35,50 @@ import { Readable } from 'stream'
 import { pipeline } from 'stream/promises'
 import type { ReadableStream as NodeWebReadableStream } from 'stream/web'
 import unzipper from 'unzipper'
+// Used by the empty-dump test below to build an archive this app would never
+// produce itself: a db-source/ with no db/ inside it.
+import archiver from 'archiver'
 
 const RESTIC_BIN = resolve(__dirname, '..', 'bin', process.platform === 'win32' ? 'restic.exe' : 'restic')
 const hasRestic = existsSync(RESTIC_BIN)
+
+/**
+ * runGalleryReconcile() in backups.ts calls reconcile() with no `contentDir`
+ * override, so — correctly, for production — it falls back to CONTENT_DIR in
+ * lib/gallery/paths.ts: a fixed path.resolve('../../storage/gallery/content')
+ * with NO environment override, unlike GALLERY_DIR here, which
+ * BACKUPS_STORAGE_ROOT (set in beforeAll below) already redirects. Left
+ * unmocked, every test in this file that restores the gallery part would have
+ * reconcile() walk the real repository's storage/gallery/content tree —
+ * thousands of real files on a populated checkout — instead of anything this
+ * suite creates. Read-only, so nothing would be corrupted, but it is exactly
+ * the cross-test isolation this file's BACKUPS_STORAGE_ROOT/tempRoot setup
+ * exists to guarantee, and it would make the suite behave differently on a
+ * machine with no archive.
+ *
+ * Mocking the module removes that side effect AND gives a spy for the pin
+ * below: two tests assert reconcileMock was actually called after a gallery
+ * restore, so deleting either call site in backups.ts turns an assertion red
+ * instead of leaving the suite silently green. vi.hoisted() is required here
+ * — vi.mock() factories run before this file's own top-level code, so a
+ * factory that closes over a plain `const` declared below it would throw
+ * "Cannot access before initialization".
+ */
+const { reconcileMock } = vi.hoisted(() => ({
+    reconcileMock: vi.fn(async () => ({
+        scanned: 0, matchedById: 0, matchedByPath: 0,
+        relocated: [], notIndexed: [], missingFiles: [], failedProcessing: [],
+        unreadable: 0, at: new Date(),
+    })),
+}))
+
+vi.mock('./gallery/reconcile', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./gallery/reconcile')>()
+    // Only `reconcile` is replaced. `acceptsRealCollections` is a
+    // compile-time-only pin with nothing to fake — the real one, unused at
+    // runtime, is left in place so any other future import of it still works.
+    return { ...actual, reconcile: reconcileMock }
+})
 
 let mongod: MongoMemoryServer
 let mongo: MongoClient
@@ -80,6 +121,10 @@ afterAll(async () => {
 })
 
 describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
+    // Cleared before every test so a call count asserted in one test can
+    // never be satisfied by a call made during a previous one.
+    beforeEach(() => { reconcileMock.mockClear() })
+
     const seed = async (marker: string) => {
         const db = mongo.db('asot-roundtrip')
         await db.collection('sentinel').deleteMany({})
@@ -189,6 +234,56 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
         const status = await backups.readStatus()
         expect(status.state).toBe('idle')
         expect(status.error).toBeUndefined()
+
+        // The pin for revertToPoint's call site — deliberately a separate
+        // assertion from applyUploadedZip's, in a separate test, so neither
+        // call site's coverage depends on the other one still being called.
+        expect(reconcileMock).toHaveBeenCalledTimes(1)
+    }, 300000)
+
+    /* Final review, important 3: runGalleryReconcile() used to sit INSIDE the
+       media-restore block, guarded on a gallery tree having been copied. A
+       database-only restore is the one that leaves the index MOST out of step
+       with the disk — gallery_media rolls back to a dump taken before the
+       files were reorganised while the tree on disk stays current, so every
+       tile whose file has moved renders 404 — and it was the single restore
+       that never reconciled. One test per call site, as above. */
+    test('a database-only revert still reconciles', async () => {
+        await seed('db-only-revert')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        await seed('CORRUPTED')
+        await backups.revertToPoint(point, ['database'])
+
+        expect(await liveState()).toEqual({
+            db: 'db-only-revert',   // rolled back
+            gallery: 'CORRUPTED',   // untouched, as asked — and now stale
+            uploads: 'CORRUPTED',
+        })
+        expect(reconcileMock).toHaveBeenCalledTimes(1)
+    }, 300000)
+
+    test('a database-only uploaded zip still reconciles', async () => {
+        await seed('db-only-zip')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        const zipPath = join(tempRoot, 'db-only.zip')
+        const stream = await backups.openDownloadZipStream(point, ['database']) as unknown as NodeWebReadableStream
+        await pipeline(Readable.fromWeb(stream), createWriteStream(zipPath))
+
+        await seed('CORRUPTED')
+        await backups.applyUploadedZip(zipPath, ['database'])
+
+        expect(await liveState()).toEqual({
+            db: 'db-only-zip',
+            gallery: 'CORRUPTED',
+            uploads: 'CORRUPTED',
+        })
+        expect(reconcileMock).toHaveBeenCalledTimes(1)
+
+        await rm(zipPath, { force: true }).catch(() => {})
     }, 300000)
 
     // A restore left the database clean (collections are dropped and reinserted)
@@ -256,6 +351,195 @@ describe.skipIf(!hasRestic)('real-restic disaster recovery', () => {
         expect(existsSync(stray)).toBe(false)
         expect(readFileSync(join(storageRoot, 'gallery', 'photo.txt'), 'utf-8')).toBe('zip-clean')
 
+        // The pin for applyUploadedZip's call site: this is the assertion
+        // that turns red if `if (hasGallery) await runGalleryReconcile()` is
+        // ever deleted from backups.ts. Without it, the whole reconcile-after-
+        // restore feature could be removed and this suite would stay green.
+        expect(reconcileMock).toHaveBeenCalledTimes(1)
+
+        await rm(zipPath, { force: true }).catch(() => {})
+    }, 300000)
+
+    // Task 8 closes the loop: a downloaded backup, reorganised by hand in a
+    // file manager and re-uploaded, has those moves read back into the
+    // database without a human touching Health first — runGalleryReconcile()
+    // in backups.ts calls reconcile() with exactly the ReconcileDeps built
+    // here. The other two tests above prove backups.ts calls the real
+    // reconcile(); this one proves what reconcile() actually does with a
+    // moved file, which is the whole point of running it after a restore.
+    //
+    // Exercised directly against reconcile() rather than through
+    // applyUploadedZip()/revertToPoint(): CONTENT_DIR (lib/gallery/paths.ts)
+    // resolves from a fixed path.resolve('../../storage/gallery') at module
+    // load and, unlike GALLERY_DIR in backups.ts, is never redirected by
+    // BACKUPS_STORAGE_ROOT — so driving this through the real restore path in
+    // this suite would walk the actual repository's storage/gallery/content
+    // tree instead of this test's fixture. Calling reconcile() directly with
+    // a contentDir override is the same thing reconcile.test.ts already does
+    // for the same reason, and is the only safe way to point this at the
+    // temp tree.
+    //
+    // vi.importActual() bypasses the vi.mock() above deliberately: that mock
+    // exists so backups.ts's OWN calls never touch the real tree, but this
+    // test needs the genuine implementation to prove the relocation logic
+    // actually works, not a canned response.
+    test('a file moved between folders in the zip keeps its record and takes the new operation', async () => {
+        if (!hasRestic) return
+
+        const { ObjectId } = await import('mongodb')
+        const { reconcile } = await vi.importActual<typeof import('./gallery/reconcile')>('./gallery/reconcile')
+
+        const id = new ObjectId()
+        const contentDir = join(storageRoot, 'gallery', 'content')
+        const name = `Koda — Danger close [${id.toString()}].jpg`
+
+        // The file is where a human dragged it; the record still names where
+        // it was.
+        mkdirSync(join(contentDir, '2021', '4. Op Silent Ridge'), { recursive: true })
+        writeFileSync(join(contentDir, '2021', '4. Op Silent Ridge', name), 'BYTES')
+
+        // Record<string, unknown> & { _id } rather than Record<string, unknown>
+        // alone: ReconcileMediaDoc's _id is a real ObjectId, not unknown, so a
+        // bare index-signature type would not satisfy it. Same shape
+        // reconcile.test.ts's Doc type uses.
+        type Doc = Record<string, unknown> & { _id: InstanceType<typeof ObjectId> }
+        const docs: Doc[] = [{
+            _id: id,
+            storageKey: `content:2026/23. Op New Winter/${name}`,
+            caption: 'Danger close', tags: ['funny'], up: 5, down: 0,
+        }]
+
+        const report = await reconcile({
+            contentDir,
+            media: {
+                // find() returns a cursor-shaped { toArray() }, not a promise
+                // of an array directly — ReconcileDeps.find has to match the
+                // real driver's Collection.find(), which acceptsRealCollections()
+                // in reconcile.ts pins at compile time.
+                find() { return { async toArray() { return docs } } },
+                async updateOne(filter: { _id: InstanceType<typeof ObjectId> }, update: { $set?: Record<string, unknown> }) {
+                    Object.assign(docs[0], update.$set ?? {})
+                    return {}
+                },
+            },
+            operations: { find() { return { async toArray() { return [] } } } },
+        })
+
+        expect(report.relocated).toHaveLength(1)
+        expect(docs[0].storageKey).toBe(`content:2021/4. Op Silent Ridge/${name}`)
+        expect(docs[0].operation).toBe('4. Op Silent Ridge')
+        expect(docs[0].caption).toBe('Danger close')
+        expect(docs[0].up).toBe(5)
+    })
+
+    /* The database half of the same bug the three wipeMedia tests above cover,
+       and the one that actually bit: restoreDatabase() derives its collection
+       list from the .ejson files in the dump, so a collection that exists live
+       but is absent from the dump was never named and never dropped. A restore
+       to a point predating the gallery media console therefore left
+       gallery_media exactly as it was — the files rolled back, the index did
+       not, and the J5 rail went on drawing folders that only existed in the
+       database. runGalleryReconcile() runs after every revert and cannot fix
+       it: it matches files to records and never deletes or inserts. */
+    test('a clean restore drops a collection the backup does not contain', async () => {
+        await seed('db-wipe-original')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        // Created AFTER the snapshot, which is the whole point: the dump on
+        // disk holds no `added_after_the_backup.ejson`, so the restore loop
+        // never names this collection and only the wipe can remove it.
+        await mongo.db('asot-roundtrip').collection('added_after_the_backup')
+            .insertOne({ marker: 'only ever existed in the live database' })
+
+        await backups.revertToPoint(point, ['database'], { wipeDatabase: true })
+
+        const names = (await mongo.db('asot-roundtrip')
+            .listCollections({}, { nameOnly: true }).toArray()).map(c => c.name)
+        expect(names).not.toContain('added_after_the_backup')
+        // The dump's own collections still came back. Without this the test
+        // would pass just as happily against a wipe that emptied everything
+        // and restored nothing, which is the failure mode that matters most.
+        expect((await liveState()).db).toBe('db-wipe-original')
+    }, 300000)
+
+    // The other half of the default: saying nothing must not destroy anything.
+    // Mirrors 'the default restore still merges, leaving newer files alone' —
+    // the flag defaults to false in restoreDatabase(), revertToPoint() and the
+    // route, so a programmatic caller that never heard of it is unaffected.
+    test('the default restore leaves a collection the backup does not contain alone', async () => {
+        await seed('db-merge-original')
+        await backups.runAllBackups()
+        const [point] = await backups.listBackups()
+
+        const live = mongo.db('asot-roundtrip')
+        await live.collection('kept_by_the_default_restore')
+            .insertOne({ marker: 'still here' })
+
+        await backups.revertToPoint(point, ['database'])
+
+        const names = (await live.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name)
+        expect(names).toContain('kept_by_the_default_restore')
+        expect(await live.collection('kept_by_the_default_restore').countDocuments()).toBe(1)
+        expect((await liveState()).db).toBe('db-merge-original')
+
+        // Dropped here so the collection this test deliberately preserved
+        // cannot end up inside a later test's dump and quietly make a wipe
+        // assertion pass for the wrong reason.
+        await live.collection('kept_by_the_default_restore').drop().catch(() => {})
+    }, 300000)
+
+    /* The guard, tested from the dangerous side. The wipe sits INSIDE
+       `collectionNames.length > 0` for the same reason wipeMedia's sits inside
+       `if (gallery)`: it must run only once there is something to restore FROM.
+       A media wipe with no source leaves an empty gallery; a database wipe with
+       no source leaves no application. This drives the real upload path with an
+       archive whose db-source/ holds a manifest and no db/ directory at all —
+       the "missing dump directory" branch of restoreDatabase() — and asserts
+       nothing is lost with the flag on OR off. */
+    test('an archive carrying no collections wipes nothing, flag or no flag', async () => {
+        const zipPath = join(tempRoot, 'no-collections.zip')
+        const out = createWriteStream(zipPath)
+        const archive = archiver('zip', { zlib: { level: 0 } })
+        // `close` on the sink, not `finalize()`'s promise: the same flush race
+        // safeExtractZip()'s own comment records — finalize can resolve before
+        // the bytes are on disk, and unzipper would then open a short file.
+        const written = new Promise<void>((res, rej) => {
+            out.on('close', () => res())
+            out.on('error', rej)
+            archive.on('error', rej)
+        })
+        archive.pipe(out)
+        // db-source/ exists (so applyUploadedZip proceeds) but contains no
+        // db/ subdirectory, so restoreDatabase() sees collectionNames === [].
+        archive.append(
+            JSON.stringify({ version: 1, createdAt: new Date().toISOString(), collections: [] }),
+            { name: 'db-source/manifest.json' },
+        )
+        await archive.finalize()
+        await written
+
+        await seed('survives-an-empty-dump')
+        const live = mongo.db('asot-roundtrip')
+        await live.collection('never_in_any_dump').insertOne({ marker: 'untouched' })
+
+        // The flag ON is the case that would have destroyed the database.
+        await backups.applyUploadedZip(zipPath, ['database'], { wipeDatabase: true })
+
+        let names = (await live.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name)
+        expect(names).toContain('never_in_any_dump')
+        expect(names).toContain('sentinel')
+        expect((await liveState()).db).toBe('survives-an-empty-dump')
+
+        // And again with it off, so the assertion is about the guard rather
+        // than about the flag happening to be unset.
+        await backups.applyUploadedZip(zipPath, ['database'])
+
+        names = (await live.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name)
+        expect(names).toContain('never_in_any_dump')
+        expect((await liveState()).db).toBe('survives-an-empty-dump')
+
+        await live.collection('never_in_any_dump').drop().catch(() => {})
         await rm(zipPath, { force: true }).catch(() => {})
     }, 300000)
 })

@@ -104,3 +104,23 @@ export const GroupedIcon = (p: P) => (
         <path d='M4 5h16M4 11h16M4 17h16M4 5v14' />
     </svg>
 )
+
+/* Filled rather than stroked, unlike everything above it — an outlined
+   triangle at badge size reads as an arrow, not a play button. */
+export const PlayIcon = (p: P) => (
+    <svg viewBox='0 0 24 24' {...p} aria-hidden='true'>
+        <path d='M7 4.5v15l14-7.5z' fill='currentColor' />
+    </svg>
+)
+
+export const ThumbUpIcon = (p: P) => (
+    <svg viewBox='0 0 24 24' {...stroke} {...p} aria-hidden='true'>
+        <path d='M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3zM7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3' />
+    </svg>
+)
+
+export const ThumbDownIcon = (p: P) => (
+    <svg viewBox='0 0 24 24' {...stroke} {...p} aria-hidden='true'>
+        <path d='M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3zm7-13h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17' />
+    </svg>
+)

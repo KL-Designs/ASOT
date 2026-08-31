@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import GalleryBanner from './_components/GalleryBanner'
 import FeaturedRail from './_components/FeaturedRail'
@@ -8,9 +8,10 @@ import Toolbar, { type GridView, type SortKey } from './_components/Toolbar'
 import FacetRail from './_components/FacetRail'
 import PhotoGrid from './_components/PhotoGrid'
 import Lightbox, { type LightboxItem } from './_components/Lightbox'
+import { useGalleryData } from './useGalleryData'
 
 import {
-    archiveStats, emptyFilters, flatten, matches, sortPhotos, splitOperation,
+    archiveStats, emptyFilters, matches, sortPhotos, splitOperation,
     type Facet, type Filters, type Photo,
 } from './gallery-data'
 
@@ -26,10 +27,18 @@ import s from '@/styles/gallery.module.css'
    no result count anywhere, so you could never tell whether a filter had done
    anything.
 
-   Everything on this page is derived from what storage actually holds. The
-   archive is a tree of years, operations, missions and files and nothing more,
-   so there is no photographer facet, no tags and no likes — the mockup carried
-   all three, and every one of them would have had to be invented.
+   Everything on this page is still derived from what is actually stored and
+   still invents nothing — that hasn't changed. What changed is what "stored"
+   means: the gallery used to be a read of the folder tree on disk, which
+   could hold years, operations, missions and files and nothing else. It now
+   reads the gallery_media index instead, and an author, a caption, tags and
+   a score are exactly the things that tree had nowhere to put — they are not
+   invented, they were just unrepresentable until there was a database under
+   the page.
+
+   Fetching, votes and the lightbox-item shape all live in useGalleryData —
+   this file is left to arrange them: filters, paging, and which of the
+   several things that can open in a lightbox is currently open.
    ========================================================================== */
 
 /*
@@ -40,44 +49,26 @@ import s from '@/styles/gallery.module.css'
 const PAGE_SIZE: Record<GridView, number> = { masonry: 48, uniform: 48, grouped: 8 }
 
 export default function Page() {
-    const [years, setYears] = useState<GalleryAPI['years']>([])
-    const [featured, setFeatured] = useState<string[]>([])
-    const [sotm, setSotm] = useState<ScreenshotOfMonth | null>(null)
+    const { items, featured, sotm, tags, canSubmit, applyVote, toLightboxItem } = useGalleryData()
 
     const [filters, setFilters] = useState<Filters>(emptyFilters)
     const [sort, setSort] = useState<SortKey>('new')
-    const [view, setView] = useState<GridView>('masonry')
-    const [shown, setShown] = useState(PAGE_SIZE.masonry)
+    /* Grouped by default: the archive is ~4,781 photographs across five years,
+       and a flat grid opens on whichever 48 happen to sort first with nothing
+       saying what they are. The grouped view opens on operations, which is how
+       the unit actually refers to its own photographs — a visitor looking for
+       one night's screenshots starts from its name, not from a wall. */
+    const [view, setView] = useState<GridView>('grouped')
+    const [shown, setShown] = useState(PAGE_SIZE.grouped)
 
     const [lightbox, setLightbox] = useState<{ list: Photo[], index: number } | null>(null)
     const [singleImage, setSingleImage] = useState<LightboxItem | null>(null)
 
-    useEffect(() => {
-        fetch('/api/gallery')
-            .then(res => res.json())
-            .then((json: GalleryAPI) => {
-                setYears(json.years ?? [])
-                // Shuffled per visit: the strip is a sample of the archive, not
-                // a ranking, and a fixed order would show the same dozen photos
-                // to everyone forever.
-                setFeatured([...(json.featured ?? [])].sort(() => Math.random() - 0.5))
-            })
-            .catch(() => { })
-
-        // A month with no winner set is a normal state — the banner simply drops
-        // that column rather than showing an empty card.
-        fetch('/api/gallery/sotm')
-            .then(res => res.ok ? res.json() : null)
-            .then(json => setSotm(json?.filename ? json : null))
-            .catch(() => { })
-    }, [])
-
-    const photos = useMemo(() => flatten(years), [years])
-    const stats = useMemo(() => archiveStats(years), [years])
+    const stats = useMemo(() => archiveStats(items), [items])
 
     const results = useMemo(
-        () => sortPhotos(photos.filter(p => matches(p, filters)), sort),
-        [photos, filters, sort],
+        () => sortPhotos(items.filter(p => matches(p, filters)), sort),
+        [items, filters, sort],
     )
 
     /* Any change to what is on screen resets the page window. Keeping a deep
@@ -90,6 +81,9 @@ export default function Page() {
                 year: new Set(prev.year),
                 operation: new Set(prev.operation),
                 mission: new Set(prev.mission),
+                tag: new Set(prev.tag),
+                author: new Set(prev.author),
+                media: prev.media,
             }
             change(next)
             return next
@@ -104,6 +98,10 @@ export default function Page() {
             // means anything while its operation is still selected.
             if (facet === 'operation' && draft.operation.size === 0) draft.mission.clear()
         })
+    }, [update])
+
+    const setMedia = useCallback((media: Filters['media']) => {
+        update(draft => { draft.media = media })
     }, [update])
 
     const removeFilter = useCallback((facet: Facet | 'q', value: string) => {
@@ -143,9 +141,14 @@ export default function Page() {
     }, [update, changeView])
 
     /* Operations are stored with an ordering prefix. The pills print the label,
-       but they hold the raw folder name, which is the key everything filters on. */
-    const labelFor = useCallback((facet: Facet, value: string) =>
-        facet === 'operation' ? splitOperation(value).label : value, [])
+       but they hold the raw folder name, which is the key everything filters on.
+       Tags are stored as slugs for the same reason — a slug is the filter key,
+       and the vocabulary is what turns it back into something readable. */
+    const labelFor = useCallback((facet: Facet, value: string) => {
+        if (facet === 'operation') return splitOperation(value).label
+        if (facet === 'tag') return tags.find(t => t.slug === value)?.label ?? value
+        return value
+    }, [tags])
 
     /* ---------- lightbox ---------- */
 
@@ -162,45 +165,79 @@ export default function Page() {
         })
     }, [])
 
+    const closeLightbox = useCallback(() => {
+        setSingleImage(null)
+        setLightbox(null)
+    }, [])
+
+    /* A tag chip inside the lightbox is a shortcut to "show me more like this",
+       not an addition to whatever was already selected — it replaces the tag
+       filter outright and drops straight into the filtered grid. */
+    const filterByTag = useCallback((slug: string) => {
+        update(draft => { draft.tag = new Set([slug]) })
+        closeLightbox()
+    }, [update, closeLightbox])
+
     const openFeatured = useCallback((index: number) => {
-        const file = featured[index]
-        if (!file) return
+        const item = featured[index]
+        if (!item) return
+        // Featured tiles are gallery_media records now (see useGalleryData),
+        // so the lightbox gets their real caption and operation rather than
+        // the filename it used to fall back to. kind/source are still set to
+        // whatever makes the stage and the Download button behave like a
+        // plain photograph, which is what a featured tile actually is — it
+        // carries no `kind`/`source` of its own in FeaturedItemAPI.
         setSingleImage({
-            src: `/api/gallery/featured?img=${encodeURIComponent(file)}`,
-            kicker: 'Featured',
-            title: file.replace(/\.[^.]+$/, ''),
+            src: item.src,
+            poster: null,
+            kicker: item.opLabel ?? 'Featured',
+            title: item.caption ?? item.opLabel ?? 'Featured',
             rows: [],
-            file,
+            // Falls back to the id only in the same case GalleryItemAPI.file
+            // does: no readable name exists at all behind this record.
+            file: item.file ?? item.id,
+            kind: 'image',
+            source: 'upload',
+            embedId: null,
+            embedKind: null,
+            embedUrl: null,
+            caption: item.caption,
+            authorName: null,
+            tags: [],
+            vote: null,
         })
     }, [featured])
 
     const openSotm = useCallback(() => {
         if (!sotm) return
+        // The Taken row is dropped rather than shown empty when the picked
+        // media has no takenAt — an unguarded `new Date(undefined)` renders
+        // "Invalid Date" as though it were the date of the photograph.
+        const rows: [string, string][] = [['Credit', sotm.credit]]
+        if (sotm.dateTaken) {
+            rows.push(['Taken', new Date(sotm.dateTaken).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })])
+        }
         setSingleImage({
             src: '/api/gallery/sotm/image',
+            poster: null,
             kicker: 'Screenshot of the month',
             title: sotm.operationTitle || 'This month',
-            rows: [
-                ['Credit', sotm.credit],
-                ['Taken', new Date(sotm.dateTaken).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })],
-            ],
+            rows,
             file: sotm.filename,
+            kind: 'image',
+            source: 'upload',
+            embedId: null,
+            embedKind: null,
+            embedUrl: null,
+            caption: null,
+            authorName: null,
+            tags: [],
+            vote: null,
         })
     }, [sotm])
 
     const current = lightbox?.list[lightbox.index]
-    const item: LightboxItem | null = singleImage ?? (current ? {
-        src: current.src,
-        kicker: `${current.opLabel} · Mission ${current.mission}`,
-        title: current.opLabel,
-        rows: [
-            ['Operation', current.opLabel],
-            ['Mission', current.mission],
-            ['Year', current.year],
-            ['File', current.file],
-        ],
-        file: current.file,
-    } : null)
+    const item: LightboxItem | null = singleImage ?? (current ? toLightboxItem(current) : null)
 
     return (
         <div className={s.page}>
@@ -210,20 +247,22 @@ export default function Page() {
 
             <Toolbar
                 filters={filters}
-                total={photos.length}
+                total={items.length}
                 shown={results.length}
                 sort={sort}
                 view={view}
                 onSearch={q => update(draft => { draft.q = q })}
                 onSort={setSort}
                 onView={changeView}
+                onMedia={setMedia}
                 onRemove={removeFilter}
                 onClear={clearAll}
                 labelFor={labelFor}
+                canSubmit={canSubmit}
             />
 
             <div className={s.shell}>
-                <FacetRail photos={photos} filters={filters} onToggle={toggleFacet} />
+                <FacetRail photos={items} filters={filters} tags={tags} onToggle={toggleFacet} />
 
                 <main>
                     <PhotoGrid
@@ -243,8 +282,10 @@ export default function Page() {
                     item={item}
                     index={singleImage ? null : lightbox!.index}
                     count={singleImage ? 1 : lightbox!.list.length}
-                    onClose={() => { setSingleImage(null); setLightbox(null) }}
+                    onClose={closeLightbox}
                     onStep={step}
+                    onTagClick={filterByTag}
+                    onVote={applyVote}
                 />
             )}
         </div>

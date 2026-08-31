@@ -39,6 +39,32 @@ describe('zipEntryNameFor', () => {
         expect(zipEntryNameFor('gallery', { name: 'hard.jpg', type: 'link' })).toBeNull()
     })
 
+    /* The gallery download passes a rename that puts the "{n}. " order prefix
+       back on an operation folder (lib/gallery/export-numbering.ts). It is
+       applied INSIDE this function on purpose: the name this function returns
+       is the name that goes into the zip, so the compatibility contract with
+       safeExtractZip()/applyUploadedZip() has to be asserted over the renamed
+       string, not the one before the rewrite. */
+    test('applies a caller rename before prefixing, and tells it what is a directory', () => {
+        const rename = (name: string, isDirectory: boolean) =>
+            isDirectory ? `dir:${name}` : `file:${name}`
+
+        expect(zipEntryNameFor('gallery', { name: 'content/2026/Op X/a.jpg', type: 'file' }, rename))
+            .toBe('gallery/file:content/2026/Op X/a.jpg')
+        expect(zipEntryNameFor('gallery', { name: 'content/2026/Op X/', type: 'directory' }, rename))
+            .toBe('gallery/dir:content/2026/Op X/')
+    })
+
+    test('drops a symlink before the rename can see it', () => {
+        // The type rules run first, so a rename cannot resurrect an entry the
+        // extractor would refuse.
+        let called = false
+        const rename = (name: string) => { called = true; return name }
+
+        expect(zipEntryNameFor('gallery', { name: 'shortcut.jpg', type: 'symlink' }, rename)).toBeNull()
+        expect(called).toBe(false)
+    })
+
     test('drops anything that is not a plain file or directory', () => {
         // restic will not normally emit these, but a zip entry built from one
         // would be meaningless at best and a restore hazard at worst.

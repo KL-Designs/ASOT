@@ -1,0 +1,659 @@
+/* The J5 Media tab's three-column workspace.
+
+   A CSS module rather than MUI sx props: this is a layout with a scrolling
+   rail, a scrolling centre and a sticky inspector, and expressing that in sx
+   objects spread across four components is how the dashboard's other tabs
+   ended up with their layout in five places at once. Buttons now come from
+   j5-controls.module.css instead — this module owns position, that one owns
+   appearance. Text fields, selects and autocompletes still stay MUI. */
+
+/* ONE height for the console, and the three columns share it.
+
+   The rail, the grid, the table and the inspector each used to carry a
+   viewport cap of their own — 70vh, 62vh, 62vh, 70vh — inside a box whose own
+   height came from whichever of them was tallest. That is three scrollbars on
+   screen at once on a 1440p display, on two different scales, with the whole
+   dashboard page scrolling behind them as a fourth, and the inspector's
+   Save/Delete row pushed under the fold because its 70vh started below the
+   navbar and the tab chrome. Raising the four numbers cannot fix that: they
+   are four independent scroll boxes, and the symptom is that there are four.
+
+   So the height is stated once, here, and the columns take it: grid items
+   stretch to their track by default, so each one is exactly this tall and
+   scrolls only when its OWN content overflows it.
+
+   Why a custom property rather than a plain `calc(100dvh - …)`: the distance
+   from the top of the viewport to this box is not a constant anybody can write
+   down. The navbar's status strip collapses on scroll, the quick-links rail
+   above the tabs renders nothing, one row or two depending on how many links
+   J5 has, and the tab bar wraps on a narrow window. MediaTab measures that
+   offset and writes it here (see its `--console-h` effect); the fallback is
+   only what the first paint uses before the effect runs, and it is deliberately
+   conservative — too short is a smaller console, too tall is the bug above.
+
+   `height`, not `max-height`, and content-independent on purpose. Nothing in
+   this chain — .dash is `height: 100%` of a flex item sized from its content —
+   hands down a definite height, so a console sized from its content would let
+   the rail's own tree decide how tall the console is, which is how the four
+   caps came to exist in the first place. */
+.work {
+    position: relative; /* anchors CornerBrackets, which positions itself absolutely */
+    display: grid;
+    grid-template-columns: 210px 1fr 320px;
+    gap: 0;
+    border: 1px solid rgba(219, 0, 29, 0.18);
+    background: rgba(255, 255, 255, 0.012);
+    height: var(--console-h, calc(100dvh - 300px));
+    /* The floor from before, lowered: with the height now measured, a laptop
+       whose viewport leaves less than this gets a console that overflows the
+       fold, and 560 made that happen on a 768px-tall screen. */
+    min-height: 480px;
+}
+/* `min-height: 0` is the load-bearing half. A grid item's automatic minimum
+   size is its CONTENT, so a column with `overflow-y: auto` and 4,781 tiles in
+   it refuses to be shorter than all of them and pushes the track — and with it
+   the console — back to exactly the height the caps above were introduced to
+   contain. Without this line every rule below appears to do nothing. */
+.work > * { min-width: 0; min-height: 0; }
+
+/* ── rail ───────────────────────────────────────────────────────────── */
+/* No cap of its own — the track .work gives it is the cap. See .work. */
+.rail {
+    border-right: 1px solid rgba(219, 0, 29, 0.14);
+    padding: 10px 0;
+    overflow-y: auto;
+}
+.railHead {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+    padding: 0 12px;
+    margin: 0 0 6px;
+}
+.railHead + .railHead { margin-top: 18px; }
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 5px 12px;
+    border: 0;
+    border-left: 2px solid transparent;
+    background: none;
+    color: rgba(237, 237, 237, 0.62);
+    font-family: var(--font-cond);
+    font-size: 13.5px;
+    letter-spacing: 0.03em;
+    text-align: left;
+    cursor: pointer;
+}
+.row:hover { background: rgba(255, 255, 255, 0.03); color: var(--foreground); }
+.row:focus-visible { outline: 1px solid var(--red); outline-offset: -1px; }
+.rowOn {
+    background: rgba(219, 0, 29, 0.1);
+    border-left-color: var(--red);
+    color: var(--foreground);
+}
+.rowSub { padding-left: 26px; font-size: 12.5px; }
+.rowSubSub { padding-left: 40px; font-size: 12px; }
+/* The fourth level, reached only inside a campaign: year > campaign >
+   campaign mission > Saturday/Sunday. The step shrinks (14px, then 12px)
+   rather than repeating 14px, because a fourth full step pushes the day
+   labels past the rail's own width at the narrowest breakpoint. */
+.rowSubSubSub { padding-left: 52px; font-size: 11.5px; }
+
+.count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: rgba(237, 237, 237, 0.38);
+    font-variant-numeric: tabular-nums;
+}
+.rowOn .count { color: var(--red-hi); }
+.caret { width: 9px; flex: none; font-size: 9px; color: rgba(237, 237, 237, 0.38); }
+
+/* ── centre ─────────────────────────────────────────────────────────── */
+/* min-height: 0 again, for the same reason .work > * needs it: this is a flex
+   column, and its scrolling body below is a flex item whose automatic minimum
+   is its content. */
+.centre { display: flex; flex-direction: column; min-height: 0; }
+.tools {
+    /* Never shrinks and never grows: the toolbar is the fixed furniture at the
+       top of the column, and the pane below it is what absorbs the height. */
+    flex: none;
+    display: flex;
+    /* flex-end, not centre: the fields carry their label ABOVE the box, so
+       centring the row lines up the labels and leaves the boxes and the
+       buttons beside them at four different heights. */
+    align-items: flex-end;
+    gap: 8px;
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(219, 0, 29, 0.14);
+    flex-wrap: wrap;
+}
+
+/* Toolbar field widths. Each is the width the filter's own longest option
+   needs — an author name is longer than 'Videos'. */
+.toolSearch { flex: 1; min-width: 180px; }
+.toolSort, .toolTag { min-width: 130px; }
+.toolAuthor { min-width: 150px; }
+.toolKind { min-width: 110px; }
+
+/* The item and selection counts, stacked rather than joined by a middle dot.
+   On one line the pair was the widest thing in the row and pushed the filters
+   left; a second line costs the toolbar height it already has.
+   `align-self` restates the row's flex-end deliberately — a two-line cell in a
+   flex row would otherwise stretch, and the block belongs on the buttons'
+   bottom edge rather than floating against the taller fields. */
+.count {
+    margin-left: auto;
+    align-self: flex-end;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    line-height: 1.35;
+    color: rgba(237, 237, 237, 0.38);
+    white-space: nowrap;
+}
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 8px;
+    padding: 12px;
+    align-content: start;
+    /* The cap here is for the OTHER two consumers of this class — the Featured
+       and SOTM tabs, which drop .grid into an ordinary page section that has no
+       console around it to bound it. Inside .work it is overridden below;
+       leaving it in place there would put the console back to two nested
+       scrollboxes on different scales, which is the whole bug. */
+    max-height: 62vh;
+    overflow-y: auto;
+}
+
+/* The console's scrolling body: the tile grid, the table, and the Health
+   report's wrapper. `flex: 1 1 auto` rather than `flex: 1` deliberately —
+   `flex: 1` sets `flex-basis: 0`, and under the breakpoint below .centre is an
+   auto-height column, where a zero-basis item contributes no content height at
+   all and the pane collapses to nothing. `auto` keeps its content as the basis
+   and still absorbs the console's free space when there is a height to
+   absorb. */
+.centre .grid, .tblWrap, .scrollPane {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+}
+/* The Health view brings no scroll container of its own — it is a plain padded
+   div — so it gets one here rather than overflowing a console that now has a
+   fixed height and would simply paint it over whatever sits below. */
+.scrollPane { overflow-y: auto; }
+.tile {
+    /* Block, not the UA's inline-block: an inline-level grid item sits on a
+       line box and picks up the descender gap under it. */
+    display: block;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+    padding: 0;
+    cursor: pointer;
+}
+/* The box that owns the ratio, and the anchor for the check, the badges and
+   the caption. This cannot be the <button> itself, which is where the ratio
+   used to live: a form control's block size comes from its content, so
+   `aspect-ratio` on .tile was dropped, and the <img>'s own `height: 100%` then
+   had no definite height to resolve against and fell back to auto. Button and
+   image collapsed onto each other and every tile rendered as a ~55px letterbox
+   sliver at every column width. A plain block child has neither problem, and
+   the button sizes itself to the ratio-derived height it produces. The
+   inspector's .preview is the same 16/10 on a <div> and was always correct —
+   the ratio was never the part that was wrong. */
+.tileBox {
+    display: block;
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+}
+.tileBox img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile:focus-visible { outline: 1px solid var(--red); outline-offset: 1px; }
+
+/* In the public featured rail. --amber is the token the NO DATE badge already
+   uses — one gold in this console rather than a second one that nearly
+   matches it. */
+.tileFeatured { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
+/* After .tileFeatured on purpose, so equal specificity hands the frame to
+   selection when a tile is both. Red is the state the reviewer is actively
+   manipulating and the one a bulk action acts on, so it must never be the
+   signal that gets painted over; gold is still readable from the star, which
+   selection does not touch. */
+.tileOn { border-color: var(--red); box-shadow: inset 0 0 0 1px var(--red); }
+
+.check {
+    position: absolute;
+    top: 5px; left: 5px;
+    width: 15px; height: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background: rgba(0, 0, 0, 0.5);
+}
+.tileOn .check { background: var(--red); border-color: var(--red); }
+
+/* A stack rather than a single cornered badge: an item can be unlinked, undated
+   and a video all at once, and while the badges shared one 5px corner the only
+   way to stop them overlapping was to suppress the others — VIDEO used to be
+   hidden on every unlinked item for exactly that reason, which on this archive
+   meant hidden on all of them. */
+.badges {
+    position: absolute;
+    top: 5px; right: 5px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+}
+.badge {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    padding: 2px 5px;
+    background: rgba(0, 0, 0, 0.75);
+    color: #fff;
+}
+/* Amber is for the fact a reviewer should act on, which means it has to be
+   rare to mean anything: every one of the 4,781 migrated items lacks
+   operationId, so UNLINKED in this colour painted the whole grid amber and
+   distinguished nothing. .badgeQuiet is for a label that is true of nearly
+   everything and is stated rather than flagged. */
+.badgeWarn { background: rgba(216, 172, 69, 0.92); color: #1a1400; }
+.badgeQuiet { background: rgba(0, 0, 0, 0.55); color: rgba(255, 255, 255, 0.5); }
+
+/* A glyph, not a badge: the three badges below it are words a reviewer reads,
+   and a fourth reading FEATURED would make the stack a paragraph. The shadow
+   is not decoration — a thumbnail is an arbitrary photograph, and gold on a
+   bright sky has no contrast at all without something dark behind it. */
+.star {
+    font-size: 14px;
+    line-height: 1;
+    color: var(--amber);
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.9), 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+
+.cap {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    padding: 14px 6px 5px;
+    font-family: var(--font-cond);
+    font-size: 11px;
+    color: #fff;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.88));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
+}
+
+/* ── table ──────────────────────────────────────────────────────────── */
+
+/* The same items as .grid, laid out for the other job: the grid is for
+   recognising a shot, this is for working through three hundred of them. Its
+   own scroll box — sized by the console rather than by a cap of its own, like
+   the grid beside it — so the tools bar above and the pager below stay put
+   while the rows move. */
+.tblWrap { overflow: auto; }
+.tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-cond);
+    font-size: 13px;
+    color: rgba(237, 237, 237, 0.82);
+}
+.tbl th, .tbl td {
+    text-align: left;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    white-space: nowrap;
+}
+.tbl thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    /* Opaque rather than the panel's 1.2%-white tint: rows scroll underneath
+       the header, and a translucent one would show them straight through it. */
+    background: var(--background);
+    border-bottom: 1px solid rgba(219, 0, 29, 0.18);
+    padding: 7px 8px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+}
+.tblRow:hover { background: rgba(255, 255, 255, 0.03); }
+/* An inset bar rather than a border: a border on a <tr> is not painted with
+   border-collapse, and one on every <td> would draw a line down each column. */
+.tblRowOn { background: rgba(219, 0, 29, 0.1); box-shadow: inset 2px 0 0 var(--red); }
+.tblNum { font-variant-numeric: tabular-nums; }
+/* The table's half of the tile's star. No shadow here — it sits on the
+   panel's own dark surface rather than on a photograph. */
+.tblStar { color: var(--amber); }
+.tblPick { width: 24px; }
+.tblPick input { accent-color: var(--red); cursor: pointer; }
+
+.sortBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    border: 0;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+}
+.sortBtn:hover { color: var(--foreground); }
+.sortBtn:focus-visible { outline: 1px solid var(--red); outline-offset: 2px; }
+.sortOn { color: var(--red-hi); }
+.sortMark { font-size: 8px; }
+
+.thumbBtn {
+    display: block;
+    width: 48px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    overflow: hidden;
+}
+.thumbBtn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* The caption is the column that gets typed in, so it takes the slack the
+   fixed-width columns leave and is the one cell allowed to wrap. */
+.tblCap { width: 40%; white-space: normal; }
+.capInput {
+    width: 100%;
+    min-width: 150px;
+    font-family: var(--font-cond);
+    font-size: 13px;
+    color: var(--foreground);
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 3px 5px;
+}
+.capInput::placeholder { color: rgba(237, 237, 237, 0.3); }
+.capInput:hover { border-color: var(--grey); }
+.capInput:focus { outline: 0; border-color: var(--red); background: rgba(0, 0, 0, 0.35); }
+
+.capState {
+    display: block;
+    padding: 1px 5px 0;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+}
+.capState[data-state='saved'] { color: var(--live); }
+/* A failed save carries the server's own sentence, which is longer than a
+   status word and must not be clipped to the column. */
+.capState[data-state='error'] { color: var(--red-hi); text-transform: none; letter-spacing: 0.02em; white-space: normal; }
+
+.muted { color: rgba(237, 237, 237, 0.38); }
+
+/* For the header cells that are a column to a screen reader and a blank to
+   everyone else — the checkbox and the thumbnail. */
+.srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.empty {
+    padding: 48px 16px;
+    text-align: center;
+    color: rgba(237, 237, 237, 0.38);
+    font-size: 13px;
+}
+.pager {
+    /* Fixed furniture, like .tools at the other end of the column: the pane
+       between them is the only thing that gives up height. */
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    padding: 10px;
+    border-top: 1px solid rgba(219, 0, 29, 0.14);
+}
+
+/* ── inspector ──────────────────────────────────────────────────────── */
+.insp {
+    border-left: 1px solid rgba(219, 0, 29, 0.14);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    /* No cap of its own — the console's height is the cap, which is what puts
+       .actions (margin-top: auto) on the bottom edge of a box that is on
+       screen. The old 70vh started below the navbar and the tab chrome, so the
+       Save/Delete row ended up under the fold and needed a second scroll. */
+    overflow-y: auto;
+}
+.inspHead {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.preview { aspect-ratio: 16 / 10; border: 1px solid rgba(255, 255, 255, 0.06); }
+
+/* The featured toggle and the state it reports, on one line. Wraps rather than
+   squeezing: at the inspector's 320px the button and the phrase beside it do
+   not always fit, and a clipped "In the featured ra…" says less than a
+   second line costs. */
+.featuredRow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.featuredNow {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--amber);
+}
+.preview img, .preview video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; }
+.preview iframe { width: 100%; height: 100%; border: 0; display: block; }
+.previewEmpty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(237, 237, 237, 0.32);
+    font-family: var(--font-cond);
+    font-size: 12px;
+}
+
+/* The "On disk" mini-section: its own header sitting directly above the path
+   block, rather than inheriting the 10px gap .insp puts between every other
+   field — that gap read as the header belonging to nothing in particular. */
+.diskBlock { display: flex; flex-direction: column; gap: 4px; }
+
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 11.5px; align-items: baseline; }
+.facts dt {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+}
+.facts dd { margin: 0; color: rgba(237, 237, 237, 0.62); font-variant-numeric: tabular-nums; }
+
+/* The path is shown in full, because the bracketed id in it is the contract
+   that lets a file be dragged to another folder and still be recognised. */
+.path {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    line-height: 1.6;
+    color: rgba(237, 237, 237, 0.62);
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 7px 8px;
+    word-break: break-all;
+}
+
+.consequence {
+    border: 1px solid rgba(216, 172, 69, 0.3);
+    background: rgba(216, 172, 69, 0.07);
+    padding: 9px 10px;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: rgba(237, 237, 237, 0.62);
+}
+.consequence b { color: var(--foreground); }
+
+/* Save/Delete row — pinned to the bottom of the flex column via margin-top:
+   auto, so it stays put whether the panel above it is a single image or a
+   full field set with tags and the storage path. */
+.actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: auto; }
+
+/* These are viewport queries for a layout that is a long way from being the
+   viewport, and the numbers have to pay for that difference. To the left of
+   .work sits the staff shell's 260px sidebar (StaffDashboardShell, `hidden
+   md:flex`, so it is there from 768px up) plus the panel's own gutters: .work
+   is about viewport − 310. Take the 210px rail and the 320px inspector off
+   that and the centre column — the thing that is actually being squeezed — is
+   roughly viewport − 840. At the old 1180px breakpoint the inspector was still
+   open over a ~340px centre, which is two 150px tiles; 1360 hands it over
+   while three still fit, which is where the grid stops reading as a grid.
+   A container query on .work would state this directly instead of deriving it,
+   but nothing in this codebase uses them yet. */
+@media (max-width: 1360px) {
+    /* The inspector stops being a column and becomes a second row, and a
+       second row cannot share the one height: two auto rows inside a fixed
+       height would each be stretched to about half of it, giving the grid a
+       quarter of the screen and the inspector a half-empty box under it. So
+       below this width the console goes back to being as tall as it needs to
+       be and the panes carry their own caps again — which is also what keeps
+       `max-height: none` on the inspector honest: it is only unbounded because
+       nothing above it is bounded either. */
+    .work { grid-template-columns: 190px 1fr; height: auto; }
+    .rail { max-height: 62vh; }
+    .centre .grid, .tblWrap { flex: none; max-height: 62vh; }
+    .insp { grid-column: 1 / -1; border-left: 0; border-top: 1px solid rgba(219, 0, 29, 0.14); max-height: none; }
+}
+/* 900 for the same reason, not the old 760: the shell's sidebar is still there
+   at 768px, so an 800px viewport left the centre near 300px — one tile per
+   row — while the viewport query was still reporting room for a rail. */
+@media (max-width: 900px) {
+    .work { grid-template-columns: 1fr; }
+    .rail { border-right: 0; border-bottom: 1px solid rgba(219, 0, 29, 0.14); max-height: 240px; }
+}
+
+/* ── fullscreen viewer ──────────────────────────────────────────────── */
+
+/* Opaque black, not the public lightbox's translucent scrim. This exists to
+   judge a photograph, and a console panel showing through the backdrop at 12%
+   white changes what the photograph looks like.
+   z-index above 1300, which is MUI's modal layer — the dashboard shell around
+   this tab is MUI, and a viewer that renders under a drawer is a viewer that
+   cannot be closed. */
+.view {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: flex;
+    flex-direction: column;
+    background: #000;
+}
+
+/* The padding is what keeps the picture clear of the three floating controls
+   positioned over this box: the close button top-right, prev/next at the
+   vertical centre of each side. */
+.viewStage {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 46px 96px 14px;
+}
+.viewStage img,
+.viewStage video {
+    /* `contain`, not the tile's `cover`: a thumbnail may crop, a viewer may
+       not — cropping the thing somebody opened in order to see all of it. The
+       max-height needs the flex parent's min-height: 0 above it, or the stage
+       refuses to shrink below its content and a tall image runs off screen. */
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.viewNote {
+    font-family: var(--font-cond);
+    font-size: 13px;
+    color: rgba(237, 237, 237, 0.5);
+    margin: 0;
+}
+
+/* Caption and operation, and deliberately nothing else — this is not a second
+   inspector. A fixed strip rather than an overlay on the image, so it never
+   sits on top of the part of the shot being looked at. */
+.viewMeta {
+    flex: none;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 10px 16px 14px;
+    border-top: 1px solid rgba(219, 0, 29, 0.18);
+    min-width: 0;
+}
+.viewCap {
+    font-family: var(--font-cond);
+    font-size: 15px;
+    color: var(--foreground);
+    /* The one line allowed to be long: a caption can be a sentence, and
+       wrapping it would push the strip's height around as the viewer steps. */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.viewOp {
+    flex: none;
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+}
+
+/* Absolute over the stage rather than in a bar of their own: a control bar
+   would take height from the picture on every item, and these three are only
+   ever aimed at, never read. No height or padding rules — .btn is 30px and
+   the console's controls all match it. */
+.viewClose { position: absolute; top: 12px; right: 14px; }
+.viewNav { position: absolute; top: 50%; transform: translateY(-50%); }
+.viewPrev { left: 14px; }
+.viewNext { right: 14px; }
+
+/* Below roughly a phone's width the side buttons would take more of the stage
+   than the picture, so they drop to the bottom corners and the padding that
+   was reserving room for them comes back. */
+@media (max-width: 560px) {
+    .viewStage { padding: 46px 14px 14px; }
+    .viewNav { top: auto; bottom: 12px; transform: none; }
+}

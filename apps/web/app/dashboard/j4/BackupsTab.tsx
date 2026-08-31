@@ -319,6 +319,14 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
     // deletion recoverable, which is what allows this to default on.
     const [wipeMedia, setWipeMedia] = useState(true)
     const [uploadWipe, setUploadWipe] = useState(true)
+    // The database's own version of the same tick, on by default for the same
+    // reason. A restore used to drop only the collections the dump happened to
+    // contain, so a collection created after the backup was taken survived a
+    // restore to a point before it existed — the J5 media console's
+    // gallery_media did exactly that, and the rail kept drawing folders that
+    // were only ever in the database. Untick to keep those collections instead.
+    const [wipeDatabase, setWipeDatabase] = useState(true)
+    const [uploadWipeDatabase, setUploadWipeDatabase] = useState(true)
 
     // Which parts a given point can offer at all.
     const availableParts = (p: BackupPoint): BackupPart[] => [
@@ -523,11 +531,16 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
         downloadTimers.current.add(timer)
     }
 
-    // A parameter rather than read from state, so the caller decides. The
-    // default is true because the plain Revert button shows no checkbox: two
+    // Parameters rather than read from state, so the caller decides. Both
+    // default to true because the plain Revert button shows no checkboxes: two
     // adjacent buttons that quietly differ would be worse than one consistent
-    // rule, and the confirmation names the deletion either way.
-    async function handleRevert(point: BackupPoint, parts: BackupPart[] = availableParts(point), wipe = true) {
+    // rule, and the confirmation names each deletion either way.
+    async function handleRevert(
+        point: BackupPoint,
+        parts: BackupPart[] = availableParts(point),
+        wipe = true,
+        wipeDb = true,
+    ) {
         const label: Record<BackupPart, string> = { database: 'the database', gallery: 'the gallery', uploads: 'uploaded files' }
         const what = parts.map(p => label[p]).join(', ').replace(/, ([^,]*)$/, ' and $1')
         // A partial restore is a sharper tool than the all-or-nothing one: the
@@ -544,6 +557,15 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
             + (wipe
                 ? `Media files added since that backup will be DELETED, not merged — the gallery and uploads will match the backup exactly. `
                 : '')
+            // Named separately from the media wipe and in stronger terms,
+            // because it is a strictly larger loss: the media wipe deletes
+            // files, this drops whole collections the backup has no copy of —
+            // so any FEATURE added since that backup loses all of its data.
+            // Calling the action "destructive" would tell the operator nothing
+            // they could act on; naming what disappears does.
+            + (wipeDb
+                ? `Database collections created since that backup — every record belonging to anything added to the site since then — will be DROPPED, not kept: the database will match the backup exactly. `
+                : '')
             + `The current state cannot be recovered unless you have another backup. Are you sure?`,
             async () => {
                 opSizeRef.current = (point.dbSizeBytes ?? 0) + (point.mediaSizeBytes ?? 0)
@@ -555,7 +577,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                     const res = await fetch('/api/backups/revert', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: point.id, parts, wipeMedia: wipe }),
+                        body: JSON.stringify({ id: point.id, parts, wipeMedia: wipe, wipeDatabase: wipeDb }),
                     })
                     const data = await res.json()
                     if (!res.ok) setError(data.error ?? 'Failed to start revert')
@@ -576,6 +598,10 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
         const what = chosen.map(p => labels[p]).join(', ').replace(/, ([^,]*)$/, ' and $1')
         // Only meaningful when a media part is actually being restored.
         const wipesMedia = uploadWipe && (chosen.includes('gallery') || chosen.includes('uploads'))
+        // Likewise: with no database part chosen there is no dump for the live
+        // database to be made equal to, and restoreDatabase() would refuse to
+        // wipe against one anyway.
+        const wipesDatabase = uploadWipeDatabase && chosen.includes('database')
         openConfirm(
             'Upload & Revert',
             `Upload "${uploadFile.name}" and restore ${what} from it? This DROPS the current copy of ${chosen.length === 3 ? 'all of it' : 'those parts'} and cannot be undone.`
@@ -584,6 +610,12 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                 : '')
             + (wipesMedia
                 ? ` Media files not in the archive will be DELETED rather than kept alongside it.`
+                : '')
+            // Same wording rule as handleRevert's: say what is lost. A
+            // collection the archive does not contain has no copy inside it to
+            // put back, so this is data gone, not data left stale.
+            + (wipesDatabase
+                ? ` Database collections not in the archive — everything belonging to anything added to the site since it was made — will be DROPPED rather than kept alongside it.`
                 : ''),
             async () => {
                 setUploading(true)
@@ -600,6 +632,7 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                     const form = new FormData()
                     form.append('parts', chosen.join(','))
                     form.append('wipeMedia', String(wipesMedia))
+                    form.append('wipeDatabase', String(wipesDatabase))
                     form.append('backup', uploadFile)
 
                     const { ok, data } = await uploadWithProgress('/api/backups/upload', form, (loaded, total) => {
@@ -1248,6 +1281,31 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                                 </span>
                             </label>
                         )}
+                        {/* Gated on the database part for the same reason the
+                            media tick is gated on gallery/uploads: with no
+                            database being restored there is no dump to make the
+                            live one match. */}
+                        {uploadParts.database && (
+                            <label style={{
+                                display: 'flex', alignItems: 'flex-start', gap: 6, cursor: 'pointer',
+                                fontSize: '0.68rem', color: 'rgba(237,237,237,0.75)',
+                                borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8, marginTop: 2,
+                            }}>
+                                <input
+                                    type='checkbox'
+                                    checked={uploadWipeDatabase}
+                                    onChange={e => setUploadWipeDatabase(e.target.checked)}
+                                    style={{ accentColor: '#db001d', width: 13, height: 13, cursor: 'pointer', marginTop: 2 }}
+                                />
+                                <span style={{ flex: 1 }}>
+                                    Drop collections not in the archive
+                                    <span style={{ display: 'block', fontSize: '0.55rem', color: 'rgba(237,237,237,0.35)', marginTop: 2 }}>
+                                        Records for anything added to the site since the archive
+                                        was made are deleted. A safety backup is taken first.
+                                    </span>
+                                </span>
+                            </label>
+                        )}
                     </div>
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                         <label style={{
@@ -1568,15 +1626,47 @@ export default function BackupsTab({ canRestore }: { canRestore: boolean }) {
                                 </label>
                             )}
 
+                            {/* The database's own tick, shown only when the
+                                database is actually being restored — with no
+                                dump coming, there is nothing for a wipe to make
+                                the live database equal to. */}
+                            {!isDownload && chosen.includes('database') && (
+                                <label style={{
+                                    display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+                                    fontSize: '0.68rem', color: 'rgba(237,237,237,0.8)',
+                                    borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8, marginTop: 2,
+                                }}>
+                                    <input
+                                        type='checkbox'
+                                        checked={wipeDatabase}
+                                        onChange={e => setWipeDatabase(e.target.checked)}
+                                        style={{ accentColor: '#db001d', width: 13, height: 13, cursor: 'pointer', marginTop: 2 }}
+                                    />
+                                    <span style={{ flex: 1 }}>
+                                        Drop collections not in this backup
+                                        <span style={{ display: 'block', fontSize: '0.55rem', color: 'rgba(237,237,237,0.35)', marginTop: 2 }}>
+                                            Records for anything added to the site since this
+                                            backup are deleted, not left behind. Recoverable from
+                                            the safety backup taken before restoring.
+                                        </span>
+                                    </span>
+                                </label>
+                            )}
+
                             <button
                                 disabled={chosen.length === 0}
                                 onClick={() => {
                                     setScopeMenu(null)
                                     if (isDownload) triggerDownload(point, chosen)
-                                    // The tick only ever means anything for the
-                                    // media parts, so it is dropped when neither
-                                    // is being restored.
-                                    else handleRevert(point, chosen, wipeMedia && (chosen.includes('gallery') || chosen.includes('uploads')))
+                                    // Each tick only means anything for the
+                                    // parts it applies to, so each is dropped
+                                    // when its own parts are not being restored.
+                                    else handleRevert(
+                                        point,
+                                        chosen,
+                                        wipeMedia && (chosen.includes('gallery') || chosen.includes('uploads')),
+                                        wipeDatabase && chosen.includes('database'),
+                                    )
                                 }}
                                 style={{
                                     ...rowBtnSx(isDownload ? 'green' : 'red', `${point.id}:scope-go`),

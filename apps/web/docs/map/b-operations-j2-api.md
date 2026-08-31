@@ -1,6 +1,6 @@
 # Part B — Operations + J2 API
 
-Scope: 42 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. All read in full.
+Scope: 43 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. All read in full.
 
 ---
 
@@ -84,6 +84,10 @@ Scope: 42 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 
 #### /api/operations/campaigns/[id]/normalise
 - **POST** — auto-groups unlinked ops in a campaign by Roman-numeral + day-slot (Sat/Sun) suffix parsed from titles, creates missing `CampaignMission` docs, and stamps `campaignMissionId`/`daySlot` on each op. Idempotent (skips already-linked ops). Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`, `Db.operationCampaigns`, `Db.campaignMissions`.
+- The pass itself lives in `lib/operations/normalise-campaign-run.ts` (grouping in `lib/operations/normalise-campaign.ts`) so `normalise-all` below can run exactly the same one — a route file may not export a helper under `typedRoutes`. Response shape unchanged.
+
+#### /api/operations/campaigns/normalise-all
+- **POST** — runs the per-campaign normalise pass over every non-deleted campaign, sequentially. Same gate and same `runCampaignNormalise` as `[id]/normalise`, so the two cannot disagree about what a title means. Returns `{ ok, totals, campaigns[] }`: per campaign the name, `created`, `linked` and the **titles of every op it could not group** (no Roman numeral suffix), plus an `error` string for any campaign whose pass threw — one failure is reported and the rest still run, mirroring `app/api/gallery/admin/bulk`. `maxDuration = 300`. Logs `operation.campaign.normaliseAll` via `logAction`. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationCampaigns`, `Db.operations`, `Db.campaignMissions`, `Db.actionLogs`.
 
 ---
 

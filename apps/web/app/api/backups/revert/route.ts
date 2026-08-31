@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const { id, parts: rawParts, wipeMedia: rawWipe } = body as { id?: string; parts?: string[]; wipeMedia?: unknown }
+    const { id, parts: rawParts, wipeMedia: rawWipe, wipeDatabase: rawWipeDb } =
+        body as { id?: string; parts?: string[]; wipeMedia?: unknown; wipeDatabase?: unknown }
     if (!id || !ID_RE.test(id)) {
         return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
     }
@@ -32,6 +33,12 @@ export async function POST(request: NextRequest) {
     // Strict `=== true`, not truthiness: this deletes live files, so the string
     // "false" and every other stray value must read as off rather than on.
     const wipeMedia = rawWipe === true
+
+    // Parsed the same strict way, for a sharper version of the same reason:
+    // this drops collections the backup does not contain at all, so anything
+    // created since it was taken is destroyed rather than left stale. A stray
+    // truthy value must not be what turns that on.
+    const wipeDatabase = rawWipeDb === true
 
     // Absent means every part, which is what this endpoint has always done.
     // Anything malformed is refused rather than widened — this call overwrites
@@ -53,7 +60,7 @@ export async function POST(request: NextRequest) {
     if (!point) return NextResponse.json({ error: 'Backup point not found' }, { status: 404 })
 
     // Fire and forget
-    revertToPoint(point, parts, { wipeMedia }).catch(e => console.error('[backups] Revert error:', e.message))
+    revertToPoint(point, parts, { wipeMedia, wipeDatabase }).catch(e => console.error('[backups] Revert error:', e.message))
 
     await logAction({
         action: 'backup.revert',
@@ -63,9 +70,11 @@ export async function POST(request: NextRequest) {
         entityType: 'backup',
         entityId: point.id,
         // Which parts were overwritten is the first thing anyone auditing a
-        // restore needs to know — and whether it also deleted files that were
-        // never in the backup is the second.
-        details: { parts, wipeMedia },
+        // restore needs to know — and whether it also deleted files, or whole
+        // collections, that were never in the backup is the second. Both wipes
+        // are logged because both destroy data this restore cannot give back;
+        // only the safety backup taken first can.
+        details: { parts, wipeMedia, wipeDatabase },
     })
 
     return NextResponse.json({ message: 'Revert started' }, { status: 202 })

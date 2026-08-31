@@ -41,6 +41,17 @@ const DbInterface = {
      *  they answer to different people — the section's commander, and the
      *  mission maker. */
     operationFeedback: db.collection('operation_feedback') as MongoCollection<OperationFeedback>,
+
+    // ── Gallery ───────────────────────────────────────────────────────────────
+    /** Every piece of gallery media, legacy and submitted alike. The gallery
+     *  reads from here rather than from the folder tree. */
+    galleryMedia: db.collection('gallery_media') as MongoCollection<GalleryMedia>,
+    galleryVotes: db.collection('gallery_votes') as MongoCollection<GalleryVote>,
+    galleryTags:  db.collection('gallery_tags')  as MongoCollection<GalleryTag>,
+    /** One document, overwritten by each reconcile pass. The Health view reads
+     *  it instead of re-walking the whole content tree on every page load. */
+    galleryHealth: db.collection('gallery_health') as MongoCollection<GalleryHealth>,
+
     j1Applications: db.collection('j1_applications') as MongoCollection<J1Application>,
     tickets: db.collection('tickets') as MongoCollection<Ticket>,
     calendarEvents: db.collection('calendar_events') as MongoCollection<CalendarEvent>,

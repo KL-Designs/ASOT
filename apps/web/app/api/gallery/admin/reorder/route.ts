@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
 import client from '@/lib/discord'
+import Db from '@/lib/mongo'
 import { hasPermission } from '@/lib/orbat/hasPermission'
+import { followRename } from '@/lib/gallery/reorder'
 
 const CONTENT_BASE = path.resolve('../../storage/gallery/content')
 
@@ -54,13 +56,30 @@ export async function POST(request: NextRequest) {
         to: `${String(i + 1).padStart(4, '0')}_${original.replace(/^\d+_/, '')}`,
     }))
 
-    // Two-pass rename prevents collisions when new names overlap old names
+    /* Two-pass rename prevents collisions when new names overlap old names —
+       and gallery_media follows the file at BOTH passes, in lockstep, for the
+       same reason. A one-shot rewrite at the end can transiently give two
+       documents the same storageKey (file A takes B's old name while B still
+       holds it), which the unique index rejects; and if the process dies
+       between the passes, a key written only at the end names a file that is
+       no longer there under any name.
+
+       Following the file at all is the fix for a defect this route has had
+       since long before the readable content tree: renaming to "0001_name"
+       broke the storageKey of every indexed file in the folder, and for a
+       LEGACY file — no [id] in its name — reconcile cannot heal it either.
+       Rule 1 needs the id and rule 2 needs the path, so the file landed in
+       notIndexed and the record in missingFiles, permanently, taking its
+       caption, tags, author and votes with it. */
     for (const { from, tmp } of steps) {
         fs.renameSync(path.join(targetDir, from), path.join(targetDir, tmp))
     }
+    await followRename(year, operation, stage, steps.map(s => ({ from: s.from, to: s.tmp })), Db.galleryMedia)
+
     for (const { tmp, to } of steps) {
         fs.renameSync(path.join(targetDir, tmp), path.join(targetDir, to))
     }
+    await followRename(year, operation, stage, steps.map(s => ({ from: s.tmp, to: s.to })), Db.galleryMedia)
 
     return NextResponse.json({ success: true, renamed: steps.length })
 }

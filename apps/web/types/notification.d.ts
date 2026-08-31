@@ -73,6 +73,8 @@ type NotificationType =
     | 'mission_check_requested'         // J2 leads: mission maker has submitted a check request
     | 'mission_check_confirmed'         // Mission maker: J2 confirmed the check will be handled
     | 'board_card_assigned'             // Member: a board card was assigned to you
+    | 'gallery_submission_accepted'     // Submitter: your gallery submission was published
+    | 'gallery_submission_rejected'     // Submitter: your gallery submission was rejected, with a reason
     | 'system'
 
 type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check' | 'mission_check'

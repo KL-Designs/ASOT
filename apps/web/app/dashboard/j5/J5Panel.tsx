@@ -1,12 +1,16 @@
 ﻿'use client'
 
+import { useEffect, useState } from 'react'
 import { Typography, Tabs, Tab } from '@mui/material'
 import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import GalleryOperationsTab from '@/app/dashboard/j5/tabs/GalleryOperationsTab'
-import GalleryFeaturedTab from '@/app/dashboard/j5/tabs/GalleryFeaturedTab'
-import ScreenshotOfMonthTab from '@/app/dashboard/j5/tabs/ScreenshotOfMonthTab'
+import MediaTab from '@/app/dashboard/j5/tabs/media/MediaTab'
+import FeaturedTab from '@/app/dashboard/j5/tabs/featured/FeaturedTab'
+import SotmTab from '@/app/dashboard/j5/tabs/sotm/SotmTab'
+import SubmissionsTab from '@/app/dashboard/j5/tabs/submissions/SubmissionsTab'
+import GalleryTagsTab from '@/app/dashboard/j5/tabs/GalleryTagsTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
@@ -21,14 +25,71 @@ export default function J5Panel({
     canManageMembers,
     canManageLinks,
     isJ4,
+    canReviewGallery,
+    canManageGalleryTags,
+    canManageGallery,
 }: {
     displayName: string
     userId: string
     canManageMembers: boolean
     canManageLinks: boolean
     isJ4: boolean
+    canReviewGallery: boolean
+    canManageGalleryTags: boolean
+    canManageGallery: boolean
 }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
+
+    /* How many submissions are waiting, for the Submissions tab's badge.
+
+       Fetched here rather than read out of the tab, because the whole point is
+       to be visible BEFORE anyone opens it — a reviewer should not have to
+       click through to find out there is nothing to do. Fetched once: the tab
+       reports its own count back through onPendingChange for the rest of the
+       session, so accepting the last item empties the badge without a second
+       request.
+
+       Null until it is known, and a failed fetch leaves it null rather than
+       showing 0 — "no badge" honestly means "not known", while a 0 badge would
+       claim the queue is empty on the strength of a request that never
+       answered. */
+    const [pending, setPending] = useState<number | null>(null)
+    useEffect(() => {
+        if (!canReviewGallery) return
+        let cancelled = false
+        void (async () => {
+            try {
+                const res = await fetch('/api/gallery/submissions/pending')
+                if (!res.ok) return
+                const data = await res.json()
+                if (!cancelled && Array.isArray(data.items)) setPending(data.items.length)
+            } catch { /* decoration: the tab itself still works */ }
+        })()
+        return () => { cancelled = true }
+    }, [canReviewGallery])
+
+    /* Keyed by name, not by position. Submissions and Tags are permission-gated,
+       and MUI indexes tabs by their position among the ones actually rendered —
+       so a member holding gallery.tags but not gallery.review would otherwise
+       land on the wrong panel. Building one array in mockup order and deriving
+       both the <Tab> list and the panel body from it means a hidden tab can
+       never shift what another index means; the position is computed, never
+       assumed. */
+    const allTabs: { key: string, label: string, pinLabel: string, visible: boolean, badge?: number, render: () => React.ReactNode }[] = [
+        { key: 'media', label: 'Media', pinLabel: 'J5 — Media', visible: true, render: () => (canManageGallery ? <MediaTab /> : <GalleryOperationsTab />) },
+        { key: 'submissions', label: 'Submissions', pinLabel: 'J5 — Submissions', visible: canReviewGallery, badge: pending ?? undefined, render: () => <SubmissionsTab onPendingChange={setPending} /> },
+        { key: 'featured', label: 'Featured', pinLabel: 'J5 — Featured', visible: true, render: () => <FeaturedTab /> },
+        { key: 'sotm', label: 'Screenshot of month', pinLabel: 'J5 — SOTM', visible: true, render: () => <SotmTab canManage={canManageMembers} /> },
+        { key: 'tags', label: 'Tags', pinLabel: 'J5 — Tags', visible: canManageGalleryTags, render: () => <GalleryTagsTab /> },
+        { key: 'meetings', label: 'Meetings', pinLabel: 'J5 — Meetings', visible: true, render: () => <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} /> },
+        { key: 'tickets', label: 'Tickets', pinLabel: 'J5 — Tickets', visible: true, render: () => <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} /> },
+    ]
+    const visibleTabs = allTabs.filter(t => t.visible)
+
+    // A pinned/bookmarked tab index from the old FIXED_TABS ordering (or one
+    // that predates a permission grant/revoke shrinking this list) can point
+    // past the end of today's array — clamp instead of rendering nothing.
+    const activeTab = Math.min(Math.max(tab, 0), visibleTabs.length - 1)
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -102,25 +163,49 @@ export default function J5Panel({
 
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                         <Tabs
-                            value={tab}
+                            value={activeTab}
                             onChange={(_, v) => setTab(v)}
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Operations'          pinLabel='J5 — Operations' href='/dashboard/j5' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Featured Images'     pinLabel='J5 — Featured'   href='/dashboard/j5' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Screenshot of Month' pinLabel='J5 — SOTM'       href='/dashboard/j5' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'            pinLabel='J5 — Meetings'   href='/dashboard/j5' tabIndex={3} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets'             pinLabel='J5 — Tickets'    href='/dashboard/j5' tabIndex={4} />} sx={tabSx} />
+                            {visibleTabs.map((t, i) => (
+                                <Tab
+                                    key={t.key}
+                                    label={
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                                            <PinTabLabel label={t.label} pinLabel={t.pinLabel} href='/dashboard/j5' tabIndex={i} />
+                                            {/* Hidden at zero rather than shown as "0": an empty
+                                                queue is the normal state, and a badge that is
+                                                always there stops being a signal. */}
+                                            {t.badge ? (
+                                                <span
+                                                    aria-label={`${t.badge} awaiting review`}
+                                                    style={{
+                                                        fontFamily: 'var(--font-mono)',
+                                                        fontSize: '0.58rem',
+                                                        lineHeight: 1,
+                                                        letterSpacing: '0.04em',
+                                                        padding: '3px 5px',
+                                                        minWidth: 16,
+                                                        textAlign: 'center',
+                                                        color: '#fff',
+                                                        background: 'var(--red)',
+                                                        border: '1px solid var(--red)',
+                                                    }}
+                                                >
+                                                    {t.badge > 99 ? '99+' : t.badge}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                    }
+                                    sx={tabSx}
+                                />
+                            ))}
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && <GalleryOperationsTab />}
-                        {tab === 1 && <GalleryFeaturedTab />}
-                        {tab === 2 && <ScreenshotOfMonthTab canManage={canManageMembers} />}
-                        {tab === 3 && <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} />}
-                        {tab === 4 && <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
+                        {visibleTabs[activeTab]?.render()}
                     </div>
                 </>
             )}

@@ -1,0 +1,107 @@
+/* The J5 console's control language.
+
+   Split from the layout modules deliberately: media-console and j5-console own
+   where things sit, this owns what they look like. Scoped to J5 by the user's
+   decision — the other departments are MUI and stay MUI until someone decides
+   otherwise, at which point this file is the template rather than a second
+   opinion. */
+
+.btn {
+    font-family: var(--font-cond);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border: 1px solid var(--grey);
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--foreground);
+    padding: 6px 12px;
+    white-space: nowrap;
+    cursor: pointer;
+    /* Same 30px as .surface and .seg. A button sized purely by its padding and
+       12px type came out two pixels shorter than the selects it shares a
+       toolbar row with, which reads as a misalignment rather than as a
+       smaller button. inline-flex so the label centres in the taller box. */
+    min-height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 120ms var(--nav-ease), background 120ms var(--nav-ease);
+}
+.btn:hover:not(:disabled) { border-color: rgba(219, 0, 29, 0.5); background: rgba(219, 0, 29, 0.06); }
+.btn:focus-visible { outline: 1px solid var(--red); outline-offset: 1px; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+/* Primary — the action the panel exists for. One per panel, at most. */
+.btnPrimary { border-color: var(--red); background: rgba(219, 0, 29, 0.2); color: #fff; }
+.btnPrimary:hover:not(:disabled) { background: rgba(219, 0, 29, 0.3); }
+
+/* Destructive. Never the primary, never the only styling that marks a delete —
+   the two-step confirm carries that weight. */
+.btnDanger { border-color: rgba(255, 66, 87, 0.4); color: var(--red-hi); background: transparent; }
+.btnDanger:hover:not(:disabled) { border-color: var(--red-hi); background: rgba(255, 66, 87, 0.08); }
+
+.btnGhost { border-color: var(--grey); background: transparent; color: rgba(237, 237, 237, 0.62); }
+
+.chip {
+    font-family: var(--font-cond);
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: 1px solid var(--grey);
+    background: transparent;
+    color: rgba(237, 237, 237, 0.62);
+    padding: 5px 10px;
+    white-space: nowrap;
+    cursor: pointer;
+}
+.chipOn { border-color: var(--red); color: var(--red-hi); background: rgba(219, 0, 29, 0.1); }
+
+/* 30px matches .surface in j5-fields.module.css — the segmented control sits in
+   the same toolbar row as the selects, and its 9.5px mono type left it three
+   pixels shorter than everything beside it. */
+.seg { display: flex; align-items: stretch; min-height: 30px; border: 1px solid var(--grey); }
+.segItem {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 5px 9px;
+    /* Equal cells whatever the labels are: flex-basis 0 with grow 1 splits the
+       control evenly, so GRID and TABLE come out the same width instead of
+       sizing to their own four and five characters. The min-width is what the
+       longest label needs — without it, an even split can still be narrower
+       than the text and wrap it. */
+    flex: 1 1 0;
+    min-width: 54px;
+    /* Centred both ways: the cell now stretches to the control's height, so
+       the label needs centring rather than sitting on the padding box. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(237, 237, 237, 0.38);
+    border-right: 1px solid var(--grey);
+    background: transparent;
+    cursor: pointer;
+}
+.segItem:last-child { border-right: 0; }
+
+/* Two related actions joined into one control, the way .seg joins the layout
+   toggle. Adjacent .btn borders would otherwise meet as a 2px line between the
+   pair, which reads as a seam rather than a divider — so every button but the
+   last drops its right edge and shares its neighbour's left one. A group of
+   one renders as a plain button, which is what the health view needs. */
+.group { display: flex; align-items: stretch; }
+.group > .btn:not(:last-child) { border-right-width: 0; }
+.segItemOn { background: rgba(219, 0, 29, 0.14); color: var(--red-hi); }
+
+/* The mono eyebrow above a section — '// SECTION' in the mockups. */
+.eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--red);
+}

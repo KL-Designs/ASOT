@@ -19,7 +19,10 @@ export default function GalleryBanner({ stats, sotm, onOpenSotm }: {
     sotm: ScreenshotOfMonth | null
     onOpenSotm: () => void
 }) {
-    const month = sotm
+    // `sotm?.dateTaken`, not just `sotm`: the field is absent for a pick
+    // whose media has no takenAt, and `new Date(undefined)` here would put
+    // the string "Invalid Date" in the header beside the winner.
+    const month = sotm?.dateTaken
         ? new Date(sotm.dateTaken).toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })
         : null
 

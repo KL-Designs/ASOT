@@ -72,8 +72,13 @@ COMPLETED. Don't reintroduce a layout that buries the next operation.
   per row).
 - `WhySection.tsx` — lead card + four cards, replacing ~4,800px of alternating text/image blocks.
 - `Platoons.tsx` — three platoon cards with live member/section counts from the ORBAT.
-- `GalleryStrip.tsx` — six images drawn at random from `storage/gallery/featured`. Captions are
-  filenames tidied up; the gallery stores no titles, dates or photographer credits.
+- `GalleryStrip.tsx` — a six-tile mosaic drawn at random from the same rotation the gallery's
+  featured rail plays (`lib/landing.ts`'s `getGalleryTiles`, reading `gallery_media` where
+  `featuredOrder` is set — not a readdir of `storage/gallery/featured`, which nothing prunes when
+  J5 drops an item). Captions are the media's own caption falling back to its operation label.
+  Renders thumbnails, never originals: `GalleryTile.thumbWide` (1600px) for the four double-width
+  tiles, `GalleryTile.thumb` (800px) for the two single-column ones — which is derived from the
+  `SPANS` table rather than a second list of indices.
 - `EnlistBand.tsx` — the three-step enlistment path above the final CTA.
 
 #### app/footer.tsx
@@ -294,7 +299,10 @@ tick this"; `sortPhotos`, `groupByOperation`, `archiveStats`.
 - `FeaturedRail.tsx` — auto-scrolling featured strip. Drives `scrollLeft` on a real scroller via
   rAF (not a CSS marquee) so the drift, the arrows and a trackpad swipe all move the same thing;
   list rendered twice and wrapped at the halfway point for a seamless loop. Pauses on
-  hover/focus/pointer-down, off entirely under `prefers-reduced-motion`.
+  hover/focus/pointer-down, off entirely under `prefers-reduced-motion`. Tiles render
+  `FeaturedItemAPI.thumb` (800px), falling back to `src` — the tiles are 280x158 CSS px and the
+  list is duplicated, so the originals were being fetched twice over; `src` is still what the
+  lightbox opens.
 - `Toolbar.tsx` — search, running result count, sort, view switcher, and active filters as
   removable pills. Exports `GridView` / `SortKey`.
 - `FacetRail.tsx` — Year / Operation / Mission facets as checkbox rows with live counts.
