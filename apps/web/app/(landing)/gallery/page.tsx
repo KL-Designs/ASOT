@@ -53,8 +53,13 @@ export default function Page() {
 
     const [filters, setFilters] = useState<Filters>(emptyFilters)
     const [sort, setSort] = useState<SortKey>('new')
-    const [view, setView] = useState<GridView>('masonry')
-    const [shown, setShown] = useState(PAGE_SIZE.masonry)
+    /* Grouped by default: the archive is ~4,781 photographs across five years,
+       and a flat grid opens on whichever 48 happen to sort first with nothing
+       saying what they are. The grouped view opens on operations, which is how
+       the unit actually refers to its own photographs — a visitor looking for
+       one night's screenshots starts from its name, not from a wall. */
+    const [view, setView] = useState<GridView>('grouped')
+    const [shown, setShown] = useState(PAGE_SIZE.grouped)
 
     const [lightbox, setLightbox] = useState<{ list: Photo[], index: number } | null>(null)
     const [singleImage, setSingleImage] = useState<LightboxItem | null>(null)
