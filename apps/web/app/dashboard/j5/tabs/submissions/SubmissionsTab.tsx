@@ -50,7 +50,10 @@ function toLightboxItem(item: PendingItem, tags: Tag[]): LightboxItem {
         title: item.opLabel ?? 'Pending submission',
         rows: [
             ['Submitter', item.authorName],
-            ['Operation', item.opLabel ?? 'Unknown operation'],
+            // "Not linked", not "Unknown operation": the console settled on
+            // the Inspector's and the rail's wording for this one state, and
+            // what is missing here is the link, not a name nobody wrote.
+            ['Operation', item.opLabel ?? 'Not linked'],
         ],
         // Pending items live flat under media/<id>.<ext> until accept files
         // them into the readable tree (see [id]/route.ts's relocateMedia

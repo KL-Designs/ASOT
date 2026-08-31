@@ -24,6 +24,12 @@ import { resolveStorageKey } from '@/lib/gallery/paths'
  * makes moving it by hand safe. relocateMedia does that as a side effect of
  * building the new name.
  *
+ * That gradual conversion stops short of one class of item on purpose: an
+ * upload with NO operationId, whose year/operation/opLabel/mission came from
+ * the folder the migration found it in. relocateMedia would resolve `Unknown/`
+ * for it and erase all of them, so it is left where it is unless the request
+ * itself asks for an operation change. See `relocating` below.
+ *
  * An item with no bytes — an embed, or a record whose transcode failed — has
  * no file to move, and relocateMedia returns early for it. Reassigning one
  * used to write `operationId` and nothing else, leaving `year`, `operation`,
@@ -91,8 +97,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
        takenAt from the operation record and the folder it resolves, so
        writing them here as well would give two producers of the same fields a
        chance to disagree — which is exactly the defect this feature spent
-       three rounds closing. */
-    const relocating = doc.source === 'upload' && !!doc.storageKey
+       three rounds closing.
+
+       The third clause is about the REQUEST, not the document, and it is
+       load-bearing. relocateMedia re-derives its destination from
+       `doc.operationId` (relocate.ts), so running it on an item that has no
+       operation link resolves `Unknown/`: it moves the bytes there, $unsets
+       year/operation/opLabel/mission and nulls takenAt. For a migrated archive
+       item those five fields ARE its provenance — scripts/index-gallery.mjs
+       writes them from the folder name for every file whose folder matched no
+       operation record, and leaves operationId absent — so deriving this flag
+       from the document alone meant a caption-only save silently destroyed the
+       operation name, mission and date of an item nobody asked to re-file.
+       An unlinked item therefore relocates only when the request actually asks
+       to change its operation, which still covers both deliberate directions:
+       linking it to a real operation, and clearing it to Unknown on purpose.
+       A LINKED item still relocates on a caption-only edit — that is what
+       keeps the readable filename in step with the caption, and re-deriving
+       the same operation's folder is idempotent. */
+    const operationRequested = operationId !== undefined
+    const relocating = doc.source === 'upload' && !!doc.storageKey && (operationRequested || !!doc.operationId)
 
     let moving = false
     // Captured so the post-update fallback below can apply it: `doc.storageKey`
@@ -101,7 +125,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     // writing anything when there is no file to move — so the facets computed
     // here have to be ready to write themselves if that happens.
     let pendingFacets: OperationFacetUpdate | null = null
-    if (operationId !== undefined) {
+    if (operationRequested) {
         // One validator for both branches, so "No such operation" means the
         // same thing whether or not the item has a file behind it.
         const facets = await operationFacets(

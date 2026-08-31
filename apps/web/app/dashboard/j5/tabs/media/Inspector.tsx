@@ -112,13 +112,23 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
         setSaving(true)
         setError(null)
         try {
-            // UNLINKED means "still showing the name the folder gave it, still
-            // no link" — nothing the reviewer did. Sending it as operationId
-            // would hit the route's `operationId !== undefined` branch and run
-            // the 'unknown' clear path (operation-facets.ts), erasing the very
-            // name this fix was written to stop discarding. Omitting the key
-            // entirely is what tells the route nothing changed here.
-            const operationIdToSend = operationId === UNLINKED ? undefined : operationId
+            /* An untouched select is not a change, so its key is omitted —
+               which is what keeps the route out of its `operationId !==
+               undefined` branch and leaves the four facets (and, for an
+               unlinked item, the folder-derived name behind them) exactly as
+               they were found. Compared against the baseline rather than
+               against UNLINKED alone: a linked item and a no-name unlinked
+               item are just as untouched, and re-sending their id made the
+               audit log's `moved: true` meaningless.
+
+               The sentinel itself could never reach the database in any case —
+               it is not a valid ObjectId (bson dropped 12-character string
+               support, so `ObjectId.isValid('__unlinked__')` is false),
+               operationFacets returns null for it and the route answers 400
+               "No such operation" before writing anything. A 400 is the right
+               failure, but not one a reviewer should ever be shown, which is
+               why this comparison and not a leak-and-reject. */
+            const operationIdToSend = operationId === initialOperationId ? undefined : operationId
             const res = await fetch(`/api/gallery/admin/media/${item.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },

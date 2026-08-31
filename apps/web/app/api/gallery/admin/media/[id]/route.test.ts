@@ -1,6 +1,10 @@
-import { describe, test, expect, beforeEach, vi } from 'vitest'
+import { describe, test, expect, beforeEach, afterAll, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { ObjectId } from 'mongodb'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
+import { join } from 'path'
+
+import type { RelocateDeps } from '@/lib/gallery/relocate'
 
 /**
  * Reassigning an operation on an item with no bytes — and the narrower sibling
@@ -62,11 +66,55 @@ vi.mock('@/lib/discord', () => ({
 vi.mock('@/lib/orbat/hasPermission', () => ({ hasPermission: async () => true }))
 vi.mock('@/lib/logAction', () => ({ logAction: async () => {} }))
 
+/**
+ * A throwaway content tree, so one test can exercise the branch the rest of
+ * the suite deliberately cannot: relocateMedia actually finding a file and
+ * moving it.
+ *
+ * The route calls relocateMedia with the real roots and offers no way to point
+ * them elsewhere, so the module is mocked to pass the fixture roots through —
+ * but to the REAL implementation. Nothing about relocateMedia's behaviour is
+ * faked; a test that faked it could not have caught the defect below, which
+ * lives in the interaction between the route's guard and what relocateMedia
+ * does with a document that has no operationId. Everything else the module
+ * exports stays original — operationFacets imports resolveOperationFolder from
+ * here, and it must keep resolving for the tests above.
+ *
+ * `vi.hoisted`, because the mock factory is hoisted with it; `await import`
+ * inside it, because top-level import bindings are not initialised yet at the
+ * point hoisted code runs.
+ */
+const fixture = await vi.hoisted(async () => {
+    const { mkdtempSync } = await import('fs')
+    const { join: j } = await import('path')
+    const { tmpdir } = await import('os')
+    const root = mkdtempSync(j(tmpdir(), 'asot-media-route-'))
+    return { root, contentDir: j(root, 'content'), mediaDir: j(root, 'media') }
+})
+
+vi.mock('@/lib/gallery/relocate', async importOriginal => {
+    const actual = await importOriginal<typeof import('@/lib/gallery/relocate')>()
+    return {
+        ...actual,
+        relocateMedia: (deps: RelocateDeps, id: ObjectId) =>
+            actual.relocateMedia({ ...deps, contentDir: fixture.contentDir, mediaDir: fixture.mediaDir }, id),
+    }
+})
+
+afterAll(() => rmSync(fixture.root, { recursive: true, force: true }))
+
 const { PATCH } = await import('./route')
 
 const OP_ID = new ObjectId('6a8000000000000000000001')
 const EMBED_ID = new ObjectId('6a9380f11c4e5d2a77b31001')
 const UPLOAD_ID = new ObjectId('6a9380f11c4e5d2a77b31002')
+/** The migration's own output: an upload in the content tree whose folder
+ *  matched no operation record, so it carries a folder-derived operation,
+ *  mission, year and date and NO operationId (scripts/index-gallery.mjs). */
+const LEGACY_ID = new ObjectId('6a9380f11c4e5d2a77b31003')
+const LEGACY_SEGMENTS = ['2023', '5. Op Atlantic Shield', 'I', 'photo-042.jpg']
+const LEGACY_KEY = `content:${LEGACY_SEGMENTS.join('/')}`
+const LEGACY_TAKEN_AT = new Date('2023-01-01T00:00:00Z')
 
 function patch(id: ObjectId, body: unknown) {
     return PATCH(
@@ -100,6 +148,22 @@ beforeEach(() => {
         opLabel: 'Op Somewhere Else',
         year: '2019',
     }
+    state.docs[LEGACY_ID.toString()] = {
+        _id: LEGACY_ID,
+        source: 'upload',
+        storageKey: LEGACY_KEY,
+        operation: '5. Op Atlantic Shield',
+        opLabel: 'Op Atlantic Shield',
+        mission: 'I',
+        year: '2023',
+        takenAt: LEGACY_TAKEN_AT,
+    }
+
+    // Real bytes for LEGACY_ID, in the fixture tree — this is the one document
+    // in the suite whose file relocateMedia can actually find and move.
+    rmSync(fixture.contentDir, { recursive: true, force: true })
+    mkdirSync(join(fixture.contentDir, ...LEGACY_SEGMENTS.slice(0, -1)), { recursive: true })
+    writeFileSync(join(fixture.contentDir, ...LEGACY_SEGMENTS), 'bytes')
 })
 
 describe('PATCH — reassigning the operation', () => {
@@ -164,6 +228,79 @@ describe('PATCH — reassigning the operation', () => {
         expect(doc.operation).toBe('3. Op Somewhere Else')
         expect(doc.opLabel).toBe('Op Somewhere Else')
         expect(doc.year).toBe('2019')
+    })
+
+    /* The same claim as the test above, made against the fixture that can
+       actually disprove it. UPLOAD_ID's file does not exist, so relocateMedia
+       bails before the move and that test passes whether or not the route
+       guards the call; and UPLOAD_ID carries an operationId, so it is not the
+       shape at risk anyway.
+
+       LEGACY_ID is the shape at risk, and roughly 1,157 rows of the migrated
+       archive have it: bytes on disk, a folder-derived operation/mission/year/
+       date, and no operationId. relocateMedia resolves an absent operationId
+       to Unknown/ — it moves the bytes there, unsets operation, opLabel, year
+       and mission and nulls takenAt — so letting a caption edit reach it
+       destroys every field the folder gave the item, silently and with no
+       undo. Nothing in the request asked for the operation to change, so
+       nothing about the operation may change. */
+    test('a caption edit on an unlinked archive item leaves its folder-derived facets and its file alone', async () => {
+        const res = await patch(LEGACY_ID, { caption: 'Dawn patrol', authorName: 'Trooper Nine' })
+        expect(res.status).toBe(200)
+
+        const doc = state.docs[LEGACY_ID.toString()]
+        expect(doc.caption).toBe('Dawn patrol')
+        expect(doc.authorName).toBe('Trooper Nine')
+
+        expect(doc.operation).toBe('5. Op Atlantic Shield')
+        expect(doc.opLabel).toBe('Op Atlantic Shield')
+        expect(doc.mission).toBe('I')
+        expect(doc.year).toBe('2023')
+        expect(doc.takenAt).toEqual(LEGACY_TAKEN_AT)
+        expect(doc.storageKey).toBe(LEGACY_KEY)
+        expect('operationId' in doc).toBe(false)
+
+        // And the bytes are still where the document says they are.
+        expect(existsSync(join(fixture.contentDir, ...LEGACY_SEGMENTS))).toBe(true)
+        expect(existsSync(join(fixture.contentDir, 'Unknown'))).toBe(false)
+    })
+
+    /* The other direction, which must keep working: an unlinked item whose
+       operation the reviewer DOES change is relocated, because the request
+       asked for it. Here that means clearing it on purpose — the Inspector's
+       "Unknown" option — which is the one path allowed to discard the folder
+       name. */
+    test('deliberately clearing an unlinked item’s operation still relocates it', async () => {
+        const res = await patch(LEGACY_ID, { operationId: 'unknown' })
+        expect(res.status).toBe(200)
+
+        const doc = state.docs[LEGACY_ID.toString()]
+        expect(doc.storageKey).not.toBe(LEGACY_KEY)
+        expect(String(doc.storageKey).startsWith('content:Unknown/')).toBe(true)
+        expect('operation' in doc).toBe(false)
+        expect('opLabel' in doc).toBe(false)
+        expect('year' in doc).toBe(false)
+        expect('mission' in doc).toBe(false)
+        expect(doc.takenAt).toBeNull()
+        expect(existsSync(join(fixture.contentDir, ...LEGACY_SEGMENTS))).toBe(false)
+    })
+
+    /* And linking one to a real operation moves it into that operation's
+       folder rather than leaving it where the migration put it. The fixture
+       operation is undated, so the destination is Unknown/ by
+       resolveOperationFolder's own rule — what this pins is that the id is
+       written and the bytes actually moved, not that the guard swallowed the
+       request. */
+    test('linking an unlinked item to a real operation still relocates it', async () => {
+        const res = await patch(LEGACY_ID, { operationId: OP_ID.toString() })
+        expect(res.status).toBe(200)
+
+        const doc = state.docs[LEGACY_ID.toString()]
+        expect(doc.operationId).toEqual(OP_ID)
+        expect(doc.operation).toBe('OPERATION Undated')
+        expect(doc.opLabel).toBe('OPERATION Undated')
+        expect(doc.storageKey).not.toBe(LEGACY_KEY)
+        expect(existsSync(join(fixture.contentDir, ...LEGACY_SEGMENTS))).toBe(false)
     })
 
     test('an operation that does not exist is rejected, and nothing is written', async () => {

@@ -309,7 +309,7 @@ Three columns.
 **Left rail** — saved views on top, archive tree below, every row carrying a
 live count:
 
-- Views: All media · Unknown operation · No caption · Videos · Health
+- Views: All media · Not linked to an operation · No caption · Videos · Health
 - Archive: `{year}` → `{operation}` → `{mission}`, expandable, counts at each level
 
 **Centre** — a toolbar (text search over caption/author/filename, filter chips
