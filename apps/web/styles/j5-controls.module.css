@@ -50,7 +50,10 @@
 }
 .chipOn { border-color: var(--red); color: var(--red-hi); background: rgba(219, 0, 29, 0.1); }
 
-.seg { display: flex; border: 1px solid var(--grey); }
+/* 30px matches .surface in j5-fields.module.css — the segmented control sits in
+   the same toolbar row as the selects, and its 9.5px mono type left it three
+   pixels shorter than everything beside it. */
+.seg { display: flex; align-items: stretch; min-height: 30px; border: 1px solid var(--grey); }
 .segItem {
     font-family: var(--font-mono);
     font-size: 9.5px;
@@ -64,7 +67,11 @@
        than the text and wrap it. */
     flex: 1 1 0;
     min-width: 54px;
-    text-align: center;
+    /* Centred both ways: the cell now stretches to the control's height, so
+       the label needs centring rather than sitting on the padding box. */
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: rgba(237, 237, 237, 0.38);
     border-right: 1px solid var(--grey);
     background: transparent;
