@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
         embedKind: doc.embedKind ?? null,
         embedUrl: doc.embedUrl ?? null,
         year: doc.year ?? null,
+        campaign: doc.campaign ?? null,
         operation: doc.operation ?? null,
         opLabel: doc.opLabel ?? null,
         mission: doc.mission ?? null,

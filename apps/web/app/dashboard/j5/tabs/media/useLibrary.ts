@@ -36,9 +36,9 @@ import { PAGE_SIZE, type LibraryParams } from '@/lib/gallery/library-query'
 type Filters = Omit<LibraryParams, 'page'>
 
 const EMPTY: Filters = {
-    view: 'all', year: null, operation: null, mission: null,
+    view: 'all', year: null, campaign: null, operation: null, mission: null,
     tag: null, author: null, kind: null, q: null, sort: 'newest',
-    yearUnset: false, operationUnset: false,
+    yearUnset: false, campaignUnset: false, operationUnset: false,
 }
 
 export function useLibrary() {
@@ -166,6 +166,7 @@ export function useLibrary() {
      */
     const selectNode = useCallback((sel: {
         year: string | null, yearUnset: boolean,
+        campaign: string | null, campaignUnset: boolean,
         operation: string | null, operationUnset: boolean,
         mission: string | null,
     }) => {
@@ -174,6 +175,12 @@ export function useLibrary() {
             view: 'all',
             year: sel.yearUnset ? null : sel.year,
             yearUnset: sel.yearUnset,
+            // `campaignUnset` is what a plain operation row under a year sends
+            // — "in no campaign", which is a different question from "in a
+            // campaign whose name I did not give". The rail sets it explicitly
+            // for exactly the rows it applies to; a year row asks neither.
+            campaign: sel.campaignUnset ? null : sel.campaign,
+            campaignUnset: sel.campaignUnset,
             operation: sel.operationUnset ? null : sel.operation,
             operationUnset: sel.operationUnset,
             mission: sel.mission,

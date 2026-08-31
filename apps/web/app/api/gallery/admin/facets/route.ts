@@ -23,7 +23,13 @@ import { hasPermission } from '@/lib/orbat/hasPermission'
    written — every read below goes through `??` — but the old `string | null`
    would have quietly lied to anyone who wrote `=== null`. */
 type TreeRow = {
-    _id: { year?: string | null, operation?: string | null, opLabel?: string | null, mission?: string | null }
+    _id: {
+        year?: string | null
+        campaign?: string | null
+        operation?: string | null
+        opLabel?: string | null
+        mission?: string | null
+    }
     count: number
 }
 
@@ -56,7 +62,7 @@ export async function GET() {
         Db.galleryHealth.findOne({}),
         Db.galleryMedia.aggregate<TreeRow>([
             { $match: live },
-            { $group: { _id: { year: '$year', operation: '$operation', opLabel: '$opLabel', mission: '$mission' }, count: { $sum: 1 } } },
+            { $group: { _id: { year: '$year', campaign: '$campaign', operation: '$operation', opLabel: '$opLabel', mission: '$mission' }, count: { $sum: 1 } } },
         ]).toArray(),
         Db.galleryTags.find({}).toArray(),
         Db.galleryMedia.aggregate<{ _id: string, count: number }>([
@@ -95,7 +101,15 @@ export async function GET() {
        would. */
     const UNSET = '\u0000'
 
-    const years = new Map<string, Map<string, { labelCounts: Map<string, number>, count: number, missions: Map<string, number> }>>()
+    type OpNode = { labelCounts: Map<string, number>, count: number, missions: Map<string, number> }
+    type OpMap = Map<string, OpNode>
+    /* Two buckets per year: the campaigns, and the operations that belong to
+       none. Not one tree with a synthetic "no campaign" node in it — most of
+       the archive has no campaign, and a row a reviewer has to click through
+       on every single legacy folder is a level of nothing. */
+    type YearNode = { campaigns: Map<string, OpMap>, operations: OpMap }
+
+    const years = new Map<string, YearNode>()
 
     for (const row of tree) {
         const yearKey = row._id.year ?? UNSET
@@ -105,8 +119,21 @@ export async function GET() {
         // shows 'Unknown' rather than the control-character key leaking out.
         const opLabel = row._id.opLabel ?? (opKey === UNSET ? 'Unknown' : opKey)
 
-        const ops = years.get(yearKey) ?? new Map()
-        years.set(yearKey, ops)
+        const year = years.get(yearKey) ?? { campaigns: new Map<string, OpMap>(), operations: new Map() }
+        years.set(yearKey, year)
+
+        /* An absent campaign routes into the year's own operations list rather
+           than becoming an UNSET-keyed campaign row — which is also why the
+           campaign level needs no `unset` flag of its own, unlike year and
+           operation: absence is a different BUCKET here, not a row that has to
+           be told apart from a campaign literally named 'Unknown'. */
+        let ops: OpMap
+        if (row._id.campaign) {
+            ops = year.campaigns.get(row._id.campaign) ?? new Map()
+            year.campaigns.set(row._id.campaign, ops)
+        } else {
+            ops = year.operations
+        }
 
         const op = ops.get(opKey) ?? { labelCounts: new Map<string, number>(), count: 0, missions: new Map<string, number>() }
         ops.set(opKey, op)
@@ -149,6 +176,23 @@ export async function GET() {
         return unset ? [...known, unset] : known
     }
 
+    const total = (ops: OpMap) => [...ops.values()].reduce((n, op) => n + op.count, 0)
+
+    /* One renderer for both places an operation row appears — directly under a
+       year, and under one of that year's campaigns. A second copy is how the
+       two would come to sort differently or disagree about `unset`. */
+    const operationRows = (ops: OpMap): LibraryOperationRow[] =>
+        orderedEntries(ops, (a, b) => a.localeCompare(b, undefined, { numeric: true }))
+            .map(([opKey, op]) => ({
+                operation: opKey === UNSET ? 'Unknown' : opKey,
+                opLabel: majorityLabel(op.labelCounts),
+                unset: opKey === UNSET,
+                count: op.count,
+                missions: [...op.missions.entries()]
+                    .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+                    .map(([mission, count]) => ({ mission, count })),
+            }))
+
     const facets: LibraryFacetsAPI = {
         views: {
             all,
@@ -171,20 +215,16 @@ export async function GET() {
         // explicitly (see its own comment) rather than leaving to how a
         // control character happens to compare against a digit year.
         years: orderedEntries(years, (a, b) => b.localeCompare(a))
-            .map(([yearKey, ops]) => ({
+            .map(([yearKey, year]) => ({
                 year: yearKey === UNSET ? 'Unknown' : yearKey,
                 unset: yearKey === UNSET,
-                count: [...ops.values()].reduce((n, op) => n + op.count, 0),
-                operations: orderedEntries(ops, (a, b) => a.localeCompare(b, undefined, { numeric: true }))
-                    .map(([opKey, op]) => ({
-                        operation: opKey === UNSET ? 'Unknown' : opKey,
-                        opLabel: majorityLabel(op.labelCounts),
-                        unset: opKey === UNSET,
-                        count: op.count,
-                        missions: [...op.missions.entries()]
-                            .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
-                            .map(([mission, count]) => ({ mission, count })),
-                    })),
+                // Both buckets, or a year holding only campaign items would
+                // read as empty in the rail while its rows still listed.
+                count: [...year.campaigns.values()].reduce((n, ops) => n + total(ops), 0) + total(year.operations),
+                campaigns: [...year.campaigns.entries()]
+                    .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+                    .map(([campaign, ops]) => ({ campaign, count: total(ops), operations: operationRows(ops) })),
+                operations: operationRows(year.operations),
             })),
         tags: tagDocs
             .filter(t => !t.retired)

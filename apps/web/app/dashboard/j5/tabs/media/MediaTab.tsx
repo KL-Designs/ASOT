@@ -227,18 +227,22 @@ export default function MediaTab() {
                     // assembly for the full reasoning.
                     year={filters.year}
                     yearUnset={filters.yearUnset}
+                    campaign={filters.campaign}
+                    campaignUnset={filters.campaignUnset}
                     operation={filters.operation}
                     operationUnset={filters.operationUnset}
                     mission={filters.mission}
                     onView={v => {
                         setParam('view', v)
                         setParam('year', null)
+                        setParam('campaign', null)
                         setParam('operation', null)
                         setParam('mission', null)
                         // A saved view replaces a tree selection outright — otherwise
                         // clicking "All media" after the rail's Unknown node would
                         // leave *Unset stuck true and silently keep filtering.
                         setParam('yearUnset', false)
+                        setParam('campaignUnset', false)
                         setParam('operationUnset', false)
                     }}
                     onNode={selectNode}

@@ -156,20 +156,20 @@ describe('operationFacets', () => {
 
         expect(fields?.$set.operation).toBe('OPERATION Undated')
         expect(fields?.$set.opLabel).toBe('OPERATION Undated')
-        expect(fields?.$unset).toEqual({ year: '' })
+        expect(fields?.$unset).toEqual({ campaign: '', year: '' })
     })
 
     test('"unknown" clears operationId, operation, opLabel and year, and nulls takenAt', async () => {
         const fields = await operationFacets(deps([]), 'unknown')
 
-        expect(fields?.$unset).toEqual({ operationId: '', operation: '', opLabel: '', year: '' })
+        expect(fields?.$unset).toEqual({ operationId: '', campaign: '', operation: '', opLabel: '', year: '' })
         expect(fields?.$set).toEqual({ takenAt: null })
     })
 
     test('a null operationId is treated the same as "unknown"', async () => {
         const fields = await operationFacets(deps([]), null)
 
-        expect(fields?.$unset).toEqual({ operationId: '', operation: '', opLabel: '', year: '' })
+        expect(fields?.$unset).toEqual({ operationId: '', campaign: '', operation: '', opLabel: '', year: '' })
     })
 
     test('an invalid ObjectId string is rejected', async () => {
@@ -200,6 +200,70 @@ describe('operationFacets', () => {
             year: '2022',
             takenAt: new Date('2022-03-05T09:00:00Z'),
         })
+    })
+
+    /* An embed reassigned to a campaign mission has to land in the same rail
+       row as a photograph from that mission — it is the same operation, and
+       nothing else will ever revisit an embed's facets. */
+    test('a campaign mission fills campaign and the day, and moving out of the campaign clears it', async () => {
+        const CAMPAIGN_ID = new ObjectId('6a8000000000000000000010')
+        const MISSION_ID = new ObjectId('6a8000000000000000000011')
+        const campaigns: WithId<OperationCampaign>[] = [{
+            _id: CAMPAIGN_ID, name: 'Operation Trinity', createdBy: 'seed', createdAt: '2026-01-01T00:00:00.000Z', isDeleted: false,
+        }]
+        const missions: WithId<CampaignMission>[] = [{
+            _id: MISSION_ID, campaignId: CAMPAIGN_ID.toHexString(), name: 'Operation Trinity I',
+            sequence: 1, createdAt: new Date('2026-01-01T00:00:00.000Z'), isDeleted: false,
+        }]
+        const ops = [{
+            _id: OP_ID,
+            title: 'OPERATION Trinity I — Sat',
+            date: new Date('2026-05-16T09:00:00Z'),
+            campaignId: CAMPAIGN_ID,
+            campaignMissionId: MISSION_ID.toHexString(),
+            daySlot: 'saturday',
+        }]
+
+        const fields = await operationFacets(deps(ops, campaigns, missions), OP_ID.toString())
+
+        expect(fields?.$set).toEqual({
+            operationId: OP_ID,
+            campaign: '1. Op Trinity',
+            operation: 'Operation Trinity I',
+            opLabel: 'Operation Trinity I',
+            mission: 'Saturday',
+            year: '2026',
+            takenAt: new Date('2026-05-16T09:00:00Z'),
+        })
+        expect(fields?.$unset).toBeUndefined()
+
+        /* The same operation with the campaign organiser empty — a deleted
+           campaign, from this function's point of view. `campaign` has to be
+           UNSET, not merely omitted: an embed carrying a campaign whose folder
+           it is no longer in sits in a rail row nothing agrees with, and
+           reconcile cannot see an embed at all. */
+        const cleared = await operationFacets(deps(ops), OP_ID.toString())
+        expect(cleared?.$unset).toEqual({ campaign: '' })
+        expect(cleared?.$set.operation).toBe('1. Op Trinity I')
+        expect(cleared?.$set.mission).toBe('Saturday')
+    })
+
+    /* The one field this function is allowed to differ from relocateMedia on.
+       It has an operation id and no media document, so it cannot tell a legacy
+       archive item's mission folder from a stale day — and the caller that
+       applies it to an item WITH bytes is the missing-bytes fallback in
+       app/api/gallery/admin/media/[id]/route.ts, whose item is exactly the
+       migrated archive item whose folder-derived mission is its provenance. */
+    test('an operation with no day slot leaves mission completely alone — neither set nor unset', async () => {
+        const ops = [{ _id: OP_ID, title: 'OPERATION No Slot — Sat', date: new Date('2026-03-07T09:00:00Z') }]
+
+        const fields = await operationFacets(deps(ops), OP_ID.toString())
+
+        expect(fields?.$set.mission).toBeUndefined()
+        // Object.keys rather than `$unset.mission`: the field is not in
+        // OperationFacetUpdate's $unset key union at all, which is the
+        // type-level half of the same guarantee.
+        expect(Object.keys(fields?.$unset ?? {})).not.toContain('mission')
     })
 })
 
@@ -264,7 +328,7 @@ describe('operationFacets agrees with relocateMedia', () => {
         expect(embedFields?.$set.opLabel).toBe(uploadDoc.opLabel)
         // Both spell "no year" the same way: the key is absent, never `''`.
         expect(embedFields?.$set.year).toBeUndefined()
-        expect(embedFields?.$unset).toEqual({ year: '' })
+        expect(embedFields?.$unset).toEqual({ campaign: '', year: '' })
         expect('year' in uploadDoc).toBe(false)
     })
 })

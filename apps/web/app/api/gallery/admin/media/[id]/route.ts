@@ -169,6 +169,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
             // from ever being observed apart.
             Object.assign(set, facets.$set)
             Object.assign(unset, facets.$unset ?? {})
+
+            /* `mission` is the one field BOTH halves of this request can name:
+               the payload can set or clear it by hand, and the operation's own
+               day slot now names it too. Mongo refuses an update that $sets and
+               $unsets the same path ("Updating the path 'mission' would create
+               a conflict") — it would 500 the whole save rather than choose —
+               so the day folder wins, because it is where the bytes actually
+               go and a hand-typed mission that disagrees with the folder is the
+               split this feature exists to prevent. */
+            if (set.mission !== undefined) delete unset.mission
         }
         moving = true
     }

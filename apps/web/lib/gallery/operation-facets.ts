@@ -4,10 +4,11 @@ import { splitOperation } from './naming'
 import { resolveOperationFolder, type RelocateDeps } from './relocate'
 
 /**
- * The four fields an operation choice decides — and the one place that decides
+ * The fields an operation choice decides — and the one place that decides
  * them for anything without bytes.
  *
- * `year`, `operation`, `opLabel` and `takenAt` all hang off `operationId`, and
+ * `year`, `campaign`, `operation`, `opLabel`, `mission` and `takenAt` all hang
+ * off `operationId`, and
  * every one of them is read by the public gallery: the facet rail groups tiles
  * on `operation`, displays `opLabel`, and the year rail and sort read `year`
  * and `takenAt`. Four writers deriving them independently is what put one
@@ -65,9 +66,29 @@ import { resolveOperationFolder, type RelocateDeps } from './relocate'
  *  catching a typo'd field name. */
 export type OperationFacetValues = {
     operationId?: ObjectId
+    campaign?: string
     operation?: string
     opLabel?: string
     year?: string
+    /**
+     * The day folder — `Saturday`/`Sunday` — and ONLY ever that.
+     *
+     * Set when the operation has a `daySlot`, and otherwise left completely
+     * alone: absent from `$set` and absent from `$unset` both. That asymmetry
+     * with relocateMedia (which does unset it) is deliberate, and it is the one
+     * place these two producers are allowed to differ.
+     *
+     * relocateMedia has the media document in front of it, so it can tell a
+     * legacy archive item's mission folder ("I", "II") from a stale day and
+     * preserve the former. This function is given an operation id and nothing
+     * else, so an unconditional unset here would be a blind one — and the
+     * caller that would fire it is the missing-bytes fallback in
+     * app/api/gallery/admin/media/[id]/route.ts, whose item is exactly a
+     * migrated archive item whose folder-derived mission IS its provenance.
+     * Erasing it there is the defect that route's own `relocating` comment
+     * describes at length.
+     */
+    mission?: string
     takenAt: Date | null
 }
 
@@ -77,7 +98,7 @@ export type OperationFacetValues = {
  *  would make every reader guess which it might see. */
 export type OperationFacetUpdate = {
     $set: OperationFacetValues
-    $unset?: Partial<Record<'operationId' | 'operation' | 'opLabel' | 'year', ''>>
+    $unset?: Partial<Record<'operationId' | 'campaign' | 'operation' | 'opLabel' | 'year', ''>>
 }
 
 /**
@@ -98,7 +119,11 @@ export async function operationFacets(
     operationId: string | null,
 ): Promise<OperationFacetUpdate | null> {
     if (!operationId || operationId === 'unknown') {
-        return { $unset: { operationId: '', operation: '', opLabel: '', year: '' }, $set: { takenAt: null } }
+        // `campaign` joins the clear list for the same reason the other three
+        // are on it: an item with no operation has no folder, and a document
+        // still naming a campaign would sit in a rail row with nothing behind
+        // it. `mission` deliberately does not — see OperationFacetValues.
+        return { $unset: { operationId: '', campaign: '', operation: '', opLabel: '', year: '' }, $set: { takenAt: null } }
     }
     if (!ObjectId.isValid(operationId)) return null
 
@@ -106,12 +131,25 @@ export async function operationFacets(
     const op = await deps.operations.findOne({ _id: opObjectId }, { projection: { title: 1, date: 1 } })
     if (!op) return null
 
-    const { year, operation } = await resolveOperationFolder(deps, opObjectId)
+    const { year, campaign, operation, mission } = await resolveOperationFolder(deps, opObjectId)
     const set: OperationFacetValues = {
         operationId: op._id,
         takenAt: op.date ? new Date(op.date) : null,
     }
-    const unset: Partial<Record<'operationId' | 'operation' | 'opLabel' | 'year', ''>> = {}
+    const unset: Partial<Record<'operationId' | 'campaign' | 'operation' | 'opLabel' | 'year', ''>> = {}
+
+    /* The campaign folder, on the same absent-never-empty-string terms as
+       `operation` below. An embed reassigned from a campaign mission to a
+       standalone operation has to LOSE this, not merely stop having it
+       rewritten — the rail filters on the field, and reconcile is structurally
+       blind to an embed (rule 4 needs a `content:` storageKey, which one never
+       has), so nothing else would ever notice. */
+    if (campaign) set.campaign = campaign
+    else unset.campaign = ''
+
+    // Set only, never unset — see OperationFacetValues.mission for why this
+    // one field is allowed to differ from relocateMedia.
+    if (mission) set.mission = mission
 
     /* Absent, never `''`. `operation ?? ''` kept a non-nullish empty string,
        which resolveOperationFolder returns for an operation document with an

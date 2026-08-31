@@ -9,16 +9,18 @@ const params = (qs: string) => parseLibraryParams(new URLSearchParams(qs))
 describe('parseLibraryParams', () => {
     test('defaults', () => {
         expect(params('')).toEqual({
-            view: 'all', year: null, operation: null, mission: null, tag: null,
+            view: 'all', year: null, campaign: null, operation: null, mission: null, tag: null,
             author: null, kind: null, q: null, sort: 'newest', page: 0,
-            yearUnset: false, operationUnset: false,
+            yearUnset: false, campaignUnset: false, operationUnset: false,
         })
     })
 
     test('reads every parameter', () => {
-        const p = params('view=unknown&year=2021&operation=4.+Op+Silent+Ridge&mission=I&tag=funny&author=Koda&kind=video&q=chopper&sort=rated&page=3&yearUnset=true&operationUnset=true')
+        const p = params('view=unknown&year=2021&campaign=1.+Op+Trinity&operation=4.+Op+Silent+Ridge&mission=I&tag=funny&author=Koda&kind=video&q=chopper&sort=rated&page=3&yearUnset=true&campaignUnset=true&operationUnset=true')
         expect(p.view).toBe('unknown')
         expect(p.year).toBe('2021')
+        expect(p.campaign).toBe('1. Op Trinity')
+        expect(p.campaignUnset).toBe(true)
         expect(p.operation).toBe('4. Op Silent Ridge')
         expect(p.mission).toBe('I')
         expect(p.tag).toBe('funny')
@@ -100,6 +102,34 @@ describe('buildLibraryFilter', () => {
         })
     })
 
+    /* The rail's plain operation rows sit directly under a year and mean "in no
+       campaign". Without its own channel, opening one would also return a
+       campaign mission that happened to carry the same folder name — possible,
+       because campaign missions are named by hand in the J2 organiser. */
+    test('campaignUnset selects an absent campaign, and a named campaign is a literal match', () => {
+        expect(buildLibraryFilter(params('campaignUnset=true'))).toMatchObject({
+            campaign: { $exists: false },
+        })
+        expect(buildLibraryFilter(params('campaign=1.+Op+Trinity'))).toMatchObject({
+            campaign: '1. Op Trinity',
+        })
+        // A campaign an admin named exactly 'Unknown' stays reachable, for the
+        // same reason year and operation do.
+        expect(buildLibraryFilter(params('campaign=Unknown'))).toMatchObject({ campaign: 'Unknown' })
+    })
+
+    test('a campaign selection stacks with the mission below it', () => {
+        const f = buildLibraryFilter(params('year=2026&campaign=1.+Op+Trinity&operation=Operation+Trinity+I&mission=Saturday'))
+        expect(f).toMatchObject({
+            year: '2026', campaign: '1. Op Trinity', operation: 'Operation Trinity I', mission: 'Saturday',
+        })
+    })
+
+    test('campaignUnset wins over a same-request literal campaign', () => {
+        expect(buildLibraryFilter(params('campaign=1.+Op+Trinity&campaignUnset=true')).campaign)
+            .toEqual({ $exists: false })
+    })
+
     // relocate.ts's undated-operation branch writes an operation's raw,
     // unvalidated title verbatim, so an admin can title a real Operation
     // exactly 'Unknown' and have it stored as that literal string. It must
@@ -169,9 +199,12 @@ describe('buildLibrarySort', () => {
         expect(buildLibrarySort('rated').up).toBe(-1)
     })
 
-    test('operation sorts by year then operation', () => {
+    // The order is the folder tree's own, top to bottom. Campaign sits between
+    // year and operation because that is where the folder does; without it a
+    // campaign's three missions interleave with the year's loose operations.
+    test('operation sorts down the folder tree: year, campaign, operation, mission', () => {
         const s = buildLibrarySort('operation')
-        expect(Object.keys(s).slice(0, 2)).toEqual(['year', 'operation'])
+        expect(Object.keys(s).slice(0, 4)).toEqual(['year', 'campaign', 'operation', 'mission'])
     })
 })
 

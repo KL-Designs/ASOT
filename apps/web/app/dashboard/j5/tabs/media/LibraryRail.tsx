@@ -15,15 +15,18 @@ import s from '@/styles/media-console.module.css'
 
 type NodeSelection = {
     year: string | null, yearUnset: boolean,
+    campaign: string | null, campaignUnset: boolean,
     operation: string | null, operationUnset: boolean,
     mission: string | null,
 }
 
-export default function LibraryRail({ facets, view, year, yearUnset, operation, operationUnset, mission, onView, onNode }: {
+export default function LibraryRail({ facets, view, year, yearUnset, campaign, campaignUnset, operation, operationUnset, mission, onView, onNode }: {
     facets: LibraryFacetsAPI | null
     view: LibraryView
     year: string | null
     yearUnset: boolean
+    campaign: string | null
+    campaignUnset: boolean
     operation: string | null
     operationUnset: boolean
     mission: string | null
@@ -31,6 +34,7 @@ export default function LibraryRail({ facets, view, year, yearUnset, operation, 
     onNode: (sel: NodeSelection) => void
 }) {
     const [openYears, setOpenYears] = useState<Set<string>>(new Set())
+    const [openCampaigns, setOpenCampaigns] = useState<Set<string>>(new Set())
     const [openOps, setOpenOps] = useState<Set<string>>(new Set())
 
     const toggle = (set: Set<string>, key: string, apply: (next: Set<string>) => void) => {
@@ -40,7 +44,7 @@ export default function LibraryRail({ facets, view, year, yearUnset, operation, 
     }
 
     const n = (value: number) => value.toLocaleString('en-AU')
-    const treeSelected = year !== null || yearUnset || operation !== null || operationUnset
+    const treeSelected = year !== null || yearUnset || campaign !== null || operation !== null || operationUnset
 
     // A year row's `unset` and a literal year of 'Unknown' both display as
     // "Unknown", so highlighting can't compare display text alone once both
@@ -49,8 +53,72 @@ export default function LibraryRail({ facets, view, year, yearUnset, operation, 
     // this response instead of collapsing it into one shared string.
     const yearSelected = (y: { year: string, unset: boolean }) =>
         y.unset ? yearUnset : (!yearUnset && year === y.year)
-    const opSelected = (op: { operation: string, unset: boolean }) =>
-        op.unset ? operationUnset : (!operationUnset && operation === op.operation)
+
+    /* `null` here means "the year's own operations", which is the campaignUnset
+       channel — NOT "no campaign filter". The two are different questions and
+       collapsing them would highlight every plain operation row whenever a
+       campaign was open. */
+    const inCampaign = (name: string | null) =>
+        name === null ? campaignUnset : (!campaignUnset && campaign === name)
+
+    const opSelected = (op: { operation: string, unset: boolean }, campaignName: string | null) =>
+        inCampaign(campaignName)
+        && (op.unset ? operationUnset : (!operationUnset && operation === op.operation))
+
+    /* One renderer for both places an operation row appears — under a campaign,
+       and directly under a year. A second copy of this JSX is how the two would
+       come to disagree about what a click sends: `campaignName` is what makes
+       the year's own rows ask for campaignUnset ("in no campaign") instead of
+       silently keeping whichever campaign was selected before. `depth` shifts
+       the indent one step for the campaign case; the rest is identical, which
+       is the point. */
+    const opRows = (
+        y: { year: string, unset: boolean },
+        ops: LibraryOperationRow[],
+        campaignName: string | null,
+        keyPrefix: string,
+        depth: 0 | 1,
+    ) =>
+        ops.map(op => {
+            const opKey = `${keyPrefix}/${op.unset}:${op.operation}`
+            const inC = campaignName !== null
+            return (
+                <div key={opKey}>
+                    <button
+                        type='button'
+                        className={`${s.row} ${depth === 0 ? s.rowSub : s.rowSubSub} ${opSelected(op, campaignName) && !mission ? s.rowOn : ''}`}
+                        onClick={() => {
+                            toggle(openOps, opKey, setOpenOps)
+                            onNode({
+                                year: y.year, yearUnset: y.unset,
+                                campaign: campaignName, campaignUnset: !inC,
+                                operation: op.operation, operationUnset: op.unset, mission: null,
+                            })
+                        }}
+                    >
+                        {op.missions.length > 0 && <span className={s.caret}>{openOps.has(opKey) ? '▾' : '▸'}</span>}
+                        {op.opLabel}
+                        <span className={s.count}>{n(op.count)}</span>
+                    </button>
+
+                    {openOps.has(opKey) && op.missions.map(m => (
+                        <button
+                            key={m.mission}
+                            type='button'
+                            className={`${s.row} ${depth === 0 ? s.rowSubSub : s.rowSubSubSub} ${mission === m.mission && opSelected(op, campaignName) ? s.rowOn : ''}`}
+                            onClick={() => onNode({
+                                year: y.year, yearUnset: y.unset,
+                                campaign: campaignName, campaignUnset: !inC,
+                                operation: op.operation, operationUnset: op.unset, mission: m.mission,
+                            })}
+                        >
+                            {m.mission}
+                            <span className={s.count}>{n(m.count)}</span>
+                        </button>
+                    ))}
+                </div>
+            )
+        })
 
     const views: { key: LibraryView, label: string, count: number }[] = facets ? [
         { key: 'all', label: 'All media', count: facets.views.all },
@@ -94,10 +162,13 @@ export default function LibraryRail({ facets, view, year, yearUnset, operation, 
                     <div key={yKey}>
                         <button
                             type='button'
-                            className={`${s.row} ${yearSelected(y) && !operation && !operationUnset ? s.rowOn : ''}`}
+                            className={`${s.row} ${yearSelected(y) && !campaign && !campaignUnset && !operation && !operationUnset ? s.rowOn : ''}`}
                             onClick={() => {
                                 toggle(openYears, yKey, setOpenYears)
-                                onNode({ year: y.year, yearUnset: y.unset, operation: null, operationUnset: false, mission: null })
+                                // The whole year: neither campaign channel is
+                                // asked for, so a campaign item and a loose one
+                                // both come back.
+                                onNode({ year: y.year, yearUnset: y.unset, campaign: null, campaignUnset: false, operation: null, operationUnset: false, mission: null })
                             }}
                         >
                             <span className={s.caret}>{openYears.has(yKey) ? '▾' : '▸'}</span>
@@ -105,37 +176,32 @@ export default function LibraryRail({ facets, view, year, yearUnset, operation, 
                             <span className={s.count}>{n(y.count)}</span>
                         </button>
 
-                        {openYears.has(yKey) && y.operations.map(op => {
-                            const opKey = `${yKey}/${op.unset}:${op.operation}`
+                        {openYears.has(yKey) && y.campaigns.map(c => {
+                            const cKey = `${yKey}/campaign:${c.campaign}`
                             return (
-                                <div key={opKey}>
+                                <div key={cKey}>
                                     <button
                                         type='button'
-                                        className={`${s.row} ${s.rowSub} ${opSelected(op) && !mission ? s.rowOn : ''}`}
+                                        className={`${s.row} ${s.rowSub} ${inCampaign(c.campaign) && !operation && !operationUnset ? s.rowOn : ''}`}
                                         onClick={() => {
-                                            toggle(openOps, opKey, setOpenOps)
-                                            onNode({ year: y.year, yearUnset: y.unset, operation: op.operation, operationUnset: op.unset, mission: null })
+                                            toggle(openCampaigns, cKey, setOpenCampaigns)
+                                            onNode({ year: y.year, yearUnset: y.unset, campaign: c.campaign, campaignUnset: false, operation: null, operationUnset: false, mission: null })
                                         }}
                                     >
-                                        {op.missions.length > 0 && <span className={s.caret}>{openOps.has(opKey) ? '▾' : '▸'}</span>}
-                                        {op.opLabel}
-                                        <span className={s.count}>{n(op.count)}</span>
+                                        <span className={s.caret}>{openCampaigns.has(cKey) ? '▾' : '▸'}</span>
+                                        {c.campaign}
+                                        <span className={s.count}>{n(c.count)}</span>
                                     </button>
 
-                                    {openOps.has(opKey) && op.missions.map(m => (
-                                        <button
-                                            key={m.mission}
-                                            type='button'
-                                            className={`${s.row} ${s.rowSubSub} ${mission === m.mission && opSelected(op) ? s.rowOn : ''}`}
-                                            onClick={() => onNode({ year: y.year, yearUnset: y.unset, operation: op.operation, operationUnset: op.unset, mission: m.mission })}
-                                        >
-                                            {m.mission}
-                                            <span className={s.count}>{n(m.count)}</span>
-                                        </button>
-                                    ))}
+                                    {openCampaigns.has(cKey) && opRows(y, c.operations, c.campaign, cKey, 1)}
                                 </div>
                             )
                         })}
+
+                        {/* The year's own operations, after its campaigns —
+                            a campaign is a heading over several of these, so
+                            listing the loose ones first would bury it. */}
+                        {openYears.has(yKey) && opRows(y, y.operations, null, yKey, 0)}
                     </div>
                 )
             })}

@@ -18,6 +18,7 @@ export type LibrarySort = 'newest' | 'oldest' | 'rated' | 'operation'
 export type LibraryParams = {
     view: LibraryView
     year: string | null
+    campaign: string | null
     operation: string | null
     mission: string | null
     tag: string | null
@@ -31,6 +32,15 @@ export type LibraryParams = {
      *  separate channel from `year`/`operation` rather than a sentinel
      *  string value). */
     yearUnset: boolean
+    /**
+     * "This item is in no campaign", which is what the rail's plain
+     * operation rows under a year ask for. Its own channel rather than a
+     * sentinel string for exactly the reason `yearUnset` has one: a campaign
+     * name is free text an admin types, so nothing stops one being called
+     * "Unknown", and overloading the string would make that campaign's items
+     * match neither branch.
+     */
+    campaignUnset: boolean
     operationUnset: boolean
 }
 
@@ -71,6 +81,7 @@ export function parseLibraryParams(search: URLSearchParams): LibraryParams {
         // back rather than 500 — the tab is a staff tool, not an API contract.
         view: isLibraryView(view) ? view : 'all',
         year: str(search, 'year'),
+        campaign: str(search, 'campaign'),
         operation: str(search, 'operation'),
         mission: str(search, 'mission'),
         tag: str(search, 'tag'),
@@ -84,6 +95,7 @@ export function parseLibraryParams(search: URLSearchParams): LibraryParams {
         // which is the same as the field being absent — there's no invalid
         // state to guard against.
         yearUnset: search.get('yearUnset') === 'true',
+        campaignUnset: search.get('campaignUnset') === 'true',
         operationUnset: search.get('operationUnset') === 'true',
     }
 }
@@ -119,6 +131,13 @@ export function buildLibraryFilter(params: LibraryParams): Record<string, unknow
     // means a literal match, full stop; only the boolean asks for absence.
     if (params.yearUnset) filter.year = { $exists: false }
     else if (params.year) filter.year = params.year
+    /* Same two channels one level down. The absent case is what a plain
+       operation row under a year means, and it has to be asked for explicitly:
+       without it, opening "5. Op Lone Wolf" under 2026 would also return a
+       campaign mission that happened to carry the same folder name, which is
+       possible because a campaign's own missions are named by hand. */
+    if (params.campaignUnset) filter.campaign = { $exists: false }
+    else if (params.campaign) filter.campaign = params.campaign
     if (params.operationUnset) filter.operation = { $exists: false }
     else if (params.operation) filter.operation = params.operation
     if (params.mission) filter.mission = params.mission
@@ -152,7 +171,10 @@ export function buildLibrarySort(sort: LibrarySort): Record<string, 1 | -1> {
     switch (sort) {
         case 'oldest': return { takenAt: 1, _id: 1 }
         case 'rated': return { up: -1, _id: 1 }
-        case 'operation': return { year: 1, operation: 1, mission: 1, _id: 1 }
+        // Campaign sits between year and operation, matching the folder tree
+        // this sort exists to walk: without it a campaign's three missions
+        // interleave with the year's standalone operations.
+        case 'operation': return { year: 1, campaign: 1, operation: 1, mission: 1, _id: 1 }
         default: return { takenAt: -1, _id: 1 }
     }
 }

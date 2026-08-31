@@ -159,6 +159,11 @@ declare global {
         embedUrl: string | null
 
         year: string | null
+        /** The campaign folder, for an operation that belongs to one of J2's
+         *  campaigns. Null for a single mission and for every legacy archive
+         *  item — `operation` then names the CAMPAIGN MISSION rather than the
+         *  operation. See GalleryMedia's own facet block. */
+        campaign: string | null
         operation: string | null
         opLabel: string | null
         mission: string | null
@@ -185,6 +190,21 @@ declare global {
         publishedAt: string | null
     }
 
+    /** One operation row of the Media tab's tree, under a year or under one of
+     *  that year's campaigns. Named rather than inlined because both places
+     *  render the identical row and a drifting second copy is how the two
+     *  would come to disagree about what `unset` means. */
+    interface LibraryOperationRow {
+        operation: string
+        opLabel: string
+        /** True when this row is the "field is absent" bucket, as opposed to a
+         *  row whose `operation` literally is the string 'Unknown'. Same
+         *  distinction as `unset` on the year row. */
+        unset: boolean
+        count: number
+        missions: { mission: string, count: number }[]
+    }
+
     /** The Media tab's left rail: saved views on top, the archive tree below,
      *  every row carrying a live count. */
     interface LibraryFacetsAPI {
@@ -201,14 +221,24 @@ declare global {
              *  the two being indistinguishable once both exist. */
             unset: boolean
             count: number
-            operations: {
-                operation: string
-                opLabel: string
-                /** Same distinction as `unset` above, one level down. */
-                unset: boolean
+            /**
+             * The year's campaigns, each holding its own missions.
+             *
+             * A separate list from `operations` below rather than an extra
+             * level every row goes through, because most of the archive has no
+             * campaign at all: 4,781 legacy items and every single mission
+             * belong directly under the year, and forcing them through a
+             * synthetic "no campaign" node would put a meaningless row between
+             * a reviewer and every folder they open. Additive, exactly as the
+             * `campaign` field itself is.
+             */
+            campaigns: {
+                campaign: string
                 count: number
-                missions: { mission: string, count: number }[]
+                operations: LibraryOperationRow[]
             }[]
+            /** The year's operations that belong to no campaign. */
+            operations: LibraryOperationRow[]
         }[]
         /** For the filter chips — every tag and author actually in use. */
         tags: { slug: string, label: string, count: number }[]
