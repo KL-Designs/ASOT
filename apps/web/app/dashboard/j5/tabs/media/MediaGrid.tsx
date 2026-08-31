@@ -1,7 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
-
+import { useRangeSelect } from './selection'
 import s from '@/styles/media-console.module.css'
 
 /**
@@ -13,14 +12,9 @@ import s from '@/styles/media-console.module.css'
  *
  * Shift-click extends a range from the last tile clicked, because assigning an
  * operation to a folder's worth of photographs is the tab's main job and
- * ticking sixty boxes one at a time is not a workflow.
- *
- * `lastClicked` is a ref, not a plain local: a plain local is reinitialised
- * on every render, and clicking a tile changes the selection, which re-renders
- * the grid, which would reset the local before the next click ever saw it — so
- * shift-click would extend a range only in the rare case nothing had
- * re-rendered since the previous click. A ref survives the re-render the
- * click itself causes.
+ * ticking sixty boxes one at a time is not a workflow. That behaviour lives in
+ * useRangeSelect (./selection), shared with MediaTable — the two layouts
+ * select into the same set and must extend a range the same way.
  */
 
 export default function MediaGrid({ items, selected, onToggle, onRange, onOpen }: {
@@ -30,7 +24,7 @@ export default function MediaGrid({ items, selected, onToggle, onRange, onOpen }
     onRange: (fromId: string, toId: string) => void
     onOpen: (id: string) => void
 }) {
-    const lastClicked = useRef<string | null>(null)
+    const click = useRangeSelect(onToggle, onRange)
 
     if (items.length === 0) {
         return <div className={s.empty}>Nothing here. Try a different view, or clear the filters.</div>
@@ -47,10 +41,7 @@ export default function MediaGrid({ items, selected, onToggle, onRange, onOpen }
                         className={`${s.tile} ${on ? s.tileOn : ''}`}
                         aria-pressed={on}
                         aria-label={item.caption || item.opLabel || 'Untitled media'}
-                        onClick={e => {
-                            if (e.shiftKey && lastClicked.current) onRange(lastClicked.current, item.id)
-                            else { onToggle(item.id); lastClicked.current = item.id }
-                        }}
+                        onClick={e => click(item.id, e.shiftKey)}
                         onDoubleClick={() => onOpen(item.id)}
                     >
                         {(item.poster ?? item.src)

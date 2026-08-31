@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { MenuItem, TextField, Typography } from '@mui/material'
 
 import { PAGE_SIZE, type LibrarySort } from '@/lib/gallery/library-query'
@@ -11,6 +11,7 @@ import HealthView from './HealthView'
 import Inspector from './Inspector'
 import LibraryRail from './LibraryRail'
 import MediaGrid from './MediaGrid'
+import MediaTable from './MediaTable'
 import { useLibrary } from './useLibrary'
 import s from '@/styles/media-console.module.css'
 import c from '@/styles/j5-controls.module.css'
@@ -55,6 +56,11 @@ function isKind(value: string): value is 'image' | 'video' {
 export default function MediaTab() {
     const { items, total, facets, filters, setParam, selectNode, clear, loading, error, retry, page, setPage, refresh } = useLibrary()
     const [selected, setSelected] = useState<Set<string>>(new Set())
+    /* Grid or table — the same query, the same selection, two layouts. Named
+       `layout` rather than `view` because `filters.view` already means
+       something else here (the rail's saved views), and the two being one word
+       apart in the same component is how they would come to be confused. */
+    const [layout, setLayout] = useState<'grid' | 'table'>('grid')
     const [operations, setOperations] = useState<Operation[]>([])
     const [tagVocab, setTagVocab] = useState<{ slug: string, label: string }[]>([])
     const [pickerError, setPickerError] = useState<string | null>(null)
@@ -138,6 +144,29 @@ export default function MediaTab() {
             return next
         })
     }, [items])
+
+    /* Captions the table has saved since the last fetch.
+       `items` is server state and does not change when the table PATCHes a
+       caption, and the table deliberately does not refetch on every save — a
+       refetch in the `nocaption` view would pull the row out from under the
+       cursor mid-edit. Without this overlay the stale caption would still
+       reach the inspector: select that same row and the inspector would show
+       the old text and write it back on Save, quietly reverting the edit. */
+    const [captionEdits, setCaptionEdits] = useState<Map<string, string>>(new Map())
+    const rememberCaption = useCallback((id: string, caption: string) => {
+        setCaptionEdits(prev => new Map(prev).set(id, caption))
+    }, [])
+    // A real fetch supersedes the overlay — it already carries these captions.
+    // Guarded so it only re-renders when there is something to drop.
+    useEffect(() => { setCaptionEdits(prev => prev.size === 0 ? prev : new Map()) }, [items])
+
+    const shown = useMemo<AdminMediaAPI[]>(() => {
+        if (captionEdits.size === 0) return items
+        return items.map(item => {
+            const edit = captionEdits.get(item.id)
+            return edit === undefined ? item : { ...item, caption: edit }
+        })
+    }, [items, captionEdits])
 
     const pages = Math.ceil(total / PAGE_SIZE)
 
@@ -271,6 +300,29 @@ export default function MediaTab() {
                         <button type='button' className={`${c.btn} ${c.btnGhost}`} onClick={() => { clear(); setSelected(new Set()) }}>
                             Clear filters
                         </button>
+                        {/* Hidden in the Health view, which replaces the list
+                            entirely — a layout toggle over a report that has
+                            neither layout does nothing but invite a click. */}
+                        {filters.view !== 'health' && (
+                            <div className={c.seg} role='group' aria-label='Layout'>
+                                <button
+                                    type='button'
+                                    className={`${c.segItem} ${layout === 'grid' ? c.segItemOn : ''}`}
+                                    aria-pressed={layout === 'grid'}
+                                    onClick={() => setLayout('grid')}
+                                >
+                                    Grid
+                                </button>
+                                <button
+                                    type='button'
+                                    className={`${c.segItem} ${layout === 'table' ? c.segItemOn : ''}`}
+                                    aria-pressed={layout === 'table'}
+                                    onClick={() => setLayout('table')}
+                                >
+                                    Table
+                                </button>
+                            </div>
+                        )}
                         <Typography sx={{ ml: 'auto', fontFamily: 'var(--font-mono)', fontSize: '0.66rem', color: 'rgba(237,237,237,0.38)' }}>
                             {total.toLocaleString('en-AU')} ITEMS{selected.size ? ` · ${selected.size} SELECTED` : ''}
                         </Typography>
@@ -309,9 +361,23 @@ export default function MediaTab() {
                         // inspector column stay exactly as they are; only
                         // the grid and pager give way to the report.
                         <HealthView onChanged={refresh} />
-                    ) : loading ? <TacticalSkeleton /> : error && items.length === 0 ? null : (
+                    ) : loading ? <TacticalSkeleton /> : error && items.length === 0 ? null : layout === 'table' ? (
+                        <MediaTable
+                            items={shown}
+                            selected={selected}
+                            // Server-side, every time: the header sets the
+                            // same `sort` the select above does and the list
+                            // refetches. Sorting the sixty rows on screen
+                            // would only sort this page.
+                            sort={filters.sort}
+                            onSort={next => setParam('sort', next)}
+                            onToggle={toggle}
+                            onRange={range}
+                            onCaptionSaved={rememberCaption}
+                        />
+                    ) : (
                         <MediaGrid
-                            items={items}
+                            items={shown}
                             selected={selected}
                             onToggle={toggle}
                             onRange={range}
@@ -332,7 +398,10 @@ export default function MediaTab() {
 
                 {selected.size === 1
                     ? (() => {
-                        const item = items.find(i => selected.has(i.id))
+                        // `shown`, not `items`: a caption the table saved is
+                        // not in the server state yet, and the inspector
+                        // would otherwise re-send the pre-edit text on Save.
+                        const item = shown.find(i => selected.has(i.id))
                         /* Falls through to the empty aside when the selected
                            id is not on this page — it used to render null,
                            which blanked the whole 320px column while the

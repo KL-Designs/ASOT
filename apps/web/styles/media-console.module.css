@@ -139,6 +139,127 @@
     text-align: left;
 }
 
+/* ── table ──────────────────────────────────────────────────────────── */
+
+/* The same items as .grid, laid out for the other job: the grid is for
+   recognising a shot, this is for working through three hundred of them. Its
+   own scroll box, sized like the grid's, so the tools bar above and the pager
+   below stay put while the rows move. */
+.tblWrap { max-height: 62vh; overflow: auto; }
+.tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-cond);
+    font-size: 13px;
+    color: rgba(237, 237, 237, 0.82);
+}
+.tbl th, .tbl td {
+    text-align: left;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    white-space: nowrap;
+}
+.tbl thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    /* Opaque rather than the panel's 1.2%-white tint: rows scroll underneath
+       the header, and a translucent one would show them straight through it. */
+    background: var(--background);
+    border-bottom: 1px solid rgba(219, 0, 29, 0.18);
+    padding: 7px 8px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+}
+.tblRow:hover { background: rgba(255, 255, 255, 0.03); }
+/* An inset bar rather than a border: a border on a <tr> is not painted with
+   border-collapse, and one on every <td> would draw a line down each column. */
+.tblRowOn { background: rgba(219, 0, 29, 0.1); box-shadow: inset 2px 0 0 var(--red); }
+.tblNum { font-variant-numeric: tabular-nums; }
+.tblPick { width: 24px; }
+.tblPick input { accent-color: var(--red); cursor: pointer; }
+
+.sortBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    border: 0;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+}
+.sortBtn:hover { color: var(--foreground); }
+.sortBtn:focus-visible { outline: 1px solid var(--red); outline-offset: 2px; }
+.sortOn { color: var(--red-hi); }
+.sortMark { font-size: 8px; }
+
+.thumbBtn {
+    display: block;
+    width: 48px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    overflow: hidden;
+}
+.thumbBtn img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* The caption is the column that gets typed in, so it takes the slack the
+   fixed-width columns leave and is the one cell allowed to wrap. */
+.tblCap { width: 40%; white-space: normal; }
+.capInput {
+    width: 100%;
+    min-width: 150px;
+    font-family: var(--font-cond);
+    font-size: 13px;
+    color: var(--foreground);
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 3px 5px;
+}
+.capInput::placeholder { color: rgba(237, 237, 237, 0.3); }
+.capInput:hover { border-color: var(--grey); }
+.capInput:focus { outline: 0; border-color: var(--red); background: rgba(0, 0, 0, 0.35); }
+
+.capState {
+    display: block;
+    padding: 1px 5px 0;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, 0.38);
+}
+.capState[data-state='saved'] { color: var(--live); }
+/* A failed save carries the server's own sentence, which is longer than a
+   status word and must not be clipped to the column. */
+.capState[data-state='error'] { color: var(--red-hi); text-transform: none; letter-spacing: 0.02em; white-space: normal; }
+
+.muted { color: rgba(237, 237, 237, 0.38); }
+
+/* For the header cells that are a column to a screen reader and a blank to
+   everyone else — the checkbox and the thumbnail. */
+.srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
 .empty {
     padding: 48px 16px;
     text-align: center;
