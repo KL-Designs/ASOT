@@ -372,11 +372,21 @@ describe('reconcile', () => {
         ])
     })
 
-    test('does not descend past the mission level', async () => {
-        write('2021/4. Op Silent Ridge/I/deeper/x.png')
+    /* The floor moved down one when the campaign level was added:
+       year/campaign/operation/day/file is five segments and legitimate, so the
+       old fixture here (five segments, asserting they were ignored) was
+       pinning the pre-campaign depth rather than the rule. Both halves are
+       asserted now — the deepest legal path IS walked, one below it is not —
+       so a future change to the grammar cannot quietly pass by loosening the
+       walk in one direction only. */
+    test('walks to the day level and no deeper', async () => {
+        write('2021/Op Trinity/Operation Trinity I/Saturday/x.png')
+        write('2021/Op Trinity/Operation Trinity I/Saturday/deeper/y.png')
         const report = await reconcile(deps([]))
-        expect(report.scanned).toBe(0)
-        expect(report.notIndexed).toEqual([])
+        expect(report.scanned).toBe(1)
+        expect(report.notIndexed.map(n => n.path)).toEqual([
+            '2021/Op Trinity/Operation Trinity I/Saturday/x.png',
+        ])
     })
 
     /* Final review, important 5. scripts/index-gallery.mjs matches a folder to

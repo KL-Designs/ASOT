@@ -58,15 +58,34 @@ function matches(filter: Filter<GalleryMedia>, doc: Doc): boolean {
         const not = key.$not
         if (not instanceof RegExp && typeof doc.storageKey === 'string' && not.test(doc.storageKey)) return false
     }
+
+    /* The featured query is `featuredOrder: { $exists: true }`, and no fixture
+       carries one — so honouring it here is what keeps the featured rail empty
+       instead of silently equal to the whole grid. Without this clause the
+       mock answered the featured query with every live document. */
+    const featured = filter.featuredOrder
+    if (featured && typeof featured === 'object' && '$exists' in featured) return false
+
     return true
 }
 
 vi.mock('@/lib/mongo', () => ({
     default: {
         galleryMedia: {
-            find: (filter: Filter<GalleryMedia>) => ({
-                toArray: async () => DOCS.filter(d => matches(filter, d)),
-            }),
+            /* Chainable: the route sorts the featured query before awaiting it
+               (`find().sort().toArray()`), so a mock returning only `toArray`
+               throws "sort is not a function" on a line this fixture is not
+               even testing. `sort` returns the same object rather than
+               ordering anything — the featured list is empty here, and the
+               grid's own order is asserted through the response, not the
+               driver. */
+            find: (filter: Filter<GalleryMedia>) => {
+                const cursor = {
+                    sort: () => cursor,
+                    toArray: async () => DOCS.filter(d => matches(filter, d)),
+                }
+                return cursor
+            },
         },
         galleryTags: {
             find: () => ({ sort: () => ({ toArray: async () => [] }) }),

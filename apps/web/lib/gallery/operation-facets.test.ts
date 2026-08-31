@@ -135,13 +135,13 @@ describe('operationFacets', () => {
         expect(fields?.$set.year).toBe('2021')
     })
 
-    test('creates the next numbered folder name when no existing folder matches, same as relocateMedia', async () => {
+    test('mints an unnumbered folder name when no existing folder matches, same as relocateMedia', async () => {
         mkdirSync(join(contentDir, '2021', '7. Op Copper Ridge'), { recursive: true })
         const ops = [{ _id: OP_ID, title: 'OPERATION Brand New — Sun', date: new Date('2021-11-02T09:00:00Z') }]
 
         const fields = await operationFacets(deps(ops), OP_ID.toString())
 
-        expect(fields?.$set.operation).toBe('8. Op Brand New')
+        expect(fields?.$set.operation).toBe('Op Brand New')
         expect(fields?.$set.opLabel).toBe('Op Brand New')
     })
 
@@ -228,7 +228,7 @@ describe('operationFacets', () => {
 
         expect(fields?.$set).toEqual({
             operationId: OP_ID,
-            campaign: '1. Op Trinity',
+            campaign: 'Op Trinity',
             operation: 'Operation Trinity I',
             opLabel: 'Operation Trinity I',
             mission: 'Saturday',
@@ -244,7 +244,7 @@ describe('operationFacets', () => {
            reconcile cannot see an embed at all. */
         const cleared = await operationFacets(deps(ops), OP_ID.toString())
         expect(cleared?.$unset).toEqual({ campaign: '' })
-        expect(cleared?.$set.operation).toBe('1. Op Trinity I')
+        expect(cleared?.$set.operation).toBe('Op Trinity I')
         expect(cleared?.$set.mission).toBe('Saturday')
     })
 
@@ -272,7 +272,7 @@ describe('operationFacets', () => {
 
         expect(fields?.$set).toEqual({
             operationId: OP_ID,
-            operation: '1. Op Trinity',
+            operation: 'Op Trinity',
             opLabel: 'Op Trinity',
             mission: 'Saturday',
             year: '2026',
@@ -336,7 +336,7 @@ describe('operationFacets agrees with relocateMedia', () => {
         expect(embedFields?.$set.opLabel).toBe(uploadDoc.opLabel)
         expect(embedFields?.$set.year).toBe(uploadDoc.year)
         expect(embedFields?.$set.takenAt).toEqual(uploadDoc.takenAt)
-        expect(embedFields?.$set.operation).toBe('1. Op Silent Ridge')
+        expect(embedFields?.$set.operation).toBe('Op Silent Ridge')
         expect(embedFields?.$set.opLabel).toBe('Op Silent Ridge')
     })
 
