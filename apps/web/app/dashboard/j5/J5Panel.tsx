@@ -39,16 +39,28 @@ export default function J5Panel({
 }) {
     const { tab, setTab, view, setView } = useTabState(0, 'dept')
 
-    /* Positions, not constants. Both of these are permission-gated, and MUI
-       indexes tabs by their position among the ones actually rendered — so a
-       member holding gallery.tags but not gallery.review would otherwise land
-       on the wrong panel entirely. */
-    const extraTabs = ([
-        canReviewGallery && 'submissions',
-        canManageGalleryTags && 'tags',
-    ].filter(Boolean) as ('submissions' | 'tags')[])
+    /* Keyed by name, not by position. Submissions and Tags are permission-gated,
+       and MUI indexes tabs by their position among the ones actually rendered —
+       so a member holding gallery.tags but not gallery.review would otherwise
+       land on the wrong panel. Building one array in mockup order and deriving
+       both the <Tab> list and the panel body from it means a hidden tab can
+       never shift what another index means; the position is computed, never
+       assumed. */
+    const allTabs: { key: string, label: string, pinLabel: string, visible: boolean, render: () => React.ReactNode }[] = [
+        { key: 'media', label: 'Media', pinLabel: 'J5 — Media', visible: true, render: () => (canManageGallery ? <MediaTab /> : <GalleryOperationsTab />) },
+        { key: 'submissions', label: 'Submissions', pinLabel: 'J5 — Submissions', visible: canReviewGallery, render: () => <SubmissionsTab /> },
+        { key: 'featured', label: 'Featured', pinLabel: 'J5 — Featured', visible: true, render: () => <FeaturedTab /> },
+        { key: 'sotm', label: 'Screenshot of month', pinLabel: 'J5 — SOTM', visible: true, render: () => <SotmTab canManage={canManageMembers} /> },
+        { key: 'tags', label: 'Tags', pinLabel: 'J5 — Tags', visible: canManageGalleryTags, render: () => <GalleryTagsTab /> },
+        { key: 'meetings', label: 'Meetings', pinLabel: 'J5 — Meetings', visible: true, render: () => <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} /> },
+        { key: 'tickets', label: 'Tickets', pinLabel: 'J5 — Tickets', visible: true, render: () => <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} /> },
+    ]
+    const visibleTabs = allTabs.filter(t => t.visible)
 
-    const FIXED_TABS = 5   // Media, Featured, SOTM, Meetings, Tickets
+    // A pinned/bookmarked tab index from the old FIXED_TABS ordering (or one
+    // that predates a permission grant/revoke shrinking this list) can point
+    // past the end of today's array — clamp instead of rendering nothing.
+    const activeTab = Math.min(Math.max(tab, 0), visibleTabs.length - 1)
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -122,25 +134,15 @@ export default function J5Panel({
 
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                         <Tabs
-                            value={tab}
+                            value={activeTab}
                             onChange={(_, v) => setTab(v)}
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Media'               pinLabel='J5 — Media'      href='/dashboard/j5' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Featured Images'     pinLabel='J5 — Featured'   href='/dashboard/j5' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Screenshot of Month' pinLabel='J5 — SOTM'       href='/dashboard/j5' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'            pinLabel='J5 — Meetings'   href='/dashboard/j5' tabIndex={3} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets'             pinLabel='J5 — Tickets'    href='/dashboard/j5' tabIndex={4} />} sx={tabSx} />
-                            {extraTabs.map((key, i) => (
+                            {visibleTabs.map((t, i) => (
                                 <Tab
-                                    key={key}
-                                    label={<PinTabLabel
-                                        label={key === 'submissions' ? 'Submissions' : 'Gallery Tags'}
-                                        pinLabel={key === 'submissions' ? 'J5 — Submissions' : 'J5 — Tags'}
-                                        href='/dashboard/j5'
-                                        tabIndex={FIXED_TABS + i}
-                                    />}
+                                    key={t.key}
+                                    label={<PinTabLabel label={t.label} pinLabel={t.pinLabel} href='/dashboard/j5' tabIndex={i} />}
                                     sx={tabSx}
                                 />
                             ))}
@@ -148,13 +150,7 @@ export default function J5Panel({
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && (canManageGallery ? <MediaTab /> : <GalleryOperationsTab />)}
-                        {tab === 1 && <FeaturedTab />}
-                        {tab === 2 && <SotmTab canManage={canManageMembers} />}
-                        {tab === 3 && <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} />}
-                        {tab === 4 && <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
-                        {tab >= FIXED_TABS && extraTabs[tab - FIXED_TABS] === 'submissions' && <SubmissionsTab />}
-                        {tab >= FIXED_TABS && extraTabs[tab - FIXED_TABS] === 'tags' && <GalleryTagsTab />}
+                        {visibleTabs[activeTab]?.render()}
                     </div>
                 </>
             )}
