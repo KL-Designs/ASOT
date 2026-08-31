@@ -5,23 +5,35 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { PERMISSION_KEYS } from '@/lib/permissions-catalog'
 import { DEPT_ROLES } from '@/lib/discord/dept-roles'
+import { MEMBERS_DEPT, PSEUDO_DEPT_CODES } from '@/lib/discord/dept-codes'
 
+// Real departments — the only ones that may hold sub-roles, and so the only
+// ones POST accepts.
 const VALID_DEPTS = Object.keys(DEPT_ROLES)
 
-// Ensures all 7 base roles exist, creating any missing ones. Called at the
-// top of GET so there's no separate migration step — the catalog is always
-// complete by the time anything reads it.
+// Everything the catalog holds, real departments plus pseudo-departments.
+// GET reads and seeds against this; POST deliberately does not.
+const SEEDED_DEPTS = [...VALID_DEPTS, ...PSEUDO_DEPT_CODES]
+
+// Pseudo-departments get a name of their own — "MEMBERS Base Role" reads as
+// a piece of plumbing, and this row is the one an admin actually clicks.
+const BASE_ROLE_NAMES: Record<string, string> = { [MEMBERS_DEPT]: 'Members' }
+
+// Ensures all base roles exist, creating any missing ones. Called at the top
+// of GET so there's no separate migration step — the catalog is always
+// complete by the time anything reads it, including on a database that
+// predates the Members role.
 async function ensureBaseRoles(): Promise<void> {
     const existing = await Db.departmentRoles.find({ isBase: true }).project({ department: 1 }).toArray()
     const existingDepts = new Set(existing.map(r => r.department))
-    const missing = VALID_DEPTS.filter(d => !existingDepts.has(d))
+    const missing = SEEDED_DEPTS.filter(d => !existingDepts.has(d))
     if (missing.length === 0) return
 
     const now = new Date()
     await Db.departmentRoles.insertMany(missing.map(department => ({
         _id: new ObjectId(),
         department,
-        name: `${department.toUpperCase()} Base Role`,
+        name: BASE_ROLE_NAMES[department] ?? `${department.toUpperCase()} Base Role`,
         isBase: true,
         discordRoleIds: [],
         tsGroupIds: [],
@@ -42,7 +54,7 @@ export async function GET(request: NextRequest) {
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const department = request.nextUrl.searchParams.get('department')
-    if (department && !VALID_DEPTS.includes(department)) {
+    if (department && !SEEDED_DEPTS.includes(department)) {
         return NextResponse.json({ error: 'Invalid department' }, { status: 400 })
     }
     const isManager = client.hasRoles(me, PERMISSIONS.admin.manageDepartmentRoles)

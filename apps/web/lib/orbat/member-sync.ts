@@ -26,11 +26,11 @@ export interface MemberSyncReport {
     tsAvailable: boolean
 }
 
-interface GrantBundle {
-    discordRoleIds: string[]
-    tsGroupIds: number[]
-    source: string
-}
+// The per-member rules for *what* is owed live in grant-bundles.ts — pure,
+// and unit-tested without a database or a TeamSpeak connection. This file
+// stays responsible for loading the catalogs, reading actual state, and
+// diffing the two.
+import { grantBundlesFor, type GrantBundle, type GrantCatalog } from './grant-bundles'
 
 /** Merges every contributing bundle into one expected-ID set per grant type,
  *  keeping a list of every source that contributed each ID (a Discord role
@@ -136,47 +136,13 @@ export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
     const deptBaseByDept = new Map(departmentRoles.filter(r => r.isBase).map(r => [r.department, r]))
     const sectionMetaByKey = new Map(orbatSectionMeta.map(m => [`${m.category}:${m.sectionTitle ?? ''}`, m]))
 
+    // `deptBaseByDept` carries the permanent Members base role along with the
+    // seven real departments — it is seeded `isBase: true` like any of them —
+    // which is how grantBundlesFor reaches it for everyone in the ORBAT.
+    const grantCatalog: GrantCatalog = { deptBaseByDept, deptRoleById, orbatRoleById, positionByUserId, sectionMetaByKey }
+
     function bundlesFor(user: typeof users[number]): GrantBundle[] {
-        const bundles: GrantBundle[] = []
-
-        for (const dept of user.departments ?? []) {
-            const base = deptBaseByDept.get(dept)
-            if (base) bundles.push({ discordRoleIds: base.discordRoleIds, tsGroupIds: base.tsGroupIds, source: `Department: ${dept.toUpperCase()} base role` })
-        }
-        for (const id of user.departmentRoleIds ?? []) {
-            const role = deptRoleById.get(String(id))
-            if (role && (user.departments ?? []).includes(role.department)) {
-                bundles.push({ discordRoleIds: role.discordRoleIds, tsGroupIds: role.tsGroupIds, source: `Department: ${role.name}` })
-            }
-        }
-
-        const position = positionByUserId.get(user.id)
-        if (position) {
-            if (position.roleId) {
-                const role = orbatRoleById.get(String(position.roleId))
-                if (role) bundles.push({ discordRoleIds: role.discordRoleIds, tsGroupIds: role.tsGroupIds, source: `ORBAT: ${role.name}` })
-            }
-            const categoryMeta = sectionMetaByKey.get(`${position.category}:`)
-            if (categoryMeta) {
-                bundles.push({
-                    discordRoleIds: categoryMeta.discordRoleId ? [categoryMeta.discordRoleId] : [],
-                    tsGroupIds: typeof categoryMeta.tsGroupId === 'number' ? [categoryMeta.tsGroupId] : [],
-                    source: `ORBAT category: ${position.category}`,
-                })
-            }
-            if (position.sectionTitle) {
-                const sectionMeta = sectionMetaByKey.get(`${position.category}:${position.sectionTitle}`)
-                if (sectionMeta) {
-                    bundles.push({
-                        discordRoleIds: sectionMeta.discordRoleId ? [sectionMeta.discordRoleId] : [],
-                        tsGroupIds: typeof sectionMeta.tsGroupId === 'number' ? [sectionMeta.tsGroupId] : [],
-                        source: `ORBAT section: ${position.sectionTitle}`,
-                    })
-                }
-            }
-        }
-
-        return bundles
+        return grantBundlesFor(user, grantCatalog)
     }
 
     async function buildEntry(user: typeof users[number]): Promise<MemberSyncEntry> {

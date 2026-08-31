@@ -6,13 +6,34 @@ import {
     Checkbox, FormControlLabel, CircularProgress, Alert, Typography, Box, InputAdornment, Tooltip,
 } from '@mui/material'
 import { ContentCopy, ContentPaste, Delete, Add, Search } from '@mui/icons-material'
-import { DEPT_CODES, DEPT_LEADERSHIP_POSITIONS, LEADERSHIP_SLOT_INDEX, type LeadershipSlot } from '@/lib/discord/dept-codes'
+import {
+    DEPT_CODES, DEPT_LEADERSHIP_POSITIONS, LEADERSHIP_SLOT_INDEX, type LeadershipSlot,
+    MEMBERS_DEPT, PSEUDO_DEPT_CODES, PSEUDO_DEPT_LABELS,
+} from '@/lib/discord/dept-codes'
 import { PERMISSION_DESCRIPTIONS } from '@/lib/permissions-descriptions'
 
 interface GuildRole { id: string; name: string; color: number }
 interface TsGroup { id: number; name: string }
 
-const DEPT_LABELS: Record<string, string> = Object.fromEntries(DEPT_CODES.map(c => [c, c.toUpperCase()]))
+const DEPT_LABELS: Record<string, string> = {
+    ...Object.fromEntries(DEPT_CODES.map(c => [c, c.toUpperCase()])),
+    ...PSEUDO_DEPT_LABELS,
+}
+
+// Pseudo-departments lead the list: Members is the one row here that applies
+// to the whole unit, so it reads as a heading for the seven that follow
+// rather than an eighth department tacked on the end.
+const LIST_SECTIONS: string[] = [...PSEUDO_DEPT_CODES, ...DEPT_CODES]
+
+const PSEUDO_DEPTS = new Set<string>(PSEUDO_DEPT_CODES)
+
+/** Pseudo-departments hold exactly one permanent role and take no sub-roles —
+ *  nobody can be assigned "a sub-role of everyone in the ORBAT". */
+const isPseudoDept = (code: string) => PSEUDO_DEPTS.has(code)
+
+const BASE_ROLE_HINTS: Record<string, string> = {
+    [MEMBERS_DEPT]: "Applies to everyone in the ORBAT — callsign holders and reservists, active and inactive. Can't be deleted.",
+}
 
 // Compact badge text for the left-list row — the full position label (e.g.
 // "Assistant Team Leader") is often identical to the role's own name, so
@@ -258,9 +279,9 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
 
     const rolesByDept = useMemo(() => {
         const map: Record<string, DepartmentRole[]> = {}
-        for (const code of DEPT_CODES) map[code] = []
+        for (const code of LIST_SECTIONS) map[code] = []
         for (const role of roles) (map[role.department] ??= []).push(role)
-        for (const code of DEPT_CODES) {
+        for (const code of LIST_SECTIONS) {
             map[code].sort((a, b) => a.isBase === b.isBase ? a.name.localeCompare(b.name) : a.isBase ? -1 : 1)
         }
         return map
@@ -280,15 +301,17 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
                 <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
                     {/* Left: role list, grouped by department */}
                     <Box sx={{ width: 300, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.08)', overflowY: 'auto' }}>
-                        {DEPT_CODES.map(code => (
+                        {LIST_SECTIONS.map(code => (
                             <Box key={code} sx={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: '10px 12px 6px' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: '10px 12px 6px', minHeight: 38 }}>
                                     <Typography sx={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: 1, color: 'rgba(219,0,29,0.75)' }}>
                                         {DEPT_LABELS[code]}
                                     </Typography>
-                                    <IconButton size='small' onClick={() => startCreate(code)} sx={closeButtonSx}>
-                                        <Add sx={{ fontSize: 14, color: 'rgba(237,237,237,0.5)' }} />
-                                    </IconButton>
+                                    {!isPseudoDept(code) && (
+                                        <IconButton size='small' onClick={() => startCreate(code)} sx={closeButtonSx}>
+                                            <Add sx={{ fontSize: 14, color: 'rgba(237,237,237,0.5)' }} />
+                                        </IconButton>
+                                    )}
                                 </Box>
                                 {rolesByDept[code].map(role => {
                                     const selected = editingId === String(role._id)
@@ -303,7 +326,9 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
                                             <span style={{ flex: '1 1 auto', minWidth: 0, fontSize: '0.76rem', color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {role.name}
                                             </span>
-                                            {role.isBase && (
+                                            {/* A pseudo-department holds exactly one role, so "BASE" there
+                                                distinguishes it from nothing — it is only noise beside the name. */}
+                                            {role.isBase && !isPseudoDept(role.department) && (
                                                 <span style={{ flexShrink: 0, fontSize: '0.52rem', fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: 'rgba(100,180,255,0.12)', color: 'rgba(100,180,255,0.85)' }}>
                                                     BASE
                                                 </span>
@@ -343,7 +368,7 @@ export default function DepartmentRolesTab({ onDirtyChange }: { onDirtyChange: (
                                             />
                                             {isEditingBase && (
                                                 <Typography sx={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.35)', alignSelf: 'center' }}>
-                                                    Base role — applies to every department member, can't be deleted.
+                                                    {BASE_ROLE_HINTS[editingRole!.department] ?? "Base role — applies to every department member, can't be deleted."}
                                                 </Typography>
                                             )}
                                             {!newRoleDept && !isEditingBase && editingRole && (

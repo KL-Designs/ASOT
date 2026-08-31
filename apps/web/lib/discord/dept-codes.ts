@@ -27,3 +27,23 @@ export const DEPT_LEADERSHIP_POSITIONS: Record<string, [string, string, string]>
 }
 
 export const LEADERSHIP_SLOT_INDEX: Record<LeadershipSlot, 0 | 1 | 2> = { leader: 0, '2ic': 1, '3ic': 2 }
+
+/**
+ * Pseudo-departments: entries that live in the department-roles catalog and
+ * are edited through the same Departments tab, but are not real departments.
+ * Deliberately NOT part of `DEPT_CODES` — that list drives department
+ * membership sync, the ORBAT's DeptMembersTab, ticket routing and leadership
+ * slots, none of which have any meaning here, and all of which would quietly
+ * gain a phantom eighth department if this were folded in.
+ *
+ * `members` holds one permanent base role whose grants apply to everyone
+ * currently in the ORBAT — callsign holders and reservists alike, active and
+ * inactive. Nobody is ever *assigned* it (there are no sub-roles under it);
+ * `hasPermission`/`hasPermissions` resolve it from the ORBAT position itself.
+ */
+export const MEMBERS_DEPT = 'members'
+
+export const PSEUDO_DEPT_CODES = [MEMBERS_DEPT] as const
+
+/** Display label for a pseudo-department's section in the Departments tab. */
+export const PSEUDO_DEPT_LABELS: Record<string, string> = { [MEMBERS_DEPT]: 'MEMBERS' }

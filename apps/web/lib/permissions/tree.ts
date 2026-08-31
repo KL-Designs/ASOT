@@ -1,5 +1,6 @@
 import Db from '@/lib/mongo'
 import { PERMISSION_CATALOG, PERMISSION_KEYS } from '@/lib/permissions-catalog'
+import { MEMBERS_DEPT } from '@/lib/discord/dept-codes'
 
 export interface PermissionDiscordRole {
     id: string
@@ -52,6 +53,8 @@ interface ResolvedState {
     userIdToDepartmentRoleIds: Map<string, Set<string>>
     departmentRoleIdToDoc: Map<string, { name: string; department: string; isBase: boolean; permissions: string[] }>
     departmentBaseRoleIdByDept: Map<string, string>
+    /** Everyone holding any ORBAT position — who the Members role applies to. */
+    orbatMemberIds: Set<string>
 }
 
 // Shared by buildPermissionsTree() and buildMemberGrants() so both compute
@@ -68,8 +71,12 @@ async function resolveState(): Promise<ResolvedState> {
             { projection: { id: 1, 'guild.roles': 1, departments: 1, departmentRoleIds: 1 } }
         ).toArray(),
         Db.roles.find({}).toArray(),
+        // Not filtered on roleId: this answers both "which ORBAT Roles does
+        // each user hold" and "who is in the ORBAT at all" (the Members
+        // role), and a position whose roleId was never set is still the
+        // latter. The loop below keeps its own roleId guard.
         Db.orbatPositions.find(
-            { roleId: { $ne: null }, userId: { $ne: null } },
+            { userId: { $ne: null } },
             { projection: { userId: 1, roleId: 1 } }
         ).toArray(),
         Db.orbatRoles.find({}, { projection: { name: 1, permissions: 1 } }).toArray(),
@@ -94,8 +101,11 @@ async function resolveState(): Promise<ResolvedState> {
     // A user can hold more than one ORBAT position — union every position's
     // Role so no grant is silently dropped.
     const userIdToOrbatRoleIds = new Map<string, Set<string>>()
+    const orbatMemberIds = new Set<string>()
     for (const pos of positions) {
-        if (pos.userId && pos.roleId) {
+        if (!pos.userId) continue
+        orbatMemberIds.add(pos.userId)
+        if (pos.roleId) {
             const set = userIdToOrbatRoleIds.get(pos.userId) ?? new Set<string>()
             set.add(String(pos.roleId))
             userIdToOrbatRoleIds.set(pos.userId, set)
@@ -132,6 +142,7 @@ async function resolveState(): Promise<ResolvedState> {
         userIdToDepartmentRoleIds,
         departmentRoleIdToDoc,
         departmentBaseRoleIdByDept,
+        orbatMemberIds,
     }
 }
 
@@ -161,6 +172,14 @@ function resolveGrant(state: ResolvedState, userId: string, key: string): Permis
     for (const roleId of state.userIdToDepartmentRoleIds.get(userId) ?? []) {
         const doc = state.departmentRoleIdToDoc.get(roleId)
         if (doc?.permissions.includes(key)) viaDepartmentRoles.push(roleId)
+    }
+    // The Members role: owed to anyone in the ORBAT, and never present in
+    // `userIdToDepartments` — `members` is not a department anyone belongs
+    // to, so the loop above cannot reach it. Mirrors hasPermission().
+    if (state.orbatMemberIds.has(userId)) {
+        const membersId = state.departmentBaseRoleIdByDept.get(MEMBERS_DEPT)
+        const doc = membersId ? state.departmentRoleIdToDoc.get(membersId) : undefined
+        if (membersId && doc?.permissions.includes(key)) viaDepartmentRoles.push(membersId)
     }
 
     const granted = viaGlobalOverride || viaDiscordRoles.length > 0 || viaOrbatRoles.length > 0 || viaDepartmentRoles.length > 0
