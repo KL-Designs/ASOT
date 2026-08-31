@@ -12,11 +12,17 @@ import f from '@/styles/j5-fields.module.css'
  * its own: Autocomplete's chips carry MUI's pill radius, and a pill inside a
  * square box is the single most visible mismatch in the inspector.
  */
-export function TagPicker({ label, value, onChange, options, placeholder = 'Add a tag…', allowCreate, disabled, className }: {
+export function TagPicker({ label, value, onChange, options, labelFor, placeholder = 'Add a tag…', allowCreate, disabled, className }: {
     label?: string
     value: string[]
     onChange: (value: string[]) => void
     options: string[]
+    /** What a value reads as. The gallery stores a tag's slug on the media
+     *  document but shows its label everywhere a person looks — without this
+     *  the console's three tag fields would each display `night-ops` where
+     *  they used to display `Night Ops`. Filtering matches the display text
+     *  for the same reason: nobody searches for the slug they cannot see. */
+    labelFor?: (value: string) => string
     placeholder?: string
     /** Let a typed value that matches nothing become a tag. */
     allowCreate?: boolean
@@ -30,12 +36,14 @@ export function TagPicker({ label, value, onChange, options, placeholder = 'Add 
     const input = useRef<HTMLInputElement | null>(null)
     const list = useRef<HTMLUListElement | null>(null)
 
+    const show = (v: string) => labelFor?.(v) ?? v
+
     const shown = useMemo(() => {
         const q = query.trim().toLowerCase()
         return options
             .filter(o => !value.includes(o))
-            .filter(o => q === '' || o.toLowerCase().includes(q))
-    }, [options, value, query])
+            .filter(o => q === '' || (labelFor?.(o) ?? o).toLowerCase().includes(q))
+    }, [options, value, query, labelFor])
 
     /* An exact match must not also be offered as "create", or Enter becomes
        ambiguous about which of two identical-looking rows it picks. */
@@ -87,11 +95,11 @@ export function TagPicker({ label, value, onChange, options, placeholder = 'Add 
                 >
                     {value.map(tag => (
                         <span className={f.tag} key={tag}>
-                            {tag}
+                            {show(tag)}
                             <button
                                 type='button'
                                 className={f.tagX}
-                                aria-label={`Remove ${tag}`}
+                                aria-label={`Remove ${show(tag)}`}
                                 disabled={disabled}
                                 onClick={e => { e.stopPropagation(); remove(tag) }}
                             >
@@ -128,7 +136,7 @@ export function TagPicker({ label, value, onChange, options, placeholder = 'Add 
                                     onPointerDown={e => { e.preventDefault(); add(o) }}
                                     onMouseEnter={() => setActive(i)}
                                 >
-                                    <span className={f.value}>{o}</span>
+                                    <span className={f.value}>{show(o)}</span>
                                 </li>
                             ))}
                             {canCreate && (

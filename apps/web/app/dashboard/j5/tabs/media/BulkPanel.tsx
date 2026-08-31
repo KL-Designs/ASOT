@@ -1,8 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Autocomplete, Chip, MenuItem, TextField, Typography } from '@mui/material'
+import { Typography } from '@mui/material'
 
+import { Field } from '@/app/dashboard/j5/controls/Field'
+import { Select, type SelectOption } from '@/app/dashboard/j5/controls/Select'
+import { TagPicker } from '@/app/dashboard/j5/controls/TagPicker'
 import s from '@/styles/media-console.module.css'
 import c from '@/styles/j5-controls.module.css'
 
@@ -30,18 +33,6 @@ import c from '@/styles/j5-controls.module.css'
  * `result` and `failed[]` render here per item.
  */
 
-const inputSx = {
-    '& .MuiOutlinedInput-root': {
-        borderRadius: 0,
-        fontSize: '0.8rem',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
-        '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
-    },
-    '& .MuiInputLabel-root': { fontSize: '0.8rem' },
-    '& .MuiInputLabel-root.Mui-focused': { color: 'var(--red)' },
-}
-
 type Operation = { id: string, title: string, date: string | null }
 type Failure = { id: string, error: string }
 
@@ -61,6 +52,20 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
     const [error, setError] = useState<string | null>(null)
 
     const target = operations.find(o => o.id === operationId) ?? null
+
+    const operationOptions: SelectOption[] = [
+        // The empty option is the "nothing chosen yet" row rather than a
+        // placeholder, because '' is a value the Apply button tests for.
+        { value: '', label: 'Choose an operation…' },
+        { value: 'unknown', label: 'Unknown' },
+        // The year, for the same reason as the inspector's: operation titles
+        // repeat across years and the note is what tells the two apart.
+        ...operations.map(op => ({
+            value: op.id,
+            label: op.title,
+            note: op.date ? String(new Date(op.date).getFullYear()) : undefined,
+        })),
+    ]
 
     async function run(action: string, extra: Record<string, unknown>) {
         setBusy(true)
@@ -109,11 +114,7 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
                 <span style={{ marginLeft: 'auto', color: 'var(--red-hi)' }}>{ids.length} items</span>
             </div>
 
-            <TextField size='small' select label='Move to operation' value={operationId} onChange={e => setOperationId(e.target.value)} sx={inputSx}>
-                <MenuItem value=''>Choose an operation…</MenuItem>
-                <MenuItem value='unknown'>Unknown</MenuItem>
-                {operations.map(op => <MenuItem key={op.id} value={op.id}>{op.title}</MenuItem>)}
-            </TextField>
+            <Select label='Move to operation' searchable value={operationId} onChange={setOperationId} options={operationOptions} />
 
             {operationId && (
                 <div className={s.consequence}>
@@ -134,24 +135,19 @@ export default function BulkPanel({ ids, operations, tags, onDone }: {
                 Apply to {ids.length}
             </button>
 
-            <Autocomplete
-                multiple
-                size='small'
-                options={tags.map(t => t.slug)}
+            <TagPicker
+                label='Tags'
                 value={chosen}
-                onChange={(_, value) => setChosen(value)}
-                getOptionLabel={slug => tags.find(t => t.slug === slug)?.label ?? slug}
-                renderTags={(value, getTagProps) => value.map((slug, index) => (
-                    <Chip {...getTagProps({ index })} key={slug} size='small' label={tags.find(t => t.slug === slug)?.label ?? slug} />
-                ))}
-                renderInput={p => <TextField {...p} label='Tags' sx={inputSx} />}
+                onChange={setChosen}
+                options={tags.map(t => t.slug)}
+                labelFor={slug => tags.find(t => t.slug === slug)?.label ?? slug}
             />
             <div style={{ display: 'flex', gap: 6 }}>
                 <button type='button' className={c.btn} disabled={!chosen.length || busy} onClick={() => run('addTags', { tags: chosen })}>Add tags</button>
                 <button type='button' className={c.btn} disabled={!chosen.length || busy} onClick={() => run('removeTags', { tags: chosen })}>Remove tags</button>
             </div>
 
-            <TextField size='small' label='Set author' value={authorName} onChange={e => setAuthorName(e.target.value)} sx={inputSx} />
+            <Field label='Set author' value={authorName} onChange={setAuthorName} />
             <button type='button' className={c.btn} disabled={busy} onClick={() => run('setAuthor', { authorName })}>
                 {authorName.trim() ? `Set author on ${ids.length}` : `Clear author on ${ids.length}`}
             </button>

@@ -1,11 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { MenuItem, TextField, Typography } from '@mui/material'
+import { Typography } from '@mui/material'
 
 import { PAGE_SIZE, type LibrarySort } from '@/lib/gallery/library-query'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
+import { Field } from '@/app/dashboard/j5/controls/Field'
+import { Select } from '@/app/dashboard/j5/controls/Select'
 import BulkPanel from './BulkPanel'
 import HealthView from './HealthView'
 import Inspector from './Inspector'
@@ -18,28 +20,16 @@ import c from '@/styles/j5-controls.module.css'
 
 type Operation = { id: string, title: string, date: string | null }
 
-const inputSx = {
-    '& .MuiOutlinedInput-root': {
-        borderRadius: 0,
-        fontSize: '0.8rem',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
-        '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
-    },
-    '& .MuiInputLabel-root': { fontSize: '0.8rem' },
-    '& .MuiInputLabel-root.Mui-focused': { color: 'var(--red)' },
-}
-
 // A type predicate rather than an `as` cast on the select's onChange value —
 // matches lib/gallery/library-query.ts's own reasoning: a value that fails
 // the check should never be treated as the narrowed type, and the four
-// MenuItems below are the only source of truth for what's valid.
+// options below are the only source of truth for what's valid.
 const SORTS: readonly LibrarySort[] = ['newest', 'oldest', 'rated', 'operation']
 function isSort(value: string): value is LibrarySort {
     return SORTS.some(s => s === value)
 }
 
-// Same reasoning one filter over: the Kind select's two MenuItems are the
+// Same reasoning one filter over: the Kind select's two options are the
 // only valid values, and anything else means "not filtering on kind".
 function isKind(value: string): value is 'image' | 'video' {
     return value === 'image' || value === 'video'
@@ -221,26 +211,28 @@ export default function MediaTab() {
 
                 <div className={s.centre}>
                     <div className={s.tools}>
-                        <TextField
-                            size='small'
+                        <Field
+                            label='Search'
+                            type='search'
+                            prefix='/'
+                            clearable
                             placeholder='Search captions, authors, filenames…'
                             value={filters.q ?? ''}
-                            onChange={e => setParam('q', e.target.value || null)}
-                            sx={{ ...inputSx, flex: 1, minWidth: 180 }}
+                            onChange={v => setParam('q', v || null)}
+                            className={s.toolSearch}
                         />
-                        <TextField
-                            size='small'
-                            select
+                        <Select
                             label='Sort'
                             value={filters.sort}
-                            onChange={e => { if (isSort(e.target.value)) setParam('sort', e.target.value) }}
-                            sx={{ ...inputSx, minWidth: 130 }}
-                        >
-                            <MenuItem value='newest'>Newest first</MenuItem>
-                            <MenuItem value='oldest'>Oldest first</MenuItem>
-                            <MenuItem value='rated'>Top rated</MenuItem>
-                            <MenuItem value='operation'>By operation</MenuItem>
-                        </TextField>
+                            onChange={v => { if (isSort(v)) setParam('sort', v) }}
+                            options={[
+                                { value: 'newest', label: 'Newest first' },
+                                { value: 'oldest', label: 'Oldest first' },
+                                { value: 'rated', label: 'Top rated' },
+                                { value: 'operation', label: 'By operation' },
+                            ]}
+                            className={s.toolSort}
+                        />
                         {/* The tag/author/kind chips. LibraryParams,
                             buildLibraryFilter and the facets route have all
                             supported these three from the start — the facets
@@ -255,48 +247,43 @@ export default function MediaTab() {
                             Options come from `facets`, which lists only what
                             is actually in use, so no option here can return
                             an empty grid. */}
-                        <TextField
-                            size='small'
-                            select
+                        <Select
                             label='Tag'
+                            searchable
                             value={filters.tag ?? ''}
-                            onChange={e => setParam('tag', e.target.value || null)}
-                            sx={{ ...inputSx, minWidth: 130 }}
-                        >
-                            <MenuItem value=''>Any tag</MenuItem>
-                            {(facets?.tags ?? []).map(t => (
-                                <MenuItem key={t.slug} value={t.slug}>{t.label} · {t.count.toLocaleString('en-AU')}</MenuItem>
-                            ))}
-                        </TextField>
-                        <TextField
-                            size='small'
-                            select
+                            onChange={v => setParam('tag', v || null)}
+                            options={[
+                                { value: '', label: 'Any tag' },
+                                ...(facets?.tags ?? []).map(t => ({ value: t.slug, label: t.label, note: t.count.toLocaleString('en-AU') })),
+                            ]}
+                            className={s.toolTag}
+                        />
+                        <Select
                             label='Author'
+                            searchable
                             value={filters.author ?? ''}
-                            onChange={e => setParam('author', e.target.value || null)}
-                            sx={{ ...inputSx, minWidth: 150 }}
-                        >
-                            <MenuItem value=''>Any author</MenuItem>
-                            {(facets?.authors ?? []).map(a => (
-                                <MenuItem key={a.name} value={a.name}>{a.name} · {a.count.toLocaleString('en-AU')}</MenuItem>
-                            ))}
-                        </TextField>
-                        <TextField
-                            size='small'
-                            select
+                            onChange={v => setParam('author', v || null)}
+                            options={[
+                                { value: '', label: 'Any author' },
+                                ...(facets?.authors ?? []).map(a => ({ value: a.name, label: a.name, note: a.count.toLocaleString('en-AU') })),
+                            ]}
+                            className={s.toolAuthor}
+                        />
+                        <Select
                             label='Kind'
                             value={filters.kind ?? ''}
                             // An explicit kind wins over the Videos view —
                             // buildLibraryFilter applies it after the view for
                             // exactly that reason, so the grid can never
                             // disagree with the chip on screen.
-                            onChange={e => setParam('kind', isKind(e.target.value) ? e.target.value : null)}
-                            sx={{ ...inputSx, minWidth: 110 }}
-                        >
-                            <MenuItem value=''>Any kind</MenuItem>
-                            <MenuItem value='image'>Images</MenuItem>
-                            <MenuItem value='video'>Videos</MenuItem>
-                        </TextField>
+                            onChange={v => setParam('kind', isKind(v) ? v : null)}
+                            options={[
+                                { value: '', label: 'Any kind' },
+                                { value: 'image', label: 'Images' },
+                                { value: 'video', label: 'Videos' },
+                            ]}
+                            className={s.toolKind}
+                        />
                         <button type='button' className={`${c.btn} ${c.btnGhost}`} onClick={() => { clear(); setSelected(new Set()) }}>
                             Clear filters
                         </button>

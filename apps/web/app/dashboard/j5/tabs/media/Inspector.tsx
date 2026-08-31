@@ -1,8 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Autocomplete, Chip, MenuItem, TextField, Typography } from '@mui/material'
+import { Typography } from '@mui/material'
 
+import { Field, TextArea } from '@/app/dashboard/j5/controls/Field'
+import { Select, type SelectOption } from '@/app/dashboard/j5/controls/Select'
+import { TagPicker } from '@/app/dashboard/j5/controls/TagPicker'
 import { embedIframeSrc } from '@/lib/gallery/embeds'
 import s from '@/styles/media-console.module.css'
 import c from '@/styles/j5-controls.module.css'
@@ -20,18 +23,6 @@ import c from '@/styles/j5-controls.module.css'
  * is about to happen rather than always claiming a move, which would be false
  * for roughly a third of the archive's rows.
  */
-
-const inputSx = {
-    '& .MuiOutlinedInput-root': {
-        borderRadius: 0,
-        fontSize: '0.8rem',
-        '& fieldset': { borderColor: 'rgba(219,0,29,0.32)' },
-        '&:hover fieldset': { borderColor: 'rgba(219,0,29,0.27)' },
-        '&.Mui-focused fieldset': { borderColor: 'var(--red)' },
-    },
-    '& .MuiInputLabel-root': { fontSize: '0.8rem' },
-    '& .MuiInputLabel-root.Mui-focused': { color: 'var(--red)' },
-}
 
 type Operation = { id: string, title: string, date: string | null }
 
@@ -108,6 +99,27 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
     // happens for it.
     const movesBytes = item.source === 'upload' && !!item.storageKey
 
+    const operationOptions: SelectOption[] = [
+        /* The unlinked sentinel is only ever offered for an item that is
+           actually unlinked (unlinkedName is null whenever item.operationId
+           is set) — a linked item's select never gets this option, real or
+           stale. Its label says both what the file has (the folder name) and
+           what it lacks (a link), so picking it back after trying a real
+           operation reads as "leave it as I found it," not as a second,
+           unexplained kind of Unknown. `muted` is what marks it as a state
+           the item is in rather than a choice on the same footing as the 522
+           real operations below it. */
+        ...(unlinkedName ? [{ value: UNLINKED, label: `${unlinkedName} — from folder, not linked`, muted: true }] : []),
+        { value: 'unknown', label: 'Unknown' },
+        ...operations.map(op => ({
+            value: op.id,
+            label: op.title,
+            // The year, because operation titles repeat across them — two
+            // "Op Storm"s a year apart are otherwise the same row twice.
+            note: op.date ? String(new Date(op.date).getFullYear()) : undefined,
+        })),
+    ]
+
     async function save() {
         setSaving(true)
         setError(null)
@@ -175,20 +187,9 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
                 <Preview item={item} />
             </div>
 
-            <TextField size='small' label='Caption' value={caption} onChange={e => setCaption(e.target.value)} sx={inputSx} multiline maxRows={3} />
+            <TextArea label='Caption' value={caption} onChange={setCaption} rows={3} />
 
-            <TextField size='small' select label='Operation' value={operationId} onChange={e => setOperationId(e.target.value)} sx={inputSx}>
-                {/* Only ever offered for an item that is actually unlinked
-                    (unlinkedName is null whenever item.operationId is set) —
-                    a linked item's select never gets this option, real or
-                    stale. Its label says both what the file has (the folder
-                    name) and what it lacks (a link), so picking it back after
-                    trying a real operation reads as "leave it as I found it,"
-                    not as a second, unexplained kind of Unknown. */}
-                {unlinkedName && <MenuItem value={UNLINKED}>{unlinkedName} — from folder, not linked</MenuItem>}
-                <MenuItem value='unknown'>Unknown</MenuItem>
-                {operations.map(op => <MenuItem key={op.id} value={op.id}>{op.title}</MenuItem>)}
-            </TextField>
+            <Select label='Operation' searchable value={operationId} onChange={setOperationId} options={operationOptions} />
 
             {movingTo && (
                 <div className={s.consequence}>
@@ -209,19 +210,14 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
                 </div>
             )}
 
-            <TextField size='small' label='Author' value={authorName} onChange={e => setAuthorName(e.target.value)} sx={inputSx} />
+            <Field label='Author' value={authorName} onChange={setAuthorName} />
 
-            <Autocomplete
-                multiple
-                size='small'
-                options={tags.map(t => t.slug)}
+            <TagPicker
+                label='Tags'
                 value={chosen}
-                onChange={(_, value) => setChosen(value)}
-                getOptionLabel={slug => tags.find(t => t.slug === slug)?.label ?? slug}
-                renderTags={(value, getTagProps) => value.map((slug, index) => (
-                    <Chip {...getTagProps({ index })} key={slug} size='small' label={tags.find(t => t.slug === slug)?.label ?? slug} />
-                ))}
-                renderInput={p => <TextField {...p} label='Tags' sx={inputSx} />}
+                onChange={setChosen}
+                options={tags.map(t => t.slug)}
+                labelFor={slug => tags.find(t => t.slug === slug)?.label ?? slug}
             />
 
             {item.storageKey && (

@@ -76,12 +76,22 @@
 .centre { display: flex; flex-direction: column; }
 .tools {
     display: flex;
-    align-items: center;
+    /* flex-end, not centre: the fields carry their label ABOVE the box, so
+       centring the row lines up the labels and leaves the boxes and the
+       buttons beside them at four different heights. */
+    align-items: flex-end;
     gap: 8px;
     padding: 9px 12px;
     border-bottom: 1px solid rgba(219, 0, 29, 0.14);
     flex-wrap: wrap;
 }
+
+/* Toolbar field widths. Each is the width the filter's own longest option
+   needs — an author name is longer than 'Videos'. */
+.toolSearch { flex: 1; min-width: 180px; }
+.toolSort, .toolTag { min-width: 130px; }
+.toolAuthor { min-width: 150px; }
+.toolKind { min-width: 110px; }
 .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
