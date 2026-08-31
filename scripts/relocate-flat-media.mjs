@@ -80,7 +80,10 @@ function truncateOnWord(s, max) {
 /** Kept in step with apps/web/lib/gallery/naming.ts, same duplication as
  *  buildName above and pinned by the same test file. */
 function splitOperation(folder) {
-    const match = folder.match(/^\s*(\d+)\s*[.)\-\u2013]?\s*/)
+    // The separator is REQUIRED, in step with naming.ts: an optional one made
+    // every leading digit run a prefix, so a folder named "1st Recon Sweep"
+    // looked for an operation called "st Recon Sweep" and found none.
+    const match = folder.match(/^\s*(\d+)(?:\s*[.)\-\u2013]\s*|\s+)/)
     if (!match) return folder.trim()
     return folder.slice(match[0].length).trim() || folder.trim()
 }

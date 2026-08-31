@@ -72,7 +72,10 @@ if (!existsSync(CONTENT)) {
     process.exit(1)
 }
 
-const ORDER_PREFIX = /^\s*(\d+)\s*[.)\-–]?\s*/
+/* The separator is REQUIRED, in step with naming.ts — an optional one made
+   every leading digit run a prefix, so "1st Recon Sweep" matched an operation
+   named "st Recon Sweep" and matched nothing. */
+const ORDER_PREFIX = /^\s*(\d+)(?:\s*[.)\-–]\s*|\s+)/
 
 /** Kept in step with apps/web/lib/gallery/naming.ts. A root-level .mjs cannot
  *  import a TypeScript module, so this is the feature's one duplicated

@@ -11,7 +11,30 @@
  * scripts/index-gallery.mjs has to agree with the page about what an operation
  * is called, and a script at the repo root cannot import a client module.
  */
-const ORDER_PREFIX = /^\s*(\d+)\s*[.)\-–]?\s*/
+/**
+ * A leading order number, and the separator that proves it is one.
+ *
+ * The separator used to be OPTIONAL (`[.)\-–]?`), which made every leading run
+ * of digits a prefix: "1st Recon Sweep" split to the label "st Recon Sweep",
+ * and "12" to order 12. That was survivable while nothing ACTED on the answer
+ * — the folder-numbering report flagged it as a latent display bug and left it
+ * — but scripts/strip-folder-numbers.ts renames the folder it is told carries
+ * a prefix, and renaming "1st Recon Sweep" to "st Recon Sweep" would turn a
+ * real operation's name into nonsense on disk and in every document under it.
+ *
+ * Either an explicit separator (with optional whitespace around it) or
+ * whitespace on its own counts. "9. …", "9) …", "9 - …" and "9 Op Copper
+ * Ridge" are all spellings that exist in this archive and all still split;
+ * naming.test.ts pins the four.
+ *
+ * A folder whose whole name is digits ("12") is now a NAME rather than an
+ * order. `label` was already "12" either way — splitOperation falls back to
+ * the whole folder when the label would be empty — so only `order` changes,
+ * and its one remaining consumer is export-numbering's "already numbered"
+ * guard, which will now offer to number it. The round trip survives that:
+ * splitOperation("3. 12").label is "12".
+ */
+const ORDER_PREFIX = /^\s*(\d+)(?:\s*[.)\-–]\s*|\s+)/
 
 /** A trailing "(...)" and the whitespace before it. Only ever removed by
  *  strippedKey below, never by normalizeKey. */

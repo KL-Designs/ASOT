@@ -25,8 +25,24 @@ describe('splitOperation', () => {
         expect(order).toBe(Number.MAX_SAFE_INTEGER)
     })
 
-    test('a folder that is only a number keeps its own name as the label', () => {
-        expect(splitOperation('12')).toEqual({ label: '12', order: 12 })
+    /* The separator is what makes a leading number an ORDER. Without one there
+       is nothing to separate, so a folder called "12" is a folder called "12"
+       — its label was always that (splitOperation falls back to the whole name
+       when the label would be empty), and now its order says so too. */
+    test('a folder that is only a number is a name, not an order', () => {
+        expect(splitOperation('12')).toEqual({ label: '12', order: Number.MAX_SAFE_INTEGER })
+    })
+
+    /* The reason the separator became mandatory. With it optional this
+       returned the label "st Recon Sweep", which was a display bug while
+       nothing acted on it and became a data loss the moment
+       scripts/strip-folder-numbers.ts started RENAMING the folders it is told
+       carry a prefix. */
+    test('a name that merely starts with digits is not a numbered folder', () => {
+        expect(splitOperation('1st Recon Sweep'))
+            .toEqual({ label: '1st Recon Sweep', order: Number.MAX_SAFE_INTEGER })
+        expect(splitOperation('2ND PLATOON'))
+            .toEqual({ label: '2ND PLATOON', order: Number.MAX_SAFE_INTEGER })
     })
 
     test('trims surrounding whitespace', () => {
