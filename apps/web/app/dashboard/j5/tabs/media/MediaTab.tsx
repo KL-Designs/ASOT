@@ -338,8 +338,8 @@ export default function MediaTab() {
                            which blanked the whole 320px column while the
                            toolbar still said "1 SELECTED". That is the tab's
                            most common journey, not an edge case: a reviewer
-                           in `Unknown operation` clicks a tile, assigns an
-                           operation and saves; the save succeeds, so the item
+                           in `Not linked to an operation` clicks a tile, assigns
+                           an operation and saves; the save succeeds, so the item
                            now HAS an operation and drops out of the view, and
                            find() misses. */
                         return item ? (

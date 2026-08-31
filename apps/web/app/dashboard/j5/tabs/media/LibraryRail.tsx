@@ -8,9 +8,9 @@ import s from '@/styles/media-console.module.css'
 /**
  * Saved views on top, the archive tree below, every row with a live count.
  *
- * The counts are the point. "Unknown operation · 1,157" is a job a reviewer
- * can watch shrink; an uncounted row is a folder they have to open to find out
- * whether it is worth opening.
+ * The counts are the point. "Not linked to an operation · 1,157" is a job a
+ * reviewer can watch shrink; an uncounted row is a folder they have to open
+ * to find out whether it is worth opening.
  */
 
 type NodeSelection = {
@@ -54,7 +54,12 @@ export default function LibraryRail({ facets, view, year, yearUnset, operation, 
 
     const views: { key: LibraryView, label: string, count: number }[] = facets ? [
         { key: 'all', label: 'All media', count: facets.views.all },
-        { key: 'unknown', label: 'Unknown operation', count: facets.views.unknown },
+        // Label only — the filter behind 'unknown' still keys on operationId
+        // being absent (facets/route.ts), which is correct. Most rows in this
+        // count DO carry a folder-derived name (opLabel/operation); what they
+        // lack is a link to an operation record, and "Unknown operation" read
+        // as if the name itself were missing.
+        { key: 'unknown', label: 'Not linked to an operation', count: facets.views.unknown },
         { key: 'nocaption', label: 'No caption', count: facets.views.nocaption },
         { key: 'videos', label: 'Videos', count: facets.views.videos },
         { key: 'health', label: 'Health', count: facets.views.health },

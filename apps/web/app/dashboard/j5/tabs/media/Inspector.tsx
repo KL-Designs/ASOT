@@ -35,6 +35,18 @@ const inputSx = {
 
 type Operation = { id: string, title: string, date: string | null }
 
+/**
+ * Not the string 'Unknown': that word is legitimately produced by two
+ * different things here — a literal `operation: 'Unknown'` written by
+ * relocate.ts, and the "no operationId at all" case this sentinel actually
+ * means — and LibraryRail already had to unpick exactly that collision once
+ * (its `unset` boolean, not a shared display string, is what tells its two
+ * "Unknown"-labelled rows apart). A select value nobody else can produce is
+ * what keeps "unlinked, but named from its folder" from ever being confused
+ * with a real choice of "Unknown" typed or written elsewhere.
+ */
+const UNLINKED = '__unlinked__'
+
 export default function Inspector({ item, operations, tags, onSaved, onDeleted }: {
     item: AdminMediaAPI
     operations: Operation[]
@@ -42,9 +54,16 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
     onSaved: () => void
     onDeleted: () => void
 }) {
+    // A migrated item can hold a folder-derived name (`opLabel`/`operation`)
+    // with no `operationId` at all — none of the operation records in the
+    // database normalise to that folder. `unlinkedName` is that name, only
+    // when there is no link to show instead; it drives both the select's
+    // starting value below and the extra option that displays it.
+    const unlinkedName = !item.operationId ? (item.opLabel || item.operation) : null
+
     const [caption, setCaption] = useState(item.caption ?? '')
     const [authorName, setAuthorName] = useState(item.authorName ?? '')
-    const [operationId, setOperationId] = useState(item.operationId ?? 'unknown')
+    const [operationId, setOperationId] = useState(item.operationId ?? (unlinkedName ? UNLINKED : 'unknown'))
     const [chosen, setChosen] = useState<string[]>(item.tags)
     const [saving, setSaving] = useState(false)
     const [confirmDelete, setConfirmDelete] = useState(false)
@@ -60,16 +79,27 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
     useEffect(() => {
         setCaption(item.caption ?? '')
         setAuthorName(item.authorName ?? '')
-        setOperationId(item.operationId ?? 'unknown')
+        setOperationId(item.operationId ?? (unlinkedName ? UNLINKED : 'unknown'))
         setChosen(item.tags)
         setConfirmDelete(false)
         setError(null)
         // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately item.id only, see comment above
     }, [item.id])
 
-    const movingTo = operationId !== (item.operationId ?? 'unknown')
+    // The baseline the select actually started from — UNLINKED for an
+    // unlinked-but-named item, not 'unknown' — so leaving the select alone
+    // never reads as a change, and picking real Unknown from an unlinked item
+    // still reads as one (it clears the folder name, which is a real effect).
+    const initialOperationId = item.operationId ?? (unlinkedName ? UNLINKED : 'unknown')
+
+    const movingTo = operationId !== initialOperationId
         ? operations.find(o => o.id === operationId) ?? null
         : null
+
+    // True only when picking Unknown actually clears something: a real link,
+    // or (for an unlinked item) the folder-derived name. Landing back on
+    // UNLINKED — the item's own starting point — is not this; nothing changed.
+    const clearingTo = operationId === 'unknown' && operationId !== initialOperationId
 
     // Only an upload with a storage key has bytes for relocateMedia to move —
     // mirrors the route's own `relocating` check (route.ts). An embed reassigned
@@ -82,10 +112,17 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
         setSaving(true)
         setError(null)
         try {
+            // UNLINKED means "still showing the name the folder gave it, still
+            // no link" — nothing the reviewer did. Sending it as operationId
+            // would hit the route's `operationId !== undefined` branch and run
+            // the 'unknown' clear path (operation-facets.ts), erasing the very
+            // name this fix was written to stop discarding. Omitting the key
+            // entirely is what tells the route nothing changed here.
+            const operationIdToSend = operationId === UNLINKED ? undefined : operationId
             const res = await fetch(`/api/gallery/admin/media/${item.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ caption, authorName, tags: chosen, operationId }),
+                body: JSON.stringify({ caption, authorName, tags: chosen, operationId: operationIdToSend }),
             })
             if (!res.ok) {
                 const data = await res.json().catch(() => ({}))
@@ -131,6 +168,14 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
             <TextField size='small' label='Caption' value={caption} onChange={e => setCaption(e.target.value)} sx={inputSx} multiline maxRows={3} />
 
             <TextField size='small' select label='Operation' value={operationId} onChange={e => setOperationId(e.target.value)} sx={inputSx}>
+                {/* Only ever offered for an item that is actually unlinked
+                    (unlinkedName is null whenever item.operationId is set) —
+                    a linked item's select never gets this option, real or
+                    stale. Its label says both what the file has (the folder
+                    name) and what it lacks (a link), so picking it back after
+                    trying a real operation reads as "leave it as I found it,"
+                    not as a second, unexplained kind of Unknown. */}
+                {unlinkedName && <MenuItem value={UNLINKED}>{unlinkedName} — from folder, not linked</MenuItem>}
                 <MenuItem value='unknown'>Unknown</MenuItem>
                 {operations.map(op => <MenuItem key={op.id} value={op.id}>{op.title}</MenuItem>)}
             </TextField>
@@ -142,7 +187,11 @@ export default function Inspector({ item, operations, tags, onSaved, onDeleted }
                         : <>Saving relabels this item under <b>{movingTo.title}</b>{movingTo.date ? <> and dates it <b>{new Date(movingTo.date).toLocaleDateString('en-AU')}</b></> : null}. It has no file on disk to move.</>}
                 </div>
             )}
-            {!movingTo && operationId === 'unknown' && item.operationId && (
+            {/* Covers both a real link being cleared and an unlinked item's
+                folder name being cleared — clearingTo is only true when
+                picking Unknown is a change from where this item started, so
+                it can't fire while UNLINKED (unchanged) sits selected. */}
+            {!movingTo && clearingTo && (
                 <div className={s.consequence}>
                     {movesBytes
                         ? <>Saving moves this file into <b>Unknown</b> on disk and clears its date.</>

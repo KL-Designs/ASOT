@@ -58,7 +58,12 @@ export default function MediaGrid({ items, selected, onToggle, onRange, onOpen }
                             : null}
 
                         <span className={s.check} />
-                        {!item.operationId && <span className={`${s.badge} ${s.badgeWarn}`}>NO DATE</span>}
+                        {/* A migrated item without operationId still carries a
+                            date — 1 January of its folder's year, written by
+                            the migration. What it lacks is a link to an
+                            operation record, not a date; "NO DATE" claimed
+                            the wrong absence. */}
+                        {!item.operationId && <span className={`${s.badge} ${s.badgeWarn}`}>UNLINKED</span>}
                         {item.kind === 'video' && item.operationId && <span className={s.badge}>VIDEO</span>}
 
                         <span className={s.cap}>{item.caption || item.opLabel || 'Untitled'}</span>
