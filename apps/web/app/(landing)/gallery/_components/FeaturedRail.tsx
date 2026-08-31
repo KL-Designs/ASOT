@@ -202,7 +202,15 @@ export default function FeaturedRail({ images, onOpen }: {
                         aria-hidden={i >= images.length}
                         tabIndex={i >= images.length ? -1 : undefined}
                     >
-                        <img src={img.src} alt='' loading='lazy' decoding='async' />
+                        {/* The 800px thumbnail, not the original. A tile is
+                            280x158 CSS px and this archive's originals are 4K
+                            screenshots averaging 3.8MB — the rail rendered
+                            every one of them at full resolution, twice over
+                            (the list is duplicated to make the loop seamless),
+                            on the gallery's first paint. `src` is still what
+                            the lightbox opens. Falls back to the original when
+                            there is nothing on disk to resize. */}
+                        <img src={img.thumb ?? img.src} alt='' loading='lazy' decoding='async' />
                     </button>
                 ))}
             </div>

@@ -1,5 +1,6 @@
 import Db from '@/lib/mongo'
 import { PLATOON_CATEGORIES } from '@/lib/orbat/constants'
+import { FEATURED_THUMB_WIDTH, FEATURED_WIDE_THUMB_WIDTH, thumbUrl } from '@/lib/gallery/thumbs'
 
 /**
  * Everything the public landing page renders, loaded straight from Mongo.
@@ -222,7 +223,19 @@ export async function getScreenshotOfMonth(): Promise<ScreenshotOfMonth | null> 
 }
 
 export type GalleryTile = {
+    /** The full-size original. Nothing renders this — the mosaic uses the two
+     *  thumbnails below — but it is the honest identity of the tile and what a
+     *  future "open this photograph" would need. */
     src: string
+    /** The mosaic's single-column tiles (~341 CSS px at a 1400px `.inner`, so
+     *  682 at 2x): an 800px WebP from the thumbnail route. */
+    thumb: string
+    /** The mosaic's double-width tiles (~694 CSS px, so 1388 at 2x): a 1600px
+     *  WebP. Two sizes rather than one because four of the six tiles are
+     *  double-width and the other two are half their size — serving 1600 to all
+     *  six would be four times the bytes for detail the small ones cannot
+     *  show. */
+    thumbWide: string
     /** The media's own caption or operation label, when it has one — see the
      *  note in getGalleryTiles. */
     caption: string
@@ -265,6 +278,12 @@ export async function getGalleryTiles(limit = 6): Promise<GalleryTile[]> {
 
         return docs.slice(0, limit).map(doc => ({
             src: `/api/gallery/media/${doc._id.toString()}`,
+            /* Resized copies, not the original. Six featured items on this
+               archive is six 4K screenshots averaging 3.8MB — roughly 23MB of
+               images on the home page's first paint, to fill tiles no wider
+               than 694 CSS px. */
+            thumb: thumbUrl(doc._id.toString(), FEATURED_THUMB_WIDTH),
+            thumbWide: thumbUrl(doc._id.toString(), FEATURED_WIDE_THUMB_WIDTH),
             caption: doc.caption || doc.opLabel || '',
         }))
     }

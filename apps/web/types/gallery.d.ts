@@ -112,7 +112,21 @@ declare global {
      *  readdir and not shuffled — J5 curates the sequence. */
     interface FeaturedItemAPI {
         id: string
+        /** The full-size original. Still what the LIGHTBOX opens — someone who
+         *  clicks a featured tile is asking to look at the photograph, and a
+         *  downscaled copy is not the thing they asked for. */
         src: string
+        /**
+         * The rail tile's image: an 800px WebP the thumbnail route resizes once
+         * and caches (`lib/gallery/thumbs.ts`). Distinct from `src` for the
+         * reason `AdminMediaAPI.thumb` is: the rail rendered full-resolution
+         * originals into 280x158 tiles, which on this archive is a 3.8MB 4K
+         * screenshot per tile, tens of them, on the public gallery's first
+         * paint. Null only when there is nothing on disk to resize — an embed
+         * whose poster fetch failed — in which case the tile falls back to
+         * `src`.
+         */
+        thumb: string | null
         width: number | null
         height: number | null
         caption: string | null

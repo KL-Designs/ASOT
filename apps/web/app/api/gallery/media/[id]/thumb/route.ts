@@ -9,7 +9,7 @@ import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { resolveStorageKey, THUMB_DIR } from '@/lib/gallery/paths'
 import { isPublic } from '@/lib/gallery/status'
-import { THUMB_QUALITY, THUMB_WIDTH, thumbFallbackUrl, thumbPath } from '@/lib/gallery/thumbs'
+import { parseThumbWidth, THUMB_QUALITY, thumbFallbackUrl, thumbPath } from '@/lib/gallery/thumbs'
 
 /**
  * One piece of media, small enough to put in a grid.
@@ -17,8 +17,14 @@ import { THUMB_QUALITY, THUMB_WIDTH, thumbFallbackUrl, thumbPath } from '@/lib/g
  * The sibling route beside this one serves the original, which is what the
  * Media tab used to render in a 178px tile: sixty 3.8MB screenshots per page,
  * about 200MB, downscaled by the browser. This resizes once, caches the result
- * on disk, and serves that instead. See lib/gallery/thumbs.ts for the size and
+ * on disk, and serves that instead. See lib/gallery/thumbs.ts for the sizes and
  * format, and why they are what they are.
+ *
+ * `?w=` picks one of three widths and is an ALLOW-LIST, never a free integer:
+ * every distinct width is a file written into storage/gallery/thumbs and kept,
+ * so an arbitrary one would make this a resize-on-demand endpoint any anonymous
+ * visitor could loop over to fill the volume. parseThumbWidth folds anything
+ * unrecognised back to the default rather than erroring — see its comment.
  *
  * `sharp` is deliberately NOT added to next.config.ts's serverExternalPackages.
  * @napi-rs/canvas is there because webpack cannot bundle its .node binary;
@@ -39,6 +45,10 @@ function notFound(): NextResponse {
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
     if (!ObjectId.isValid(id)) return notFound()
+
+    // Parsed before the database is touched: an unknown width is not an error
+    // here, it is simply the default, so there is nothing to fail early on.
+    const width = parseThumbWidth(new URL(request.url).searchParams.get('w'))
 
     const doc = await Db.galleryMedia.findOne({ _id: new ObjectId(id) })
     if (!doc) return notFound()
@@ -81,17 +91,19 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
        kept a deleted image rendering through a force-refresh because the browser
        never revalidated. A thumbnail keyed by media id has exactly that problem.
 
-       The `t` and the width are in the tag so that changing THUMB_WIDTH cannot
-       hand a client a cached 400px thumbnail for a 640px request — the source
-       has not changed, so nothing else in this tag would have. */
-    const etag = `W/"t${THUMB_WIDTH}-${doc._id.toString()}-${sourceStat.size.toString(36)}-${Math.floor(sourceStat.mtimeMs).toString(36)}"`
+       The `t` and the RESOLVED width are in the tag so that a client holding a
+       400px thumbnail cannot be told its 800px request is unchanged — the
+       source has not changed, so nothing else in this tag would have, and the
+       featured rail and the J5 grid ask this same URL for different sizes of
+       the same photograph. */
+    const etag = `W/"t${width}-${doc._id.toString()}-${sourceStat.size.toString(36)}-${Math.floor(sourceStat.mtimeMs).toString(36)}"`
     const cacheControl = isPublic(doc.status) ? 'public, max-age=3600' : 'private, no-store'
 
     if (request.headers.get('if-none-match') === etag) {
         return new NextResponse(null, { status: 304, headers: { ETag: etag, 'Cache-Control': cacheControl } })
     }
 
-    const cache = thumbPath(doc._id.toString())
+    const cache = thumbPath(doc._id.toString(), width)
     if (!cache) return notFound()
 
     /* A cached file older than its source is a thumbnail of bytes that no longer
@@ -122,8 +134,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                     // No height and withoutEnlargement: the tile crops with
                     // object-fit, so the aspect ratio is the source's business,
                     // and a poster or a small legacy screenshot must not be
-                    // blown up to 400px only to be shown at 178.
-                    .resize({ width: THUMB_WIDTH, withoutEnlargement: true })
+                    // blown up to the requested width only to be shown at 178.
+                    // withoutEnlargement matters more at 1600 than it ever did
+                    // at 400: most posters are narrower than that already.
+                    .resize({ width, withoutEnlargement: true })
                     .webp({ quality: THUMB_QUALITY })
                     .toFile(temp)
                 renameSync(temp, cache)

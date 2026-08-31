@@ -3,6 +3,7 @@ import type { Filter } from 'mongodb'
 
 import Db from '@/lib/mongo'
 import { wilsonScore } from '@/lib/gallery/ranking'
+import { FEATURED_THUMB_WIDTH, thumbUrl } from '@/lib/gallery/thumbs'
 
 /**
  * The gallery, as one flat list.
@@ -160,6 +161,13 @@ export async function GET() {
     const featured: FeaturedItemAPI[] = featuredDocs.map(m => ({
         id: m._id.toString(),
         src: `/api/gallery/media/${m._id.toString()}`,
+        /* The rail renders this; `src` stays the original for the lightbox.
+           Null when there are no bytes to resize — a featured embed has neither
+           a storageKey nor, if its poster fetch failed, a posterKey — and the
+           tile falls back to `src` rather than to a grey box. */
+        thumb: (m.storageKey || m.posterKey)
+            ? thumbUrl(m._id.toString(), FEATURED_THUMB_WIDTH)
+            : null,
         width: m.width ?? null,
         height: m.height ?? null,
         caption: m.caption ?? null,

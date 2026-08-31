@@ -58,7 +58,12 @@ function RotationTile({ item, index, onRemove }: {
             }}
         >
             <div className={mc.tile}>
-                <img src={item.src} alt='' loading='lazy' decoding='async' />
+                {/* The same 800px thumbnail the public rail renders, not the
+                    original — a rotation is up to sixty tiles, and this
+                    archive's originals are 4K screenshots averaging 3.8MB.
+                    Falls back to the original when there is nothing on disk to
+                    resize. */}
+                <img src={item.thumb ?? item.src} alt='' loading='lazy' decoding='async' />
                 <span className={s.posBadge}>{index + 1}</span>
                 <button
                     type='button'

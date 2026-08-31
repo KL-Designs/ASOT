@@ -16,6 +16,10 @@ import s from '@/styles/landing.module.css'
  * are simply whatever was uploaded last. Re-shuffled per request, so the
  * strip is different on a return visit.
  *
+ * Every tile renders a thumbnail from `/api/gallery/media/{id}/thumb`, not the
+ * original — the two widths are chosen in `lib/gallery/thumbs.ts` and the
+ * double-width tiles get the larger one.
+ *
  * The caption is the media's own caption, or its operation label when it has
  * no caption — `tile.caption` can still be an empty string for an item that
  * carries neither, which just renders as a blank label rather than inventing
@@ -32,6 +36,12 @@ import s from '@/styles/landing.module.css'
  */
 const SPANS = [s.g1, s.g2, s.g3, undefined, undefined, s.g6]
 
+/* Which of the six tiles is double-width, read off the span table above rather
+   than written out again — tiles 3 and 4 are the only single-column ones, and a
+   second hand-kept list of indices would be one edit away from serving a 341px
+   tile a 1600px photograph. */
+const isWide = (i: number) => SPANS[i] !== undefined
+
 export default function GalleryStrip({ tiles }: { tiles: GalleryTile[] }) {
     if (tiles.length === 0) return null
 
@@ -47,7 +57,11 @@ export default function GalleryStrip({ tiles }: { tiles: GalleryTile[] }) {
                 <div className={s.gal}>
                     {tiles.map((tile, i) => (
                         <Link key={tile.src} href='/gallery' className={SPANS[i] ?? ''}>
-                            <img src={tile.src} alt='' loading='lazy' />
+                            {/* A resized copy, never the original: these are
+                                4K screenshots averaging 3.8MB and the largest
+                                tile here is 694 CSS px wide. See
+                                lib/gallery/thumbs.ts for the two sizes. */}
+                            <img src={isWide(i) ? tile.thumbWide : tile.thumb} alt='' loading='lazy' />
                             <span className={s.cap}>{tile.caption}</span>
                         </Link>
                     ))}
