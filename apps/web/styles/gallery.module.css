@@ -1074,6 +1074,17 @@
     backdrop-filter: blur(8px);
     display: grid;
     grid-template-columns: minmax(0, 1fr) 330px;
+    /* The row track is as load-bearing as the columns, and it was missing.
+       Without it the single implicit row is `auto`, which sizes to the image's
+       max-content height — so `.lbImg`'s `height: 100%` resolves against an
+       indefinite height and behaves as `auto`, and the `max-height: 100%`
+       below it behaves as `none`. A tall screenshot then made the stage
+       thousands of pixels deep, and since .lbNav is `top: 50%` of that stage
+       and .lbIdx is `bottom: 20px` of it, the arrows and the counter were
+       positioned off the bottom of the screen. The ≤1240px rule near the end
+       of this file has always carried the equivalent fix; this is the same
+       thing for the two-column layout. */
+    grid-template-rows: minmax(0, 1fr);
 }
 
 .lbStage {
@@ -1082,6 +1093,11 @@
     place-items: center;
     padding: 56px 70px;
     min-width: 0;
+    /* The other half of the same chain: `minmax(0, ...)` sets the TRACK's
+       minimum, while a grid item still has an automatic minimum size of its
+       content in both axes. min-width was already here; the block axis was
+       missed, which is the axis a photograph is tall in. */
+    min-height: 0;
 }
 
 .lbImg {
