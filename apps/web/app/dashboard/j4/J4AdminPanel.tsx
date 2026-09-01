@@ -10,6 +10,7 @@ import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
 import BackupsTab from './BackupsTab'
+import FeaturedOrderModal from './FeaturedOrderModal'
 import CommunityTicketsTab from './tabs/CommunityTicketsTab'
 import J4MeetingsTab from './tabs/J4MeetingsTab'
 import LogsTab from './tabs/LogsTab'
@@ -1057,6 +1058,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
     const [tsDevMode, setTsDevMode]       = useState<boolean | null>(null)
     const [tsDevModeLoading, setTsDevModeLoading] = useState(false)
     const [cpuProfileOpen, setCpuProfileOpen] = useState(false)
+    const [featuredOrderOpen, setFeaturedOrderOpen] = useState(false)
 
     useEffect(() => {
         fetch('/api/admin/discord-devmode')
@@ -1285,6 +1287,18 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                                     description='Capture and download a V8 profile from the running server.'
                                     footer={<Badge tone='warn'>Slows the server while capturing</Badge>}
                                 />
+                                {/* Caution, not standard: it writes to a public
+                                    surface, and the guard means there is no
+                                    second run to correct it in — the repair is
+                                    J5's Featured tab. The dialog runs the dry
+                                    pass first and shows every match. */}
+                                <ToolCard
+                                    onClick={() => setFeaturedOrderOpen(true)}
+                                    tier='caution'
+                                    title='Featured Rail Order'
+                                    description='Gives the public featured rail its order, crediting the archive original where one matches.'
+                                    footer={<Badge tone='warn'>Runs once — then J5 curates</Badge>}
+                                />
                             </ToolGrid>
                         </div>
 
@@ -1318,6 +1332,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
             <TestNotificationModal open={testNotifOpen} onClose={() => setTestNotifOpen(false)} selfId={userId} />
             <RolesManagerPanel open={rolesManagerOpen} onClose={() => setRolesManagerOpen(false)} />
             <CpuProfileModal open={cpuProfileOpen} onClose={() => setCpuProfileOpen(false)} />
+            <FeaturedOrderModal open={featuredOrderOpen} onClose={() => setFeaturedOrderOpen(false)} />
         </div>
     )
 }
