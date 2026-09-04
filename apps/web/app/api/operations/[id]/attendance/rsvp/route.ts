@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Attendance not open for this operation' }, { status: 404 })
     }
     if (!attendance.rsvpOpen) {
-        return NextResponse.json({ error: 'RSVP is not open for this operation' }, { status: 403 })
+        return NextResponse.json({ error: 'Sign-ups are not open for this operation' }, { status: 403 })
     }
 
     // Get the member's ORBAT position for section/role info

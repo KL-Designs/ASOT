@@ -91,14 +91,14 @@ export function buildTimeline(status: LiveStatus): TimelineMoment[] {
     return [
         {
             id: 'rsvp_opens',
-            label: 'RSVP opens',
+            label: 'Sign-ups open',
             at: openAt,
             detail: openAt ? fmtAt(openAt) : 'Manual',
             state: stateFor('rsvp_opens', status.stage),
         },
         {
             id: 'rsvp_closes',
-            label: 'RSVP closes',
+            label: 'Sign-ups close',
             at: closeAt,
             detail: closeAt ? fmtAt(closeAt) : '—',
             state: stateFor('rsvp_closes', status.stage),

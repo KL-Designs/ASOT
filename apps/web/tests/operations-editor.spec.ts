@@ -182,7 +182,7 @@ test.describe('Mission deck collapse state', () => {
 // ── Editing the operation date in the timeline persists ────────────────────
 
 test.describe('Timeline op-date edit', () => {
-    test('changing the operation date via the Schedule tab\'s RSVP window panel persists across a reload', async ({ pageAs }) => {
+    test('changing the operation date via the Schedule tab\'s sign-up window panel persists across a reload', async ({ pageAs }) => {
         const opId = await createOperation()
         const page = await pageAs('j4')
         await page.setViewportSize({ width: 1440, height: 900 })

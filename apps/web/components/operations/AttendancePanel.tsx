@@ -480,7 +480,7 @@ export default function AttendancePanel({
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Chip
                         icon={data?.rsvpOpen ? <LockOpen sx={{ fontSize: 14 }} /> : <Lock sx={{ fontSize: 14 }} />}
-                        label={data?.rsvpOpen ? 'RSVP Open' : 'RSVP Closed'}
+                        label={data?.rsvpOpen ? 'Sign-Ups Open' : 'Sign-Ups Closed'}
                         size='small'
                         sx={{ fontSize: '0.65rem', letterSpacing: 1.5, textTransform: 'uppercase',
                             background: data?.rsvpOpen ? 'rgba(76,175,80,0.15)' : 'rgba(255,255,255,0.05)',
@@ -532,7 +532,7 @@ export default function AttendancePanel({
                             '&:hover': { borderColor: c(0.7), background: c(0.08) },
                         }}
                     >
-                        Log in to RSVP
+                        Log in to sign up
                     </Button>
                 )}
 

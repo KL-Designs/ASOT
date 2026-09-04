@@ -48,9 +48,9 @@ export default function NextOpCard({ op }: { op: LandingOp }) {
 
     const heading = running
         ? 'Op running'
-        : op.rsvpOpen ? 'Sign-on open'
-            : opensAt ? `Sign-on opens ${shortWhen(opensAt)}`
-                : 'Sign-on not open'
+        : op.rsvpOpen ? 'Sign-ups open'
+            : opensAt ? `Sign-ups open ${shortWhen(opensAt)}`
+                : 'Sign-ups not open'
 
     const when = new Date(op.date).toLocaleString('en-AU', {
         weekday: 'short', day: 'numeric', month: 'short',
@@ -91,7 +91,7 @@ export default function NextOpCard({ op }: { op: LandingOp }) {
 
                 <ProgressTrack
                     className={s.ocSlots}
-                    label='Signed on'
+                    label='Signed up'
                     value={op.slots ? <><b>{signedOn}</b> / {op.slots}</> : <b>{signedOn}</b>}
                     pct={op.slots ? (signedOn / op.slots) * 100 : 0}
                 />
@@ -112,7 +112,7 @@ export default function NextOpCard({ op }: { op: LandingOp }) {
                     href={`/operations/${op.id}`}
                     disabled={!canSignOn}
                 >
-                    {canSignOn ? 'Sign on' : opensAt ? 'Not open yet' : 'Sign-on closed'}
+                    {canSignOn ? 'Sign Up' : opensAt ? 'Not open yet' : 'Sign-ups closed'}
                 </Button>
                 <Button variant='ghost' size='sm' href={`/operations/${op.id}`}>Orders</Button>
             </div>

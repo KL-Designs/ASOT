@@ -11,7 +11,7 @@ const STATUS_OPTS = [
     {
         value: 'In Development',
         tone: 'crit' as const,
-        effect: 'Suspends all automation. RSVP will not open or close and the operation will not activate.',
+        effect: 'Suspends all automation. Sign-ups will not open or close and the operation will not activate.',
     },
     {
         value: 'Upcoming',

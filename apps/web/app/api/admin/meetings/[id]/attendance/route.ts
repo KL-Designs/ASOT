@@ -64,7 +64,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const LEAD_ONLY_STATUSES = ['confirmed_attended', 'confirmed_absent']
 
     if (isSelf && !MEMBER_STATUSES.includes(status)) {
-        return NextResponse.json({ error: 'Members can only RSVP (attending / not attending / LOA)' }, { status: 403 })
+        return NextResponse.json({ error: 'Members can only sign up (attending / not attending / LOA)' }, { status: 403 })
     }
     if (LEAD_ONLY_STATUSES.includes(status) && !isLead) {
         return NextResponse.json({ error: 'Only leads can confirm attendance' }, { status: 403 })

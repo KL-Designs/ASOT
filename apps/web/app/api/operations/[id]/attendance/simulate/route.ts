@@ -52,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const att = await Db.operationAttendance.findOne({ operationId })
     if (!att?.roster?.length) {
         return NextResponse.json(
-            { error: 'No roster yet — open RSVP or rebuild the board first.' },
+            { error: 'No roster yet — open sign-ups or rebuild the board first.' },
             { status: 409 },
         )
     }

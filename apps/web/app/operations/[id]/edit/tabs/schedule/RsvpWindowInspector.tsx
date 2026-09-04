@@ -89,7 +89,7 @@ export default function RsvpWindowInspector({
     if (!date) {
         return (
             <div style={{ padding: 16, fontSize: '0.78rem', color: 'var(--ink-3)', fontStyle: 'italic' }}>
-                Set an operation date above to schedule the RSVP window.
+                Set an operation date above to schedule the sign-up window.
             </div>
         )
     }
@@ -99,7 +99,7 @@ export default function RsvpWindowInspector({
     return (
         <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>RSVP window</span>
+                <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Sign-up window</span>
                 {w.inverted
                     ? <>
                         <span style={chip('crit')}>Inverted</span>
@@ -152,7 +152,7 @@ export default function RsvpWindowInspector({
 
                     <div style={hint}>
                         {openOffsetMins === null
-                            ? 'Nothing opens RSVP on its own. Advance the stage to open it by hand.'
+                            ? 'Nothing opens sign-ups on its own. Advance the stage to open them by hand.'
                             : 'Stored as an offset from the op date, so it follows if the date moves.'}
                     </div>
                 </div>

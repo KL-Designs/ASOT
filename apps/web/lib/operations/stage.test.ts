@@ -40,7 +40,7 @@ describe('nextStage', () => {
 
 describe('stageLabel', () => {
     test('renders human labels', () => {
-        expect(stageLabel('rsvp_open')).toBe('RSVP Open')
+        expect(stageLabel('rsvp_open')).toBe('Sign-Ups Open')
         expect(stageLabel('op_running')).toBe('Op Running')
         expect(stageLabel(null)).toBe('Preparing')
     })

@@ -89,7 +89,7 @@ const DraggableMember = memo(function DraggableMember({ record, onRemove, onRole
                 />
             </Box>
             {record.rsvp === 'attending' && (
-                <Chip label='RSVP' size='small' sx={{ fontSize: '0.5rem', height: 14, background: 'rgba(76,175,80,0.15)', color: '#4caf50', flexShrink: 0 }} />
+                <Chip label='Signed Up' size='small' sx={{ fontSize: '0.5rem', height: 14, background: 'rgba(76,175,80,0.15)', color: '#4caf50', flexShrink: 0 }} />
             )}
             <IconButton
                 size='small'

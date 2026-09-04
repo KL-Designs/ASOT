@@ -225,7 +225,7 @@ function Foot({ op, signedIn, nights }: { op: BoardOperation; signedIn: boolean;
                 href={`/operations/${op.id}`}
                 className={`${s.cta} ${answered ? (attendingHere ? s.ctaIn : s.ctaOut) : ''}`}
             >
-                {!signedIn ? 'View' : answered ? (attendingHere ? 'Your slot' : 'Change') : 'Respond'}
+                {!signedIn ? 'View' : answered ? (attendingHere ? 'Your slot' : 'Change') : 'Sign Up'}
             </Link>
         </div>
     )

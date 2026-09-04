@@ -389,7 +389,7 @@ function AttendanceBoard({
     if (!data || data.roster.length === 0) {
         return (
             <div className={s.banner}>
-                The roster is cut from the ORBAT when RSVP opens. Nothing to show yet.
+                The roster is cut from the ORBAT when sign-ups open. Nothing to show yet.
             </div>
         )
     }
@@ -478,8 +478,8 @@ function AttendanceBoard({
                         <span>{operationWhen}</span>
                     </div>
 
-                    {rsvpOpen && <span className={`${s.pill} ${s.pillAcc}`}><i />RSVP Open</span>}
-                    {frozen && <span className={`${s.pill} ${s.pillWarn}`}><i />RSVP Closed</span>}
+                    {rsvpOpen && <span className={`${s.pill} ${s.pillAcc}`}><i />Sign-Ups Open</span>}
+                    {frozen && <span className={`${s.pill} ${s.pillWarn}`}><i />Sign-Ups Closed</span>}
                     {connected
                         ? <span className={`${s.pill} ${s.pillGood}`}><i />Live</span>
                         : <span className={s.pill}><i />Reconnecting</span>}
@@ -546,7 +546,7 @@ function AttendanceBoard({
 
                 {frozen && (
                     <div className={`${s.banner} ${s.bannerFrozen}`}>
-                        <span className={`${s.pill} ${s.pillWarn}`}><i />RSVP Closed</span>
+                        <span className={`${s.pill} ${s.pillWarn}`}><i />Sign-Ups Closed</span>
                         <span>
                             <b>Members can no longer join, change or leave a position.</b>{' '}
                             Staff placement only from here.
