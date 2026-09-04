@@ -183,7 +183,7 @@ export const PHASE_WIDTHS: Record<PhaseId, number> = {
 const PHASE_LABELS: Record<PhaseId, string> = {
     pre_production: 'Pre-production',
     lead_up: 'Lead-up',
-    rsvp_window: 'RSVP window',
+    rsvp_window: 'Sign-up window',
     final_hour: 'Final hour',
     op_confirmation: 'Op & confirmation',
 }
@@ -278,7 +278,7 @@ export function scheduleProblems(input: ScheduleInput): ScheduleProblem[] {
         problems.push({
             id: 'no_operation_date',
             severity: 'warning',
-            message: 'Set an operation date. Every gate and both RSVP boundaries are measured from it.',
+            message: 'Set an operation date. Every gate and both sign-up boundaries are measured from it.',
             blocksPublish: true,
         })
         return problems
@@ -293,7 +293,7 @@ export function scheduleProblems(input: ScheduleInput): ScheduleProblem[] {
         problems.push({
             id: 'rsvp_after_op',
             severity: 'critical',
-            message: 'RSVP is set to open after the operation starts.',
+            message: 'Sign-ups are set to open after the operation starts.',
             fix: OPEN_THREE_DAYS_BEFORE,
             blocksPublish: true,
         })
@@ -301,7 +301,7 @@ export function scheduleProblems(input: ScheduleInput): ScheduleProblem[] {
         problems.push({
             id: 'rsvp_inverted',
             severity: 'critical',
-            message: 'RSVP is set to open after it closes, so it would never open.',
+            message: 'Sign-ups are set to open after they close, so they would never open.',
             fix: OPEN_THREE_DAYS_BEFORE,
             blocksPublish: true,
         })
@@ -440,7 +440,7 @@ export function buildRibbon(input: ScheduleInput): Ribbon {
         },
         {
             id: 'rsvp_opens',
-            label: window.mode === 'unset' ? 'RSVP opens · not set' : 'RSVP opens',
+            label: window.mode === 'unset' ? 'Sign-ups open · not set' : 'Sign-ups open',
             at: window.opensAt,
             kind: 'transition',
             state: openInvalid ? 'invalid' : instantState(window.opensAt, now),
@@ -448,7 +448,7 @@ export function buildRibbon(input: ScheduleInput): Ribbon {
         },
         {
             id: 'rsvp_closes',
-            label: 'RSVP closes',
+            label: 'Sign-ups close',
             at: window.closesAt,
             kind: 'transition',
             state: instantState(window.closesAt, now),

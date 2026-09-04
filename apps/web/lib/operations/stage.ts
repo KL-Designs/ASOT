@@ -9,8 +9,8 @@ export const STAGE_ORDER = [
 
 const LABELS: Record<AttendanceStage, string> = {
     preparing: 'Preparing',
-    rsvp_open: 'RSVP Open',
-    rsvp_closed: 'RSVP Closed',
+    rsvp_open: 'Sign-Ups Open',
+    rsvp_closed: 'Sign-Ups Closed',
     op_running: 'Op Running',
     confirmations_open: 'Confirmations Open',
     completed: 'Completed',

@@ -39,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const event = await Db.trainingEvents.findOne({ _id: new ObjectId(eventId), deletedAt: { $exists: false } })
     if (!event) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (event.approvalStatus !== 'approved' || event.status !== 'Scheduled') {
-        return NextResponse.json({ error: 'Event is not open for RSVP' }, { status: 400 })
+        return NextResponse.json({ error: 'Event is not open for sign-ups' }, { status: 400 })
     }
 
     const body = await req.json().catch(() => ({}))

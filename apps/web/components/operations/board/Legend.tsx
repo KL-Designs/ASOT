@@ -21,7 +21,7 @@ import s from './board.module.css'
 const KEYS: { color: string; label: string; meaning: string }[] = [
     { color: 'var(--good, #7fae5c)',       label: 'Attending', meaning: 'confirmed, in their own position' },
     { color: 'var(--ressy, #5f8fc4)',      label: 'Reservist', meaning: 'filling in from another section' },
-    { color: 'rgba(212, 160, 58, 0.6)',    label: 'No reply',  meaning: 'reserved for them until RSVP closes' },
+    { color: 'rgba(212, 160, 58, 0.6)',    label: 'No reply',  meaning: 'reserved for them until sign-ups close' },
     { color: 'rgba(192, 90, 72, 0.45)',    label: 'Vacated',   meaning: 'declined, or playing elsewhere' },
     { color: 'var(--line-2)',              label: 'Open',      meaning: 'never filled' },
 ]

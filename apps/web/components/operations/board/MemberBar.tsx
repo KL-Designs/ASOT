@@ -55,10 +55,10 @@ export default function MemberBar({ me, mySlot, sections, roles, rsvpOpen, busy,
                 <span className={s.pill}>Your position</span>
                 <span className={s.memberStatus}>
                     {mySlot
-                        ? <><b>{mySlot.sectionTitle} · {mySlot.role}</b> — RSVP has closed, so ask a staff member to change it.</>
+                        ? <><b>{mySlot.sectionTitle} · {mySlot.role}</b> — sign-ups have closed, so ask a staff member to change it.</>
                         : rsvp === 'not_attending'
-                            ? <>You marked yourself <b>not attending</b>. RSVP has closed.</>
-                            : <>You have no position for this operation, and RSVP has closed. Ask a staff member to add you.</>}
+                            ? <>You marked yourself <b>not attending</b>. Sign-ups have closed.</>
+                            : <>You have no position for this operation, and sign-ups have closed. Ask a staff member to add you.</>}
                 </span>
             </div>
         )
@@ -66,7 +66,7 @@ export default function MemberBar({ me, mySlot, sections, roles, rsvpOpen, busy,
 
     return (
         <div className={s.memberBar}>
-            <div className={s.rsvpGroup} role='group' aria-label='Your RSVP'>
+            <div className={s.rsvpGroup} role='group' aria-label='Your sign-up'>
                 <button
                     type='button'
                     disabled={busy}

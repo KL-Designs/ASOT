@@ -284,7 +284,7 @@ export default function SciFiPage({
                                         <span className={s.musterKey}>{postingLine(attendance)}</span>
                                         <span className={s.musterSub}>{seatLine(attendance)}</span>
                                     </span>
-                                    <span className={s.btnGo}>Muster board →</span>
+                                    <span className={s.btnGo}>Sign Up →</span>
                                 </Link>
                             )}
                         </div>
@@ -434,5 +434,5 @@ function postingLine(attendance: ModernPageProps['attendance']): string {
 /** The state of the roster underneath it. */
 function seatLine(attendance: ModernPageProps['attendance']): string {
     if (attendance.seats > 0) return `${attendance.filled} of ${attendance.seats} seats filled`
-    return attendance.rsvpOpen ? 'RSVP open — no roster cut yet' : 'Roster not cut'
+    return attendance.rsvpOpen ? 'Sign-ups open — no roster cut yet' : 'Roster not cut'
 }

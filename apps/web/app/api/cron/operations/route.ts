@@ -85,8 +85,8 @@ export async function GET(request: NextRequest) {
                     await createNotification({
                         userId: leader.userId,
                         type: 'system',
-                        title: 'RSVP Closed — Review Allocations',
-                        body: `RSVP for "${op.title}" is now closed. Please review your section's attendance allocations before the operation.`,
+                        title: 'Sign-Ups Closed — Review Allocations',
+                        body: `Sign-ups for "${op.title}" are now closed. Please review your section's attendance allocations before the operation.`,
                         actionUrl: `/operations/${op._id}`,
                         relatedId: op._id.toString(),
                     })

@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // are not bound by it — filling the gaps after close is their whole job.
         if (isMemberAction(body) && !canManage && !rsvpOpen) {
             return NextResponse.json(
-                { error: 'RSVP has closed. Ask a staff member to change your position.' },
+                { error: 'Sign-ups have closed. Ask a staff member to change your position.' },
                 { status: 403 },
             )
         }

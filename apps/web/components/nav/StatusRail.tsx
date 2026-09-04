@@ -96,8 +96,8 @@ function MusterCall({ op }: { op: NavOp | null | undefined }) {
         // first confirmation lands the RSVP count is the best number there is.
         body = <><span className={s.amb}>{op.confirmed || op.attending}</span> on deck</>
     }
-    else if (rsvpPending) body = 'RSVP not open'
-    else body = <><span className={s.amb}>{op.attending}</span> signed on</>
+    else if (rsvpPending) body = 'Sign-ups not open'
+    else body = <><span className={s.amb}>{op.attending}</span> signed up</>
 
     return (
         <span className={s.muster}>

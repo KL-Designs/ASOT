@@ -58,7 +58,7 @@ export function useRsvpCountdown(operationId: string, rsvpOpen: boolean): RsvpCo
     // Nothing useful to say yet — no window, and no live read to contradict it.
     const ready = open || !!live
 
-    if (!open) return { key: 'RSVP', value: 'Closed', urgent: false, ready }
-    if (!left) return { key: 'RSVP', value: 'Closing now', urgent: true, ready }
-    return { key: 'RSVP closes', value: left, urgent: true, ready }
+    if (!open) return { key: 'Sign-ups', value: 'Closed', urgent: false, ready }
+    if (!left) return { key: 'Sign-ups', value: 'Closing now', urgent: true, ready }
+    return { key: 'Sign-ups close', value: left, urgent: true, ready }
 }

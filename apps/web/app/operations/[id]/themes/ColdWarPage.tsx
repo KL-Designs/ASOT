@@ -281,7 +281,7 @@ export default function ColdWarPage({
                                                             <span className={s.slipKey}>Detailed to</span>
                                                             <span className={s.slipVal}>{postingLine(attendance)}</span>
                                                         </span>
-                                                        <span className={s.slipBtn}>Board</span>
+                                                        <span className={s.slipBtn}>Sign Up</span>
                                                     </Link>
                                                 )}
                                             </div>

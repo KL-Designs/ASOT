@@ -61,27 +61,27 @@ export default function OperationStatusBar({ operationId, operationDate: initial
         let state: 'done' | 'active' | 'pending'
         if (data.rsvpOpen) {
             // Green while open
-            detail = 'RSVP Open'
+            detail = 'Sign-Ups Open'
             state = 'done'
         } else if (rsvpAlreadyFired) {
             // Greyed out once closed
-            detail = 'RSVP Closed'
+            detail = 'Sign-Ups Closed'
             state = 'pending'
         } else if (rsvpOpenAt && rsvpOpenAt > now) {
             detail = `Opens in ${fmtCountdown(rsvpOpenAt, now) ?? '...'}`
             state = 'pending'
         } else {
-            detail = 'RSVP Open'
+            detail = 'Sign-Ups Open'
             state = 'done'
         }
-        items.push({ label: 'RSVP', detail, state })
+        items.push({ label: 'Sign-Ups', detail, state })
     }
 
     // RSVP Closes — only show countdown while RSVP is currently open; hide once closed
     if (rsvpCloseDate && data.rsvpOpen) {
         const cd = fmtCountdown(rsvpCloseDate, now)
         items.push({
-            label: 'RSVP Close',
+            label: 'Sign-Ups Close',
             detail: cd ? `Closes in ${cd}` : 'Closing...',
             state: 'active',
         })

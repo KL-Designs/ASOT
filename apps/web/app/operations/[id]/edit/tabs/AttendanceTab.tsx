@@ -264,7 +264,7 @@ export default function AttendanceTab({
                             </button>
                             <span style={{ fontSize: '0.68rem', color: 'var(--ink-3)', lineHeight: 1.5, maxWidth: 460 }}>
                                 Takes a fresh snapshot of the ORBAT for the units above. Use it when the
-                                assigned units change after RSVP has opened — it discards every placement.
+                                assigned units change after sign-ups have opened — it discards every placement.
                             </span>
                             {resetError && (
                                 <span style={{ fontSize: '0.68rem', color: 'var(--crit)' }}>{resetError}</span>
@@ -280,7 +280,7 @@ export default function AttendanceTab({
 
 All current placements are lost: members who claimed a position, anyone staff placed by hand, and every added position. Members who said they are attending return to the reservist pool.
 
-RSVP answers themselves are kept.`}
+Sign-up answers themselves are kept.`}
                         confirmLabel='Rebuild'
                         onConfirm={resetBoard}
                         onCancel={() => setResetOpen(false)}
@@ -417,7 +417,7 @@ RSVP answers themselves are kept.`}
                             some not, some never replying, reservists filling in from other sections, and
                             others waiting in the pool with and without a preference. Pick how well the
                             night turns out: the two ends are what the layout has to survive.
-                            <b style={{ color: 'var(--warn)' }}> Overwrites every RSVP on this operation.</b>
+                            <b style={{ color: 'var(--warn)' }}> Overwrites every sign-up on this operation.</b>
                         </span>
 
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap', marginTop: 14 }}>

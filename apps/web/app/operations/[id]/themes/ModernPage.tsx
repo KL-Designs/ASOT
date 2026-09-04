@@ -338,7 +338,7 @@ function AttendanceCall({ href, attendance }: { href: Route; attendance: ModernP
         : myPosition
             ? 'View board'
             : rsvpOpen
-                ? 'Take a position'
+                ? 'Sign Up'
                 : 'View board'
 
     return (

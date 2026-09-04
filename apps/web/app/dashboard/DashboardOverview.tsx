@@ -101,7 +101,7 @@ function NextOpPanel() {
         hour: '2-digit', minute: '2-digit', hour12: false,
     })
 
-    const heading = running ? 'Op running' : op.rsvpOpen ? 'Sign-on open' : 'Sign-on not open'
+    const heading = running ? 'Op running' : op.rsvpOpen ? 'Sign-ups open' : 'Sign-ups not open'
 
     return (
         <Panel tone={running || op.rsvpOpen ? 'live' : 'warn'}>
@@ -121,12 +121,12 @@ function NextOpPanel() {
                         */}
                         <div className={s.meterTop}>
                             <span className={s.now}>{signedOn}</span>
-                            <span className={s.goal}>{running ? 'confirmed present' : 'signed on'}</span>
+                            <span className={s.goal}>{running ? 'confirmed present' : 'signed up'}</span>
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <Button variant='primary' href={`/operations/${op.id}`} disabled={!op.rsvpOpen || running}>
-                            <DashIcons.Check /> {op.rsvpOpen && !running ? 'Sign on' : running ? 'Op running' : 'Not open yet'}
+                            <DashIcons.Check /> {op.rsvpOpen && !running ? 'Sign Up' : running ? 'Op running' : 'Not open yet'}
                         </Button>
                         <Button variant='ghost' href={`/operations/${op.id}`}>Orders</Button>
                     </div>

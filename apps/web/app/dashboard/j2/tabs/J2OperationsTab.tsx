@@ -3199,7 +3199,7 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                             title='Delete permanently'
                             confirmWord='DELETE'
                             confirmLabel='Delete permanently'
-                            warning='The operation, its attendance and its sign-on records are removed outright. This cannot be undone.'
+                            warning='The operation, its attendance and its sign-up records are removed outright. This cannot be undone.'
                             onConfirm={() => purgeFromBin(confirmPurgeId)}
                             onCancel={() => setConfirmPurgeId(null)}
                         >

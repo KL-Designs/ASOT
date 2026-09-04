@@ -38,7 +38,7 @@ export default function PhaseStrip({ ribbon, selected, onSelect, now }: Props) {
                 const p = phases.find(x => x.id === 'lead_up')
                 if (!p?.endsAt) return '—'
                 const left = fmtCountdown(p.endsAt, now)
-                return left ? `${left} until RSVP` : 'passed'
+                return left ? `${left} until sign-ups` : 'passed'
             }
             case 'rsvp_window':
                 if (problems.some(p => p.id === 'rsvp_inverted')) return 'inverted'

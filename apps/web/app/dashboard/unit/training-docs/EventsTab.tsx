@@ -295,7 +295,7 @@ function EventCard({ event, isJ3Lead, isTrainer, isJ3Trainer, myId, myRsvp, slot
                             <SlotPill slotType={myRsvp!.slotType} rsvpStatus={myRsvp!.rsvpStatus} />
                             <button type='button' onClick={onCancelRsvp} disabled={!!rsvping}
                                 style={{ padding: '3px 9px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.3)', fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: rsvping ? 'default' : 'pointer', opacity: rsvping ? 0.5 : 1 }}>
-                                Cancel RSVP
+                                Cancel Sign-Up
                             </button>
                         </div>
                     ) : (
@@ -685,7 +685,7 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
                                         {loadingAttendance && !attendanceData[ev._id] ? (
                                             <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)' }}>Loading…</div>
                                         ) : (attendanceData[ev._id] ?? []).filter(r => r.rsvpStatus !== 'not_attending').length === 0 ? (
-                                            <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)' }}>No RSVPs yet</div>
+                                            <div style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.25)' }}>No sign-ups yet</div>
                                         ) : (
                                             <>
                                                 {(attendanceData[ev._id] ?? []).filter(r => r.rsvpStatus !== 'not_attending').map(r => (

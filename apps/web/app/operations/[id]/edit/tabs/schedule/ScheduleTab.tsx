@@ -127,7 +127,7 @@ export default function ScheduleTab({
                     {ribbon.gates.some(g => g.state === 'overdue') && (
                         <span style={chip('warn')}>{ribbon.gates.filter(g => g.state === 'overdue').length} gates overdue</span>
                     )}
-                    {critical && <span style={chip('crit')}>{critical.id === 'rsvp_inverted' ? 'RSVP window inverted' : 'Schedule error'}</span>}
+                    {critical && <span style={chip('crit')}>{critical.id === 'rsvp_inverted' ? 'Sign-up window inverted' : 'Schedule error'}</span>}
                     {automationPaused && <span style={chip()}>Automation paused</span>}
                 </>}
             >
@@ -195,7 +195,7 @@ export default function ScheduleTab({
                             <PhaseNote
                                 heading="Lead-up"
                                 lines={[
-                                    'Development is signed off and RSVP has not opened yet. Nothing fires automatically in this window.',
+                                    'Development is signed off and sign-ups have not opened yet. Nothing fires automatically in this window.',
                                     ordersCheckTask
                                         ? 'An orders check is booked — it is on the ribbon above.'
                                         : 'This is when an orders check is usually requested; do that from the pre-production phase.',
@@ -207,7 +207,7 @@ export default function ScheduleTab({
                             <PhaseNote
                                 heading="Final hour"
                                 lines={[
-                                    'RSVP has closed and the operation has not started. Section leaders are asked to review their allocations when RSVP closes.',
+                                    'Sign-ups have closed and the operation has not started. Section leaders are asked to review their allocations when sign-ups close.',
                                     'Company HQ is chased separately one hour out if any attending reservist still has no section.',
                                 ]}
                             />
@@ -312,7 +312,7 @@ function AutomationPanel({ paused, blocked, nextAt, nextLabel, now }: {
                     ? <span style={{ color: 'var(--crit)' }}>Fix the error before publishing — a live schedule that cannot execute is worse than a paused one.</span>
                     : paused
                         ? 'Nothing on this timeline fires until the operation is published.'
-                        : 'RSVP opens and closes, and the operation activates, without anyone here.'}
+                        : 'Sign-ups open and close, and the operation activates, without anyone here.'}
             </div>
         </div>
     )

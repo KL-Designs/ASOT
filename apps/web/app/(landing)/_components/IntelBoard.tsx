@@ -64,7 +64,7 @@ function FeaturedOp({ op }: { op: LandingOp }) {
     const status = (
         <span className={s.badge}>
             <Pulse tone={running || op.rsvpOpen ? 'live' : 'idle'} />
-            {running ? 'Op running' : op.rsvpOpen ? 'Sign-on open' : 'Briefing pending'}
+            {running ? 'Op running' : op.rsvpOpen ? 'Sign-ups open' : 'Briefing pending'}
         </span>
     )
 
@@ -98,8 +98,8 @@ function FeaturedOp({ op }: { op: LandingOp }) {
                 <div className={s.opfeatFoot}>
                     <ProgressTrack
                         className={s.slots}
-                        label='Signed on'
-                        value={op.slots ? <><b>{signedOn}</b> / {op.slots} slots</> : <><b>{signedOn}</b> signed on</>}
+                        label='Signed up'
+                        value={op.slots ? <><b>{signedOn}</b> / {op.slots} slots</> : <><b>{signedOn}</b> signed up</>}
                         pct={op.slots ? (signedOn / op.slots) * 100 : 0}
                     />
                     <Button
@@ -107,7 +107,7 @@ function FeaturedOp({ op }: { op: LandingOp }) {
                         href={`/operations/${op.id}`}
                         disabled={!(op.rsvpOpen && !running)}
                     >
-                        {op.rsvpOpen && !running ? 'Sign on' : 'Sign-on closed'}
+                        {op.rsvpOpen && !running ? 'Sign Up' : 'Sign-ups closed'}
                     </Button>
                     <Button variant='ghost' href={`/operations/${op.id}`}>Read orders</Button>
                 </div>
@@ -122,7 +122,7 @@ function LogRow({ op }: { op: LandingOp }) {
 
     const status = upcoming
         ? op.rsvpOpen
-            ? `Sign-on open · ${op.attending}${op.slots ? ` / ${op.slots}` : ''}`
+            ? `Sign-ups open · ${op.attending}${op.slots ? ` / ${op.slots}` : ''}`
             : 'Briefing pending'
         : 'Completed'
 

@@ -127,7 +127,7 @@ export default async function Footer() {
                             <b className={opWhen ? s.a : undefined}>{opWhen ?? 'None scheduled'}</b>
                         </div>
                         <div className={s.r}>
-                            <span>Sign-ons</span>
+                            <span>Sign-ups</span>
                             <b>{nextOp ? nextOp.attending : '—'}</b>
                         </div>
                         <div className={s.r}>
