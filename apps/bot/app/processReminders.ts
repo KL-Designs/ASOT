@@ -1,6 +1,7 @@
 import App from 'app'
 import Db from 'lib/mongo.ts'
 import * as Discord from "discord.js"
+import { nextOccurrence } from 'lib/reminderDate.ts'
 
 
 
@@ -9,7 +10,9 @@ export default async function processReminders() {
     const today = new Date()
 
     for (const reminder of reminders) {
-        const channel = await App.channel(reminder.channel) as Discord.TextChannel
+        // App.channel only reads the guild cache, which doesn't hold archived threads;
+        // fall back to the API so a reminder in a quiet thread isn't skipped forever.
+        const channel = (App.channel(reminder.channel) ?? await App.client.channels.fetch(reminder.channel).catch(() => null)) as Discord.TextChannel | null
         if (!channel) {
             console.error(`[processReminders] Channel ${reminder.channel} not found for reminder ${reminder._id} — skipping`)
             continue
@@ -68,7 +71,11 @@ export default async function processReminders() {
         }
 
 
-        if (reminder.acknowledged === null && reminder.expected.getTime() < today.getTime()) {
+        // A repeating reminder's next occurrence supersedes the previous one even if
+        // somebody never acknowledged it — otherwise one absent recipient stops the
+        // reminder for everyone, permanently.
+        const readyToFire = reminder.acknowledged === null || (reminder.repeat > 0 && Array.isArray(reminder.acknowledged))
+        if (readyToFire && reminder.expected.getTime() < today.getTime()) {
             const ackRow = new Discord.ActionRowBuilder<Discord.MessageActionRowComponentBuilder>()
                 .addComponents(
                     new Discord.ButtonBuilder()
@@ -108,10 +115,15 @@ export default async function processReminders() {
                     components: actionRows
                 })
 
+                // The creator's zone keeps day-based repeats on the same wall-clock time
+                // across daylight saving changes.
+                const timezone = reminder.repeat > 0 ? (await Db.users.findOne({ id: reminder.by }))?.timezone : null
                 await Db.reminders.updateOne({ _id: reminder._id }, {
                     $set: {
-                        expected: new Date(reminder.expected.getTime() + reminder.repeat),
-                        nextCheck: reminder.chaseUpOffset !== null ? new Date(reminder.expected.getTime() + reminder.chaseUpOffset) : null,
+                        expected: nextOccurrence(reminder.expected, reminder.repeat, today, timezone),
+                        // Relative to the actual send, so a reminder that fired late (bot
+                        // was down) doesn't chase up on the very next tick.
+                        nextCheck: reminder.chaseUpOffset !== null ? new Date(today.getTime() + reminder.chaseUpOffset) : null,
                         acknowledged: [...reminder.who],
                         messageId: sent.id,
                         sendFailed: false
@@ -143,3 +155,4 @@ export default async function processReminders() {
         }
     }
 }
+

@@ -1,7 +1,7 @@
 import app from 'app'
 import Discord from 'discord.js'
 import Db from 'lib/mongo.ts'
-import { ObjectId } from 'mongodb'
+import { ObjectId, UpdateFilter } from 'mongodb'
 
 
 
@@ -13,6 +13,10 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
 
     if (args[1] === 'ack') {
         if (!reminder) return interaction.reply({ content: 'Reminder not found.', ephemeral: true })
+        // An older message's button would otherwise ack the reminder's *current* round.
+        if (reminder.messageId !== interaction.message.id) {
+            return interaction.reply({ content: 'This reminder has moved on since this message was sent.', ephemeral: true })
+        }
 
         const pending = Array.isArray(reminder.acknowledged) ? [...reminder.acknowledged] : []
 
@@ -30,15 +34,26 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
             return interaction.reply({ content: 'This acknowledgment isn\'t for you.', ephemeral: true })
         }
 
-        const newPending = pending.filter(m => !matchedMentions.includes(m))
+        // Atomic $pull rather than read-modify-write: two people acking at the same
+        // moment would otherwise each write back a list still containing the other,
+        // and the reminder never completes.
+        const updated = await Db.reminders.findOneAndUpdate(
+            { _id: reminder._id, messageId: interaction.message.id, acknowledged: { $type: 'array' } },
+            // Cast: the driver can't type $pull against the `string[] | true | null` union;
+            // the filter above guarantees it's an array here.
+            { $pull: { acknowledged: { $in: matchedMentions } } } as unknown as UpdateFilter<Reminder>,
+            { returnDocument: 'after' }
+        )
+        if (!updated) return interaction.reply({ content: 'This reminder has already been acknowledged.', ephemeral: true })
+
+        const newPending = Array.isArray(updated.acknowledged) ? updated.acknowledged : []
         const allDone = newPending.length === 0
 
         if (allDone) {
-            if (reminder.repeat === 0) {
-                await Db.reminders.updateOne({ _id: reminder._id }, { $set: { acknowledged: true, nextCheck: null } })
-            } else {
-                await Db.reminders.updateOne({ _id: reminder._id }, { $set: { acknowledged: null, nextCheck: null } })
-            }
+            await Db.reminders.updateOne(
+                { _id: reminder._id, acknowledged: { $size: 0 } },
+                { $set: { acknowledged: reminder.repeat === 0 ? true : null, nextCheck: null } }
+            )
 
             const newEmbed = {
                 ...embed.toJSON(),
@@ -51,8 +66,6 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
             }
             return interaction.update({ embeds: [newEmbed], components: [] })
         }
-
-        await Db.reminders.updateOne({ _id: reminder._id }, { $set: { acknowledged: newPending } })
 
         const ackedMentions = reminder.who.filter(m => !newPending.includes(m))
         const fields = [

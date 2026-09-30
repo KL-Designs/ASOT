@@ -14,6 +14,9 @@ export default {
     name: 'reminder',
     description: 'Reminder Commands',
     type: ApplicationCommandType.ChatInput,
+    // Reminders are sent by looking the channel up in the unit guild, so one created
+    // in a DM with the bot was saved and then silently never fired.
+    dmPermission: false,
 
     options: [
         help,

@@ -1,5 +1,7 @@
 import { fromZonedTime, toZonedTime } from 'date-fns-tz'
 
+const DAY_MS = 24 * 60 * 60_000
+
 /** DD/MM/YYYY -> {day,month,year} or null if malformed / not a real calendar date. */
 function parseDateStr(dateStr: string): { day: number; month: number; year: number } | null {
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return null
@@ -28,6 +30,39 @@ export function fromZoned(dateStr: string, timeStr: string, timezone: string): n
 
     const iso = `${date.year}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`
     return fromZonedTime(iso, timezone).getTime()
+}
+
+/**
+ * The first scheduled occurrence after `now`. Stepping just one `repeat` from the
+ * previous expected time left it in the past after any downtime, so the bot would
+ * then fire every missed occurrence back-to-back.
+ *
+ * Repeats in whole days step on the wall clock in `timezone` when there is one, so
+ * a daily 9am reminder stays at 9am across a daylight saving change instead of
+ * drifting to 8am or 10am. Shorter repeats ("every 3 hours") stay fixed intervals.
+ */
+export function nextOccurrence(expected: Date, repeat: number, now: Date, timezone?: string | null): Date {
+    if (repeat <= 0) return expected
+    const steps = Math.max(Math.floor((now.getTime() - expected.getTime()) / repeat) + 1, 1)
+
+    if (timezone && repeat % DAY_MS === 0) {
+        try {
+            const days = repeat / DAY_MS
+            const wallClock = toZonedTime(expected, timezone)
+            let next: Date
+            let k = steps
+            do {
+                const candidate = new Date(wallClock)
+                candidate.setDate(candidate.getDate() + k * days)
+                next = fromZonedTime(candidate, timezone)
+                if (isNaN(next.getTime())) throw new RangeError(`Bad timezone ${timezone}`)
+                k++
+            } while (next.getTime() <= now.getTime())
+            return next
+        } catch { /* unrecognised zone stored, fall back to a fixed interval */ }
+    }
+
+    return new Date(expected.getTime() + steps * repeat)
 }
 
 /**

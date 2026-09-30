@@ -19,6 +19,20 @@ function refreshMessage(interaction: Discord.ButtonInteraction, sessionId: strin
 }
 
 
+function unpingableRoles(interaction: Discord.ButtonInteraction, who: string[], channelId: string): string[] {
+    const guild = interaction.guild
+    const me = guild?.members.me
+    const channel = guild?.channels.cache.get(channelId)
+    if (!guild || !me || !channel) return []
+    if (me.permissionsIn(channel).has(Discord.PermissionFlagsBits.MentionEveryone)) return []
+    return who.filter(mention => {
+        if (!mention.startsWith('<@&')) return false
+        const role = guild.roles.cache.get(mention.slice(3, -1))
+        return role !== undefined && !role.mentionable
+    })
+}
+
+
 export default async function (interaction: Discord.ButtonInteraction, args: string[]) {
     const sessionId = args[0]
     const action = args[1]
@@ -137,6 +151,13 @@ export default async function (interaction: Discord.ButtonInteraction, args: str
         if (session.chaseUpOffset !== null) {
             const chaseUpTs = Math.floor((session.expected + session.chaseUpOffset) / 1000)
             confirmContent += `\n⏰ Chase up: <t:${chaseUpTs}:F>`
+        }
+        // Discord drops a role ping unless the role is mentionable or the bot can
+        // mention everyone in that channel; the reminder still posts, but nobody in
+        // the role is notified. Tell the creator now rather than leave them guessing.
+        const unpingable = unpingableRoles(interaction, who, session.channel)
+        if (unpingable.length > 0) {
+            confirmContent += `\n⚠️ ${unpingable.join(', ')} won't be notified: ${unpingable.length === 1 ? 'that role isn\'t' : 'those roles aren\'t'} mentionable and the bot can't mention everyone in <#${session.channel}>. Make the role mentionable in Server Settings, or pick members instead.`
         }
         confirmContent += `\n>>> ${session.message}`
 

@@ -1,6 +1,7 @@
 import Discord, { ApplicationCommandOptionType } from 'discord.js'
 import App from 'app'
 import Db from 'lib/mongo.ts'
+import { escapeRegex } from 'lib/escapeRegex.ts'
 import { formatReminderTime } from 'lib/reminderDate.ts'
 
 const ADMIN_ROLE = 'J4-Administration'
@@ -25,7 +26,7 @@ export default {
             return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true })
         }
 
-        const search = interaction.options.getString('search') || ''
+        const search = escapeRegex(interaction.options.getString('search') || '')
         const query = search ? { message: { $regex: search, $options: 'i' } } : {}
         const reminders = await Db.reminders.find(query).sort({ expected: 1 }).limit(25).toArray()
 
