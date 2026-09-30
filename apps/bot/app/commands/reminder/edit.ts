@@ -32,6 +32,7 @@ export default {
 
     async execute(interaction) {
         const reminderId = interaction.options.getString('reminder', true)
+        if (!ObjectId.isValid(reminderId)) return interaction.reply({ content: 'Please pick a reminder from the list.', ephemeral: true })
         const reminder = await Db.reminders.findOne({ _id: new ObjectId(reminderId) })
 
         if (!reminder) return interaction.reply({ content: 'Reminder not found.', ephemeral: true })

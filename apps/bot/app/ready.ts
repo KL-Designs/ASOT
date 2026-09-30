@@ -49,8 +49,10 @@ export default async function (client: Discord.Client) {
     setInterval(updateStatus, 1000 * 60 * 5), updateStatus()
     setInterval(processRoles, 1000 * 60 * 60), processRoles()
     setInterval(processMembers, MEMBERS_SYNC_INTERVAL_MS), processMembers()
+    // The startup run goes through the same guard: unguarded, a slow first pass
+    // could overlap the first interval tick and send a due reminder twice.
     let processRemindersRunning = false
-    setInterval(async () => {
+    const runReminders = async () => {
         if (processRemindersRunning) return
         processRemindersRunning = true
         try {
@@ -58,6 +60,6 @@ export default async function (client: Discord.Client) {
         } finally {
             processRemindersRunning = false
         }
-    }, 1000 * 30)
-    processReminders()
+    }
+    setInterval(runReminders, 1000 * 30), runReminders()
 }
