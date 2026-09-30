@@ -30,6 +30,24 @@ export function fromZoned(dateStr: string, timeStr: string, timezone: string): n
     return fromZonedTime(iso, timezone).getTime()
 }
 
+/**
+ * Short date + time for surfaces that can't render Discord's `<t:...>` timestamps
+ * (autocomplete choices, select-menu descriptions). Those are plain strings built on
+ * the server, which runs in UTC, so the zone has to be passed explicitly or a 17:00
+ * AEST reminder reads as 7:00 AM. Falls back to UTC, labelled, when the user has no
+ * (or an unrecognised) timezone set.
+ */
+export function formatReminderTime(expected: Date | number, timezone?: string | null): string {
+    const date = new Date(expected)
+    const opts = { dateStyle: 'short', timeStyle: 'short' } as const
+    if (timezone) {
+        try {
+            return date.toLocaleString('en-AU', { ...opts, timeZone: timezone })
+        } catch { /* invalid zone stored, fall through to UTC */ }
+    }
+    return `${date.toLocaleString('en-AU', { ...opts, timeZone: 'UTC' })} UTC`
+}
+
 function nextWeekday(from: Date, targetDay: number): Date {
     const result = new Date(from)
     const diff = (targetDay + 7 - result.getDay()) % 7 || 7
