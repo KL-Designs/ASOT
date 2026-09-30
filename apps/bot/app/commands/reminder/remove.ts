@@ -1,5 +1,6 @@
 import Discord, { ApplicationCommandOptionType } from 'discord.js'
 import Db from 'lib/mongo.ts'
+import { formatReminderTime } from 'lib/reminderDate.ts'
 import { ObjectId } from "mongodb"
 
 
@@ -21,9 +22,11 @@ export default {
 
                 const reminders = await Db.reminders.find({ by: interaction.user.id, message: { $regex: escapedSearch, $options: 'i' } }).limit(25).toArray()
 
+                const timezone = (await Db.users.findOne({ id: interaction.user.id }))?.timezone
+
                 interaction.respond(reminders.map(r => {
                     return {
-                        name: (r.message.length > 50 ? `${r.message.slice(0, 50)}... | ` : r.message + ' | ') + new Date(r.expected).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }),
+                        name: (r.message.length > 50 ? `${r.message.slice(0, 50)}... | ` : r.message + ' | ') + formatReminderTime(r.expected, timezone),
                         value: r._id.toString()
                     }
                 }))

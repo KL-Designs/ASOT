@@ -1,6 +1,7 @@
 import Discord, { ApplicationCommandOptionType } from 'discord.js'
 import App from 'app'
 import Db from 'lib/mongo.ts'
+import { formatReminderTime } from 'lib/reminderDate.ts'
 
 const ADMIN_ROLE = 'J4-Administration'
 
@@ -32,12 +33,14 @@ export default {
             return interaction.reply({ content: 'No reminders found.', ephemeral: true })
         }
 
+        const timezone = (await Db.users.findOne({ id: interaction.user.id }))?.timezone
+
         const options = reminders.map(r => {
             const creator = App.user(r.by)
             const creatorName = creator?.nickname || creator?.user.globalName || creator?.user.username || r.by
             const status = r.enabled === false ? '❌' : '✅'
             const label = `${status} ${r.message.length > 40 ? r.message.slice(0, 40) + '...' : r.message}`
-            const description = `by ${creatorName} | ${new Date(r.expected).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}`
+            const description = `by ${creatorName} | ${formatReminderTime(r.expected, timezone)}`
             return {
                 label,
                 description: description.length > 100 ? description.slice(0, 97) + '...' : description,
