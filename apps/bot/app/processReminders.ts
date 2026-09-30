@@ -1,6 +1,7 @@
 import App from 'app'
 import Db from 'lib/mongo.ts'
 import * as Discord from "discord.js"
+import { nextOccurrence } from 'lib/reminderDate.ts'
 
 
 
@@ -105,9 +106,12 @@ export default async function processReminders() {
                     components: actionRows
                 })
 
+                // The creator's zone keeps day-based repeats on the same wall-clock time
+                // across daylight saving changes.
+                const timezone = reminder.repeat > 0 ? (await Db.users.findOne({ id: reminder.by }))?.timezone : null
                 await Db.reminders.updateOne({ _id: reminder._id }, {
                     $set: {
-                        expected: nextOccurrence(reminder, today),
+                        expected: nextOccurrence(reminder.expected, reminder.repeat, today, timezone),
                         // Relative to the actual send, so a reminder that fired late (bot
                         // was down) doesn't chase up on the very next tick.
                         nextCheck: reminder.chaseUpOffset !== null ? new Date(today.getTime() + reminder.chaseUpOffset) : null,
@@ -143,15 +147,3 @@ export default async function processReminders() {
     }
 }
 
-
-/**
- * The first scheduled occurrence after `now`. Stepping just one `repeat` from the
- * previous expected time left it in the past after any downtime, so the bot would
- * then fire every missed occurrence back-to-back.
- */
-function nextOccurrence(reminder: Reminder, now: Date): Date {
-    const expected = reminder.expected.getTime()
-    if (reminder.repeat <= 0) return reminder.expected
-    const missed = Math.floor((now.getTime() - expected) / reminder.repeat) + 1
-    return new Date(expected + Math.max(missed, 1) * reminder.repeat)
-}
