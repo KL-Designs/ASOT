@@ -17,8 +17,17 @@ export default async function processReminders() {
             console.error(`[processReminders] Channel ${reminder.channel} not found for reminder ${reminder._id} — skipping`)
             continue
         }
-        if (!reminder.enabled && reminder.expected.getTime() < today.getTime()) {
-            await Db.reminders.updateOne({ _id: reminder._id }, { $set: { expected: new Date(reminder.expected.getTime() + reminder.repeat) } })
+        if (!reminder.enabled) {
+            // A disabled reminder does nothing at all: no send and no chase-up. Its
+            // schedule keeps rolling forward so re-enabling it doesn't fire a backlog,
+            // and any in-flight cycle is cancelled — the pending chase-up is dropped and
+            // a repeating reminder starts fresh on its next occurrence (disabling via the
+            // button strips the ack buttons, so the old cycle could never complete).
+            const update: Partial<Reminder> = {}
+            if (reminder.expected.getTime() < today.getTime()) update.expected = new Date(reminder.expected.getTime() + reminder.repeat)
+            if (reminder.nextCheck !== null) update.nextCheck = null
+            if (reminder.repeat > 0 && Array.isArray(reminder.acknowledged)) update.acknowledged = null
+            if (Object.keys(update).length > 0) await Db.reminders.updateOne({ _id: reminder._id }, { $set: update })
             continue
         }
 
