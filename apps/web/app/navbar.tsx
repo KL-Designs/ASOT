@@ -12,7 +12,7 @@ import {
 
 import { CrateIcon } from '@/components/ui/icons'
 import Button from '@/components/ui/Button'
-import { useEnlistTransition, EnlistFadeOverlay } from '@/components/enlist-transition'
+import { ENLIST_HREF } from '@/components/enlist-transition'
 
 import NotificationBell from '@/app/dashboard/_components/NotificationBell'
 import AccountMenu from '@/components/nav/AccountMenu'
@@ -54,7 +54,6 @@ export default function Navbar() {
 
     const status = useNavStatus()
     const isMember = !!(user as any)?.isMember
-    const { fading: enlistFading, enlist } = useEnlistTransition()
 
     useEffect(() => {
         fetch('/api/me')
@@ -114,17 +113,16 @@ export default function Navbar() {
                 </Button>
             )
             : (
-                // Same action as the homepage hero's "Enlist Now" — fade the
-                // screen to black, then the join video. Shared so the two can't
-                // drift; see components/enlist-transition.
-                <Button variant='red' onClick={enlist} className={`${s.navAct} ${s.actPrimary}`}>
+                // Same destination as the homepage hero's "Enlist Now" — the
+                // Discord invite while /join is a work in progress; see
+                // components/enlist-transition.
+                <Button variant='red' href={ENLIST_HREF} external className={`${s.navAct} ${s.actPrimary}`}>
                     Enlist
                 </Button>
             )
 
     return (
         <>
-            <EnlistFadeOverlay fading={enlistFading} />
 
             <header ref={root} className={`${s.nav} ${scrolled ? s.navScrolled : ''}`}>
 

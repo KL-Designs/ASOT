@@ -15,7 +15,14 @@ import { useRouter } from 'next/navigation'
 
 /** Kept in step with the overlay's own transition below. */
 export const ENLIST_FADE_MS = 840
-export const ENLIST_HREF = '/join/video'
+export const JOIN_VIDEO_HREF = '/join/video'
+
+/**
+ * Where the public "Enlist" buttons (navbar, hero, enlist band) point for now.
+ * The /join flow is a work in progress, so enlisting goes through Discord
+ * until it is ready; the fade transition below is kept for when it is.
+ */
+export const ENLIST_HREF = 'https://discord.gg/asot'
 
 export function useEnlistTransition() {
     const router = useRouter()
@@ -23,7 +30,7 @@ export function useEnlistTransition() {
 
     const enlist = useCallback(() => {
         setFading(true)
-        setTimeout(() => router.push(ENLIST_HREF as any), ENLIST_FADE_MS)
+        setTimeout(() => router.push(JOIN_VIDEO_HREF as any), ENLIST_FADE_MS)
     }, [router])
 
     return { fading, enlist }
