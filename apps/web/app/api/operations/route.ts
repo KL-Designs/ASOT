@@ -17,8 +17,10 @@ export async function GET(request: NextRequest) {
     const authorId = searchParams.get('authorId')  // filter by ownedBy Discord user ID
 
     let isHQ = false
+    let myId: string | null = null
     try {
         const me = await client.fetchMe()
+        myId = me.id
         isHQ = !!(await client.hasRoles(me, PERMISSIONS.operations.viewInDevelopment))
     } catch { }
 
@@ -33,8 +35,10 @@ export async function GET(request: NextRequest) {
 
         const query: Record<string, any> = { deletedAt: { $exists: false } }
 
-        // Always hide "In Development" from non-HQ users
-        if (!isHQ) {
+        // Hide "In Development" from non-HQ users — except when they are
+        // asking for their own missions, which they may always see.
+        const ownOnly = authorId === 'me' && !!myId
+        if (!isHQ && !ownOnly) {
             query.status = { $ne: 'In Development' }
         }
 
@@ -52,9 +56,11 @@ export async function GET(request: NextRequest) {
             query.title = { $regex: search, $options: 'i' }
         }
 
-        // Filter by mission owner (ownedBy Discord user ID)
+        // Filter by mission owner (ownedBy Discord user ID). `me` is the
+        // signed-in reader, so a client that only wants "my missions" does not
+        // have to learn its own Discord id first; signed out, it matches nothing.
         if (authorId) {
-            query.ownedBy = authorId
+            query.ownedBy = authorId === 'me' ? (myId ?? '__nobody__') : authorId
         }
 
         // Optional month + year filter (or year-only)

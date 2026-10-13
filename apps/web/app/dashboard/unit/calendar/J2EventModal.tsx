@@ -54,12 +54,17 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
     useEffect(() => {
         if (!open || mode !== 'mission_check') return
         setOpsLoading(true)
-        fetch('/api/operations?status=In Development,Upcoming&limit=100')
+        // Every mission the reader made, whatever its status — a check can be
+        // booked for one still in development, one about to run, or one being
+        // revisited. This used to ask for two statuses and then read
+        // `d.operations`, a key the endpoint has never returned (it is
+        // `missions`), so the list was empty for everybody.
+        fetch('/api/operations?authorId=me')
             .then(r => r.json())
             .then(d => {
-                const ops: OperationOption[] = (d.operations ?? []).map((o: { _id: string; title: string }) => ({
+                const ops: OperationOption[] = (d.missions ?? []).map((o: { _id: string; title: string; status?: string }) => ({
                     id: o._id,
-                    title: o.title,
+                    title: o.status ? `${o.title} (${o.status})` : o.title,
                 }))
                 setOperations(ops)
             })
@@ -183,7 +188,7 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
                             </MenuItem>
                         ))}
                         {!opsLoading && operations.length === 0 && (
-                            <MenuItem disabled sx={{ fontSize: '0.82rem' }}>No active operations found</MenuItem>
+                            <MenuItem disabled sx={{ fontSize: '0.82rem' }}>You have no missions yet. Only missions you own are listed.</MenuItem>
                         )}
                     </TextField>
                 )}
