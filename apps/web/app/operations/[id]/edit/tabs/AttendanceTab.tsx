@@ -14,7 +14,8 @@ interface Props {
     opID: string
     status: string
 
-    platoons: { id: string; label: string }[]
+    /** `color` is the platoon's own colour; a ticked chip is drawn in it. */
+    platoons: { id: string; label: string; color?: string }[]
     selected: string[]
     onToggle: (id: string) => void
 
@@ -60,11 +61,20 @@ const labelStyle: CSSProperties = {
     color: 'var(--ink-3)', marginBottom: 8,
 }
 
-function chipStyle(selected: boolean): CSSProperties {
+/**
+ * A unit chip. Ticked, a platoon is drawn in its own colour — border, wash and
+ * all — so which platoons are on an operation reads from across the panel
+ * rather than from four chips that all light up the same accent. `tint` is
+ * that colour; without one (a custom unit) it falls back to the accent.
+ */
+function chipStyle(selected: boolean, tint?: string): CSSProperties {
+    const on = selected && tint
     return {
         display: 'inline-flex', alignItems: 'center', gap: 7,
-        border: `1px solid ${selected ? 'rgba(var(--acc-rgb), 0.42)' : 'var(--line-2)'}`,
-        background: 'var(--s2)', borderRadius: 'var(--r)', padding: '6px 10px',
+        border: `1px solid ${on ? tint : selected ? 'rgba(var(--acc-rgb), 0.42)' : 'var(--line-2)'}`,
+        // color-mix keeps the wash faint whatever alpha the colour came with.
+        background: on ? `color-mix(in srgb, ${tint} 22%, var(--s2))` : 'var(--s2)',
+        borderRadius: 'var(--r)', padding: '6px 10px',
         fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase',
         color: selected ? 'var(--ink)' : 'var(--ink-2)', cursor: 'pointer',
     }
@@ -223,8 +233,8 @@ export default function AttendanceTab({
                         {platoons.map(p => {
                             const isSel = selected.includes(p.id)
                             return (
-                                <button key={p.id} type='button' onClick={() => onToggle(p.id)} style={chipStyle(isSel)}>
-                                    <i style={dotStyle(isSel ? 'var(--acc)' : 'var(--ink-3)')} />
+                                <button key={p.id} type='button' onClick={() => onToggle(p.id)} aria-pressed={isSel} style={chipStyle(isSel, p.color)}>
+                                    <i style={dotStyle(isSel ? (p.color ?? 'var(--acc)') : 'var(--ink-3)')} />
                                     {p.label}
                                 </button>
                             )
