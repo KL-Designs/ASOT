@@ -818,6 +818,8 @@ leaves the editor for the operation's own page, and the socket goes with it. `on
 whether it handled the change, which is how one strip serves both cases; the tabs are links rather
 than buttons so that middle-click and open-in-new-tab work, which the buttons had quietly removed.
 
+**`back-link.tsx`** is the orders page's client-side back link, shared by `OperationBar` and `ClassicPage`: it goes to the editor when the page was opened with `?from=editor` (the editor's Preview button adds it), to `/dashboard/j2` when `fromJ2`, otherwise to `/operations`.
+
 **`OperationBar.tsx`** is the slim bar over the public orders page: back link, title, status pill
 and the same strip. It *replaces* the site navbar rather than sitting under it — `<HideSiteNav/>`
 (`components/HideSiteNav.tsx`, a body class since the navbar lives in the root layout) drops it, and

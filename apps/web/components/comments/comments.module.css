@@ -1,0 +1,270 @@
+/*
+   The orders comment thread.
+
+   Self-contained colours rather than a theme's tokens: this sits beneath four
+   differently-themed orders pages (Modern, Cold War, Sci-Fi, Classic), each
+   with its own custom properties and none shared between them. A dark panel
+   with its own palette reads correctly under all four; borrowing one theme's
+   variables would render unstyled under the other three.
+*/
+
+.root {
+    --indent: 22px;
+    --edge: rgba(255, 255, 255, .18);
+    background: #0c0d0f;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+    color: rgba(237, 237, 237, .78);
+    font-family: var(--font-sans, system-ui, sans-serif);
+    padding: 40px 24px 64px;
+}
+
+.inner {
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.title {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, .55);
+}
+
+.count {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: rgba(237, 237, 237, .3);
+}
+
+.note {
+    margin-left: auto;
+    font-size: 11px;
+    color: rgba(237, 237, 237, .3);
+}
+
+.error {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    font-size: 12.5px;
+    color: #f0a59a;
+    background: rgba(192, 90, 72, .12);
+    border: 1px solid rgba(192, 90, 72, .4);
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.card {
+    padding: 10px 14px 12px;
+    background: rgba(255, 255, 255, .028);
+    border: 1px solid rgba(255, 255, 255, .08);
+    border-left: 3px solid var(--edge);
+    min-width: 0;
+}
+
+.deleted {
+    opacity: .55;
+    border-left-color: rgba(255, 255, 255, .12);
+}
+
+.meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+    font-size: 11.5px;
+}
+
+.fold {
+    background: none;
+    border: 0;
+    padding: 0 2px;
+    margin-left: -4px;
+    color: rgba(237, 237, 237, .45);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+}
+
+.author {
+    font-weight: 700;
+    letter-spacing: .04em;
+    /* Neutral by default; the component sets the author's callsign colour
+       inline when they have one. */
+    color: rgba(237, 237, 237, .75);
+}
+
+.tag {
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    padding: 1px 6px;
+    color: #d4a03a;
+    border: 1px solid rgba(212, 160, 58, .45);
+}
+
+.dim {
+    color: rgba(237, 237, 237, .32);
+}
+
+.time {
+    margin-left: auto;
+    font-family: ui-monospace, monospace;
+    font-size: 10.5px;
+    color: rgba(237, 237, 237, .28);
+}
+
+.body {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.gone {
+    margin: 0;
+    font-size: 13px;
+    font-style: italic;
+    color: rgba(237, 237, 237, .4);
+}
+
+.links {
+    display: flex;
+    gap: 14px;
+    margin-top: 8px;
+}
+
+.links button {
+    background: none;
+    border: 0;
+    padding: 0;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: rgba(237, 237, 237, .38);
+    cursor: pointer;
+}
+
+.links button:hover,
+.links button:focus-visible {
+    color: #fff;
+}
+
+.links .danger:hover,
+.links .danger:focus-visible {
+    color: #e0786a;
+}
+
+.compose {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.compose textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    resize: vertical;
+    background: rgba(255, 255, 255, .03);
+    border: 1px solid rgba(255, 255, 255, .12);
+    color: rgba(237, 237, 237, .85);
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.6;
+    outline: none;
+}
+
+.compose textarea:focus {
+    border-color: rgba(219, 0, 29, .55);
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.notify {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-right: auto;
+    font-size: 12.5px;
+    color: rgba(237, 237, 237, .6);
+    cursor: pointer;
+}
+
+.notify input {
+    accent-color: #d4a03a;
+}
+
+.primary,
+.ghost {
+    padding: 7px 16px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.primary {
+    background: rgba(219, 0, 29, .14);
+    border: 1px solid rgba(219, 0, 29, .5);
+    color: #ff6b7d;
+}
+
+.primary:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+.ghost {
+    background: none;
+    border: 1px solid rgba(255, 255, 255, .12);
+    color: rgba(237, 237, 237, .5);
+}
+
+.empty {
+    margin: 0;
+    padding: 14px 0;
+    font-size: 13px;
+    font-style: italic;
+    color: rgba(237, 237, 237, .3);
+}
+
+@media (max-width: 640px) {
+    .root {
+        --indent: 12px;
+        padding: 28px 14px 48px;
+    }
+
+    .note {
+        margin-left: 0;
+        flex-basis: 100%;
+    }
+}

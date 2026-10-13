@@ -20,7 +20,7 @@ Scope: 43 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 - **POST** — sets `content` field (ProseMirror JSON) on an operation by `id`. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`.
 
 #### /api/operations/delete
-- **GET** — soft-deletes an operation (`?id=`), sets `deletedAt`/`deletedBy`/`deletedByName`; logs action. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`. Side effects: `logAction('operation.delete')`.
+- **GET** — soft-deletes an operation (`?id=`), sets `deletedAt`/`deletedBy`/`deletedByName`; logs action. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`. Side effects: `logAction('operation.delete')`; notifies the J2 leads (`PERMISSIONS.departmentLeads.j2`, minus the deleter) by site notification + `sendMeetingDM`, not awaited into the response.
 
 #### /api/operations/duplicate
 - **GET** — duplicates an operation (`?id=`) into a new doc titled "X (Copy)". Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`.
@@ -128,6 +128,15 @@ Scope: 43 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 #### /api/operations/[id]/acknowledge
 - **GET** — returns whether current user acknowledged a doc page (`?pageId=`, default "main"), full ack list, eligible users (`PERMISSIONS.attendance.confirm` roles), and not-yet-acknowledged list. Gate: public view allowed (me optional) but requires op to exist. Collections: `Db.operations` (existence check), `Db.operationDocAcks`, `Db.users` (eligible list).
 - **POST** — records current user's read-receipt acknowledgement for a page (idempotent — returns `alreadyAcknowledged` if repeat). Gate: `PERMISSIONS.attendance.confirm`. Collections: `Db.operationDocAcks`, `Db.operations` (existence check).
+
+#### /api/operations/[id]/comments
+The comment thread under an operation's orders (rendered by `components/comments/OrdersComments.tsx`). Shared logic in `lib/operations/comments.ts`.
+- **GET** — the thread (live comments plus deleted "shells" that still have a visible reply, stripped server-side), each with the author's callsign colour, plus `myId`, `canModerate`, `missionMakerName` (null when the op has no `ownedBy` or the reader is the owner). Gate: `commentViewer()` = signed in + `hasDashboardAccess`. Collections: `Db.operationComments`, `Db.operations`, `Db.orbatPositions`, `Db.orbatSectionMeta`.
+- **POST** — adds a comment (`content`, optional `parentId`, optional `notifyMissionMaker`). Gate: same. Collections: `Db.operationComments` (insert). Side effects: `createNotification` + `sendMeetingDM` to `operation.ownedBy` when notify is ticked; `createNotification` to the parent comment's author on a reply.
+
+#### /api/operations/[id]/comments/[commentId]
+- **PATCH** — edits own comment; sets `isEdited`. Gate: author only. Collections: `Db.operationComments`.
+- **DELETE** — soft-deletes. Gate: author OR `PERMISSIONS.operations.write`. Collections: `Db.operationComments`.
 
 #### /api/operations/[id]/live-status
 - **GET** — lightweight poll endpoint for the operation viewer status bar: returns op `status`/`date` + attendance `rsvpOpen`/`rsvpOpenAt`/`rsvpCloseOffsetMins`/`confirmationOpen`/`confirmationOpenedAt`/`stage`. Gate: none (public). Collections: `Db.operations`, `Db.operationAttendance` (projections only).

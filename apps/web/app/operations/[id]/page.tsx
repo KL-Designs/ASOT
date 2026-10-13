@@ -8,6 +8,7 @@ import ClassicPage from './themes/ClassicPage'
 import ModernPage from './themes/ModernPage'
 import ColdWarPage from './themes/ColdWarPage'
 import SciFiPage from './themes/SciFiPage'
+import OrdersComments from '@/components/comments/OrdersComments'
 import type { OrdersAttendance, OrdersLineage, ThemePageProps } from './themes/theme-props'
 
 /**
@@ -108,9 +109,18 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     const pageTheme = operation.pageTheme || 'modern'
     const OWN_PAGE = { modern: ModernPage, coldwar: ColdWarPage, scifi: SciFiPage } as const
     const Themed = OWN_PAGE[pageTheme as keyof typeof OWN_PAGE]
-    if (!Themed) return <ClassicPage {...shared} />
+    /*
+     * The comment thread sits under whichever theme rendered the orders, once,
+     * here — not inside each theme. It is the same thread whatever the orders
+     * look like, and four copies of the mount would be four places to forget.
+     * Signed-in only: the thread is for members, and the component would only
+     * spend a request finding that out for a visitor.
+     */
+    const comments = isLoggedIn ? <OrdersComments operationId={id} /> : null
 
-    return <Themed {...shared} attendance={attendance} lineage={lineage} />
+    if (!Themed) return <><ClassicPage {...shared} />{comments}</>
+
+    return <><Themed {...shared} attendance={attendance} lineage={lineage} />{comments}</>
 }
 
 /**

@@ -59,6 +59,15 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `validRating` / `averageRating` — the latter rounds to one decimal, because an average of "compared to usual" carries about that much signal and quoting 3.47 implies otherwise.
 - `aar.test.ts` — 42 tests, including every fallback case for `sectionLead` and every branch of `didAttend`.
 
+### lib/operations/comments.ts
+- Server helpers for the orders comment thread: `commentViewer()` (who may read/write/moderate), `readOperationComments(operationId)` (thread with deleted shells + callsign colours), `toView()`. Collections: `Db.operationComments`. Used by `/api/operations/[id]/comments*`.
+
+### lib/comments/thread.ts
+- Pure, import-free `buildThread(comments, collapsed)` — flat `parentId` comments into reading order with `depth` (capped at `MAX_DEPTH`) and `descendants`; orphans become top-level, cycles are tolerated. Unit-tested (`thread.test.ts`). Used by the ticket page and `OrdersComments`.
+
+### lib/orbat/unit-colour.ts
+- `unitColoursFor(userIds)` — Discord id → callsign colour (section colour, then platoon's, from `Db.orbatSectionMeta` via `Db.orbatPositions`), run through `ensureVisible`. Members with no colour are absent from the map. Used to edge comments in ticket and orders threads.
+
 ### lib/operations/console-palette.ts
 - `consolePalette(themeColor): ConsolePalette` — the Sci-Fi orders theme's entire screen, derived from one hue. Glass (three depths plus the near-black that sits *on* a filled block), two brightnesses of tube, three inks, and the alarm.
 - **Why a whole palette and not an accent:** the theme is a monochrome console, so the operation's colour is the phosphor and *everything* is it — the cast in the glass, the hairlines, the body copy. What separates them is **saturation and brightness, never hue**, which is how a single-phosphor tube works and the only way to hand a page to an arbitrary colour without a clash. Saturated means "this means something", desaturated means "this is text".
@@ -1180,6 +1189,9 @@ the mobile sheet share one source of truth. Layout and interaction live in
 
 ### components/loadout/tag-chips.tsx
 - `<TagChips tags: KitTag[]>` — a kit's tags as chips, `KIT_TAG_LABELS`-rendered. No client boundary (renders text only). Renders nothing for an untagged kit rather than an empty row, so a card without tags keeps its height. Shared by the shelf card and the kit panel.
+
+### components/comments/OrdersComments.tsx (+ comments.module.css)
+- Client component: the threaded comment section under an operation's orders (reply, fold, edit, delete, "Notify the mission maker" toggle). Talks to `/api/operations/[id]/comments`; renders nothing on 401/404. Mounted once from `app/operations/[id]/page.tsx` beneath whichever theme rendered, for signed-in viewers only. Self-contained dark palette because it sits under four differently-themed pages.
 
 ---
 

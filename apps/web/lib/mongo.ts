@@ -41,6 +41,8 @@ const DbInterface = {
      *  they answer to different people — the section's commander, and the
      *  mission maker. */
     operationFeedback: db.collection('operation_feedback') as MongoCollection<OperationFeedback>,
+    /** The comment thread under an operation's orders. See lib/operations/comments.ts. */
+    operationComments: db.collection('operation_comments') as MongoCollection<OperationComment>,
 
     // ── Gallery ───────────────────────────────────────────────────────────────
     /** Every piece of gallery media, legacy and submitted alike. The gallery
