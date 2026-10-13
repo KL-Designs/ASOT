@@ -1,3 +1,5 @@
+import { DEFAULT_METIS, normaliseMetis, readMetis, type MetisMarker } from '@/lib/operations/metis'
+
 export type AnnotationType = 'polyline' | 'polygon' | 'rectangle' | 'circle' | 'marker' | 'text' | 'a3icon' | 'a3metis'
 
 export type DrawingTool = AnnotationType | null
@@ -82,82 +84,9 @@ export const A3_ICON_TYPES = [
     { key: 'c_truck',      label: 'Truck',       group: 'CIV' },
 ] as const
 
-// METIS icon index → label + mod layer filenames (from mts_markers data)
-// mods: list of keys used to build /markers/metis/mod/{side}_{key}.png layers
-export const METIS_ICONS = [
-    { index: 0,  label: 'Empty',       mods: []                                    },
-    { index: 1,  label: 'Infantry',    mods: ['infantry']                          },
-    { index: 2,  label: 'Mech. Inf.',  mods: ['infantry', 'armor']                 },
-    { index: 3,  label: 'Motor Inf.',  mods: ['infantry', 'motorized']             },
-    { index: 4,  label: 'Armor',       mods: ['armor']                             },
-    { index: 5,  label: 'Anti-Tank',   mods: ['anti_armor']                        },
-    { index: 6,  label: 'Artillery',   mods: ['artillery']                         },
-    { index: 7,  label: 'Air Defense', mods: ['air_defence']                       },
-    { index: 8,  label: 'Helicopter',  mods: ['rotary_wing']                       },
-    { index: 9,  label: 'Fixed Wing',  mods: ['fixed_wing']                        },
-    { index: 10, label: 'Naval',       mods: ['naval']                             },
-    { index: 11, label: 'Support',     mods: ['combat_service_support']            },
-    { index: 12, label: 'Medical',     mods: ['medical']                           },
-    { index: 13, label: 'Recon',       mods: ['reconnaissance']                    },
-    { index: 14, label: 'Engineer',    mods: ['engineer']                          },
-    { index: 15, label: 'Signal',      mods: ['signal_unit']                       },
-    { index: 16, label: 'Mortar',      mods: ['mortar']                            },
-    { index: 17, label: 'Spec. Ops.',  mods: ['special_operation_forces']          },
-    { index: 18, label: 'Mil. Police', mods: ['military_police']                   },
-] as const
-
-// Maps our A3SideId to the METIS .paa identity folder name
-export const METIS_SIDE_KEY: Record<string, string> = {
-    blu: 'blu',
-    red: 'red',
-    grn: 'neu',
-    unk: 'unk',
-}
-
-// METIS size value → echelon label
-export const METIS_ECHELONS = [
-    { size: 0,  label: 'None',        milChar: '-', nato: '—'     },
-    { size: 1,  label: 'Team/Crew',   milChar: 'A', nato: '⊘'     },
-    { size: 2,  label: 'Squad',       milChar: 'B', nato: '●'     },
-    { size: 3,  label: 'Section',     milChar: 'C', nato: '●●'    },
-    { size: 4,  label: 'Platoon',     milChar: 'D', nato: '●●●'   },
-    { size: 5,  label: 'Company',     milChar: 'E', nato: 'I'     },
-    { size: 6,  label: 'Battalion',   milChar: 'F', nato: 'II'    },
-    { size: 7,  label: 'Regiment',    milChar: 'G', nato: 'III'   },
-    { size: 8,  label: 'Brigade',     milChar: 'H', nato: 'X'     },
-    { size: 9,  label: 'Division',    milChar: 'I', nato: 'XX'    },
-    { size: 10, label: 'Corps',       milChar: 'J', nato: 'XXX'   },
-    { size: 11, label: 'Army',        milChar: 'K', nato: 'XXXX'  },
-    { size: 12, label: 'Army Group',  milChar: 'L', nato: 'XXXXX' },
-] as const
-
-// HQ / Task Force / Feint-Dummy combinations (SIDC position 10, index 10)
-export const METIS_HQTF = [
-    { index: 0, label: 'None',                           mod11: '-' },
-    { index: 1, label: 'Headquarters',                   mod11: 'A' },
-    { index: 2, label: 'Feint/Dummy Headquarters',       mod11: 'C' },
-    { index: 3, label: 'Task Force',                     mod11: 'E' },
-    { index: 4, label: 'Feint/Dummy Task Force',         mod11: 'G' },
-    { index: 5, label: 'Task Force Headquarters',        mod11: 'B' },
-    { index: 6, label: 'Feint/Dummy Task Force HQ',      mod11: 'D' },
-    { index: 7, label: 'Feint/Dummy',                    mod11: 'F' },
-] as const
-
-// Mobility modifiers for mod1 (SIDC: 'M' at index 10, char at index 11)
-export const METIS_MOB = [
-    { index: 0,  label: 'None',             mobChar: ''  },
-    { index: 1,  label: 'Wheeled (limited)', mobChar: 'O' },
-    { index: 2,  label: 'Wheeled',           mobChar: 'P' },
-    { index: 3,  label: 'Tracked',           mobChar: 'Q' },
-    { index: 4,  label: 'Wh. + Tracked',    mobChar: 'R' },
-    { index: 5,  label: 'Towed',             mobChar: 'S' },
-    { index: 6,  label: 'Rail',              mobChar: 'T' },
-    { index: 7,  label: 'Over Snow',         mobChar: 'U' },
-    { index: 8,  label: 'Sled',              mobChar: 'V' },
-    { index: 9,  label: 'Pack Animals',      mobChar: 'W' },
-    { index: 10, label: 'Barge',             mobChar: 'X' },
-    { index: 11, label: 'Amphibious',        mobChar: 'Y' },
-] as const
+// The Metis catalogue (icons, modifiers, echelons, the stored format and the
+// SQF) lives in lib/operations/metis.ts, taken from the mod's own source. It
+// used to be a set of hand-written lists here that did not match the mod.
 
 export interface MapLayer {
     id: string
@@ -180,8 +109,14 @@ export interface AnnotationProperties {
     a3MarkerColor?: A3MarkerColor
     a3MarkerDir?: number
     a3MarkerScale?: number
-    // a3metis fields
-    a3SideId?: A3SideId
+    // a3metis fields. `a3MetisV: 2` means the ids are the mod's own; anything
+    // without it was written with the old lists and is translated on read by
+    // `readMetis` (lib/operations/metis.ts). Write with `writeMetis`.
+    a3MetisV?: number
+    a3Hq?: boolean
+    a3Condition?: number
+    a3Direction?: string
+    a3SideId?: A3SideId | 'neu'
     a3Dashed?: boolean
     a3Icon?: number
     a3Mod1?: number
@@ -227,20 +162,8 @@ export interface A3ToolProps {
     markerColor: A3MarkerColor
     markerDir: number
     markerScale: number
-    sideId: A3SideId
-    dashed: boolean
-    icon: number
-    mod1: number
-    mod2: number
-    size: number
-    hqTf: number             // index into METIS_HQTF
-    designation: string
-    metisScale: number
-    assumedFriend: boolean
-    reinforced: boolean
-    reduced: boolean
-    higherFormation: string
-    additionalInfo: string
+    /** The Metis marker the tool will place. */
+    metis: MetisMarker
 }
 
 export const DEFAULT_A3_PROPS: A3ToolProps = {
@@ -248,20 +171,7 @@ export const DEFAULT_A3_PROPS: A3ToolProps = {
     markerColor: 'ColorBlack',
     markerDir: 0,
     markerScale: 1,
-    sideId: 'blu',
-    dashed: false,
-    icon: 0,
-    mod1: 0,
-    mod2: 0,
-    size: 0,
-    hqTf: 0,
-    designation: '',
-    metisScale: 1.3,
-    assumedFriend: false,
-    reinforced: false,
-    reduced: false,
-    higherFormation: '',
-    additionalInfo: '',
+    metis: DEFAULT_METIS,
 }
 
 export interface MapPresenceUser {
@@ -270,6 +180,30 @@ export interface MapPresenceUser {
     avatar: string | null
     // null when not hovering over the map
     cursor: [number, number] | null
+}
+
+/**
+ * A saved preset as tool properties.
+ *
+ * Presets saved before the Metis rebuild hold the old flat fields (`icon`,
+ * `mod1`, `hqTf`, …) with the old ids; those are translated the same way an
+ * old marker on the map is, so a preset keeps the picture it was saved with.
+ */
+export function toolPropsFromPreset(preset: Pick<MapMarkerPreset, 'a3Props'>): Partial<A3ToolProps> {
+    const p = (preset.a3Props ?? {}) as Record<string, unknown>
+    if (p.metis && typeof p.metis === 'object') {
+        return { ...(p as Partial<A3ToolProps>), metis: normaliseMetis(p.metis as Partial<MetisMarker>) }
+    }
+    const { sideId, dashed, icon, mod1, mod2, size, hqTf, designation, metisScale, reinforced, reduced, higherFormation, additionalInfo, assumedFriend: _unused, ...rest } = p
+    return {
+        ...(rest as Partial<A3ToolProps>),
+        metis: readMetis({
+            a3SideId: sideId as string, a3Dashed: dashed as boolean, a3Icon: icon as number, a3Mod1: mod1 as number, a3Mod2: mod2 as number,
+            a3Size: size as number, a3HqTf: hqTf as number, a3Designation: designation as string, a3MetisScale: metisScale as number,
+            a3Reinforced: reinforced as boolean, a3Reduced: reduced as boolean,
+            a3HigherFormation: higherFormation as string, a3AdditionalInfo: additionalInfo as string,
+        }),
+    }
 }
 
 export interface MapMarkerPreset {
