@@ -76,6 +76,10 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 #### /api/training/tickets/[id]/amend
 - **POST** — requests amendments on a pending ticket (requires `amendmentNotes`), sets status `amendments_requested`. Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTickets`. Side effects: `createNotification` to trainer, `logAction('training.ticket.amend')`.
 
+#### /api/nco-assessments
+- **GET** — the assessments the caller may see, each with `can` (the steps they may take), plus upcoming mission nights (`tooSoon` / `taken` / `mine`) and, for a J3 lead, the J3 members who can be assigned. `?operationId=` returns that night's booked assessments only (the attendance board's marker). **POST** `{ operationId, notes }` — the candidate's request; refused inside a week, on a taken night, or twice. Notifies J3 leads.
+- **PATCH `/api/nco-assessments/[id]`** `{ action, ... }` — one step, allowed by `canDo` and nothing else: `assign` (`assessorId`, re-checks the night is free), `confirm`, `requestShadow` (notifies the section's staff), `decideShadow` (`approve`), `sheet` (`sheetUrl`, `assessorNotes`, `outcome`), `recording` (`recordingUrl`), `complete`, `cancel`. Gate: dashboard access + `canDo`.
+
 #### /api/training/pre-learning
 - **GET** — the caller's pre-learning per training type: `state` (locked / open / done / expired), `count`, `expiresAt`, `completedAt`, and `material` **only while it is open to them** — this route is the lock. **POST** `{ trainingTypeId }` marks open pre-learning as done. Gate: dashboard access. `GET /api/training/types` strips `preLearning` for anyone who is not a J3 lead or trainer; `POST /api/training/events/[id]/attendance` calls `syncPreLearning` after every sign-up and cancellation, and sets `priority` on a waitlisted trainee who has earned it (promotion sorts `priority` first).
 

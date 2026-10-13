@@ -9,12 +9,13 @@ import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import EventsTab from './EventsTab'
+import AssessmentsTab from './AssessmentsTab'
 import RequestsTab from './RequestsTab'
 import TrainingVideosTab from './TrainingVideosTab'
 import { calculateSessionDates, SESSION_DEFS } from '@/lib/training/session-dates'
 
 const RED = '#db001d'
-type Tab = 'courses' | 'events' | 'requests' | 'guides' | 'videos'
+type Tab = 'courses' | 'events' | 'requests' | 'assessments' | 'guides' | 'videos'
 
 const CATEGORY_ORDER = ['Selection', 'Reinforcement Cycle', 'BCT', 'Medical', 'CQB', 'Fires', 'Aviation', 'Communications', 'Leadership', 'Special', 'Armoured', 'Proficiency']
 
@@ -304,6 +305,11 @@ function SortableTypeCard(props: {
 export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, isJ3Context = false, canApproveGuides = false }: { isJ3Lead: boolean; isTrainer: boolean; isJ3Trainer: boolean; myId: string; isJ3Context?: boolean; canApproveGuides?: boolean }) {
     const router = useRouter()
     const [tab, setTab] = useState<Tab>('courses')
+    // Notifications link straight to a tab (`?tab=assessments`).
+    useEffect(() => {
+        const wanted = new URLSearchParams(window.location.search).get('tab')
+        if (wanted === 'assessments' || wanted === 'events' || wanted === 'requests') setTab(wanted)
+    }, [])
     const [types, setTypes] = useState<TType[]>([])
     const [loading, setLoading] = useState(true)
     const [showInactive, setShowInactive] = useState(false)
@@ -1318,10 +1324,10 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
 
                 {/* Tab navigation */}
                 <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                    {(['courses', 'events', 'requests'] as Tab[]).map(t => (
+                    {(['courses', 'events', 'requests', 'assessments'] as Tab[]).map(t => (
                         <button key={t} type='button' onClick={() => setTab(t)}
                             style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === t ? RED : 'transparent'}`, color: tab === t ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: -1, transition: 'color 0.15s, border-color 0.15s' }}>
-                            {t === 'courses' ? 'Courses' : t === 'events' ? 'Events' : 'Requests'}
+                            {t === 'courses' ? 'Courses' : t === 'events' ? 'Events' : t === 'requests' ? 'Requests' : 'NCO Assessments'}
                         </button>
                     ))}
                     {isJ3Context && (
@@ -1532,6 +1538,9 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
 
             {/* Tab: Events */}
             {tab === 'events' && <EventsTab isJ3Lead={isJ3Lead} isTrainer={isTrainer} isJ3Trainer={isJ3Trainer} />}
+
+            {/* Tab: NCO assessments */}
+            {tab === 'assessments' && <AssessmentsTab />}
 
             {/* Tab: Requests */}
             {tab === 'requests' && <RequestsTab isJ3Lead={isJ3Lead} myId={myId} />}

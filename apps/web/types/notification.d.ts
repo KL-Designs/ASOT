@@ -50,6 +50,7 @@ type NotificationType =
     | 'training_event_rejected'     // Trainer: your event was rejected
     | 'training_event_cancelled'    // Attending members: event was cancelled
     | 'training_event_completed'    // Trainer: your event was marked complete (billet points awarded)
+    | 'nco_assessment'                // Anyone in an NCO assessment: requested, assigned, confirmed, shadow asked/decided, completed, cancelled
     | 'training_prelearning_unlocked' // Member: a seat (or a top-two waitlist place) opened a training's pre-learning
     | 'training_rsvp_promoted'      // Waitlisted member auto-promoted to attending
     | 'training_doc_submitted'          // J3 leads: trainer submitted a document for review
