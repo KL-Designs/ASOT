@@ -5,7 +5,8 @@ import { Readable } from 'stream'
 
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
-import { hasPermission } from '@/lib/orbat/hasPermission'
+import { canReviewCallsign } from '@/lib/gallery/callsign'
+import { reviewScope } from '@/lib/gallery/review-scope'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 import { isPublic } from '@/lib/gallery/status'
 import { parseRange } from '@/lib/gallery/range'
@@ -51,7 +52,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!isPublic(doc.status)) {
         if (doc.status !== 'pending' && doc.status !== 'processing') return new NextResponse('Not found', { status: 404 })
         const me = await client.fetchMe().catch(() => null)
-        const allowed = !!me && (me.id === doc.authorId || await hasPermission(me, 'gallery.review'))
+        // The author, J5, or the staff of the section it was filed under.
+        const allowed = !!me && (me.id === doc.authorId || canReviewCallsign(await reviewScope(me), doc.callsign))
         if (!allowed) return new NextResponse('Not found', { status: 404 })
     }
 

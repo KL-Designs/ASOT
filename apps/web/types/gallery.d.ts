@@ -84,6 +84,8 @@ declare global {
         authorId: string | null
         authorName: string | null
         caption: string | null
+        /** The section whose gallery this is filed under, if any. */
+        callsign: string | null
         tags: string[]
 
         width: number | null

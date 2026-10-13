@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import SubmitClient from './SubmitClient'
+import { memberCallsign } from '@/lib/gallery/review-scope'
 
 /**
  * Gated on `gallery.submit`, which has no Discord-role fallback and no legacy
@@ -15,5 +16,10 @@ export default async function Page() {
     if (!me) redirect('/login')
     if (!await hasPermission(me, 'gallery.submit')) redirect('/gallery')
 
-    return <SubmitClient authorName={me.guild?.displayName || me.globalName || me.username} />
+    return (
+        <SubmitClient
+            authorName={me.guild?.displayName || me.globalName || me.username}
+            callsign={await memberCallsign(me.id)}
+        />
+    )
 }

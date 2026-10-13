@@ -93,6 +93,12 @@ export default function SubmissionRow({ item, tags, operations, saveState, busy,
             </div>
 
             <div className={s.fields}>
+                {item.callsign && (
+                    <div className={s.wide} style={{ fontSize: '0.72rem', letterSpacing: '0.08em', textTransform: 'uppercase', opacity: 0.7 }}>
+                        Filed under the {item.callsign} gallery
+                    </div>
+                )}
+
                 {item.processingError && (
                     <div className={`${s.warn} ${s.wide}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                         <Warning sx={{ fontSize: 16, flexShrink: 0, marginTop: '1px' }} />

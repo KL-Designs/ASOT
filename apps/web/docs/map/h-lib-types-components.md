@@ -76,6 +76,10 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/military/bio-approval.ts
 - Pure `bioApproversFor(memberId, positions)` — who approves a MILPAC biography change: the member's platoon HQ, else company HQ, else J4 (`isHeadquartersSection`, `BIO_LEVEL_LABEL`, `BIO_MAX_LENGTH`). Unit-tested. `POST /api/me { content }` stores the edit as `User.bioPending` (with the resolved approvers) instead of publishing; `/api/milpac/bio-approvals` approves or sends it back (`User.bioRejected`).
 
+### lib/gallery/callsign.ts + review-scope.ts
+- `callsign.ts` (pure, `callsign.test.ts`) — `callsignOf(positions, userId)` (the section a member may file under: only their own), `staffedCallsigns` / `callsignStaff` (section staff = `isSenior` positions), and the `ReviewScope` checks `canReviewAnything` / `canReviewCallsign`.
+- `review-scope.ts` — the ORBAT reads behind them: `reviewScope(me)`, `memberCallsign(userId)`, `staffOfCallsign(callsign)`. Every gallery route that reviews or previews a pending item asks here.
+
 ### lib/gallery/focal.ts
 - Pure `clampFocal()` / `focalPosition(sotm)` — the Screenshot of the Month's focal point (`focalX`/`focalY` percentages on the `screenshotOfMonth` siteSettings doc) as a CSS `object-position`. Used by `PATCH /api/gallery/sotm`, the home hero, the gallery banner, the join masthead (via `Masthead`'s `backgroundPosition`) and the J5 `FocalPicker`. Unit-tested.
 

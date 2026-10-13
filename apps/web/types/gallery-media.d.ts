@@ -83,6 +83,14 @@ declare global {
         authorName?: string
 
         caption?: string
+        /**
+         * The section this was filed under ("1-1 Alpha"), when the submitter
+         * chose to put it in their callsign's gallery. Always their own
+         * section, resolved from the ORBAT at submission. It widens who may
+         * review the item — that section's staff as well as J5 — and is a
+         * public facet once it is live. See lib/gallery/callsign.ts.
+         */
+        callsign?: string
         /** `gallery_tags` slugs. */
         tags: string[]
 

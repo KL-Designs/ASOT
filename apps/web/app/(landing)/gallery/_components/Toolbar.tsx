@@ -7,7 +7,7 @@ import {
     SearchIcon, ChevronDown, CrossSmall,
     MasonryIcon, SheetIcon, GroupedIcon,
 } from './icons'
-import type { Facet, Filters } from '../gallery-data'
+import { FACETS, type Facet, type Filters } from '../gallery-data'
 import s from '@/styles/gallery.module.css'
 
 export type GridView = 'masonry' | 'uniform' | 'grouped'
@@ -45,7 +45,7 @@ const MEDIA: { value: Filters['media'], label: string }[] = [
 export default function Toolbar({
     filters, total, shown, sort, view,
     onSearch, onSort, onView, onMedia, onRemove, onClear,
-    labelFor, canSubmit,
+    labelFor, canSubmit, canReviewCallsign,
 }: {
     filters: Filters
     /** Everything in the archive. */
@@ -63,13 +63,16 @@ export default function Toolbar({
     /** Operations are stored with an ordering prefix nothing should print, and
      *  tags are stored as slugs — everything else is already display text. */
     labelFor: (facet: Facet, value: string) => string
+    /** Section staff with a callsign queue of their own. J5 review from their
+     *  dashboard tab instead, so this is false for them. */
+    canReviewCallsign: boolean
     /** Whether the viewer holds `gallery.submit`. Nothing renders for a member
      *  without it — a dead control is worse than an absent one. */
     canSubmit: boolean
 }) {
     const pills: { facet: Facet | 'q', value: string, label: string }[] = []
     if (filters.q) pills.push({ facet: 'q', value: '', label: `“${filters.q}”` })
-    for (const facet of ['year', 'operation', 'mission', 'tag', 'author'] as const) {
+    for (const facet of FACETS) {
         for (const value of filters[facet]) pills.push({ facet, value, label: labelFor(facet, value) })
     }
 
@@ -135,6 +138,7 @@ export default function Toolbar({
 
                     {/* Nothing renders for a member without the key — see the
                         prop's own comment. */}
+                    {canReviewCallsign && <Button variant='ghost' size='sm' href='/gallery/review'>Review submissions</Button>}
                     {canSubmit && <Button variant='red' size='sm' href='/gallery/submit'>Submit media</Button>}
                 </div>
             </div>

@@ -52,6 +52,8 @@ export function useGalleryData() {
        needs exactly that, not the submit key itself. */
     const [canVote, setCanVote] = useState(false)
     const [canSubmit, setCanSubmit] = useState(false)
+    // Section staff with a callsign queue. J5 have their dashboard tab.
+    const [canReviewCallsign, setCanReviewCallsign] = useState(false)
 
     useEffect(() => {
         fetch('/api/gallery')
@@ -80,6 +82,11 @@ export function useGalleryData() {
         fetch('/api/gallery/vote')
             .then(res => res.json())
             .then(json => setVotes(json.votes ?? {}))
+            .catch(() => { })
+
+        fetch('/api/gallery/submissions/scope')
+            .then(res => res.ok ? res.json() : null)
+            .then(json => setCanReviewCallsign(!!json && !json.all && json.callsigns?.length > 0))
             .catch(() => { })
 
         fetch('/api/me/permission?key=gallery.submit')
@@ -154,5 +161,5 @@ export function useGalleryData() {
     // `votes` and `canVote` are deliberately not returned: nothing outside
     // this hook needs the raw state, only what `toLightboxItem` builds from
     // it, and returning them anyway would be an API surface with no caller.
-    return { items, featured, sotm, tags, canSubmit, applyVote, toLightboxItem }
+    return { items, featured, sotm, tags, canSubmit, canReviewCallsign, applyVote, toLightboxItem }
 }

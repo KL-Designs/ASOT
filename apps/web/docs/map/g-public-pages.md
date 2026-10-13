@@ -316,6 +316,17 @@ tick this"; `sortPhotos`, `groupByOperation`, `archiveStats`.
 - `Lightbox.tsx` — generic over archive photo / featured shot / SOTM. Download + copy link.
 - `icons.tsx` — the line icon set, kept off MUI so the toolbar reads as one kit.
 
+#### Callsign galleries
+A member can file a submission under their own section ("1-1 Alpha") — a checkbox on the submit page,
+shown only to somebody who holds a position in a section. The request says yes or no; **which**
+callsign is read from the ORBAT server-side. It is stored as `GalleryMedia.callsign` and becomes a
+public **By callsign** facet in the rail once live (`/gallery?callsign=1-1%20Alpha` opens filtered, and
+the public ORBAT's section header links there once the section has live media).
+Review is J5 (`gallery.review`) **or that section's staff** (holders of an `isSenior` position in it):
+`app/(landing)/gallery/review/page.tsx` mounts the J5 `SubmissionsTab` for them, the toolbar shows
+*Review submissions* to section staff, and they are notified (`gallery_callsign_submission`) once per
+batch. Rules in `lib/gallery/callsign.ts` (pure, tested), ORBAT reads in `lib/gallery/review-scope.ts`.
+
 #### app/(landing)/gallery/submit/
 Gated on `gallery.submit` (`page.tsx`: login first, then the key — no Discord-role arm, so it is
 false for everyone until granted in the Roles Manager).

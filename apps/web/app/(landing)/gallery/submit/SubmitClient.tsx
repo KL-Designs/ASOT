@@ -115,7 +115,7 @@ function revokeThumb(draft: Draft) {
 
 /** Builds the request body for one draft. Shared between the initial submit
  *  and a Retry, so the two can never disagree about what a draft sends. */
-function buildJob(draft: Draft, batchId: string, batchOperationId: string): UploadJob {
+function buildJob(draft: Draft, batchId: string, batchOperationId: string, underCallsign: boolean): UploadJob {
     const operationId = draft.operationId ?? batchOperationId
 
     if (draft.file) {
@@ -125,6 +125,8 @@ function buildJob(draft: Draft, batchId: string, batchOperationId: string): Uplo
         form.set('caption', draft.caption)
         form.set('tags', JSON.stringify(draft.tags))
         form.set('operationId', operationId)
+        // Only "yes": the server reads which callsign from the ORBAT.
+        if (underCallsign) form.set('callsign', '1')
         return { localId: draft.localId, body: form }
     }
 
@@ -137,6 +139,7 @@ function buildJob(draft: Draft, batchId: string, batchOperationId: string): Uplo
                 caption: draft.caption,
                 tags: draft.tags,
                 operationId,
+                ...(underCallsign ? { callsign: true } : {}),
             },
         },
     }
@@ -159,8 +162,14 @@ function describeRow(local: UploadState | undefined, server: ServerStatus | unde
     return { label: 'Processing', tone: 'progress' }
 }
 
-export default function SubmitClient({ authorName }: { authorName: string }) {
+export default function SubmitClient({ authorName, callsign }: {
+    authorName: string
+    /** The member's own section, if they hold a position in one. */
+    callsign: string | null
+}) {
     const [operations, setOperations] = useState<Operation[]>([])
+    // Whether this batch also goes in the member's callsign gallery.
+    const [underCallsign, setUnderCallsign] = useState(false)
     const [tags, setTags] = useState<Tag[]>([])
 
     const [drafts, setDrafts] = useState<Draft[]>([])
@@ -388,14 +397,14 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
         setBatchId(newBatchId)
         setPhase('uploading')
 
-        const jobs = drafts.map(d => buildJob(d, newBatchId, opDefault))
+        const jobs = drafts.map(d => buildJob(d, newBatchId, opDefault, underCallsign))
         await runUploads({
             jobs,
             concurrency: 2,
             send: trackedSend,
             onChange: (localId, state) => setUploadState(prev => ({ ...prev, [localId]: state })),
         })
-    }, [drafts, phase, batchOperationId, trackedSend])
+    }, [drafts, phase, batchOperationId, trackedSend, underCallsign])
 
     const retry = useCallback(async (localId: string) => {
         const draft = drafts.find(d => d.localId === localId)
@@ -408,12 +417,12 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
         setPollGen(g => g + 1)
 
         await runUploads({
-            jobs: [buildJob(draft, batchId, batchOperationId ?? 'unknown')],
+            jobs: [buildJob(draft, batchId, batchOperationId ?? 'unknown', underCallsign)],
             concurrency: 1,
             send: trackedSend,
             onChange: (id, state) => setUploadState(prev => ({ ...prev, [id]: state })),
         })
-    }, [drafts, batchId, batchOperationId, trackedSend])
+    }, [drafts, batchId, batchOperationId, trackedSend, underCallsign])
 
     const submitMore = useCallback(() => {
         // The cards stayed mounted with their thumbs right up to this reset —
@@ -490,6 +499,25 @@ export default function SubmitClient({ authorName }: { authorName: string }) {
                                 {operations.map(op => <option key={op.id} value={op.id}>{op.title}</option>)}
                             </select>
                         </div>
+
+                        {callsign && (
+                            <div className={s.subField}>
+                                <span className={s.subFieldLabel}>Callsign</span>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.85rem' }}>
+                                    <input
+                                        type='checkbox'
+                                        checked={underCallsign}
+                                        onChange={e => setUnderCallsign(e.target.checked)}
+                                    />
+                                    Also file this under the {callsign} gallery
+                                </label>
+                                {underCallsign && (
+                                    <span style={{ fontSize: '0.75rem', opacity: 0.6 }}>
+                                        J5 or {callsign} staff approve it before it goes live.
+                                    </span>
+                                )}
+                            </div>
+                        )}
 
                         {tags.length > 0 && (
                             <div className={s.subField}>

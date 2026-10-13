@@ -149,6 +149,7 @@ export async function GET() {
         authorId: m.authorId ?? null,
         authorName: m.authorName ?? null,
         caption: m.caption ?? null,
+        callsign: m.callsign ?? null,
         tags: m.tags ?? [],
 
         width: m.width ?? null,
