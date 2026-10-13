@@ -1,6 +1,6 @@
-import { CalendarToday } from '@mui/icons-material'
+import { CalendarToday, ReportProblemOutlined } from '@mui/icons-material'
 import Avatar from '@/components/member/avatar'
-import { Badge, Grid2, PageHead, Stack } from '@/components/dashboard'
+import { Badge, Button, Grid2, PageHead, Stack } from '@/components/dashboard'
 import s from '@/styles/dashboard.module.css'
 
 import BioCard from './_components/BioCard'
@@ -64,12 +64,23 @@ export default function ProfileScreen({
                 on your own profile the avatar *is* the heading. */}
             <PageHead
                 title={displayName}
-                right={joined ? (
-                    <span className={s.hint} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        <CalendarToday style={{ fontSize: 11 }} />
-                        Joined {joined}
+                right={(
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        {joined && (
+                            <span className={s.hint} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                <CalendarToday style={{ fontSize: 11 }} />
+                                Joined {joined}
+                            </span>
+                        )}
+                        {/* Something on this page wrong — rank, name, a missing
+                            award? This opens the MILPAC ticket form with the
+                            member already filled in, rather than leaving them
+                            to find the right one of six ticket types. */}
+                        <Button variant='ghost' size='sm' href='/tickets/new?type=bug-milpac&self=1'>
+                            <ReportProblemOutlined style={{ fontSize: 13 }} /> Report an issue
+                        </Button>
                     </span>
-                ) : null}
+                )}
             >
                 <div className='flex items-center gap-4' style={{ minWidth: 0 }}>
                     <div className='relative shrink-0' style={{ width: 62, height: 62 }}>

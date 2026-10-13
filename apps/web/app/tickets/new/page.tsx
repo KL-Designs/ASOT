@@ -368,6 +368,42 @@ export default function NewTicketPage() {
         } catch { /* ignore */ }
     }, [])
 
+    /*
+       Deep links: `/tickets/new?type=bug-milpac&self=1`.
+
+       `type` is a subtype from SUBTYPES and opens the form on it directly;
+       `self=1` puts the reader in the "member affected" field. That is what the
+       "Report an issue" button on My Profile uses, and what lets other pages
+       link straight to the right form instead of to a six-card picker.
+
+       Read off `window.location` in an effect rather than with
+       `useSearchParams`: this page is statically rendered, and the hook would
+       need a Suspense boundary around the whole form to be allowed there.
+       Declared after the draft effect so a deep link wins over a saved draft.
+    */
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        const type = params.get('type')
+        if (!type) return
+        const cat = Object.keys(SUBTYPES).find(c => SUBTYPES[c].some(st => st.value === type))
+        if (!cat) return
+
+        setDisplayCat(cat)
+        setSubtype(type)
+        setStep('form')
+
+        if (params.get('self') !== '1') return
+        // The member picker works in display names, built by
+        // /api/community/members; match on id so the name is exactly its.
+        Promise.all([
+            fetch('/api/me').then(r => r.ok ? r.json() : null),
+            fetch('/api/community/members').then(r => r.ok ? r.json() : null),
+        ]).then(([me, list]) => {
+            const mine = (list?.members as { id: string; displayName: string }[] | undefined)?.find(m => m.id === me?.id)
+            if (mine) setMilpacMembers([mine.displayName])
+        }).catch(() => { /* the field just stays empty */ })
+    }, [])
+
     const saveDraft = useCallback(() => {
         if (!displayCat) return
         try {
