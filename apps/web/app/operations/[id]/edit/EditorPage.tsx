@@ -133,6 +133,8 @@ export default function EditorPage() {
     const [ordersCheckTask, setOrdersCheckTask]             = useState<null | { _id?: string; status: string; ordersCheckAt?: string; ordersCheckStatus?: string; ordersCheckProposedAt?: string; ordersCheckProposedBy?: string }>(null)
 
     const [assignedPlatoons, setAssignedPlatoons] = useState<string[]>([])
+    // Which support-platoon crew the operation uses. 'both' until chosen.
+    const [supportCrew, setSupportCrew] = useState<'saturday' | 'sunday' | 'both'>('both')
     const [discordPingEnabled, setDiscordPingEnabled] = useState(false)
     const [discordPingRoles, setDiscordPingRoles] = useState<string[]>([])
     const [rsvpOpen, setRsvpOpen] = useState(false)
@@ -382,6 +384,7 @@ export default function EditorPage() {
             .then(json => {
                 if (json.error) return
                 setAssignedPlatoons(json.assignedPlatoons ?? [])
+                setSupportCrew(json.supportCrew ?? 'both')
                 setDiscordPingEnabled(json.discordPingEnabled ?? false)
                 setDiscordPingRoles(json.discordPingRoles ?? [])
                 setRsvpOpen(json.rsvpOpen ?? false)
@@ -464,6 +467,7 @@ export default function EditorPage() {
 
     async function saveAttendanceSettings(updates: {
         assignedPlatoons?: string[]
+        supportCrew?: 'saturday' | 'sunday' | 'both'
         discordPingEnabled?: boolean
         discordPingRoles?: string[]
         rsvpOpen?: boolean
@@ -479,6 +483,7 @@ export default function EditorPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     assignedPlatoons: updates.assignedPlatoons ?? assignedPlatoons,
+                    supportCrew: updates.supportCrew ?? supportCrew,
                     discordPingEnabled: updates.discordPingEnabled ?? discordPingEnabled,
                     discordPingRoles: updates.discordPingRoles ?? discordPingRoles,
                     reservistAssignments: [],
@@ -598,6 +603,11 @@ export default function EditorPage() {
             : [...assignedPlatoons, id]
         setAssignedPlatoons(updated)
         saveAttendanceSettings({ assignedPlatoons: updated })
+    }
+
+    function handleChangeSupportCrew(crew: 'saturday' | 'sunday' | 'both') {
+        setSupportCrew(crew)
+        saveAttendanceSettings({ supportCrew: crew })
     }
 
     function handleTogglePing() {
@@ -1041,6 +1051,8 @@ export default function EditorPage() {
                             platoons={PLATOON_OPTS}
                             selected={assignedPlatoons}
                             onToggle={handleTogglePlatoon}
+                            supportCrew={supportCrew}
+                            onChangeSupportCrew={handleChangeSupportCrew}
                             customUnits={customUnits}
                             onAddCustomUnit={addCustomUnit}
                             onRemoveCustomUnit={removeCustomUnit}

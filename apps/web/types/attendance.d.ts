@@ -31,6 +31,13 @@ declare global {
         _id: ObjectId
         operationId: ObjectId
         assignedPlatoons: string[]  // e.g. ['platoon11', 'platoon12', 'support']
+        /**
+         * Which of the support platoon's crews this operation uses, when
+         * 'support' is assigned: only 1-3 slots tagged for that night (or for
+         * both) are cut into the roster. Absent or 'both' takes every slot.
+         * See `onCrew` in lib/attendance/roster.ts.
+         */
+        supportCrew?: 'saturday' | 'sunday' | 'both'
         records: OperationAttendanceRecord[]
         reservistAssignments: {     // reservists temporarily assigned to a section for this op
             userId: string

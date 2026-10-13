@@ -68,6 +68,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/gallery/focal.ts
 - Pure `clampFocal()` / `focalPosition(sotm)` — the Screenshot of the Month's focal point (`focalX`/`focalY` percentages on the `screenshotOfMonth` siteSettings doc) as a CSS `object-position`. Used by `PATCH /api/gallery/sotm`, the home hero, the gallery banner, the join masthead (via `Masthead`'s `backgroundPosition`) and the J5 `FocalPicker`. Unit-tested.
 
+### lib/attendance/roster.ts — `onCrew`
+- `onCrew(position, crew)` — whether an ORBAT slot is on an operation using a given support-platoon crew. Support (1-3) slots carry `OrbatPosition.night` (`saturday`/`sunday`, absent = both; set by cycling the SAT/SUN chip in the ORBAT manager, `PATCH /api/admin/orbat/[positionId] { night }`), and an operation stores `OperationAttendance.supportCrew` (chosen in the editor's Attendance tab when 1-3 is ticked). Applied when the roster is cut (`lib/attendance/snapshot.ts`) and in the legacy position read in `GET /api/operations/[id]/attendance`. Tested in `crew.test.ts`.
+
 ### lib/training/bct-availability.ts
 - `clearBctAvailabilityIfDone(discordId)` — once a member holds both `BCT 1` and `BCT 2` (`hasCompletedBct`, pure + tested), deletes their upcoming `isBCTAvailability` calendar events (`applicantId` = their Discord id). Never throws. Called from `award-qualifications` and from `j3-qualification` ticket approval. Collections: `Db.users`, `Db.calendarEvents`.
 

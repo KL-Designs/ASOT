@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { createAttendanceTasksForOperation } from '@/lib/attendance/tasks'
 import { toBoardUser } from '@/lib/attendance/board-user'
+import { onCrew } from '@/lib/attendance/roster'
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
@@ -68,10 +69,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             return { category: m.category, sectionTitle: m.sectionTitle ?? null, color, patch: m.patch }
         })
 
-        const positions = await Db.orbatPositions
+        // Support slots tagged for the other night are not part of this
+        // operation — the same rule the roster snapshot applies.
+        const positions = (await Db.orbatPositions
             .find({ category: { $in: categoriesToFetch }, userId: { $ne: null } })
             .sort({ sectionOrder: 1, positionOrder: 1 })
-            .toArray()
+            .toArray())
+            .filter(p => onCrew(p, attendance?.supportCrew))
 
         // Sort positions by our preferred category order, preserving sectionOrder within each category
         positions.sort((a, b) => {
@@ -104,10 +108,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         }
 
         // All positions (including vacant) for role dropdowns
-        const allSectionPositions = await Db.orbatPositions
+        const allSectionPositions = (await Db.orbatPositions
             .find({ category: { $in: categoriesToFetch } })
             .sort({ sectionOrder: 1, positionOrder: 1 })
-            .toArray()
+            .toArray())
+            .filter(p => onCrew(p, attendance?.supportCrew))
         for (const pos of allSectionPositions) {
             const key = pos.sectionTitle
             if (!sectionRolesMap[key]) sectionRolesMap[key] = []

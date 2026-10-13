@@ -18,6 +18,10 @@ interface Props {
     platoons: { id: string; label: string; color?: string }[]
     selected: string[]
     onToggle: (id: string) => void
+    /** Which support-platoon crew is on this operation; asked only while the
+     *  support platoon is ticked. */
+    supportCrew: 'saturday' | 'sunday' | 'both'
+    onChangeSupportCrew: (crew: 'saturday' | 'sunday' | 'both') => void
 
     customUnits: { id: string; name: string; color?: string }[]
     onAddCustomUnit: (name: string, color?: string) => void
@@ -100,7 +104,7 @@ function dotStyle(background: string): CSSProperties {
  */
 export default function AttendanceTab({
     opID, status,
-    platoons, selected, onToggle,
+    platoons, selected, onToggle, supportCrew, onChangeSupportCrew,
     customUnits, onAddCustomUnit, onRemoveCustomUnit, customUnitsSaving,
     discordPingEnabled, onTogglePing, discordPingRoles, onChangeDiscordPingRoles,
     ackCount, ackList,
@@ -256,6 +260,34 @@ export default function AttendanceTab({
                             + Custom Unit
                         </button>
                     </div>
+
+                    {/* 1-3 is split across the two nights. Ticking it asks which
+                        crew this operation is for; only the 1-3 slots tagged for
+                        that night (in the ORBAT) are cut into the board. */}
+                    {selected.includes('support') && (
+                        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                                1-3 crew
+                            </span>
+                            <div role='radiogroup' aria-label='Support platoon crew' style={{ display: 'flex', gap: 4 }}>
+                                {([['saturday', 'Saturday crew'], ['sunday', 'Sunday crew'], ['both', 'Both']] as const).map(([value, text]) => (
+                                    <button
+                                        key={value}
+                                        type='button'
+                                        role='radio'
+                                        aria-checked={supportCrew === value}
+                                        onClick={() => onChangeSupportCrew(value)}
+                                        style={chipStyle(supportCrew === value, platoons.find(p => p.id === 'support')?.color)}
+                                    >
+                                        {text}
+                                    </button>
+                                ))}
+                            </div>
+                            <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                                Changes which 1-3 slots are on the board the next time the roster is taken, or when you rebuild it below.
+                            </span>
+                        </div>
+                    )}
 
                     {canManageAttendance && (
                         <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>

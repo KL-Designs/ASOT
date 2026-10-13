@@ -337,6 +337,29 @@ export function snapshotCategories(assignedPlatoons: string[]): string[] {
     return CATEGORY_ORDER.filter(c => assigned.has(c))
 }
 
+export type SupportCrew = 'saturday' | 'sunday' | 'both'
+
+/**
+ * Whether an ORBAT slot belongs on an operation that is using `crew`.
+ *
+ * The support platoon (1-3) is one platoon on the ORBAT but two crews in
+ * practice — some slots play Saturday, some Sunday, some both. Each slot
+ * carries its night; an operation says which crew it wants. A slot is left off
+ * only when it is a support slot, tagged for one night, and the operation
+ * wants the other.
+ *
+ * Everything else is always on: slots outside the support platoon (the tag
+ * means nothing there, even if one was set by mistake), support slots with no
+ * tag, and every slot when the operation has not chosen a crew.
+ */
+export function onCrew(
+    position: { category: string; night?: 'saturday' | 'sunday' | null },
+    crew: SupportCrew | undefined,
+): boolean {
+    if (position.category !== 'support' || !position.night) return true
+    return !crew || crew === 'both' || position.night === crew
+}
+
 /**
  * Flatten the ORBAT into the order the board reads in: category, then section,
  * then position within the section.

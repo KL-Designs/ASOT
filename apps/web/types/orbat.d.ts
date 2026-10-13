@@ -17,6 +17,13 @@ declare global {
         positionOrder: number
         isSenior?: boolean
         subTitle?: string
+        /**
+         * Which night this slot plays. Only meaningful in the support platoon
+         * (1-3), whose crews are split across Saturday and Sunday. Belongs to
+         * the slot — not the section, not the member — so whoever fills the
+         * slot inherits its night. Absent means both nights.
+         */
+        night?: 'saturday' | 'sunday' | null
     }
 
     interface OrbatPositionWithUser extends OrbatPosition {

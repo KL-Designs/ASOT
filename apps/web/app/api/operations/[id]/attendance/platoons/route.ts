@@ -43,6 +43,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const body: {
         assignedPlatoons: string[]
+        /** Which support-platoon crew this operation uses. Omitted = unchanged. */
+        supportCrew?: 'saturday' | 'sunday' | 'both'
         reservistAssignments: { userId: string; sectionTitle: string }[]
         rsvpOpen?: boolean
         confirmationOpen?: boolean
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const setFields: Record<string, unknown> = {
         assignedPlatoons: body.assignedPlatoons ?? [],
         reservistAssignments: body.reservistAssignments ?? [],
+        ...(['saturday', 'sunday', 'both'].includes(body.supportCrew as string) && { supportCrew: body.supportCrew }),
         ...(resolvedRsvpOpen !== undefined && { rsvpOpen: resolvedRsvpOpen }),
         ...(body.confirmationOpen !== undefined && { confirmationOpen: body.confirmationOpen }),
         ...(openOffset !== undefined && openOffset !== null && { rsvpOpenOffsetMins: openOffset }),
