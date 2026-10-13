@@ -1132,6 +1132,49 @@ export default function MasterSheetTab() {
 
     const clearAll = useCallback(() => setPendingChanges(new Map()), [])
 
+    /*
+       Leaving with unapplied changes.
+
+       Edits here are staged, not saved — nothing is written until Apply
+       Changes is confirmed — so walking away from the page silently threw a
+       session's worth of them away. Two ways out are covered, because they are
+       different mechanisms:
+
+       - closing or reloading the tab fires `beforeunload`, where the browser
+         shows its own "leave site?" prompt;
+       - clicking a link elsewhere in the site is a client-side navigation that
+         never fires it, so link clicks are caught on the way down (capture
+         phase, before Next's own handler) and confirmed first.
+
+       Both are only attached while there is something to lose.
+    */
+    const hasPending = pendingChanges.size > 0
+    useEffect(() => {
+        if (!hasPending) return
+
+        const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+
+        const onClick = (e: MouseEvent) => {
+            // A modified click opens a new tab; this page stays where it is.
+            if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+            const link = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+            if (!link || link.target === '_blank' || link.hasAttribute('download')) return
+            const url = new URL(link.href, window.location.href)
+            if (url.origin === window.location.origin && url.pathname === window.location.pathname) return
+            if (!window.confirm('You have mastersheet changes that have not been applied. Leave this page and discard them?')) {
+                e.preventDefault()
+                e.stopPropagation()
+            }
+        }
+
+        window.addEventListener('beforeunload', onBeforeUnload)
+        document.addEventListener('click', onClick, true)
+        return () => {
+            window.removeEventListener('beforeunload', onBeforeUnload)
+            document.removeEventListener('click', onClick, true)
+        }
+    }, [hasPending])
+
     function switchTab(t: FullTab) {
         setActiveTab(t)
         if (t !== 'recycle') setActiveSub(t as MastersheetSubTab)
