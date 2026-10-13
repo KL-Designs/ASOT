@@ -31,6 +31,36 @@ export interface MemberSyncReport {
 // stays responsible for loading the catalogs, reading actual state, and
 // diffing the two.
 import { grantBundlesFor, type GrantBundle, type GrantCatalog } from './grant-bundles'
+// What a member's MILPAC owes them on TeamSpeak — rank, awards, campaigns,
+// certifications. Also pure; this file supplies the live group list and links.
+import { buildResolver, milpacBundles, milpacSubject, type MilpacResolver } from '@/lib/teamspeak/milpac-groups'
+
+/**
+ * Every TeamSpeak group the sync may take away from this member: the ones a
+ * department, ORBAT role or section carries, plus the rank groups. Awards,
+ * campaigns and certifications are deliberately absent — see milpac-groups.ts.
+ *
+ * Rank groups are only included for a member whose own rank resolves to a
+ * group. Somebody with no rank on their MILPAC, or a rank nothing is mapped
+ * to, would otherwise have every rank group they hold read as "extra" and be
+ * stripped to nothing — the site not knowing a rank is not a reason to remove
+ * the one TeamSpeak has.
+ */
+function managedTsIds(
+    departmentRoles: DepartmentRole[],
+    orbatRoles: OrbatRole[],
+    orbatSectionMeta: OrbatSectionMeta[],
+    resolver: MilpacResolver,
+    rank: string | null | undefined,
+): Set<number> {
+    const rankKnown = !!rank && resolver.groupIds('rank', rank).length > 0
+    return new Set<number>([
+        ...departmentRoles.flatMap(r => r.tsGroupIds),
+        ...orbatRoles.flatMap(r => r.tsGroupIds),
+        ...orbatSectionMeta.map(m => m.tsGroupId).filter((id): id is number => typeof id === 'number'),
+        ...(rankKnown ? resolver.rankGroupIds : []),
+    ])
+}
 
 /** Merges every contributing bundle into one expected-ID set per grant type,
  *  keeping a list of every source that contributed each ID (a Discord role
@@ -72,7 +102,7 @@ function diffIds<T extends string | number>(
 
     const extra: GrantDetail[] = [...actual]
         .filter(id => managed.has(id) && !expected.has(id))
-        .map(id => ({ id, name: nameById.get(id) ?? String(id), source: 'Not expected from any current department or ORBAT role' }))
+        .map(id => ({ id, name: nameById.get(id) ?? String(id), source: 'Not expected from any current department, ORBAT role or rank' }))
 
     return { missing, extra }
 }
@@ -95,18 +125,24 @@ export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
     // TeamSpeak clients page, so relying on it here left group names showing
     // as raw sgid numbers whenever this ran before either had populated it.
     let tsGroupNameById = new Map<number, string>()
+    let tsGroups: { id: number; name: string }[] = []
     try {
         const ts = await getConnection()
         const allGroups = await ts.serverGroupList()
-        tsGroupNameById = new Map(allGroups.map(g => [Number(g.sgid), g.name]))
+        tsGroups = allGroups.map(g => ({ id: Number(g.sgid), name: g.name }))
+        tsGroupNameById = new Map(tsGroups.map(g => [g.id, g.name]))
     } catch {
         tsAvailable = false
     }
 
-    const [users, departmentRoles, orbatRoles, orbatPositions, orbatSectionMeta, guildMembers] = await Promise.all([
+    const [users, departmentRoles, orbatRoles, orbatPositions, orbatSectionMeta, guildMembers, tsLinks] = await Promise.all([
         Db.users.find({ discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
-            .project<Pick<User, 'id' | 'name' | 'globalName' | 'username' | 'avatarURL' | 'guild' | 'departments' | 'departmentRoleIds' | 'teamspeak'>>(
-                { id: 1, name: 1, globalName: 1, username: 1, avatarURL: 1, guild: 1, departments: 1, departmentRoleIds: 1, teamspeak: 1 },
+            .project<Pick<User, 'id' | 'name' | 'globalName' | 'username' | 'avatarURL' | 'guild' | 'departments' | 'departmentRoleIds' | 'teamspeak' | 'milpac'>>(
+                {
+                    id: 1, name: 1, globalName: 1, username: 1, avatarURL: 1, guild: 1, departments: 1, departmentRoleIds: 1, teamspeak: 1,
+                    // Only what milpacSubject reads — a whole MILPAC per member is a lot to load for four lists.
+                    'milpac.currentRank': 1, 'milpac.awards.name': 1, 'milpac.operations.name': 1, 'milpac.qualifications.qualification': 1,
+                },
             )
             .toArray(),
         Db.departmentRoles.find({}).toArray(),
@@ -114,17 +150,14 @@ export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
         Db.orbatPositions.find({ userId: { $ne: null } }).toArray(),
         Db.orbatSectionMeta.find({}).toArray(),
         fetchAllGuildMembers(),
+        Db.tsGroupLinks.find({}).toArray(),
     ])
+    const milpacResolver = buildResolver(tsGroups, tsLinks)
 
     const managedDiscordIds = new Set<string>([
         ...departmentRoles.flatMap(r => r.discordRoleIds),
         ...orbatRoles.flatMap(r => r.discordRoleIds),
         ...orbatSectionMeta.map(m => m.discordRoleId).filter((id): id is string => !!id),
-    ])
-    const managedTsGroupIds = new Set<number>([
-        ...departmentRoles.flatMap(r => r.tsGroupIds),
-        ...orbatRoles.flatMap(r => r.tsGroupIds),
-        ...orbatSectionMeta.map(m => m.tsGroupId).filter((id): id is number => typeof id === 'number'),
     ])
 
     const guildRoleMap = new Map(guildMembers.map(m => [m.userId, new Set(m.roleIds)]))
@@ -146,15 +179,24 @@ export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
     }
 
     async function buildEntry(user: typeof users[number]): Promise<MemberSyncEntry> {
-        const { discordIds, tsIds, discordSource, tsSource } = mergeBundles(bundlesFor(user))
-
         const actualDiscord = guildRoleMap.get(user.id) ?? new Set<string>()
         const cldbid = user.teamspeak?.cldbid
         const actualTs = (cldbid && tsAvailable) ? new Set(await getClientServerGroupIds(cldbid)) : new Set<number>()
 
+        // The MILPAC bundles need to know what is already held, to leave a
+        // member wearing an accepted variant of their rank alone.
+        const { discordIds, tsIds, discordSource, tsSource } = mergeBundles([
+            ...bundlesFor(user),
+            ...milpacBundles(milpacSubject(user.milpac), milpacResolver, actualTs),
+        ])
+
         const discordDiff = diffIds(discordIds, managedDiscordIds, actualDiscord, discordSource, roleNameById)
         const teamspeakDiff = (cldbid && tsAvailable)
-            ? diffIds(tsIds, managedTsGroupIds, actualTs, tsSource, tsGroupNameById)
+            ? diffIds(
+                tsIds,
+                managedTsIds(departmentRoles, orbatRoles, orbatSectionMeta, milpacResolver, user.milpac?.currentRank),
+                actualTs, tsSource, tsGroupNameById,
+            )
             : { missing: [], extra: [] }
 
         const onRoster = (user.departments?.length ?? 0) > 0 || positionByUserId.has(user.id)
@@ -178,6 +220,92 @@ export async function computeMemberSyncReport(): Promise<MemberSyncReport> {
         offRoster: entries.filter(e => !e.onRoster),
         tsAvailable,
     }
+}
+
+export interface MemberTsSyncResult {
+    skipped: boolean
+    reason?: string
+    granted: number
+    revoked: number
+}
+
+/**
+ * Bring ONE member's TeamSpeak groups into line, now.
+ *
+ * `computeMemberSyncReport` answers for the whole unit and has to fetch every
+ * guild member and every client's groups to do it — right for the Member Sync
+ * tab, far too heavy to run each time somebody's rank changes. This is the
+ * same rules for a single member, TeamSpeak only: called after a MILPAC edit,
+ * a Mastersheet apply or an award, so the change reaches TeamSpeak without
+ * anybody opening the sync tab.
+ *
+ * Never throws. A member with no linked TeamSpeak account, or a server that is
+ * down, is `skipped` — the write that triggered this has already succeeded and
+ * must not be failed by it.
+ */
+export async function syncMemberTeamspeak(userId: string): Promise<MemberTsSyncResult> {
+    const nothing = (reason: string): MemberTsSyncResult => ({ skipped: true, reason, granted: 0, revoked: 0 })
+    try {
+        const user = await Db.users.findOne({ $or: [{ id: userId }, { _id: userId }] })
+        if (!user || user.discharged || user.isSkeletonAccount) return nothing('Not an active member')
+        const cldbid = user.teamspeak?.cldbid
+        if (!cldbid) return nothing('Member has no linked TeamSpeak account')
+
+        let tsGroups: { id: number; name: string }[]
+        try {
+            const ts = await getConnection()
+            tsGroups = (await ts.serverGroupList()).map(g => ({ id: Number(g.sgid), name: g.name }))
+        } catch {
+            return nothing('Failed to connect to TeamSpeak server')
+        }
+
+        const [departmentRoles, orbatRoles, position, orbatSectionMeta, tsLinks] = await Promise.all([
+            Db.departmentRoles.find({}).toArray(),
+            Db.orbatRoles.find({}).toArray(),
+            Db.orbatPositions.findOne({ userId: user.id }),
+            Db.orbatSectionMeta.find({}).toArray(),
+            Db.tsGroupLinks.find({}).toArray(),
+        ])
+        const resolver = buildResolver(tsGroups, tsLinks)
+        const catalog: GrantCatalog = {
+            deptBaseByDept: new Map(departmentRoles.filter(r => r.isBase).map(r => [r.department, r])),
+            deptRoleById: new Map(departmentRoles.map(r => [String(r._id), r])),
+            orbatRoleById: new Map(orbatRoles.map(r => [String(r._id), r])),
+            positionByUserId: new Map(position ? [[user.id, position]] : []),
+            sectionMetaByKey: new Map(orbatSectionMeta.map(m => [`${m.category}:${m.sectionTitle ?? ''}`, m])),
+        }
+
+        // [] when the server cannot be read, which makes everything look
+        // missing and nothing look extra: a redundant grant, never a wrong
+        // removal. See getClientServerGroupIds.
+        const actual = new Set(await getClientServerGroupIds(cldbid))
+        const expected = mergeBundles([
+            ...grantBundlesFor(user, catalog),
+            ...milpacBundles(milpacSubject(user.milpac), resolver, actual),
+        ]).tsIds
+        const managed = managedTsIds(departmentRoles, orbatRoles, orbatSectionMeta, resolver, user.milpac?.currentRank)
+
+        const toGrant = [...expected].filter(id => !actual.has(id))
+        const toRevoke = [...actual].filter(id => managed.has(id) && !expected.has(id))
+        if (!toGrant.length && !toRevoke.length) return { skipped: false, granted: 0, revoked: 0 }
+
+        const [grant, revoke] = await Promise.all([
+            toGrant.length ? applyTsServerGroups(user.id, 'add', toGrant) : null,
+            toRevoke.length ? applyTsServerGroups(user.id, 'remove', toRevoke) : null,
+        ])
+        const failed = [grant, revoke].find(r => r?.skipped)
+        if (failed) return nothing(failed.reason ?? 'TeamSpeak sync was skipped')
+        return { skipped: false, granted: toGrant.length, revoked: toRevoke.length }
+    } catch (err) {
+        console.error('[TeamSpeak] syncMemberTeamspeak failed:', err)
+        return nothing('TeamSpeak sync failed')
+    }
+}
+
+/** Fire-and-forget form, for the end of a route that has already done its work. */
+export function queueMemberTeamspeakSync(userId: string | null | undefined): void {
+    if (!userId) return
+    void syncMemberTeamspeak(userId)
 }
 
 export interface MemberSyncApplyResult {

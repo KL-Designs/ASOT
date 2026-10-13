@@ -3,6 +3,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logAction'
+import { queueMemberTeamspeakSync } from '@/lib/orbat/member-sync'
 
 // Fields that map directly to milpac top-level keys
 const TOP_LEVEL: Record<string, string> = {
@@ -67,6 +68,8 @@ export async function PATCH(req: NextRequest) {
                     : ((member.milpac?.billetCounts as Record<string, number> | undefined)?.[field] ?? 0)
 
     await Db.users.updateOne({ username }, { $set: { [setPath]: coercedValue } })
+    // A Mastersheet apply can change a rank; TeamSpeak follows it.
+    if (field === 'rank') queueMemberTeamspeakSync(member.id)
 
     const editorName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
     logAction({

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
+import TeamspeakLinks from './TeamspeakLinks'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -369,7 +370,7 @@ function SnapshotsSection() {
 // ── Main tab ──────────────────────────────────────────────────────────────────
 
 export default function TeamspeakTab() {
-    const [view, setView] = useState<'members' | 'snapshots'>('members')
+    const [view, setView] = useState<'members' | 'snapshots' | 'links'>('members')
 
     // Online clients
     const [onlineClients, setOnlineClients] = useState<TsClient[]>([])
@@ -564,9 +565,11 @@ export default function TeamspeakTab() {
             <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexShrink: 0 }}>
                 <button style={viewBtnStyle(view === 'members')} onClick={() => setView('members')}>Members</button>
                 <button style={viewBtnStyle(view === 'snapshots')} onClick={() => setView('snapshots')}>Snapshots</button>
+                <button style={viewBtnStyle(view === 'links')} onClick={() => setView('links')}>Group links</button>
             </div>
 
             {view === 'snapshots' && <SnapshotsSection />}
+            {view === 'links' && <TeamspeakLinks />}
 
             {view === 'members' && (
                 <div style={{ display: 'flex', flex: 1, minHeight: 0, gap: 14 }}>

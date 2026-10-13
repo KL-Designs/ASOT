@@ -9,6 +9,7 @@ import { generateMilpacForUser, archiveMilpacImages } from '@/lib/milpac-gen/gen
 import { stripDischargedMember } from '@/lib/orbat/discharge-cleanup'
 import { clearBctAvailabilityIfDone } from '@/lib/training/bct-availability'
 import { logAction } from '@/lib/logAction'
+import { queueMemberTeamspeakSync } from '@/lib/orbat/member-sync'
 
 // PATCH /api/admin/tickets/[id] — approve or reject a ticket
 /**
@@ -155,6 +156,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             })
             // Awards drive the ribbon block and the medal box.
             await regenerateMilpac(ticket.targetUserId)
+            // And the award's TeamSpeak group, where it has one.
+            queueMemberTeamspeakSync(ticket.targetUserId)
         }
     } else if (ticket.type === 'j3-promotion') {
         const member = await Db.users.findOne({ id: ticket.targetUserId })
@@ -177,6 +180,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                 } as any,
             },
         })
+        // The old rank's TeamSpeak group comes off and the new one goes on.
+        queueMemberTeamspeakSync(ticket.targetUserId)
         // Rank drives the insignia, and generals get a different corps badge.
         await regenerateMilpac(ticket.targetUserId)
     } else if (ticket.type === 'j4-discharge') {

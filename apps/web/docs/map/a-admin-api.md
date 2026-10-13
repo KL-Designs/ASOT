@@ -170,3 +170,7 @@ Catalogs every `route.ts` under `app/api/admin/**` (78 files). Background facts 
 #### /api/admin/retired
 
 - `PATCH/POST /api/admin/retired/import` — PATCH applies ad-hoc patch/upsert operations (JSON array of `{find,set}` or `{upsert}`) to retired-member records. POST bulk-imports a Discharge Ticket CSV (custom date parser handling multiple formats, Steam/Discord ID normalization, upserts by `callsign`+`dischargeDate`). Gate: `PERMISSIONS.departments.j4` or `await hasPermission(me, 'departmentLeads.j1')`. Collections: `Db.retiredMembers`.
+
+#### /api/admin/teamspeak/links
+- **GET** — every rank, award, campaign (name table + every `milpac.operations.name` in use + linked ones) and certification with the TeamSpeak group it resolves to and `via` (`link` / `name` / null), plus the server's group list. **PUT** `{ kind, key, tsGroupId | null }` upserts or clears one `Db.tsGroupLinks` row; the group must exist on the server. Gate: `PERMISSIONS.departments.j4`. See `lib/teamspeak/milpac-groups.ts`.
+

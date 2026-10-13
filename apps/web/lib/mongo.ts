@@ -30,6 +30,7 @@ const DbInterface = {
     orbatRoles: db.collection('orbat_roles') as MongoCollection<OrbatRole>,
     orbatRoleGroups: db.collection('orbat_role_groups') as MongoCollection<OrbatRoleGroup>,
     departmentRoles: db.collection('department_roles') as MongoCollection<DepartmentRole>,
+    tsGroupLinks: db.collection('ts_group_links') as MongoCollection<TsGroupLink>,
     boardColumns: db.collection('board_columns') as MongoCollection<BoardColumn>,
     boardCards: db.collection('board_cards') as MongoCollection<BoardCard>,
     departmentLinks: db.collection('department_links') as MongoCollection<DepartmentLink>,

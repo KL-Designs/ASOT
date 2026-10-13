@@ -6,6 +6,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { CERTIFICATIONS } from '@/lib/military/certifications'
 import { createNotification } from '@/lib/notifications'
 import { BCT_QUALIFICATIONS, clearBctAvailabilityIfDone } from '@/lib/training/bct-availability'
+import { queueMemberTeamspeakSync } from '@/lib/orbat/member-sync'
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -53,6 +54,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
                     ...(cert.points > 0 ? { $inc: { 'milpac.promotionPoints': cert.points } } : {}),
                 }
             )
+            // The certification's TeamSpeak group, where it has one.
+            queueMemberTeamspeakSync(record.memberId)
         }
 
         await Db.trainingAttendance.updateOne(

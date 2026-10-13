@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { setGuildNickname } from '@/lib/discord/bot'
 import { buildNickname } from '@/lib/buildNickname'
 import { rankNameFromAbbr } from '@asot/lib'
+import { queueMemberTeamspeakSync } from '@/lib/orbat/member-sync'
 
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
@@ -96,6 +97,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     Db.users.findOne({ username }).then(updated => {
         if (!updated?.id) return
+        // Rank, awards, campaigns or qualifications may have just changed.
+        queueMemberTeamspeakSync(updated.id)
         const nick = buildNickname(updated.milpac?.currentRank, updated.name || updated.username || '', updated.departments, updated.isChaplain)
         return setGuildNickname(updated.id, nick)
     }).catch(err => console.error('[members/PUT] nickname update failed:', err))
