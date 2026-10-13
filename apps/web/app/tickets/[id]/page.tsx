@@ -6,7 +6,7 @@ import Link from 'next/link'
 import MemberPicker from '@/app/dashboard/_components/meetings/MemberPicker'
 import {
     ArrowBack, ThumbUp, ThumbUpOutlined, ThumbDown, ThumbDownOutlined,
-    Delete, Send, Edit, Check, Close, History, Restore,
+    Delete, Send, Edit, Check, Close, History, Restore, Reply, ExpandMore, ChevronRight,
 } from '@mui/icons-material'
 import { CircularProgress } from '@mui/material'
 import {
@@ -14,6 +14,7 @@ import {
     CAT_META, SUBTYPE_LABELS, DEPT_META, SEV_META, FB_TYPE_META, getStatus, getPrimaryStatus,
 } from '../_shared/constants'
 import { avatarURL } from '@/lib/discord/avatar'
+import { buildThread } from '@/lib/comments/thread'
 
 type MyVote = 'up' | 'down' | null
 
@@ -50,9 +51,13 @@ const taskLbl: React.CSSProperties = {
     textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)', marginBottom: 3,
 }
 
-interface CommentItem extends Omit<CommunityTicketComment, '_id' | 'ticketId'> {
+interface CommentItem extends Omit<CommunityTicketComment, '_id' | 'ticketId' | 'parentId'> {
     _id: string
     ticketId: string
+    parentId?: string | null
+    /** The author's callsign colour, resolved by the API. Null when they hold
+     *  no position or their section has no colour set. */
+    authorColor?: string | null
 }
 
 interface DetailData extends Omit<CommunityTicket, '_id'> {
@@ -117,6 +122,12 @@ export default function TicketDetailPage() {
     const [editingComment, setEditingComment] = useState<string | null>(null)
     const [editContent, setEditContent] = useState('')
     const [savingEdit, setSavingEdit] = useState(false)
+    // Replying: which comment the inline reply box is open under, and its text.
+    const [replyTo, setReplyTo] = useState<string | null>(null)
+    const [replyContent, setReplyContent] = useState('')
+    const [postingReply, setPostingReply] = useState(false)
+    // Threads folded away by the reader. Per visit — not worth persisting.
+    const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
     // J4: which deleted comments are currently visible in thread
     const [revealedDeletedIds, setRevealedDeletedIds] = useState<Set<string>>(new Set())
     // J4: inline edit-diffs revealed in thread { commentId: { prevContent, newContent } }
@@ -235,6 +246,29 @@ export default function TicketDetailPage() {
         setCommentVotes(cv => ({ ...cv, [newCmt._id]: { myVote: null, up: 0, down: 0, score: 0 } }))
         setComment('')
         setPosting(false)
+    }
+
+    async function handleReply(parentId: string) {
+        if (!replyContent.trim() || postingReply) return
+        setPostingReply(true)
+        const res = await fetch(`/api/tickets/${id}/comments`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: replyContent.trim(), parentId }),
+        })
+        if (res.ok) {
+            const newCmt = await res.json()
+            setData(d => d ? { ...d, comments: [...d.comments, newCmt], commentCount: d.commentCount + 1 } : d)
+            setCommentVotes(cv => ({ ...cv, [newCmt._id]: { myVote: null, up: 0, down: 0, score: 0 } }))
+            // A reply posted under a folded thread should be visible at once.
+            setCollapsed(s => { const n = new Set(s); n.delete(parentId); return n })
+            setReplyTo(null)
+            setReplyContent('')
+        }
+        setPostingReply(false)
+    }
+
+    function toggleCollapsed(commentId: string) {
+        setCollapsed(s => { const n = new Set(s); if (n.has(commentId)) n.delete(commentId); else n.add(commentId); return n })
     }
 
     async function saveCommentEdit(commentId: string) {
@@ -395,10 +429,20 @@ export default function TicketDetailPage() {
     const canDelete = data.isJ4 || data.authorId === data.myId
     const scoreCol = voteScore > 0 ? 'rgba(74,222,128,0.85)' : voteScore < 0 ? 'rgba(219,0,29,0.75)' : 'rgba(237,237,237,0.45)'
 
-    // Comments to render: non-deleted + revealed deleted ones for J4
-    const visibleComments = data.comments.filter(c =>
-        !c.isDeleted || (data.isJ4 && revealedDeletedIds.has(c._id))
-    )
+    // Comments to render: non-deleted, revealed deleted ones for J4, and any
+    // deleted comment that still has a visible reply — kept as a "[Comment
+    // deleted]" shell so the replies under it stay where they were written.
+    const shown = new Set(data.comments
+        .filter(c => !c.isDeleted || (data.isJ4 && revealedDeletedIds.has(c._id)))
+        .map(c => c._id))
+    for (let grew = true; grew;) {
+        grew = false
+        for (const c of data.comments) {
+            if (c.parentId && shown.has(c._id) && !shown.has(c.parentId)) { shown.add(c.parentId); grew = true }
+        }
+    }
+    const visibleComments = data.comments.filter(c => shown.has(c._id))
+    const thread = buildThread(visibleComments, collapsed)
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -634,9 +678,16 @@ export default function TicketDetailPage() {
                             </span>
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            {visibleComments.map((c, i) => {
+                        {/* One card per comment, with air between them — they
+                            used to sit 1px apart and read as a single block.
+                            A reply is indented under the comment it answers. */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {thread.map(({ comment: c, depth, descendants }) => {
                                 const cv = commentVotes[c._id] ?? { myVote: null, up: 0, down: 0, score: 0 }
+                                const isCollapsed = collapsed.has(c._id)
+                                // The author's callsign colour down the left edge, so
+                                // who is speaking is readable without reading names.
+                                const edge = c.authorColor || 'rgba(255,255,255,0.18)'
                                 const isHighlighted = highlightedComment === c._id
                                 const isDeleted = c.isDeleted
                                 // J4 only: is this deleted comment currently revealed in the thread?
@@ -649,22 +700,37 @@ export default function TicketDetailPage() {
                                         key={c._id}
                                         ref={el => { commentRefs.current[c._id] = el }}
                                         style={{
-                                            background: isHighlighted ? 'rgba(255,200,0,0.06)' : isDeleted ? 'rgba(219,0,29,0.04)' : i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                                            border: `1px solid ${isHighlighted ? 'rgba(255,200,0,0.3)' : isDeleted ? 'rgba(219,0,29,0.25)' : 'rgba(255,255,255,0.05)'}`,
-                                            borderLeft: isHighlighted ? '2px solid rgba(255,200,0,0.7)' : isDeleted ? '2px solid rgba(219,0,29,0.5)' : '2px solid rgba(255,255,255,0.1)',
+                                            marginLeft: depth * 22,
+                                            background: isHighlighted ? 'rgba(255,200,0,0.06)' : isDeleted ? 'rgba(219,0,29,0.04)' : 'rgba(255,255,255,0.025)',
+                                            border: `1px solid ${isHighlighted ? 'rgba(255,200,0,0.3)' : isDeleted ? 'rgba(219,0,29,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                                            borderLeft: isHighlighted ? '3px solid rgba(255,200,0,0.7)' : isDeleted ? '3px solid rgba(219,0,29,0.5)' : `3px solid ${edge}`,
                                             opacity: isDeleted && !isRevealed ? 0.6 : 1,
                                             transition: 'background 0.4s, border-color 0.4s',
                                         }}
                                     >
                                         {/* Header */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 14px', background: isDeleted ? 'rgba(219,0,29,0.06)' : 'rgba(0,0,0,0.15)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                            {descendants > 0 && (
+                                                <button
+                                                    type='button'
+                                                    onClick={() => toggleCollapsed(c._id)}
+                                                    aria-expanded={!isCollapsed}
+                                                    title={isCollapsed ? 'Show replies' : 'Hide replies'}
+                                                    style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', padding: 0, margin: '0 -2px 0 -6px', cursor: 'pointer', color: 'rgba(237,237,237,0.4)' }}
+                                                >
+                                                    {isCollapsed ? <ChevronRight style={{ fontSize: 16 }} /> : <ExpandMore style={{ fontSize: 16 }} />}
+                                                </button>
+                                            )}
                                             {isDeleted && (
                                                 <span style={{ fontSize: '0.54rem', fontWeight: 800, letterSpacing: '0.1em', padding: '1px 5px', color: 'rgba(219,0,29,0.7)', border: '1px solid rgba(219,0,29,0.3)', flexShrink: 0 }}>DELETED</span>
                                             )}
-                                            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', color: isDeleted ? (isRevealed ? 'rgba(237,237,237,0.55)' : 'rgba(219,0,29,0.45)') : 'rgba(237,237,237,0.7)' }}>
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', color: isDeleted ? (isRevealed ? 'rgba(237,237,237,0.55)' : 'rgba(219,0,29,0.45)') : (c.authorColor || 'rgba(237,237,237,0.7)') }}>
                                                 {isRevealed ? c.authorName : isDeleted ? '[redacted]' : c.authorName}
                                             </span>
                                             {c.isEdited && !isDeleted && <span style={{ fontSize: '0.56rem', color: 'rgba(237,237,237,0.2)' }}>· edited</span>}
+                                            {isCollapsed && (
+                                                <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.35)' }}>· {descendants} {descendants === 1 ? 'reply' : 'replies'} hidden</span>
+                                            )}
                                             <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: '0.6rem', color: 'rgba(237,237,237,0.2)' }}>{fmtFull(c.createdAt)}</span>
 
                                             {/* Comment votes (non-deleted) */}
@@ -676,6 +742,14 @@ export default function TicketDetailPage() {
                                                     </span>
                                                     <CvBtn dir='down' active={cv.myVote === 'down'} onClick={() => handleCommentVote(c._id, 'down')} />
                                                 </div>
+                                            )}
+
+                                            {!isDeleted && (
+                                                <IBtn
+                                                    onClick={() => { setReplyTo(replyTo === c._id ? null : c._id); setReplyContent('') }}
+                                                    color={replyTo === c._id ? 'rgba(237,237,237,0.8)' : 'rgba(237,237,237,0.3)'}
+                                                    hover='rgba(237,237,237,0.8)'
+                                                ><Reply style={{ fontSize: 13 }} /></IBtn>
                                             )}
 
                                             {/* Edit/Delete (own comment) */}
@@ -731,6 +805,32 @@ export default function TicketDetailPage() {
                                                 </div>
                                             )}
                                         </div>
+
+                                        {/* Reply box, opened under the comment being answered. */}
+                                        {replyTo === c._id && !isDeleted && (
+                                            <div style={{ padding: '0 14px 12px' }}>
+                                                <textarea
+                                                    autoFocus
+                                                    value={replyContent}
+                                                    onChange={e => setReplyContent(e.target.value)}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Escape') setReplyTo(null)
+                                                        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleReply(c._id)
+                                                    }}
+                                                    placeholder={`Reply to ${c.authorName}…`}
+                                                    rows={3}
+                                                    style={{ width: '100%', padding: '8px 10px', resize: 'vertical', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.8)', fontSize: '0.84rem', lineHeight: 1.6, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                                                />
+                                                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                                    <button type='button' onClick={() => handleReply(c._id)} disabled={postingReply || !replyContent.trim()} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(219,0,29,0.12)', border: '1px solid rgba(219,0,29,0.4)', color: 'rgba(219,0,29,0.9)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', padding: '5px 12px', cursor: postingReply || !replyContent.trim() ? 'default' : 'pointer', opacity: postingReply || !replyContent.trim() ? 0.5 : 1 }}>
+                                                        {postingReply ? <CircularProgress size={10} style={{ color: 'rgba(219,0,29,0.7)' }} /> : <Send style={{ fontSize: 12 }} />} REPLY
+                                                    </button>
+                                                    <button type='button' onClick={() => setReplyTo(null)} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.4)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', padding: '5px 12px', cursor: 'pointer' }}>
+                                                        <Close style={{ fontSize: 12 }} /> CANCEL
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )
                             })}

@@ -4,7 +4,8 @@ import Image from 'next/image'
 
 import Avatar from '@/components/member/avatar'
 import { animatedAvatarURL, stillAvatarURL } from '@/lib/discord/avatar'
-import { resolveMemberAccent } from '@/lib/military/accent'
+import { normaliseHex, resolveMemberAccent } from '@/lib/military/accent'
+import { ensureVisible } from '@/lib/discord/color'
 import type { MilpacKitLine } from '@/lib/milpac-kits'
 import s from './roster.module.css'
 
@@ -26,8 +27,12 @@ import s from './roster.module.css'
  * is not a stylistic choice — see `--anim-avatar` below and `roster.module.css`
  * for what it costs when they all animate at once.
  */
-export default function Card({ member, role, href, kit, coverUrl, coverAnimated }: {
+export default function Card({ member, role, href, kit, coverUrl, coverAnimated, unitColour }: {
     member: User
+    /** The section or platoon colour to paint the card in. The roster passes
+     *  it so a card reads as its callsign; without it the card falls back to
+     *  the member's own accent. */
+    unitColour?: string
     role?: string
     /** The member's canonical milpac path; without it the username URL still
      *  works, it just costs a redirect. */
@@ -43,7 +48,8 @@ export default function Card({ member, role, href, kit, coverUrl, coverAnimated 
      *  regardless of what was uploaded. */
     coverAnimated?: boolean
 }) {
-    const accent = resolveMemberAccent(member)
+    const unit = normaliseHex(unitColour)
+    const accent = unit ? ensureVisible(unit) : resolveMemberAccent(member)
 
     // Prefer explicit name; fall back to parsing the Discord nickname.
     const strippedNick = member.guild.nickname?.replace(/\s*\[[^\]]*\]/g, '').trim()

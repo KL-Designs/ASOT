@@ -7,6 +7,7 @@ import { logAction } from '@/lib/logAction'
 import { notifyTicketDeptLeads } from '@/lib/notifications/ticket'
 import { sendFeedbackStatusDM } from '@/lib/discord/bot'
 import { createNotification } from '@/lib/notifications'
+import { unitColoursFor } from '@/lib/orbat/unit-colour'
 
 type User = Awaited<ReturnType<typeof client.fetchMe>>
 
@@ -39,18 +40,46 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    const commentFilter = isJ4
-        ? { ticketId: new ObjectId(id) }
-        : { ticketId: new ObjectId(id), isDeleted: { $ne: true } }
-
-    const comments = await Db.communityTicketComments
-        .find(commentFilter)
+    const allComments = await Db.communityTicketComments
+        .find({ ticketId: new ObjectId(id) })
         .sort({ createdAt: 1 })
         .toArray()
 
+    /*
+       J4 gets everything. Everybody else gets the live comments, plus any
+       deleted comment that still has a reply somebody can see — as an empty
+       shell, with its words, author and votes stripped here on the server.
+
+       The shell is what keeps a thread standing: without it, deleting a comment
+       would cut every reply beneath it loose and re-file them as top-level
+       remarks answering nothing.
+    */
+    const kept = new Set(allComments.filter(c => !c.isDeleted).map(c => String(c._id)))
+    for (let grew = true; grew;) {
+        grew = false
+        for (const c of allComments) {
+            if (c.parentId && kept.has(String(c._id)) && !kept.has(String(c.parentId))) {
+                kept.add(String(c.parentId))
+                grew = true
+            }
+        }
+    }
+    const comments = isJ4
+        ? allComments
+        : allComments
+            .filter(c => kept.has(String(c._id)))
+            .map(c => c.isDeleted
+                ? { ...c, content: '', authorId: '', authorName: '', authorAvatarId: undefined, upvotes: [], downvotes: [], voteScore: 0 }
+                : c)
+
+    // Each comment is edged in its author's callsign colour. Resolved here, at
+    // read time, rather than stored on the comment: a member who moves section
+    // should change colour everywhere, including on what they already wrote.
+    const colours = await unitColoursFor(comments.map(c => c.authorId))
+
     return NextResponse.json({
         ...ticket,
-        comments,
+        comments: comments.map(c => ({ ...c, authorColor: colours.get(c.authorId) ?? null })),
         isJ4,
         isLeadForTicket,
         myId: me.id,

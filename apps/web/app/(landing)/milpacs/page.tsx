@@ -49,6 +49,16 @@ export default async function Page() {
 	])
 	const metaMap = new Map(metaDocs.map(m => [`${m.category}:${m.sectionTitle ?? ''}`, m]))
 
+	// What a roster card is painted in: the member's section colour, then their
+	// platoon's, then the colour the platoon's heading falls back to. On this
+	// page a card says which callsign someone belongs to — their personal
+	// accent still applies on their own milpac and in the navbar, which are
+	// about them rather than about where they sit.
+	const unitColour = (category: string, sectionTitle: string | null, fallback: string) =>
+		(sectionTitle ? metaMap.get(`${category}:${sectionTitle}`)?.color : undefined)
+		?? metaMap.get(`${category}:`)?.color
+		?? fallback
+
 	// A category-level patch is the one stored with `sectionTitle: null` — the
 	// platoon's own, as distinct from any of its callsigns'. Checking for the
 	// null record matters: without it a section's patch would be served up as the
@@ -151,7 +161,7 @@ export default async function Page() {
 						<div className={r.grid}>
 							{[orbat.companyHQ.senior, ...orbat.companyHQ.members].map(m => {
 								const member = lookup(m.name)
-								return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
+								return member ? <Card key={member.id} member={member} unitColour={unitColour('companyHQ', null, '#db6969')} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 							})}
 						</div>
 					</SubSection>
@@ -167,7 +177,7 @@ export default async function Page() {
 								<div className={r.grid}>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
+										return member ? <Card key={member.id} member={member} unitColour={unitColour('platoon11', section.title, '#ad7204')} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -185,7 +195,7 @@ export default async function Page() {
 								<div className={r.grid}>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
+										return member ? <Card key={member.id} member={member} unitColour={unitColour('platoon12', section.title, '#1d7455')} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -203,7 +213,7 @@ export default async function Page() {
 								<div className={r.grid}>
 									{section.members.map(m => {
 										const member = lookup(m.name)
-										return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
+										return member ? <Card key={member.id} member={member} unitColour={unitColour('support', section.title, '#206694')} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 									})}
 								</div>
 							</SubSection>
@@ -225,7 +235,7 @@ export default async function Page() {
 							<div className={r.grid}>
 								{orbat.gamemasters.map(m => {
 									const member = lookup(m.name)
-									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
+									return member ? <Card key={member.id} member={member} unitColour={unitColour('gamemaster', null, '#8b5cf6')} href={milpacPaths.get(member.id)} role={m.role} kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 								})}
 							</div>
 						</SubSection>
@@ -239,7 +249,7 @@ export default async function Page() {
 							<div className={r.grid}>
 								{orbat.activeReservists.map(name => {
 									const member = lookup(name)
-									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Active Reservist' kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
+									return member ? <Card key={member.id} member={member} unitColour={unitColour('activeReservist', null, '#c2089a')} href={milpacPaths.get(member.id)} role='Active Reservist' kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 								})}
 							</div>
 						</SubSection>
@@ -249,7 +259,7 @@ export default async function Page() {
 							<div className={r.grid} style={{ opacity: 0.5 }}>
 								{orbat.inactiveReservists.map(name => {
 									const member = lookup(name)
-									return member ? <Card key={member.id} member={member} href={milpacPaths.get(member.id)} role='Inactive Reservist' kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
+									return member ? <Card key={member.id} member={member} unitColour={unitColour('inactiveReservist', null, '#c2089a')} href={milpacPaths.get(member.id)} role='Inactive Reservist' kit={kitLines.get(member.id)} coverUrl={coverUrl(member.id)} coverAnimated={animatedCovers.has(member.id)} /> : null
 								})}
 							</div>
 						</SubSection>

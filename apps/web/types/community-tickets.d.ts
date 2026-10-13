@@ -190,6 +190,9 @@ declare global {
         authorId: string
         authorName: string
         authorAvatarId?: string
+        /** The comment this one answers. Absent on a top-level comment, and on
+         *  everything written before replies existed. */
+        parentId?: ObjectId | null
         content: string
         createdAt: Date
         updatedAt?: Date

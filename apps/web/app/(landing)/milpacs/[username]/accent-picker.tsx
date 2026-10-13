@@ -64,7 +64,7 @@ export function AccentPicker({ accent, isCustom: initialIsCustom }: {
     return (
         <>
             <label
-                title='Set the accent colour used across your milpac and the roster'
+                title='Set the accent colour used on your milpac and beside your name across the site'
                 className={`${s.btn} ${s.btnOnImage} ${busy ? s.btnBusy : ''}`}
             >
                 <span
