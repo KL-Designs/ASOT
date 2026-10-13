@@ -15,6 +15,7 @@ import {
 } from '../_shared/constants'
 import { avatarURL } from '@/lib/discord/avatar'
 import { buildThread } from '@/lib/comments/thread'
+import SendToModDatabase from './SendToModDatabase'
 
 type MyVote = 'up' | 'down' | null
 
@@ -534,6 +535,15 @@ export default function TicketDetailPage() {
                         </div>
 
                         <ExtendedFields data={data} />
+                        {/* A tested suggestion becomes a Mod Database entry. Renders
+                            nothing for a member who cannot edit the database and
+                            whose ticket has no entry — so it sits outside the
+                            labelled fields, which would leave an empty row. */}
+                        {data.subtype === 'mod-request' && (
+                            <div style={{ marginTop: 10 }}>
+                                <SendToModDatabase ticketId={data._id} title={data.title} modLink={data.modLink} />
+                            </div>
+                        )}
 
                         {/* Attachments */}
                         {data.attachments?.length > 0 && (

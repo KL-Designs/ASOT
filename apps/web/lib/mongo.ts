@@ -78,6 +78,7 @@ const DbInterface = {
     retiredMembers: db.collection('retired_members') as MongoCollection<RetiredMember>,
     quizAttempts: db.collection('quiz_attempts') as MongoCollection<QuizAttempt>,
     communityTickets: db.collection('feedback') as MongoCollection<CommunityTicket>,
+    modDatabase: db.collection('mod_database') as MongoCollection<ModEntry>,
     communityTicketComments: db.collection('feedback_comments') as MongoCollection<CommunityTicketComment>,
     meetingNotifQueue: db.collection('meeting_notif_queue') as MongoCollection<MeetingNotifQueueRecord>,
     userPreferences: db.collection('user_preferences') as MongoCollection<UserPreferences>,

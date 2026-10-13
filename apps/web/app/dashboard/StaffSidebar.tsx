@@ -8,7 +8,7 @@ import {
     PersonAdd, Map, School, AdminPanelSettings, Collections,
     SportsEsports, Code, Badge, Groups, People,
     AccountTree, CalendarMonth, MenuBook, Policy, ConfirmationNumber,
-    Dashboard, TaskAlt, AccountCircle,
+    Dashboard, TaskAlt, AccountCircle, Extension,
 } from '@mui/icons-material'
 import type { DashboardPermissions } from './StaffDashboardShell'
 import { useLockout } from './StaffDashboardShell'
@@ -591,6 +591,7 @@ export default function StaffSidebar({
                 { label: 'Staff Calendar',  href: '/dashboard/unit/allstaff-calendar',     visible: permissions.isStaff,     icon: <CalendarMonth sx={{ fontSize: 14 }} /> },
                 { label: 'Training Hub',    href: '/dashboard/unit/training-hub',          visible: true,                    icon: <MenuBook sx={{ fontSize: 14 }} /> },
                 { label: 'SOPs',          href: '/dashboard/unit/sops',          visible: true,                    icon: <Policy sx={{ fontSize: 14 }} /> },
+                { label: 'Mod Database',  href: '/dashboard/unit/mods',          visible: true,                    icon: <Extension sx={{ fontSize: 14 }} /> },
                 { label: 'Tickets',       href: '/tickets',                     visible: true,                    icon: <ConfirmationNumber sx={{ fontSize: 14 }} /> },
                 { label: 'Tasks',         href: '/dashboard/tasks',              visible: permissions.isStaff,     icon: <TaskAlt sx={{ fontSize: 14 }} /> },
             ],

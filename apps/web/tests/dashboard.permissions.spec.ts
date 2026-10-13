@@ -134,6 +134,7 @@ test.describe('Sidebar visibility', () => {
             ['/dashboard/unit/calendar', 'Calendar'],
             ['/dashboard/unit/training-hub', 'Training Hub'],
             ['/dashboard/unit/sops', 'SOPs'],
+            ['/dashboard/unit/mods', 'Mod Database'],
         ] as const) {
             await expectNavVisible(memberPage, href, label)
         }
