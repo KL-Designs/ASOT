@@ -7,6 +7,7 @@ import { RANKS_FLAT } from '@/lib/military/ranks'
 import { applyOrbatMove } from '@/lib/orbat/move'
 import { generateMilpacForUser, archiveMilpacImages } from '@/lib/milpac-gen/generate-for-user'
 import { stripDischargedMember } from '@/lib/orbat/discharge-cleanup'
+import { clearBctAvailabilityIfDone } from '@/lib/training/bct-availability'
 import { logAction } from '@/lib/logAction'
 
 // PATCH /api/admin/tickets/[id] — approve or reject a ticket
@@ -128,6 +129,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         })
         // Qualifications drive the training badges on the uniform.
         await regenerateMilpac(ticket.targetUserId)
+        // A recruit who now holds both BCT courses no longer needs their
+        // availability on the J3 calendar.
+        if (ticket.action === 'add') await clearBctAvailabilityIfDone(ticket.targetUserId!)
     } else if (ticket.type === 'j4-award') {
         const member = await Db.users.findOne({ id: ticket.targetUserId })
         if (!member) {
