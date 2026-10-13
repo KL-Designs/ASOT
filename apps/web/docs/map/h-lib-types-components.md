@@ -68,6 +68,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/gallery/focal.ts
 - Pure `clampFocal()` / `focalPosition(sotm)` — the Screenshot of the Month's focal point (`focalX`/`focalY` percentages on the `screenshotOfMonth` siteSettings doc) as a CSS `object-position`. Used by `PATCH /api/gallery/sotm`, the home hero, the gallery banner, the join masthead (via `Masthead`'s `backgroundPosition`) and the J5 `FocalPicker`. Unit-tested.
 
+### lib/training/prerequisites.ts
+- Pure `missingPrerequisites(required, held)` / `listNames()` — which of a training type's named prerequisites a member still lacks (a milpac qualification of that name, or attendance at a completed session of it, satisfies one). Unit-tested. Used by `POST /api/training/events/[id]/attendance` to block a trainee sign-up; waived per member per session via `TrainingEvent.prerequisiteWaivers` (PATCH on the same route).
+
 ### lib/maps-preview.ts
 - `previewAvailable(worldDir)` / `ensurePreview(worldDir)` — a world's `preview.jpg`, built on first request as a 1280x720 mosaic of its GRAD Meh satellite tiles (`sat/{col}/{row}.jpg`) with sharp, written atomically and never over an existing file; one build per world at a time. Used by `lib/maps.ts` (`hasPreview`) and `/api/maps/assets/[...path]`. Unit-tested.
 

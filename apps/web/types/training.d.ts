@@ -75,6 +75,10 @@ interface TrainingEvent {
     attendeeCount?: number
     isJ3Training: boolean               // false = All Staff (non-J3) training
     ticketId?: string                   // linked TrainingTicket._id after completion
+    /** Members a J3 lead or this session's trainer has let sign up as a trainee
+     *  without the training's prerequisites. Per session, not per member: a
+     *  waiver for one night is not a standing exemption. */
+    prerequisiteWaivers?: { memberId: string; memberName: string; byId: string; byName: string; at: Date }[]
     createdAt: Date
     updatedAt: Date
     deletedAt?: Date

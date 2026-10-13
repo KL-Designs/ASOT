@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import MemberPicker from '@/app/dashboard/_components/meetings/MemberPicker'
 import { Add, CheckCircle, Cancel, Edit, Delete } from '@mui/icons-material'
 
 const RED = '#db001d'
@@ -341,6 +342,11 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
     const [slotCounts, setSlotCounts] = useState<Record<string, SlotCounts>>({})
     const [myRsvps, setMyRsvps] = useState<Record<string, MyRsvp>>({})
     const [rsvpingId, setRsvpingId] = useState<string | null>(null)
+    // Why a sign-up was refused, per event — most often missing prerequisites.
+    const [rsvpErrors, setRsvpErrors] = useState<Record<string, string>>({})
+    // Prerequisite waivers for the session whose attendance panel is open.
+    const [waivers, setWaivers] = useState<Record<string, { memberId: string; memberName: string; byName: string }[]>>({})
+    const [waiverPick, setWaiverPick] = useState<{ id: string; name: string } | null>(null)
 
     // Attendance state
     const [attendanceView, setAttendanceView] = useState<string | null>(null)
@@ -552,7 +558,14 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ slotType }),
             })
-            if (!res.ok) return
+            if (!res.ok) {
+                // Say why. This used to return silently, so a refused sign-up
+                // looked exactly like a button that did nothing.
+                const data = await res.json().catch(() => null)
+                setRsvpErrors(prev => ({ ...prev, [eventId]: data?.error ?? 'That sign-up could not be saved. Try again.' }))
+                return
+            }
+            setRsvpErrors(prev => { const next = { ...prev }; delete next[eventId]; return next })
             const record = await res.json()
             setMyRsvps(prev => ({ ...prev, [eventId]: { slotType: record.slotType ?? slotType, rsvpStatus: record.rsvpStatus } }))
             const refresh = await fetch('/api/training/events').then(r => r.json())
@@ -580,6 +593,19 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
         }
     }
 
+    /** Let one member sign up to this session without its prerequisites, or undo that. */
+    async function handleWaiver(eventId: string, member: { id: string; name: string }, allow: boolean) {
+        const res = await fetch(`/api/training/events/${eventId}/attendance`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ waiver: { memberId: member.id, memberName: member.name, allow } }),
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        setWaivers(prev => ({ ...prev, [eventId]: data.waivers ?? [] }))
+        setWaiverPick(null)
+    }
+
     async function handleLoadAttendance(eventId: string) {
         if (attendanceView === eventId) { setAttendanceView(null); return }
         setAttendanceView(eventId)
@@ -590,6 +616,7 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
             if (!res.ok) return
             const data = await res.json()
             setAttendanceData(prev => ({ ...prev, [eventId]: data.records ?? [] }))
+            setWaivers(prev => ({ ...prev, [eventId]: data.waivers ?? [] }))
             const dirty: Record<string, boolean> = {}
             for (const r of (data.records ?? []) as AttendanceRecord[]) {
                 if (r.rsvpStatus === 'attending') dirty[r.memberId] = r.attended ?? false
@@ -679,6 +706,11 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
                                     onEdit={() => openEditModal(ev)}
                                     onComplete={() => setCompleteModal({ eventId: ev._id, notes: '' })}
                                 />
+                                {rsvpErrors[ev._id] && (
+                                    <div role='alert' style={{ padding: '9px 14px', fontSize: '0.72rem', lineHeight: 1.5, color: 'rgba(255,170,150,0.95)', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.3)', borderTop: 'none' }}>
+                                        {rsvpErrors[ev._id]}
+                                    </div>
+                                )}
                                 {/* Attendance panel */}
                                 {attendanceView === ev._id && (isJ3Lead || ev.trainerId === myId) && (
                                     <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderTop: 'none', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -706,6 +738,35 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
                                                     {savingAttendance ? 'Saving…' : 'Save Attendance'}
                                                 </button>
                                             </>
+                                        )}
+                                        {/* Prerequisite waivers — while the session is still open for sign-ups. */}
+                                        {ev.status === 'Scheduled' && (
+                                            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
+                                                    Allow without prerequisites
+                                                </div>
+                                                <div style={{ fontSize: '0.66rem', lineHeight: 1.5, color: 'rgba(237,237,237,0.35)' }}>
+                                                    Members missing this training&apos;s prerequisites cannot sign up as a trainee. Add someone here to let them in for this session only.
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                                    <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                                                        <MemberPicker value={waiverPick} onChange={setWaiverPick} allMembers placeholder='Search member…' />
+                                                    </div>
+                                                    <button type='button' disabled={!waiverPick} onClick={() => waiverPick && handleWaiver(ev._id, waiverPick, true)}
+                                                        style={{ padding: '6px 14px', background: 'rgba(80,200,120,0.12)', border: '1px solid rgba(80,200,120,0.3)', color: 'rgba(80,200,120,0.85)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: waiverPick ? 'pointer' : 'default', opacity: waiverPick ? 1 : 0.45 }}>
+                                                        Allow
+                                                    </button>
+                                                </div>
+                                                {(waivers[ev._id] ?? []).map(w => (
+                                                    <div key={w.memberId} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.7rem', color: 'rgba(237,237,237,0.65)' }}>
+                                                        <span style={{ flex: 1 }}>{w.memberName} <span style={{ color: 'rgba(237,237,237,0.3)' }}>· allowed by {w.byName}</span></span>
+                                                        <button type='button' onClick={() => handleWaiver(ev._id, { id: w.memberId, name: w.memberName }, false)}
+                                                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>
+                                                            Remove
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                         {isJ3Lead && ev.status === 'Completed' && (
                                             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
