@@ -62,6 +62,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/dashboard/layout.ts
 - Pure model of the dashboard home page's member-arranged layout: `PANEL_IDS`/`PANEL_TITLES`, `DEFAULT_LAYOUT`, `normaliseLayout(saved, available)` (every available panel exactly once), `sanitiseLayout` (what gets stored), `movePanel`. Unit-tested. Used by `/api/preferences` and `app/dashboard/DashboardOverview.tsx`.
 
+### lib/teamspeak/nickname.ts
+- Pure `nicknameCore()` / `nicknamesMatch()` — matches a member to their TeamSpeak client on the name alone (bracketed groups and a leading rank abbreviation stripped from both sides). Unit-tested. Used by `/api/me/teamspeak` `init`.
+
 ### lib/operations/default-template.ts
 - Pure `newMissionContent(template, newId)` — the sections/pages a brand-new mission starts with: the J2 default template's content when one is set (`OperationTemplate.isDefault`), always with a Zeus Notes and an OCAP page added back if missing. Unit-tested. Used by `/api/operations/new`.
 
@@ -491,6 +494,9 @@ Client-safe (no sharp), so upload controls can quote the limit they enforce.
 ### lib/orbat/grant-bundles.ts
 - `grantBundlesFor(user, catalog: GrantCatalog): GrantBundle[]` — the expected-grant rules for one member: which Discord roles and TeamSpeak groups they are owed, and what owes each. Pure and dependency-free (takes already-loaded catalogs, never touches `Db`), extracted from `member-sync.ts` so the rules are unit-testable without booting Discord and TeamSpeak first. Arms: each department base role they belong to; each held sub-role scoped to a department they are actually in; **the Members role, for anyone holding any ORBAT position** (source label `Members: everyone in the ORBAT`); their ORBAT position's Role; and the category/section metadata grants. A grant appearing in more than one bundle is normal — `mergeBundles` upstream keeps every contributing source.
 - Interfaces: `GrantBundle`, `GrantCatalog`.
+
+### lib/orbat/discharge-cleanup.ts
+- `stripDischargedMember(discordId)` — run when a `j4-discharge` ticket is approved (`PATCH /api/admin/tickets/[id]`): removes every site-managed Discord role the member holds (department roles incl. the Members base role, ORBAT roles, section/platoon roles, legacy dept member/lead roles), every TeamSpeak server group, and empties `departments`/`departmentRoleIds`. Never throws; returns counts + previous departments for the audit log (`member.discharge.cleanup`) and the discharge snapshot. Exists because the member sync skips discharged users, so nothing else cleans up.
 
 ### lib/orbat/member-sync.ts
 - `computeMemberSyncReport(): Promise<MemberSyncReport>` — builds the live Discord/TeamSpeak grant-drift report backing `GET /api/admin/orbat/member-sync` and the Member Sync tab; see that route's entry in `a-admin-api.md` for the full computation. Probes TS connectivity once via `getConnection()` and skips TS diffing (reporting `tsAvailable: false`) rather than false-positive drift if it's down.
