@@ -8,6 +8,7 @@ import {
     Field, Input, Panel, PanelBody, PanelHeader, SectionLabel, Select, Switch, Textarea,
 } from '@/components/dashboard'
 import s from '@/styles/dashboard.module.css'
+import { defaultRejoinStatus, REJOIN_LABEL, REJOIN_STATUSES, type RejoinStatus } from '@/lib/j1/rejoin'
 
 type ConfirmedOp = { operationId: string; name: string; date?: string | null; confirmedAt: string | null }
 type DiscordRole = { id: string; name: string; color: number; position: number }
@@ -44,6 +45,8 @@ export default function MemberDetailPanel({
     // Discharge
     const [dischargeStage, setDischargeStage] = useState<'idle' | 'form'>('idle')
     const [dischargeType, setDischargeType] = useState<'honorable' | 'general' | 'dishonorable' | ''>('')
+    // Whether they are welcome back. Follows the discharge type until changed.
+    const [rejoinStatus, setRejoinStatus] = useState<RejoinStatus>('review')
     const [dischargeReason, setDischargeReason] = useState('')
     const [dischargeNotes, setDischargeNotes] = useState('')
     const [dischargeSubmitting, setDischargeSubmitting] = useState(false)
@@ -182,6 +185,7 @@ export default function MemberDetailPanel({
                     targetUserId: memberData.id,
                     targetUserName: targetDisplayName,
                     dischargeType,
+                    rejoinStatus,
                     dischargeReason: dischargeReason.trim(),
                     notes: dischargeNotes.trim() || undefined,
                 }),
@@ -546,11 +550,23 @@ export default function MemberDetailPanel({
                                 ) : (
                                     <div className='flex flex-col gap-3' style={{ maxWidth: 440 }}>
                                         <Field label='Discharge type'>
-                                            <Select value={dischargeType} onChange={e => setDischargeType(e.target.value as typeof dischargeType)}>
+                                            <Select
+                                                value={dischargeType}
+                                                onChange={e => {
+                                                    const type = e.target.value as typeof dischargeType
+                                                    setDischargeType(type)
+                                                    if (type) setRejoinStatus(defaultRejoinStatus(type))
+                                                }}
+                                            >
                                                 <option value=''>Select…</option>
                                                 <option value='honorable'>Honorable discharge</option>
                                                 <option value='general'>General discharge</option>
                                                 <option value='dishonorable'>Dishonorable discharge</option>
+                                            </Select>
+                                        </Field>
+                                        <Field label='If they apply to rejoin' hint='What J1 is told. Follows the discharge type unless you change it.'>
+                                            <Select value={rejoinStatus} onChange={e => setRejoinStatus(e.target.value as RejoinStatus)}>
+                                                {REJOIN_STATUSES.map(status => <option key={status} value={status}>{REJOIN_LABEL[status]}</option>)}
                                             </Select>
                                         </Field>
                                         <Field label='Reason' hint='Required. Goes on the discharge ticket.'>

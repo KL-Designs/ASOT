@@ -10,6 +10,7 @@ import { applyOrbatMove } from '@/lib/orbat/move'
 import { createNotification, createNotificationForRole } from '@/lib/notifications'
 import { syncDeptDiscordRole, applyBaseDepartmentRoleSync, revokeDepartmentSubRoles, assignLeadershipSlot, unassignLeadershipSlot, DEPT_ROLES } from '@/lib/discord/dept-roles'
 import type { LeadershipSlot } from '@/lib/discord/dept-codes'
+import { isRejoinStatus } from '@/lib/j1/rejoin'
 
 // Maps ticket department → role(s) that should be notified
 const TICKET_NOTIFY_ROLES: Record<string, string[]> = {
@@ -258,13 +259,16 @@ export async function POST(req: NextRequest) {
     if (type === 'j4-discharge') {
         // Any admin-page user may initiate; J4 must approve
 
-        const { targetUserId, targetUserName, dischargeType, dischargeReason, notes } = body
+        const { targetUserId, targetUserName, dischargeType, dischargeReason, notes, rejoinStatus } = body
 
         if (!targetUserId || !targetUserName || !dischargeType || !dischargeReason?.trim()) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
         if (dischargeType !== 'honorable' && dischargeType !== 'general' && dischargeType !== 'dishonorable') {
             return NextResponse.json({ error: 'Invalid dischargeType' }, { status: 400 })
+        }
+        if (rejoinStatus !== undefined && !isRejoinStatus(rejoinStatus)) {
+            return NextResponse.json({ error: 'Invalid rejoinStatus' }, { status: 400 })
         }
         if (targetUserId === me.id) {
             return NextResponse.json({ error: 'Cannot discharge yourself' }, { status: 400 })
@@ -281,6 +285,9 @@ export async function POST(req: NextRequest) {
             issuedAt: new Date(),
             dischargeType,
             dischargeReason: dischargeReason.trim(),
+            // Stored whatever it is, including when it matches the type's
+            // default: it is J4's recorded decision, not a derived value.
+            ...(rejoinStatus ? { rejoinStatus } : {}),
             ...(notes?.trim() ? { notes: notes.trim() } : {}),
         }
 

@@ -13,6 +13,7 @@ import { type IntroProgress, RULES_QUESTIONS } from '@/app/recruit-session/StepC
 import OrbatOnboarding from '@/app/recruit-session/OrbatOnboarding'
 import ApplicantPageView, { STEP_LABELS } from '@/app/recruit-session/ApplicantPageView'
 import BCTAvailabilityCalendar, { type BCTSlotSummary } from './BCTAvailabilityCalendar'
+import { LEVEL_LABEL, type ReturningLevel } from '@/lib/j1/rejoin'
 
 const RS_WS_URL = (process.env.NEXT_PUBLIC_BASEURL ?? '')
     .replace(/^http/, 'ws')
@@ -362,6 +363,9 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
     // ── Returning member status ────────────────────────────────────────────
     const [returningStatus, setReturningStatus] = useState<'active' | 'discharged' | null>(null)
     const [returningName, setReturningName] = useState<string | null>(null)
+    // For a discharged member: whether they are welcome back, and why.
+    const [returningCheck, setReturningCheck] = useState<{ level: ReturningLevel; details: string } | null>(null)
+    const [j4Notify, setJ4Notify] = useState<'idle' | 'sending' | 'sent' | string>('idle')
 
     // ── Joining name check ─────────────────────────────────────────────────
     const [nameStatus, setNameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
@@ -484,6 +488,13 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         if (selectedMember.discharged) {
             setReturningStatus('discharged')
             setReturningName(selectedMember.displayName)
+            // The same returning-member check a website application gets.
+            setReturningCheck(null)
+            setJ4Notify('idle')
+            fetch(`/api/admin/j1/check-returning?discordId=${encodeURIComponent(selectedMember.id)}`)
+                .then(r => (r.ok ? r.json() : null))
+                .then(d => { if (d?.level) setReturningCheck({ level: d.level, details: d.details ?? '' }) })
+                .catch(() => { /* the plain warning below still shows */ })
         } else if (selectedMember.isActiveMember) {
             setReturningStatus('active')
             setReturningName(selectedMember.displayName)
@@ -2191,11 +2202,53 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                                 <strong>{returningName}</strong> is already an active member. Are you sure you want to log a new recruit record for them?
                                             </div>
                                         )}
-                                        {returningStatus === 'discharged' && (
-                                            <div style={{ padding: '10px 14px', background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)', borderLeft: '3px solid #f59e0b', fontSize: '0.78rem', color: 'var(--amber)', lineHeight: 1.5, marginTop: 8 }}>
-                                                <strong>{returningName}</strong> is a returning member (previously discharged). Review their record before proceeding.
-                                            </div>
-                                        )}
+                                        {returningStatus === 'discharged' && (() => {
+                                            // Welcome back is green and needs nothing; to be reviewed
+                                            // and not welcome both offer the J4 ping.
+                                            const level = returningCheck?.level
+                                            const tone = level === 'HD' ? '#4ade80' : level === 'DD' ? '#db001d' : '#f59e0b'
+                                            const needsJ4 = level === 'GD' || level === 'DD'
+                                            return (
+                                                <div style={{ padding: '10px 14px', background: `color-mix(in srgb, ${tone} 7%, transparent)`, border: `1px solid color-mix(in srgb, ${tone} 28%, transparent)`, borderLeft: `3px solid ${tone}`, fontSize: '0.78rem', color: 'var(--txt-2)', lineHeight: 1.5, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                    <div>
+                                                        <strong style={{ color: tone }}>{level ? `Returning member: ${LEVEL_LABEL[level]}.` : 'Returning member.'}</strong>{' '}
+                                                        <strong>{returningName}</strong> was previously discharged.
+                                                        {level === 'HD' && ' You can continue with the recruit as normal.'}
+                                                        {level === 'GD' && ' Review their history before proceeding, and ask J4 if you are unsure.'}
+                                                        {level === 'DD' && ' J4 must confirm they are eligible before you proceed.'}
+                                                        {!level && ' Review their record before proceeding.'}
+                                                    </div>
+                                                    {returningCheck?.details && (
+                                                        <div style={{ fontSize: '0.72rem', color: 'var(--txt-3)' }}>{returningCheck.details}</div>
+                                                    )}
+                                                    {needsJ4 && selectedMember && (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                                            <button
+                                                                type='button'
+                                                                disabled={j4Notify === 'sending' || j4Notify === 'sent'}
+                                                                onClick={async () => {
+                                                                    setJ4Notify('sending')
+                                                                    const res = await fetch('/api/admin/j1/check-returning', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({ discordId: selectedMember.id }),
+                                                                    }).catch(() => null)
+                                                                    const data = await res?.json().catch(() => null)
+                                                                    setJ4Notify(res?.ok ? 'sent' : (data?.error ?? 'Could not send. Try again.'))
+                                                                }}
+                                                                style={{ padding: '5px 12px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: j4Notify === 'sending' || j4Notify === 'sent' ? 'default' : 'pointer', background: 'transparent', border: `1px solid ${tone}`, color: tone, opacity: j4Notify === 'sent' ? 0.6 : 1 }}
+                                                            >
+                                                                {j4Notify === 'sending' ? 'Sending…' : j4Notify === 'sent' ? 'J4 notified' : 'Send notification to J4'}
+                                                            </button>
+                                                            {j4Notify !== 'idle' && j4Notify !== 'sending' && j4Notify !== 'sent' && (
+                                                                <span style={{ fontSize: '0.72rem', color: '#ff8a80' }}>{j4Notify}</span>
+                                                            )}
+                                                            {j4Notify === 'sent' && <span style={{ fontSize: '0.72rem', color: 'var(--txt-3)' }}>Posted in the J1 recruitment channel.</span>}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        })()}
 
                                         {/* Under-16 warning */}
                                         {fields.age && Number(fields.age) > 0 && Number(fields.age) <= 16 && (

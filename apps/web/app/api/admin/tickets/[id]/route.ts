@@ -204,6 +204,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         const dischargedData = {
             date: dischargeDate,
             type: ticket.dischargeType!,
+            ...(ticket.rejoinStatus ? { rejoinStatus: ticket.rejoinStatus } : {}),
             reason: ticket.dischargeReason!,
             dischargedById: ticket.issuedById,
             dischargedByName: ticket.issuedByName,

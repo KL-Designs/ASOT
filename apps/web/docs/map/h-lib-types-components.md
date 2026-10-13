@@ -65,6 +65,10 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/teamspeak/nickname.ts
 - Pure `nicknameCore()` / `nicknamesMatch()` — matches a member to their TeamSpeak client on the name alone (bracketed groups and a leading rank abbreviation stripped from both sides). Unit-tested. Used by `/api/me/teamspeak` `init`.
 
+### lib/j1/rejoin.ts and lib/j1/returning-check.ts
+- `rejoin.ts` (pure, tested): `dischargeLevel(type, rejoinStatus)` maps a discharge to HD (welcome back) / GD (to be reviewed) / DD (not welcome), reading both the site's `honorable|general|dishonorable` and the master sheet's `HD|GD|DD`; a J4-set `discharged.rejoinStatus` wins. Also `defaultRejoinStatus`, `worseLevel`, labels.
+- `returning-check.ts`: `runReturningMemberCheck(discordId)` — the most cautious verdict across rejected applications, the site discharge, leaving history and denied applications. Used by `PATCH /api/admin/j1/applications/[id]` and `GET /api/admin/j1/check-returning` (which now returns `level`/`details`; its POST pings J4 in the J1 recruitment channel).
+
 ### lib/military/bio-approval.ts
 - Pure `bioApproversFor(memberId, positions)` — who approves a MILPAC biography change: the member's platoon HQ, else company HQ, else J4 (`isHeadquartersSection`, `BIO_LEVEL_LABEL`, `BIO_MAX_LENGTH`). Unit-tested. `POST /api/me { content }` stores the edit as `User.bioPending` (with the resolved approvers) instead of publishing; `/api/milpac/bio-approvals` approves or sends it back (`User.bioRejected`).
 

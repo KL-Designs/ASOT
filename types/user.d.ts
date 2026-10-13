@@ -73,7 +73,10 @@ declare global {
 
         discharged?: {
             date: string
-            type: 'honorable' | 'dishonorable'
+            type: 'honorable' | 'general' | 'dishonorable'
+            /** Whether they are welcome back, when J4 set it outright at
+             *  discharge. Absent = follows `type`. See apps/web lib/j1/rejoin.ts. */
+            rejoinStatus?: 'welcome' | 'review' | 'not_welcome'
             reason: string
             dischargedById: string
             dischargedByName: string
