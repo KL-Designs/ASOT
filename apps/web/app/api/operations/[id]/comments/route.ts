@@ -4,7 +4,7 @@ import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 import { sendMeetingDM } from '@/lib/discord/bot'
 import { unitColoursFor } from '@/lib/orbat/unit-colour'
-import { commentViewer, readOperationComments, toView } from '@/lib/operations/comments'
+import { commentViewer, readOperationComments, toView, visibleOperation } from '@/lib/operations/comments'
 
 /**
  * `/api/operations/{id}/comments` — the thread under an operation's orders.
@@ -24,10 +24,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const { id } = await params
     if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
 
-    const operation = await Db.operations.findOne(
-        { _id: new ObjectId(id), deletedAt: { $exists: false } },
-        { projection: { ownedBy: 1, ownedByName: 1 } },
-    )
+    const operation = await visibleOperation(id, viewer)
     if (!operation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     return NextResponse.json({
@@ -51,10 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
     const operationId = new ObjectId(id)
 
-    const operation = await Db.operations.findOne(
-        { _id: operationId, deletedAt: { $exists: false } },
-        { projection: { title: 1, ownedBy: 1 } },
-    )
+    const operation = await visibleOperation(id, viewer)
     if (!operation) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const body = await req.json().catch(() => ({}))

@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import { unitColoursFor } from '@/lib/orbat/unit-colour'
-import { commentViewer, toView } from '@/lib/operations/comments'
+import { commentViewer, toView, visibleOperation } from '@/lib/operations/comments'
 
 type RouteParams = { params: Promise<{ id: string; commentId: string }> }
 
-async function find(params: RouteParams['params']) {
+/** The comment, provided the viewer may see the operation it sits under —
+ *  the same visibility rule the thread itself applies. */
+async function find(params: RouteParams['params'], viewer: NonNullable<Awaited<ReturnType<typeof commentViewer>>>) {
     const { id, commentId } = await params
     if (!ObjectId.isValid(id) || !ObjectId.isValid(commentId)) return null
+    if (!(await visibleOperation(id, viewer))) return null
     return Db.operationComments.findOne({ _id: new ObjectId(commentId), operationId: new ObjectId(id) })
 }
 
@@ -18,7 +21,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     const viewer = await commentViewer()
     if (!viewer) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const comment = await find(params)
+    const comment = await find(params, viewer)
     if (!comment || comment.isDeleted) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (comment.authorId !== viewer.me.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -40,7 +43,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     const viewer = await commentViewer()
     if (!viewer) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const comment = await find(params)
+    const comment = await find(params, viewer)
     if (!comment || comment.isDeleted) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (comment.authorId !== viewer.me.id && !viewer.canModerate) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

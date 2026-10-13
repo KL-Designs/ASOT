@@ -24,7 +24,35 @@ export async function commentViewer() {
         me,
         name: me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id,
         canModerate: client.hasRoles(me, PERMISSIONS.operations.write),
+        canSeeInDevelopment: !!client.hasRoles(me, PERMISSIONS.operations.viewInDevelopment),
     }
+}
+
+/**
+ * The operation a comment request is about — or null when this viewer may not
+ * know it exists.
+ *
+ * An operation still In Development is hidden from members everywhere else:
+ * the orders page refuses it and the list leaves it out. Its comment thread
+ * has to make the same call, or the thread (and the operation's title, which
+ * goes out in reply notifications) is readable by guessing an id. The owner
+ * can always see their own; so can anybody with `operations.viewInDevelopment`.
+ *
+ * "Not found" rather than "forbidden" for a hidden one, so the response does
+ * not confirm that the id is real.
+ */
+export async function visibleOperation(
+    id: string,
+    viewer: NonNullable<Awaited<ReturnType<typeof commentViewer>>>,
+) {
+    if (!ObjectId.isValid(id)) return null
+    const operation = await Db.operations.findOne(
+        { _id: new ObjectId(id), deletedAt: { $exists: false } },
+        { projection: { title: 1, status: 1, ownedBy: 1, ownedByName: 1 } },
+    )
+    if (!operation) return null
+    if (operation.status === 'In Development' && !viewer.canSeeInDevelopment && operation.ownedBy !== viewer.me.id) return null
+    return operation
 }
 
 export type OperationCommentView = {
