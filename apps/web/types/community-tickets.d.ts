@@ -25,6 +25,7 @@ declare global {
         | 'bug-other'
         | 'mission'
         | 'campaign'
+        | 'objective'
         | 'unit-feedback'
         | 'complaint-individual'
         | 'complaint-group'
@@ -124,6 +125,16 @@ declare global {
         missionMechanics?: string
         missionAdditionalNotes?: string
         campaignPhases?: CampaignPhase[]
+
+        // ── Objective Idea fields (subtype 'objective') ──────────────────────
+        // The idea's type/name is the ticket `title` and its overview/concept
+        // the `description`; these are the rest. A J2 lead confirms the ticket
+        // into Objective Suggestions — see lib/j2/objective-suggestions.ts.
+        /** How ASOT discovers or knows about the objective. */
+        objectiveIntel?: string
+        /** What the objective could link on to. */
+        objectiveLinkedIntel?: string
+        objectiveComments?: string
 
         // ── Unit Feedback fields (private) ──────────────────────────────────────
         feedbackCategories?: string[]

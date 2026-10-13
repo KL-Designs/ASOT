@@ -16,6 +16,7 @@ import {
 import { avatarURL } from '@/lib/discord/avatar'
 import { buildThread } from '@/lib/comments/thread'
 import SendToModDatabase from './SendToModDatabase'
+import ConfirmObjectiveIdea from './ConfirmObjectiveIdea'
 
 type MyVote = 'up' | 'down' | null
 
@@ -539,6 +540,12 @@ export default function TicketDetailPage() {
                             nothing for a member who cannot edit the database and
                             whose ticket has no entry — so it sits outside the
                             labelled fields, which would leave an empty row. */}
+                        {/* The J2 lead's confirmation step for an objective idea. */}
+                        {data.subtype === 'objective' && (
+                            <div style={{ marginTop: 10 }}>
+                                <ConfirmObjectiveIdea ticketId={data._id} />
+                            </div>
+                        )}
                         {data.subtype === 'mod-request' && (
                             <div style={{ marginTop: 10 }}>
                                 <SendToModDatabase ticketId={data._id} title={data.title} modLink={data.modLink} />
@@ -1165,6 +1172,11 @@ function ExtendedFields({ data }: { data: DetailData }) {
     if (isBug && data.stepsToReproduce) fields.push(['STEPS TO REPRODUCE', data.stepsToReproduce])
     if (isBug && data.expectedResult) fields.push(['EXPECTED', data.expectedResult])
     if (isBug && data.actualResult) fields.push(['ACTUAL', data.actualResult])
+
+    // Objective Idea fields: its name is the title and its overview the description.
+    if (s === 'objective' && data.objectiveIntel) fields.push(['OBJECTIVE INTELLIGENCE', data.objectiveIntel])
+    if (s === 'objective' && data.objectiveLinkedIntel) fields.push(['LINKED INTELLIGENCE', data.objectiveLinkedIntel])
+    if (s === 'objective' && data.objectiveComments) fields.push(['OTHER COMMENTS', data.objectiveComments])
 
     // Mission / Campaign fields
     if (isMission && data.missionType) fields.push(['MISSION TYPE', data.missionType === 'midweek' ? 'Midweek Operation' : 'Weekend Operation'])

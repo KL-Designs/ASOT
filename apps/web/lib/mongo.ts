@@ -81,6 +81,7 @@ const DbInterface = {
     modDatabase: db.collection('mod_database') as MongoCollection<ModEntry>,
     missionBibleVersions: db.collection('mission_bible_versions') as MongoCollection<MissionBibleVersion>,
     missionBibleDraft: db.collection('mission_bible_draft') as MongoCollection<MissionBibleDraft>,
+    objectiveSuggestions: db.collection('objective_suggestions') as MongoCollection<ObjectiveSuggestion>,
     communityTicketComments: db.collection('feedback_comments') as MongoCollection<CommunityTicketComment>,
     meetingNotifQueue: db.collection('meeting_notif_queue') as MongoCollection<MeetingNotifQueueRecord>,
     userPreferences: db.collection('user_preferences') as MongoCollection<UserPreferences>,

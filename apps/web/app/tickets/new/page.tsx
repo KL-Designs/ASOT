@@ -64,6 +64,7 @@ const SUBTYPES: Record<string, { value: string; label: string; desc: string }[]>
     'mission-campaign': [
         { value: 'mission',  label: 'Mission Idea',  desc: 'A standalone operation pitch for J2.'                     },
         { value: 'campaign', label: 'Campaign Idea', desc: 'A multi-mission campaign pitch (minimum 3 missions).'      },
+        { value: 'objective', label: 'Objective Idea', desc: 'One objective a mission maker could use, not a whole mission.' },
     ],
     'unit-feedback': [{ value: 'unit-feedback', label: 'Unit Feedback', desc: 'Feedback for J4 — private.' }],
     complaint: [
@@ -272,6 +273,10 @@ export default function NewTicketPage() {
     const [missionAtmosphere, setMissionAtmosphere] = useState('')
     const [missionSpecialRequirements, setMissionSpecialRequirements] = useState('')
     const [missionFinalComments, setMissionFinalComments] = useState('')
+    // Objective Idea: its name is `title` and its overview `description`.
+    const [objectiveIntel, setObjectiveIntel] = useState('')
+    const [objectiveLinkedIntel, setObjectiveLinkedIntel] = useState('')
+    const [objectiveComments, setObjectiveComments] = useState('')
     // Campaign: multi-mission Objectives blocks (Section 7 per mission) — minimum 3
     const [campaignMissions, setCampaignMissions] = useState<CampaignMissionBlock[]>([
         { objectiveIdeas: '', playerExperience: '', intelEvents: '' },
@@ -536,6 +541,7 @@ export default function NewTicketPage() {
             ...(missionSpecialRequirements && { missionSpecialRequirements }),
             ...(missionFinalComments && { missionAdditionalNotes: missionFinalComments }),
             ...(subtype === 'campaign' && { campaignMissions: campaignMissions.filter(m => m.objectiveIdeas || m.playerExperience || m.intelEvents) }),
+            ...(subtype === 'objective' && { objectiveIntel, objectiveLinkedIntel, objectiveComments }),
             ...(feedbackCategories.length && { feedbackCategories }),
             ...(feedbackCategories.includes('Other') && feedbackCategoryOther && { feedbackCategoryOther }),
             ...(feedbackType && { feedbackType }),
@@ -1098,6 +1104,28 @@ export default function NewTicketPage() {
                                     </SubField>
                                 </SectionBlock>
                             </>
+                        )}
+
+                        {/* ── OBJECTIVE IDEA ── */}
+                        {subtype === 'objective' && (
+                            <SectionBlock title='Objective Idea' num={1} colors={SECT.basicDetails}>
+                                <SubField label='OBJECTIVE TYPE / NAME' hint='What it is, in a few words'>
+                                    <input value={title} onChange={e => setTitle(e.target.value)} maxLength={100} placeholder='e.g. Downed pilot recovery, weapons cache, HVT capture' style={INPUT_STYLE} />
+                                    <CharCount n={title.length} max={100} />
+                                </SubField>
+                                <SubField label='OVERVIEW / CONCEPT' hint='What happens, and what the players are asked to do'>
+                                    <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} maxLength={3000} style={TA_STYLE} placeholder='Describe the objective and how it would play out' />
+                                </SubField>
+                                <SubField label='OBJECTIVE INTELLIGENCE' hint='How does ASOT discover or know about it?'>
+                                    <textarea value={objectiveIntel} onChange={e => setObjectiveIntel(e.target.value)} rows={3} maxLength={2000} style={TA_STYLE} placeholder='A captured document, a signal intercept, a local informant' />
+                                </SubField>
+                                <SubField label='LINKED INTELLIGENCE' hint='What could this objective link on to?'>
+                                    <textarea value={objectiveLinkedIntel} onChange={e => setObjectiveLinkedIntel(e.target.value)} rows={3} maxLength={2000} style={TA_STYLE} placeholder='What the players find or learn here that points to the next thing' />
+                                </SubField>
+                                <SubField label='OTHER COMMENTS'>
+                                    <textarea value={objectiveComments} onChange={e => setObjectiveComments(e.target.value)} rows={2} maxLength={2000} style={TA_STYLE} placeholder='Anything else worth knowing' />
+                                </SubField>
+                            </SectionBlock>
                         )}
 
                         {/* ── CAMPAIGN ── */}

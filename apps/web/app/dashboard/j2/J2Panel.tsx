@@ -16,6 +16,7 @@ import MissionChecksTab from '@/app/dashboard/j2/tabs/MissionChecksTab'
 import IntelImagesTab from '@/app/dashboard/j2/tabs/IntelImagesTab'
 import EraOptionsTab from '@/app/dashboard/j2/tabs/EraOptionsTab'
 import MissionBibleTab from './tabs/MissionBibleTab'
+import ObjectiveSuggestions from '@/components/j2/ObjectiveSuggestions'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
 export default function J2Panel({
@@ -124,6 +125,7 @@ export default function J2Panel({
                                 different index for a lead than for a member, and a
                                 pinned link to it would open the wrong tab. */}
                             <Tab value={7} label={<PinTabLabel label='Mission Bible' pinLabel='J2 — Mission Bible' href='/dashboard/j2' tabIndex={7} />} sx={tabSx} />
+                            <Tab value={8} label={<PinTabLabel label='Objective Suggestions' pinLabel='J2 — Objectives' href='/dashboard/j2' tabIndex={8} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -136,6 +138,7 @@ export default function J2Panel({
                         {tab === 5 && <IntelImagesTab />}
                         {tab === 6 && canManageMembers && <EraOptionsTab />}
                         {tab === 7 && <MissionBibleTab />}
+                        {tab === 8 && <ObjectiveSuggestions />}
                     </div>
                 </>
             )}
