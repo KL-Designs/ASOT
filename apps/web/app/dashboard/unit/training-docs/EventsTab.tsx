@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { CLASH_LABEL, type ClashKind } from '@/lib/training/clashes'
 import MemberPicker from '@/app/dashboard/_components/meetings/MemberPicker'
 import { Add, CheckCircle, Cancel, Edit, Delete } from '@mui/icons-material'
 
@@ -199,6 +200,53 @@ function PreLearningPanel({ item, onDone }: { item: PreLearning; onDone: () => v
                     )}
                 </>
             )}
+        </div>
+    )
+}
+
+type Clash = { kind: ClashKind; title: string; start: string; end: string }
+
+/**
+ * What else is on at the time being booked: missions, other trainings, J2 and
+ * unit calendar events. A warning only — the booking still goes through, since
+ * the trainer is the one who knows whether the overlap matters.
+ *
+ * Asked again a moment after the time or duration stops changing, and shows
+ * nothing at all when the time is clear.
+ */
+function ClashWarning({ at, duration, excludeId }: { at: string; duration: number; excludeId?: string }) {
+    const [clashes, setClashes] = useState<Clash[]>([])
+
+    useEffect(() => {
+        const when = new Date(at)
+        if (!at || Number.isNaN(when.getTime())) return
+        let live = true
+        const timer = setTimeout(() => {
+            const query = new URLSearchParams({ at: when.toISOString(), duration: String(duration) })
+            if (excludeId) query.set('exclude', excludeId)
+            fetch(`/api/training/events/clashes?${query}`)
+                .then(r => (r.ok ? r.json() : { clashes: [] }))
+                .then(d => { if (live) setClashes(d.clashes ?? []) })
+                .catch(() => { if (live) setClashes([]) })
+        }, 400)
+        return () => { live = false; clearTimeout(timer) }
+    }, [at, duration, excludeId])
+
+    if (!clashes.length) return null
+
+    const time = (iso: string) => new Date(iso).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+    return (
+        <div role='status' style={{ padding: '10px 12px', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', background: 'rgba(245,158,11,0.06)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,158,11,0.95)' }}>
+                This time overlaps with
+            </span>
+            {clashes.map((c, i) => (
+                <span key={i} style={{ fontSize: '0.76rem', lineHeight: 1.45, color: 'rgba(237,237,237,0.75)' }}>
+                    {CLASH_LABEL[c.kind]}: {c.title} ({time(c.start)} to {time(c.end)})
+                </span>
+            ))}
+            <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)' }}>You can still book it.</span>
         </div>
     )
 }
@@ -938,6 +986,7 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
                                     style={{ ...inputStyle, width: 80 }} />
                             </Field>
                         </div>
+                        <ClashWarning at={form.scheduledAt} duration={form.durationMinutes} excludeId={'id' in form ? String(form.id) : undefined} />
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                             <Field label='Server'>
                                 <input value={form.server} onChange={e => setForm(prev => ({ ...prev, server: e.target.value }))}
