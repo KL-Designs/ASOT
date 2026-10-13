@@ -1136,14 +1136,18 @@ acknowledgement summary. **The operation's lifecycle lives in the Schedule tab**
 (`edit/tabs/schedule/`), rebuilt as one horizontal *phase ribbon* covering the whole life of the
 operation — pre-production → lead-up → RSVP window → final hour → op & confirmation:
 
-- `ScheduleTab.tsx` — composes the ribbon panel and `LifecycleOverride`; owns the
-  selected-phase state and its own coarse 30s clock.
+- `ScheduleTab.tsx` — three panels and no phase selection: **Pre-production checks** (the making of
+  the mission: `PreProductionInspector`, always on screen), **Schedule** (the running of it:
+  `AnchorBar`, the ribbon as a picture, `RsvpWindowInspector`, and one line on whether automation is
+  live and what fires next) and `LifecycleOverride`. It used to select one of five phases to
+  inspect, from two controls that did the same thing; owns its own coarse 30s clock.
 - `AnchorBar.tsx` — the operation date, permanently visible above the ribbon and now its **only**
   control (it was previously duplicated in the deck's Details card). Carries the
   `schedule-op-date-input` testid the E2E date-edit spec selects.
 - `PhaseRibbon.tsx` + `ribbon.module.css` — the ribbon: boundaries (transitions) above, milestones
-  below, a `now` line, and an inverted-phase hatch for an out-of-order schedule.
-- `PhaseStrip.tsx` — the five-phase selector under the ribbon.
+  below, a `now` line, and an inverted-phase hatch for an out-of-order schedule. Display only — its
+  segments are no longer buttons — and it leaves the development gates off, since those belong to
+  the pre-production panel.
 - `PreProductionInspector.tsx` — development gates with their checklists visible inline, the
   completion modal, and the Orders Check request/cancel/reminder block.
 - `RsvpWindowInspector.tsx` — both ends of the RSVP window edited together as one object, and both expressed the same way: minutes before the op date, preset select + `Custom…` picker. There is no Manual/Scheduled toggle — an unset open offset simply means no automatic open, and the lifecycle panel's Advance is the by-hand path.

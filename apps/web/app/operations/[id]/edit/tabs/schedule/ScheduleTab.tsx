@@ -5,12 +5,11 @@ import type { Dayjs } from 'dayjs'
 import TabPanel from '../TabPanel'
 import AnchorBar from './AnchorBar'
 import PhaseRibbon from './PhaseRibbon'
-import PhaseStrip from './PhaseStrip'
 import PreProductionInspector, { type OrdersCheckTask } from './PreProductionInspector'
 import RsvpWindowInspector from './RsvpWindowInspector'
 import LifecycleOverride from './LifecycleOverride'
-import { btnTone, chip, label } from './controls'
-import { buildRibbon, type PhaseId } from '@/lib/operations/phases'
+import { btnTone, chip } from './controls'
+import { buildRibbon } from '@/lib/operations/phases'
 import { fmtCountdown } from '@/lib/operations/schedule'
 import type { AttendanceStage } from '@/lib/operations/schedule'
 
@@ -50,21 +49,28 @@ interface Props {
 }
 
 /**
- * The operation's lifecycle as one ribbon, read left to right: development
- * gates weeks out, the lead-up, the RSVP window, the final hour, then the
- * operation and its confirmation window.
+ * The Schedule tab, as two separate jobs and one correction tool.
  *
- * This replaces three stacked panels that each drew the same line in a
- * different idiom at a different scale — a gate rail, five RSVP columns, six
- * stage segments — and never said they were the same line. The ribbon draws it
- * once; selecting a phase opens its controls beneath. The stage machine kept
- * its segments but not its panel: it is a correction tool, so it sits with the
- * status override rather than as a fourth picture of the same timeline.
+ * **Pre-production checks** is the making of the mission: what has to be done,
+ * by when, what each check involves, ticking the steps off, and requesting a
+ * mission check. Nothing in it is about when the mission runs.
  *
- * Ordering errors are structural here rather than validated. Because phases
- * are adjacent by construction, an RSVP window set to open after it closes has
- * negative width, which the ribbon renders as a hatched, backwards segment. It
- * is caught by the geometry before any check runs — see lib/operations/phases.
+ * **Schedule** is the running of it: the operation date and when sign-ups open
+ * and close. Nothing in it is about building the mission.
+ *
+ * They used to be one panel. A ribbon drew the operation's whole life, and
+ * under it a row of five phase buttons selected which phase's controls to show
+ * — the ribbon's own segments did the same, so two controls lit up and opened
+ * the same thing, and the checks and the sign-up window took turns in one
+ * inspector as if they were the same kind of thing. Three of the five phases
+ * had no controls at all, only a paragraph. Now nothing is selected: each job
+ * is on screen under its own heading, and the ribbon is a picture of the
+ * timeline rather than a second way of driving the tab.
+ *
+ * This file only arranges. The checks' completion and the mission-check
+ * request are `PreProductionInspector`, and the notifications and tasks they
+ * raise for the mission maker and J2 leads are raised by the routes it calls —
+ * none of that moved.
  *
  * The clock is local and coarse (30s). The ribbon only ever needs to move the
  * `now` line and re-tone a phase; page.tsx's 1s `tickNow` exists to fire
@@ -97,148 +103,104 @@ export default function ScheduleTab({
         now,
     }), [date, openOffsetMins, closeOffsetMins, isCampaignOp, campaignStartDate, missionDev, ordersCheckTask, now])
 
-    // Open on whatever most needs attention: a broken phase first, otherwise
-    // the phase the operation is actually in. Explicit selection wins after that.
-    const suggested: PhaseId =
-        ribbon.phases.find(p => p.invalid)?.id
-        ?? ribbon.phases.find(p => p.state === 'current')?.id
-        ?? 'pre_production'
-    const [chosen, setChosen] = useState<PhaseId | null>(null)
-    const selected = chosen ?? suggested
-
     const critical = ribbon.problems.find(p => p.severity === 'critical')
+    const blocked = ribbon.problems.some(p => p.blocksPublish)
 
-    const anchorNote = selected === 'pre_production'
-        ? 'move this and every gate below moves with it'
-        : 'anchor — every phase below is measured from here'
+    const gatesDone = ribbon.gates.filter(g => g.state === 'done').length
+    const gatesOverdue = ribbon.gates.filter(g => g.state === 'overdue').length
+
+    const next = ribbon.boundaries.find(b => b.at && b.at > now && b.state !== 'invalid')
 
     return (
-        // No max-width, unlike AttendanceTab's 1220. The ribbon is a
-        // wide-format diagram: every extra pixel goes into separating boundary
-        // labels and milestones that would otherwise collide, so capping it
-        // reintroduces the crowding the rebuild set out to remove. Attendance
-        // keeps its cap because it is 420px form controls, which only look
-        // worse stretched.
         <div style={{ width: '100%', padding: 'clamp(1.5rem, 2.5vw, 2.5rem)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            {/* ── Making the mission ─────────────────────────────────────── */}
             <TabPanel
-                title="Operation timeline"
-                horizon={isCampaignOp ? '16w out → +24h' : '12w out → +24h'}
+                title="Pre-production checks"
+                horizon={ribbon.gates.length ? `${gatesDone} of ${ribbon.gates.length} complete` : undefined}
+                badge={gatesOverdue > 0 ? <span style={chip('warn')}>{gatesOverdue} overdue</span> : undefined}
+            >
+                <div style={{ padding: 16 }}>
+                    <PreProductionInspector
+                        opID={opID}
+                        isJ2Lead={isJ2Lead}
+                        title={title}
+                        isCampaignOp={isCampaignOp}
+                        gates={ribbon.gates}
+                        now={now}
+                        missionDev={missionDev}
+                        setMissionDev={setMissionDev}
+                        ordersCheckTask={ordersCheckTask}
+                        setOrdersCheckTask={setOrdersCheckTask}
+                    />
+                </div>
+            </TabPanel>
+
+            {/* ── Running the mission ────────────────────────────────────── */}
+            <TabPanel
+                title="Schedule"
                 badge={<>
-                    {ribbon.gates.some(g => g.state === 'overdue') && (
-                        <span style={chip('warn')}>{ribbon.gates.filter(g => g.state === 'overdue').length} gates overdue</span>
-                    )}
                     {critical && <span style={chip('crit')}>{critical.id === 'rsvp_inverted' ? 'Sign-up window inverted' : 'Schedule error'}</span>}
                     {automationPaused && <span style={chip()}>Automation paused</span>}
                 </>}
             >
-                <AnchorBar date={date} onChangeDate={onChangeDate} now={now} note={anchorNote} />
+                <AnchorBar date={date} onChangeDate={onChangeDate} now={now} note='when the mission runs' />
 
-                <PhaseRibbon ribbon={ribbon} selected={selected} onSelect={setChosen} now={now} />
+                {/* A picture of the timeline, not a control. */}
+                <PhaseRibbon ribbon={ribbon} now={now} />
 
-                <PhaseStrip ribbon={ribbon} selected={selected} onSelect={setChosen} now={now} />
+                <div style={{ borderTop: '1px solid var(--line)', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {critical && (
+                        <div style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 10,
+                            border: '1px solid rgba(192,90,72,0.45)', borderLeft: '2px solid var(--crit)',
+                            background: 'rgba(192,90,72,0.07)', borderRadius: 'var(--r)',
+                            padding: '9px 12px', fontSize: 12, color: 'var(--ink-2)',
+                        }}>
+                            <span style={{ fontFamily: 'var(--mono)', color: 'var(--crit)', flex: '0 0 auto' }}>!</span>
+                            <span>{critical.message}</span>
+                            {critical.fix && date && (
+                                <button
+                                    type="button"
+                                    onClick={() => onChangeOpenOffset(critical.fix!.minutesBeforeOp)}
+                                    style={{ ...btnTone('acc'), marginLeft: 'auto', flex: '0 0 auto' }}
+                                >
+                                    {critical.fix.label}
+                                </button>
+                            )}
+                        </div>
+                    )}
 
-                <div style={{
-                    borderTop: '1px solid var(--line)', padding: 16,
-                    display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(260px, 360px)', gap: 26,
-                }}>
-                    <div style={{ minWidth: 0 }}>
-                        {critical && (
-                            <div style={{
-                                display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14,
-                                border: '1px solid rgba(192,90,72,0.45)', borderLeft: '2px solid var(--crit)',
-                                background: 'rgba(192,90,72,0.07)', borderRadius: 'var(--r)',
-                                padding: '9px 12px', fontSize: 12, color: 'var(--ink-2)',
-                            }}>
-                                <span style={{ fontFamily: 'var(--mono)', color: 'var(--crit)', flex: '0 0 auto' }}>!</span>
-                                <span>{critical.message}</span>
-                                {critical.fix && date && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onChangeOpenOffset(critical.fix!.minutesBeforeOp)}
-                                        style={{ ...btnTone('acc'), marginLeft: 'auto', flex: '0 0 auto' }}
-                                    >
-                                        {critical.fix.label}
-                                    </button>
-                                )}
-                            </div>
-                        )}
+                    {isHQ && (
+                        <RsvpWindowInspector
+                            ribbon={ribbon}
+                            date={date}
+                            openOffsetMins={openOffsetMins}
+                            onChangeOpenOffset={onChangeOpenOffset}
+                            onChangeRsvpOpenAt={onChangeRsvpOpenAt}
+                            closeOffsetMins={closeOffsetMins}
+                            onChangeCloseOffset={onChangeCloseOffset}
+                            onChangeRsvpCloseAt={onChangeRsvpCloseAt}
+                        />
+                    )}
 
-                        {selected === 'pre_production' && (
-                            <PreProductionInspector
-                                opID={opID}
-                                isJ2Lead={isJ2Lead}
-                                title={title}
-                                isCampaignOp={isCampaignOp}
-                                gates={ribbon.gates}
-                                now={now}
-                                missionDev={missionDev}
-                                setMissionDev={setMissionDev}
-                                ordersCheckTask={ordersCheckTask}
-                                setOrdersCheckTask={setOrdersCheckTask}
-                            />
-                        )}
-
-                        {selected === 'rsvp_window' && isHQ && (
-                            <RsvpWindowInspector
-                                ribbon={ribbon}
-                                date={date}
-                                openOffsetMins={openOffsetMins}
-                                onChangeOpenOffset={onChangeOpenOffset}
-                                onChangeRsvpOpenAt={onChangeRsvpOpenAt}
-                                closeOffsetMins={closeOffsetMins}
-                                onChangeCloseOffset={onChangeCloseOffset}
-                                onChangeRsvpCloseAt={onChangeRsvpCloseAt}
-                            />
-                        )}
-
-                        {selected === 'lead_up' && (
-                            <PhaseNote
-                                heading="Lead-up"
-                                lines={[
-                                    'Development is signed off and sign-ups have not opened yet. Nothing fires automatically in this window.',
-                                    ordersCheckTask
-                                        ? 'An orders check is booked — it is on the ribbon above.'
-                                        : 'This is when an orders check is usually requested; do that from the pre-production phase.',
-                                ]}
-                            />
-                        )}
-
-                        {selected === 'final_hour' && (
-                            <PhaseNote
-                                heading="Final hour"
-                                lines={[
-                                    'Sign-ups have closed and the operation has not started. Section leaders are asked to review their allocations when sign-ups close.',
-                                    'Company HQ is chased separately one hour out if any attending reservist still has no section.',
-                                ]}
-                            />
-                        )}
-
-                        {selected === 'op_confirmation' && (
-                            <PhaseNote
-                                heading="Operation & confirmation"
-                                lines={[
-                                    'The operation activates at its start time. Confirmations open when it is marked completed, and close automatically twenty-four hours later.',
-                                    'Stage can be advanced, or corrected by hand, in the lifecycle override below.',
-                                ]}
-                            />
-                        )}
-                    </div>
-
-                    <AutomationPanel
-                        paused={automationPaused}
-                        blocked={ribbon.problems.some(p => p.blocksPublish)}
-                        nextAt={ribbon.boundaries.find(b => b.at && b.at > now && b.state !== 'invalid')?.at ?? null}
-                        nextLabel={ribbon.boundaries.find(b => b.at && b.at > now && b.state !== 'invalid')?.label ?? null}
-                        now={now}
-                    />
+                    {/* One line on whether the schedule is actually running.
+                        It used to be a side panel that also explained the cron. */}
+                    <p style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5, color: blocked ? 'var(--crit)' : 'var(--ink-3)' }}>
+                        {blocked
+                            ? 'Fix the error above before publishing: a schedule that cannot run is worse than a paused one.'
+                            : automationPaused
+                                ? 'Nothing on this schedule fires until the operation is published.'
+                                : next?.at
+                                    ? `Running automatically. Next: ${next.label} in ${fmtCountdown(next.at, now) ?? 'moments'}.`
+                                    : 'Running automatically.'}
+                    </p>
                 </div>
             </TabPanel>
 
             {/* Status and stage together: both are the same kind of thing —
                 what the system believes, set by hand, against what the schedule
-                would otherwise do. Stage previously had its own panel titled
-                "Stage", which read as a second drawing of the timeline rather
-                than as the correction tool it is. */}
+                would otherwise do. */}
             {isHQ && (
                 <TabPanel
                     title="Lifecycle override"
@@ -258,62 +220,6 @@ export default function ScheduleTab({
                     />
                 </TabPanel>
             )}
-        </div>
-    )
-}
-
-function PhaseNote({ heading, lines }: { heading: string; lines: string[] }) {
-    return (
-        <div>
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', marginBottom: 10 }}>{heading}</div>
-            {lines.map((l, i) => (
-                <p key={i} style={{ fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.55, margin: '0 0 8px' }}>{l}</p>
-            ))}
-        </div>
-    )
-}
-
-/**
- * Who actually fires these transitions, and whether they are firing at all.
- *
- * "Automation paused" used to be a bare orange line under the RSVP open
- * control, which said neither what was paused nor what would un-pause it.
- */
-function AutomationPanel({ paused, blocked, nextAt, nextLabel, now }: {
-    paused: boolean
-    blocked: boolean
-    nextAt: Date | null
-    nextLabel: string | null
-    now: Date
-}) {
-    const row = { display: 'flex', alignItems: 'baseline', gap: 10, padding: '5px 0', fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--ink-3)' } as const
-    const key = { color: 'var(--ink-2)', minWidth: 112, display: 'inline-block' } as const
-
-    return (
-        <div style={{ border: '1px solid var(--line)', borderRadius: 'var(--r)', background: 'var(--s1)', padding: '12px 14px', alignSelf: 'start' }}>
-            <div style={{ ...label, marginBottom: 8 }}>Automation</div>
-            <div style={row}><span style={key}>Driven by</span> cron, every 5 min</div>
-            <div style={row}><span style={key}>Also fires from</span> this tab, live</div>
-            <div style={row}>
-                <span style={key}>Status</span>
-                {paused
-                    ? <span style={{ color: 'var(--warn)' }}>Paused — In Development</span>
-                    : <span style={{ color: 'var(--good)' }}>Live</span>}
-            </div>
-            {nextAt && nextLabel && (
-                <div style={row}>
-                    <span style={key}>Next</span>
-                    {nextLabel} in {fmtCountdown(nextAt, now) ?? 'moments'}
-                </div>
-            )}
-
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--line)', fontSize: 12.5, color: 'var(--ink-3)', lineHeight: 1.5 }}>
-                {blocked
-                    ? <span style={{ color: 'var(--crit)' }}>Fix the error before publishing — a live schedule that cannot execute is worse than a paused one.</span>
-                    : paused
-                        ? 'Nothing on this timeline fires until the operation is published.'
-                        : 'Sign-ups open and close, and the operation activates, without anyone here.'}
-            </div>
         </div>
     )
 }
