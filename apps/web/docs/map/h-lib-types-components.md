@@ -80,6 +80,11 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/military/bio-approval.ts
 - Pure `bioApproversFor(memberId, positions)` — who approves a MILPAC biography change: the member's platoon HQ, else company HQ, else J4 (`isHeadquartersSection`, `BIO_LEVEL_LABEL`, `BIO_MAX_LENGTH`). Unit-tested. `POST /api/me { content }` stores the edit as `User.bioPending` (with the resolved approvers) instead of publishing; `/api/milpac/bio-approvals` approves or sends it back (`User.bioRejected`).
 
+### lib/j2/bible-diff.ts
+- What changed between two versions of the Mission Making Bible. `htmlToBlocks(html)` reads the editor's HTML into blocks (heading / paragraph / list item / cell), `diffBlocks(before, after)` is an LCS over blocks that pairs a removal with the addition after it into one `changed` block (word-level `diffWords`) when they are at least half alike, `changesOnly` keeps just the changes plus the heading each sits under, `summariseDiff` counts them. Pure, `bible-diff.test.ts`.
+- Storage: `Db.missionBibleVersions` (`MissionBibleVersion`, immutable, numbered) and `Db.missionBibleDraft` (one `_id: 'draft'` document). Route: `/api/j2/mission-bible` — GET (latest + change log + draft for leads; `?version=n` and `?recent=1` return a comparison), PUT (save draft), POST (publish with a required summary; notifies J2). Read: J2 or J4. Edit: `departmentLeads.j2` or J4. HTML is sanitised with `sanitizeDocHtml`.
+- UI: `app/dashboard/j2/tabs/MissionBibleTab.tsx`, the J2 dashboard's *Mission Bible* tab (explicit tab value 7).
+
 ### lib/mods/mod-database.ts + access.ts
 - The Mod Database (`Db.modDatabase`, type `ModEntry`): one entry per mod — name, Workshop link, status (approved / testing / known issues / rejected), notes, who tested it and when. `mod-database.ts` is pure and tested (`sanitiseMod` with a `partial` mode for edits, `cleanModUrl`, `normaliseModUrl` for spotting a mod already listed, `matchesModSearch`). `access.ts` — `canEditMods(me)` (J2 or J7) and `toModView`.
 - Routes: `GET/POST /api/mods` (`?ticketId=` answers "is there an entry from this ticket, may I make one"), `PATCH/DELETE /api/mods/[id]`. Read: dashboard access. Write: J2 / J7.
