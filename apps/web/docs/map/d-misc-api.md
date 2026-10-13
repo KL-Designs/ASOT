@@ -386,7 +386,7 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 
 #### /api/preferences
 - **GET** — returns the caller's notification/UI preferences merged with type defaults (`NOTIFICATION_TYPES`) and any forced org-wide policy overrides. Auth: any authenticated user. Collections: `Db.userPreferences`, `Db.notifPolicyConfig`.
-- **PUT** — updates caller's preferences (`cursorCustom`, per-type `notifications`), enforcing `forceWebsite`/`forceDiscord` policy flags server-side regardless of client input. Collections: `Db.userPreferences`, `Db.notifPolicyConfig`.
+- **PUT** — updates caller's preferences (`cursorCustom`, per-type `notifications`, and `dashboardLayout` — the member's arrangement of the dashboard home panels, sanitised by `lib/dashboard/layout.ts`; `null` resets it; GET returns it or null), enforcing `forceWebsite`/`forceDiscord` policy flags server-side regardless of client input. Collections: `Db.userPreferences`, `Db.notifPolicyConfig`.
 
 ---
 

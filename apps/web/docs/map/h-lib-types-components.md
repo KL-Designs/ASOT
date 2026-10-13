@@ -59,6 +59,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `validRating` / `averageRating` — the latter rounds to one decimal, because an average of "compared to usual" carries about that much signal and quoting 3.47 implies otherwise.
 - `aar.test.ts` — 42 tests, including every fallback case for `sectionLead` and every branch of `didAttend`.
 
+### lib/dashboard/layout.ts
+- Pure model of the dashboard home page's member-arranged layout: `PANEL_IDS`/`PANEL_TITLES`, `DEFAULT_LAYOUT`, `normaliseLayout(saved, available)` (every available panel exactly once), `sanitiseLayout` (what gets stored), `movePanel`. Unit-tested. Used by `/api/preferences` and `app/dashboard/DashboardOverview.tsx`.
+
 ### lib/operations/default-template.ts
 - Pure `newMissionContent(template, newId)` — the sections/pages a brand-new mission starts with: the J2 default template's content when one is set (`OperationTemplate.isDefault`), always with a Zeus Notes and an OCAP page added back if missing. Unit-tested. Used by `/api/operations/new`.
 

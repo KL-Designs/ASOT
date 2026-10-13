@@ -1,14 +1,18 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-    DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+    DndContext, closestCenter, PointerSensor, useSensor, useSensors, useDroppable,
     type DragEndEvent,
 } from '@dnd-kit/core'
 import {
-    SortableContext, rectSortingStrategy, useSortable, arrayMove,
+    SortableContext, rectSortingStrategy, verticalListSortingStrategy, useSortable, arrayMove,
 } from '@dnd-kit/sortable'
+import {
+    movePanel, normaliseLayout, sanitiseLayout, PANEL_IDS, PANEL_TITLES,
+    type DashboardLayout, type PanelId,
+} from '@/lib/dashboard/layout'
 import { CSS } from '@dnd-kit/utilities'
 
 import { useFavourites, type Favourite } from '@/hooks/useFavourites'
@@ -18,7 +22,7 @@ import DashboardQuickLinks from './_components/DashboardQuickLinks'
 import type { DashboardPermissions } from './StaffDashboardShell'
 
 import {
-    Panel, PanelHeader, PanelBody, PanelFooter, SectionLabel, PageHead, Grid2, Stack,
+    Panel, PanelHeader, PanelBody, PanelFooter, SectionLabel, PageHead,
     Button, Badge, Meter, Stats, Stat, ListRow, Rows, Thumb, EmptyState, DashIcons,
 } from '@/components/dashboard'
 import s from '@/styles/dashboard.module.css'
@@ -472,6 +476,78 @@ function OperationsWidget({ isHQ }: { isHQ: boolean }) {
     )
 }
 
+// ── Arrangeable panels ────────────────────────────────────────────────────────
+
+/** A column of panels. Droppable in its own right so an emptied column can
+ *  still be dragged back into. */
+function DashColumn({ id, arranging, children }: { id: string; arranging: boolean; children: React.ReactNode }) {
+    const { setNodeRef, isOver } = useDroppable({ id, disabled: !arranging })
+    return (
+        <div ref={setNodeRef} className={`${s.stack} ${arranging ? s.dashColArranging : ''} ${isOver ? s.dashColOver : ''}`}>
+            {children}
+        </div>
+    )
+}
+
+/**
+ * One panel of the dashboard, with the chrome that lets a member move or fold
+ * it.
+ *
+ * The chrome stays out of the way until wanted: while arranging, every panel
+ * grows a bar with a drag handle; a folded panel keeps that bar so there is
+ * something to unfold; otherwise the only trace is a small fold button that
+ * appears on hover. Dragging is by the handle alone, so the panel's own
+ * buttons, links and nested drag lists keep working while arranging.
+ */
+function DashPanel({ id, arranging, collapsed, onToggle, children }: {
+    id: PanelId
+    arranging: boolean
+    collapsed: boolean
+    onToggle: () => void
+    children: React.ReactNode
+}) {
+    const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
+        useSortable({ id, disabled: !arranging })
+    const title = PANEL_TITLES[id]
+
+    return (
+        <div
+            ref={setNodeRef}
+            className={`${s.dashPanel} ${isDragging ? s.dashPanelDragging : ''}`}
+            style={{ transform: CSS.Translate.toString(transform), transition }}
+        >
+            {arranging || collapsed ? (
+                <div className={s.dashPanelBar}>
+                    {arranging && (
+                        <button
+                            ref={setActivatorNodeRef}
+                            type='button'
+                            className={s.dashPanelHandle}
+                            aria-label={`Move ${title}`}
+                            {...attributes}
+                            {...listeners}
+                        >⠿</button>
+                    )}
+                    <span className={s.k}>{title}</span>
+                    <button type='button' className={s.dashPanelFold} onClick={onToggle} aria-expanded={!collapsed}>
+                        {collapsed ? 'Show' : 'Hide'}
+                    </button>
+                </div>
+            ) : (
+                <button
+                    type='button'
+                    className={s.dashPanelFoldFloating}
+                    onClick={onToggle}
+                    aria-expanded
+                    aria-label={`Hide ${title}`}
+                    title={`Hide ${title}`}
+                >–</button>
+            )}
+            {!collapsed && children}
+        </div>
+    )
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function DashboardOverview({
@@ -508,6 +584,126 @@ export default function DashboardOverview({
         reorder(arrayMove(favourites, oldIndex, newIndex))
     }
 
+    /* ── The member's own arrangement ─────────────────────────────────────
+       Which panels sit in which column, in what order, and which are folded
+       away. Saved on their preferences so it follows them between devices.
+
+       `saved` is held exactly as stored and normalised on every render,
+       rather than normalised once into state: the set of panels a member can
+       see depends on their permissions, and a staff-only panel must come back
+       where it was left if they lose and regain staff. */
+    const available = useMemo<PanelId[]>(
+        () => PANEL_IDS.filter(p => p !== 'operations' || permissions.isStaff),
+        [permissions.isStaff],
+    )
+    const [saved, setSaved] = useState<unknown>(null)
+    const [arranging, setArranging] = useState(false)
+    const layout = useMemo(() => normaliseLayout(saved, available), [saved, available])
+
+    useEffect(() => {
+        fetch('/api/preferences')
+            .then(r => (r.ok ? r.json() : null))
+            .then(d => { if (d?.dashboardLayout) setSaved(d.dashboardLayout) })
+            .catch(() => { /* the default arrangement is a fine fallback */ })
+    }, [])
+
+    function saveLayout(next: DashboardLayout | null) {
+        let store: DashboardLayout | null = next
+        if (next) {
+            // Carry over anything arranged that this member cannot currently
+            // see, so it is not dropped from what is stored.
+            const previous = sanitiseLayout(saved)
+            store = { left: [...next.left], right: [...next.right], collapsed: [...next.collapsed] }
+            for (const id of PANEL_IDS) {
+                if (available.includes(id)) continue
+                if (previous.left.includes(id)) store.left.push(id)
+                else if (previous.right.includes(id)) store.right.push(id)
+                if (previous.collapsed.includes(id)) store.collapsed.push(id)
+            }
+        }
+        setSaved(store)
+        fetch('/api/preferences', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dashboardLayout: store }),
+        }).catch(() => { /* it stays arranged for this visit; the next change retries */ })
+    }
+
+    function togglePanel(id: PanelId) {
+        const collapsed = layout.collapsed.includes(id)
+            ? layout.collapsed.filter(p => p !== id)
+            : [...layout.collapsed, id]
+        saveLayout({ ...layout, collapsed })
+    }
+
+    function handlePanelDragEnd(event: DragEndEvent) {
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+        const id = active.id as PanelId
+        const next = over.id === 'column-left' || over.id === 'column-right'
+            ? movePanel(layout, id, { toColumn: over.id === 'column-left' ? 'left' : 'right' })
+            : movePanel(layout, id, { overId: over.id as PanelId })
+        if (next !== layout) saveLayout(next)
+    }
+
+    const panels: Record<PanelId, React.ReactNode> = {
+        nextOp: <NextOpPanel />,
+        tasks: <TasksWidget />,
+        operations: <OperationsWidget isHQ={isHQ} />,
+        progression: <ProgressionPanel />,
+        quickLinks: <DashboardQuickLinks />,
+        /*
+            A shortcut list — useful once you have built one, and worth nothing
+            at all on the day you first sign in, which is why it starts in the
+            right rail rather than at the top of the page.
+        */
+        favourites: (
+            <div>
+                <SectionLabel>Favourites</SectionLabel>
+                {favourites.length === 0 ? (
+                    <EmptyState icon={<DashIcons.Star />} title='Nothing pinned yet'>
+                        Pin the pages you use most with the ★ beside any sidebar item.
+                    </EmptyState>
+                ) : (
+                    <Panel>
+                        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                            <SortableContext items={favourites.map(f => f.id)} strategy={rectSortingStrategy}>
+                                <Rows>
+                                    {favourites.map(fav => (
+                                        <SortableFavCard
+                                            key={fav.id}
+                                            fav={fav}
+                                            onNavigate={handleNavigate}
+                                            onUnpin={unpin}
+                                        />
+                                    ))}
+                                </Rows>
+                            </SortableContext>
+                        </DndContext>
+                    </Panel>
+                )}
+            </div>
+        ),
+    }
+
+    const column = (side: 'left' | 'right') => (
+        <DashColumn id={`column-${side}`} arranging={arranging}>
+            <SortableContext items={layout[side]} strategy={verticalListSortingStrategy}>
+                {layout[side].map(id => (
+                    <DashPanel
+                        key={id}
+                        id={id}
+                        arranging={arranging}
+                        collapsed={layout.collapsed.includes(id)}
+                        onToggle={() => togglePanel(id)}
+                    >
+                        {panels[id]}
+                    </DashPanel>
+                ))}
+            </SortableContext>
+        </DashColumn>
+    )
+
     return (
         <div style={{ padding: 'var(--gap)', display: 'flex', flexDirection: 'column', gap: 'var(--gap)' }}>
 
@@ -521,57 +717,36 @@ export default function DashboardOverview({
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
                         <LocalClock />
                         <span className={s.hint}>{today}</span>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                            {arranging && !!saved && (
+                                <Button variant='ghost' size='sm' onClick={() => saveLayout(null)}>Reset</Button>
+                            )}
+                            <Button variant={arranging ? 'primary' : 'ghost'} size='sm' onClick={() => setArranging(a => !a)}>
+                                {arranging ? 'Done' : 'Arrange'}
+                            </Button>
+                        </div>
                     </div>
                 }
             />
 
             <span className={s.hint} style={{ marginTop: -8 }}>Welcome back, {displayName}</span>
 
-            <Grid2>
-                <Stack>
-                    <NextOpPanel />
-                    <TasksWidget />
-                    {permissions.isStaff && <OperationsWidget isHQ={isHQ} />}
-                </Stack>
+            {arranging && (
+                <span className={s.hint}>
+                    Drag a panel by its handle to move it, within a column or across. Hide folds one away. Changes save as you make them.
+                </span>
+            )}
 
-                <Stack>
-                    <ProgressionPanel />
-
-                    <DashboardQuickLinks />
-
-                    {/*
-                        Demoted from the top of the page to the right rail. It is
-                        a shortcut list — useful once you have built one, and
-                        worth nothing at all on the day you first sign in, which
-                        is exactly when it used to be the first thing you saw.
-                    */}
-                    <div>
-                        <SectionLabel>Favourites</SectionLabel>
-                        {favourites.length === 0 ? (
-                            <EmptyState icon={<DashIcons.Star />} title='Nothing pinned yet'>
-                                Pin the pages you use most with the ★ beside any sidebar item.
-                            </EmptyState>
-                        ) : (
-                            <Panel>
-                                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                                    <SortableContext items={favourites.map(f => f.id)} strategy={rectSortingStrategy}>
-                                        <Rows>
-                                            {favourites.map(fav => (
-                                                <SortableFavCard
-                                                    key={fav.id}
-                                                    fav={fav}
-                                                    onNavigate={handleNavigate}
-                                                    onUnpin={unpin}
-                                                />
-                                            ))}
-                                        </Rows>
-                                    </SortableContext>
-                                </DndContext>
-                            </Panel>
-                        )}
-                    </div>
-                </Stack>
-            </Grid2>
+            {/* One drag context over both columns, so a panel can cross
+                between them. Favourites has its own nested context for its
+                rows; panels only move by their handle, so the two never
+                compete for the same pointer. */}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handlePanelDragEnd}>
+                <div className={s.grid2}>
+                    {column('left')}
+                    {column('right')}
+                </div>
+            </DndContext>
         </div>
     )
 }
