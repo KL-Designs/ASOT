@@ -588,7 +588,50 @@
     transition: border-color 140ms ease;
 }
 .slot:hover { border-color: rgba(var(--acc-rgb), 0.5); border-left-color: var(--acc); }
-.slot:focus-visible { outline: 2px solid var(--acc); outline-offset: 1px; }
+/* The night's own link fills the slot; the replay link sits after it. */
+.slotMain {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    text-decoration: none;
+}
+.slotMain:focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
+.replay {
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+    font-family: var(--mono);
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 2px 6px;
+    border: 1px solid rgba(var(--acc-rgb), 0.4);
+    border-radius: 2px;
+    color: var(--acc);
+    text-decoration: none;
+}
+.replay:hover, .replay:focus-visible { background: rgba(var(--acc-rgb), 0.16); }
+
+/* ── Banner art behind a past operation ─────────────────────────────────────
+   Faint, and faded out before it reaches the columns of dates: it is there to
+   make a campaign recognisable at a glance, not to be looked at. `--cover` is
+   set inline only on rows that have art. */
+.banner { position: relative; isolation: isolate; }
+.banner::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--cover) center / cover no-repeat;
+    opacity: 0.22;
+    -webkit-mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.5) 30%, transparent 62%);
+    mask-image: linear-gradient(90deg, #000 0%, rgba(0, 0, 0, 0.5) 30%, transparent 62%);
+    pointer-events: none;
+}
 .slotEmpty {
     border-left-color: var(--line-2);
     border-style: dashed;
@@ -624,12 +667,16 @@
     background: var(--s1);
     flex-wrap: wrap;
     margin-bottom: 8px;
+    position: relative;
     text-decoration: none;
     color: inherit;
     transition: border-color 140ms ease;
 }
 .solo:hover { border-color: rgba(var(--acc-rgb), 0.4); border-left-color: var(--acc); }
-.solo:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.solo:focus-within { outline: 2px solid var(--acc); outline-offset: 2px; }
+/* Stretched over the row, so the whole row opens the orders as it always did. */
+.soloLink { text-decoration: none; color: inherit; outline: none; }
+.soloLink::after { content: ""; position: absolute; inset: 0; z-index: 1; }
 .solo b {
     font-size: 13.5px;
     font-weight: 600;

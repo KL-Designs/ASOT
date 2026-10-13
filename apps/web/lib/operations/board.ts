@@ -74,6 +74,9 @@ export interface BoardOperation {
     attending?: number
     /** The viewer's own answer, when there is a viewer. */
     mine?: { rsvp: 'attending' | 'not_attending' | null; confirmed: boolean } | null
+    /** The OCAP viewer for this night's recording, once one has been linked.
+     *  Only sent to a signed-in viewer — the orders page makes the same call. */
+    replayUrl?: string
 }
 
 /** One numbered mission of a campaign, with its night or nights. */

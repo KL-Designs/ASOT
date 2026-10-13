@@ -227,6 +227,7 @@ export async function GET(req: NextRequest) {
             attending: att?.attending ?? 0,
             turnout: att?.turnout ?? 0,
             mine: att?.mine ?? null,
+            replayUrl: me ? (doc.ocap?.viewerUrl || undefined) : undefined,
         }
     }
 
@@ -300,6 +301,8 @@ export async function GET(req: NextRequest) {
 const LIST_FIELDS = {
     title: 1, date: 1, status: 1, assignedPlatoons: 1, mapWorld: 1,
     campaignId: 1, campaignMissionId: 1, daySlot: 1, themeColor: 1, coverImage: 1,
+    // Only the viewer URL — the rest of `ocap` is per-player statistics.
+    'ocap.viewerUrl': 1,
 } as const
 
 type WithId = {
@@ -313,4 +316,5 @@ type WithId = {
     campaignId?: ObjectId
     campaignMissionId?: string
     daySlot?: 'saturday' | 'sunday'
+    ocap?: { viewerUrl?: string }
 }
