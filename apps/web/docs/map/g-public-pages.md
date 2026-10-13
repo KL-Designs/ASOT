@@ -263,6 +263,7 @@ by `GET/PUT /api/preferences`. Requires an authenticated user implicitly (fetch 
 upstream if not logged in — no explicit guard visible in this file, relies on `/api/preferences`).
 
 #### app/(landing)/support/page.tsx
+On the shared shell vocabulary now (`SectionHead`, `Card`/`CardGrid`, `List`, `PhotoBand`) instead of its own section header and `InfoCard`; wording unchanged. The About pages Rules, Values and FAQ each carry a `PhotoBand` between sections.
 Static mental-health/crisis-support resource page (Lifeline, Beyond Blue, etc.) with `SupportCard`.
 Public.
 

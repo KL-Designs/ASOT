@@ -2,7 +2,11 @@ import { Metadata } from 'next'
 
 import SectionHead from '@/components/ui/SectionHead'
 import Card, { CardGrid } from '@/components/ui/Card'
+import PhotoBand from '@/components/ui/PhotoBand'
 import AboutShell from '../shell'
+
+import ImgRecon from '@/public/images/home/3DMA_Final2.png'
+import ImgPatrol from '@/public/images/home/adf_peaking3.png'
 
 export const metadata: Metadata = {
 	title: "Principles and Values | Australian Special Operations Taskforce",
@@ -36,6 +40,8 @@ export default function Tab() {
 					))}
 				</CardGrid>
 			</section>
+
+			<PhotoBand images={[ImgRecon, ImgPatrol]} />
 
 			<section>
 				<SectionHead kicker='Operating Principles' title='How we play, train & conduct ourselves' />

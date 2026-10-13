@@ -1047,6 +1047,9 @@ choreography stays in that surface's own module.
 - Default export `Pulse({tone})` — the live dot. `live` / `amber` / `idle` (dim, animation off, for
   "known not live" as distinct from "unknown").
 
+#### components/ui/PhotoBand.tsx
+- One to three photographs across the content width, placed between two sections of a text page (About: Rules, Values, FAQ; Support). Decorative: empty alt unless the caller passes one. Styles are `.band*` in `styles/shell.module.css`; below 760px only the first photograph shows.
+
 #### components/ui/SectionHead.tsx
 - Default export `SectionHead({kicker, title, more, children})`, plus named `Kicker` and `Lede`.
   The standard section opener; using it everywhere is most of what makes a long page read as one

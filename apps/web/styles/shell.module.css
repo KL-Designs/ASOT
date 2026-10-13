@@ -520,6 +520,51 @@
 .s4 { grid-column: span 4; }
 .s6 { grid-column: span 6; }
 
+/* ---------- photo band --------------------------------------------------- */
+
+/*
+   A row of photographs between two sections (components/ui/PhotoBand.tsx).
+   Same 18px gutter as the card grids, so its edges line up with the cards
+   above and below it.
+*/
+.band {
+    display: grid;
+    gap: 18px;
+    height: clamp(190px, 24vw, 340px);
+}
+
+.band1 { grid-template-columns: 1fr; }
+.band2 { grid-template-columns: 3fr 2fr; }
+.band3 { grid-template-columns: 2fr 1fr 1fr; }
+
+.bandCell {
+    position: relative;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid var(--line-2);
+    background: #0b0d10;
+}
+
+/* Darkened towards the bottom so the band sits in the page rather than
+   glowing out of it: the photographs are bright against a near-black site. */
+.bandCell::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(8, 9, 11, 0) 45%, rgba(8, 9, 11, .55) 100%);
+    pointer-events: none;
+}
+
+.bandImg {
+    object-fit: cover;
+    filter: saturate(.9) contrast(1.04);
+}
+
+@media (max-width: 760px) {
+    .band { grid-template-columns: 1fr; height: 210px; }
+    .bandCell:not(:first-child) { display: none; }
+}
+
 /* ---------- list --------------------------------------------------------- */
 
 /*

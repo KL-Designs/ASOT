@@ -5,7 +5,12 @@ import SectionHead from '@/components/ui/SectionHead'
 import Card, { CardGrid } from '@/components/ui/Card'
 import QaRow, { QaStack } from '@/components/ui/QaRow'
 import List from '@/components/ui/List'
+import PhotoBand from '@/components/ui/PhotoBand'
 import AboutShell from '../shell'
+
+import ImgRooftop from '@/public/images/home/Rooftopincert.jpg'
+import ImgGameplay from '@/public/images/home/dynamicgameplay.jpg'
+import ImgExperience from '@/public/images/home/yearsofexperience.jpg'
 
 export const metadata: Metadata = {
 	title: "FAQ | Australian Special Operations Taskforce",
@@ -56,6 +61,15 @@ export default function Tab() {
 					</QaStack>
 				</Card>
 
+			</CardGrid>
+		</section>
+
+		<PhotoBand images={[ImgRooftop, ImgGameplay, ImgExperience]} />
+
+		<section>
+			<SectionHead kicker='Once you are in' title='Life in the unit' />
+
+			<CardGrid columns={6}>
 				<Card title='Playing with us' kicker='Life in the unit' ghost='03' span={6}>
 					<QaStack columns={2}>
 						<QaRow index='3.1' question='Do you ever do PvP events?'>
