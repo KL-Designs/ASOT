@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { generateHTML } from '@tiptap/core'
 import { contentExtensions } from '@/components/editor/content-extensions'
+import { FLOWCHART_CSS, escapeXml, flowchartSvg, parseFlowchart } from '@/lib/operations/flowchart'
 
 function hexToRgb(hex: string) {
     const h = hex.replace('#', '')
@@ -41,6 +42,28 @@ function hexToRgb(hex: string) {
 export default function DocBody({ content, themeColor = '#db001d', pageTheme = 'modern' }: { content: any, themeColor?: string, pageTheme?: 'modern' | 'oldfashioned' | 'scifi' | 'coldwar' }) {
     const [html, setHtml] = useState<string | null>(null)
     const [failed, setFailed] = useState(false)
+    const bodyRef = useRef<HTMLDivElement>(null)
+
+    /*
+     * Flowcharts arrive as empty placeholders carrying their data (see
+     * `ContentFlowchart`); this is where they are drawn. Each becomes a
+     * `<details>` so a long chart can be folded away while reading the orders
+     * around it — open to begin with, because a collapsed chart nobody knows
+     * is there is a chart nobody reads.
+     *
+     * The markup is built from `flowchartSvg`, which escapes every label, and
+     * the title is escaped here: both are text an author typed.
+     */
+    useEffect(() => {
+        const root = bodyRef.current
+        if (!root || !html) return
+        root.querySelectorAll<HTMLElement>('div[data-flowchart]').forEach((el, i) => {
+            const svg = flowchartSvg(parseFlowchart(el.getAttribute('data-flowchart')), `doc-flow-${i}`)
+            if (!svg) { el.innerHTML = ''; return }
+            const title = el.getAttribute('data-title')?.trim() || 'Flowchart'
+            el.innerHTML = `<details open><summary>${escapeXml(title)}</summary><div class="flow-scroll">${svg}</div></details>`
+        })
+    }, [html])
 
     useEffect(() => {
         if (!content) { setHtml(null); setFailed(false); return }
@@ -139,10 +162,21 @@ export default function DocBody({ content, themeColor = '#db001d', pageTheme = '
         </div>
     )
 
+    const flowCSS = `
+        ${FLOWCHART_CSS}
+        .op-doc .op-flowchart { --flow-acc: ${themeColor}; margin: 1.2em 0; border: 1px solid ${c(0.25)}; background: ${c(0.03)}; }
+        .op-doc .op-flowchart:empty { display: none; }
+        .op-doc .op-flowchart summary { cursor: pointer; padding: 9px 14px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+        .op-doc .op-flowchart details[open] summary { border-bottom: 1px solid ${c(0.18)}; }
+        .op-doc .op-flowchart .flow-scroll { overflow-x: auto; padding: 14px; }
+    `
+
     return (
         <>
             <style>{themeCSS}</style>
+            <style>{flowCSS}</style>
             <div
+                ref={bodyRef}
                 className='op-doc'
                 dangerouslySetInnerHTML={{ __html: html }}
             />
