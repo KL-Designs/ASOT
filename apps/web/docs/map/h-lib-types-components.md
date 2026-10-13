@@ -128,6 +128,12 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/maps-preview.ts
 - `previewAvailable(worldDir)` / `ensurePreview(worldDir)` — a world's `preview.jpg`, built on first request as a 1280x720 mosaic of its GRAD Meh satellite tiles (`sat/{col}/{row}.jpg`) with sharp, written atomically and never over an existing file; one build per world at a time. Used by `lib/maps.ts` (`hasPreview`) and `/api/maps/assets/[...path]`. Unit-tested.
 
+### lib/operations/metis.ts
+- **Metis Marker as the mod defines it** (1.9.0, read from `addons/mts_markers`): `METIS_ICONS` (56), `METIS_MOD1` (13, top), `METIS_MOD2` (9, bottom), `METIS_ECHELONS`, `METIS_DIRECTIONS`, `METIS_CONDITIONS`, identities. **An entry's index is its id in game — never reorder or insert.** `MetisMarker` + `normaliseMetis`, `metisText` (the mod's six-character texts), `metisLayers` (the texture family in the mod's order), `metisConfigSqf` / `metisCreateSqf` (the `createMarker` parameter format), and `readMetis` / `writeMetis` for annotation properties: `a3MetisV: 2` means the mod's ids, anything older is translated by the picture it was drawn as. `metis.test.ts` pins ids, checks every texture the lists can ask for exists under `public/markers/metis`, and round-trips the mod's own example.
+
+### lib/operations/map-layers.ts
+- Overlays and the layers inside them: `layerTree` (one level deep; orphans surface rather than vanish), `withDescendants`, `resolveVisibility(layers, choices)` (a layer shows only if it and its overlay are on — the list the map draws and Export SQF writes), `chosenVisible`, `pruneChoices`, and `copyOverlay` (a copy under new ids, original untouched). Visibility is **per viewer** (`LayerChoices`, kept in `localStorage` by `MapSection`), not a shared flag. Pure, `map-layers.test.ts`.
+
 ### lib/operations/map-grid-view.ts
 - Pure grid-view maths for the map's grid canvas: `viewFor` (affine world→canvas for a centre+zoom), `lerpView`, `visibleWorld`, `zoomEase` + `ZOOM_ANIMATION_MS` (Leaflet's zoom transition). Lets `OperationMap` redraw the grid every frame of an animated zoom instead of snapping at `zoomend`. Unit-tested.
 
@@ -256,7 +262,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `getQuizQuestion(quiz, questionId)` — flat lookup across all sections.
 
 ### lib/sqf-export.ts
-- `buildSqf(annotations: MapAnnotation[], layers: MapLayer[]): string` — converts operation-map annotations (a3icon/a3metis/polyline types; other types are planning-only and skipped) into an Arma 3 SQF script string that recreates markers via `createMarker`/`mts_markers_fnc_createMarker`.
+- `buildSqf(annotations: MapAnnotation[], layers: MapLayer[]): string` — converts operation-map annotations on **visible** layers (a3icon / a3metis / polyline; the other types are planning-only) into an Arma 3 SQF script. Metis markers are one `mts_markers_fnc_createMarker` call each, built by `metisCreateSqf` in the mod's own parameter format; strings are quote-doubled so a label cannot break out. `sqf-export.test.ts` pins the format against the mod's documented example.
 - `a3ColorFromHex(hex)` (internal) — nearest-neighbor match to named Arma 3 marker colors.
 - `downloadSqf(content, filename='init.sqf')` — client-side Blob download trigger.
 
@@ -1203,13 +1209,16 @@ the mobile sheet share one source of truth. Layout and interaction live in
 ### components/operations/map/*
 
 #### components/operations/map/types.ts
-- Shared map types/constants (no React): `AnnotationType`, `DrawingTool`, `A3MarkerColor` + `A3_MARKER_COLORS`, `A3SideId`, `A3_ICON_TYPES` (Arma marker catalogue), `METIS_ICONS`/`METIS_SIDE_KEY`/`METIS_ECHELONS`/`METIS_HQTF`/`METIS_MOB` (full METIS/MIL-STD-2525 symbology tables), `MapLayer`, `AnnotationProperties`, `MapAnnotation`, `MapMode`, `MapWorld`, `A3ToolProps` + `DEFAULT_A3_PROPS`, `MapPresenceUser`, `MapMarkerPreset`.
+- Shared map types/constants (no React): `AnnotationType`, `DrawingTool`, `A3MarkerColor` + `A3_MARKER_COLORS`, `A3SideId`, `A3_ICON_TYPES` (Arma marker catalogue), `MapLayer` (now with `parentId` for a layer inside an overlay), `AnnotationProperties`, `MapAnnotation`, `A3ToolProps` (the Metis half is one `metis: MetisMarker`), `DEFAULT_A3_PROPS`, `toolPropsFromPreset` (translates presets saved with the old flat Metis fields). **The Metis catalogue is no longer here** — see `lib/operations/metis.ts`.
 
 #### components/operations/map/useMapYjs.ts
 - `useMapYjs(operationId, canEdit): [MapYjsState, MapYjsActions]` — Y.js/Hocuspocus-backed collaborative state hook for the operation map (separate Yjs doc from the main briefing editor, connects to `{operationId}-map` Hocuspocus document via `/api/me/token`). 
   - State: `layers`, `annotations`, `peers` (live cursor presence), `connected`.
-  - Actions: `addLayer`, `updateLayer`, `removeLayer` (cascades annotation deletion), `addAnnotation`, `updateAnnotation`, `removeAnnotation`, `broadcastCursor`, `undo`/`redo` (via `Y.UndoManager`).
+  - Actions: `addLayer(name, color?, parentId?)`, `updateLayer`, `removeLayer` (takes sub-layers and their annotations with it), `duplicateLayer(id, name)` (copies an overlay, its sub-layers and everything drawn on them in one transaction), `addAnnotation`, `updateAnnotation`, `removeAnnotation`, `broadcastCursor`, `undo`/`redo` (via `Y.UndoManager`).
   - All mutating actions are no-ops when `canEdit` is false.
+
+#### components/operations/map/Metis.tsx
+- The only place a Metis marker becomes pixels or controls: `MetisFilterDefs` (the tint filters), `MetisSymbol` (React), `metisDivHtml` (the same symbol as an escaped HTML string for a Leaflet `divIcon`, with its texts placed where the mod puts them) and `MetisForm` (every option the mod has, in the mod's order; `wide` for the annotation editor's bar). Used by `LayersPanel`, `AnnotationEditor` and `OperationMap` — there were three hand-rolled copies before.
 
 #### components/operations/map/AnnotationEditor.tsx
 - Default export `AnnotationEditor({annotation, actions, onClose})` — floating bottom-docked property editor for a selected map annotation; branches UI entirely on `annotation.type`: full METIS symbol builder (side/type/echelon/HQ-TF/modifiers/text/scale) for `a3metis`, A3 icon picker (grouped by Generic/Shape/BLUFOR/OPFOR/IND/CIV) + color + direction/scale for `a3icon`, simple color/label/weight/fontSize controls for line/polygon/rectangle/circle/marker/text. Internal `MetisMarker`/`MetisIconPreview`/`MetisFilterDefs` (SVG `feColorMatrix` faction-color tinting, reused pattern also in `LayersPanel.tsx`).

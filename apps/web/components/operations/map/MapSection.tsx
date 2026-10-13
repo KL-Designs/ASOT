@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import dynamic from 'next/dynamic'
 import { useMapYjs } from './useMapYjs'
 import LayersPanel from './LayersPanel'
@@ -9,6 +9,7 @@ import { DEFAULT_A3_PROPS } from './types'
 import { buildSqf } from '@/lib/sqf-export'
 import SqfExportModal from './SqfExportModal'
 import AnnotationEditor from './AnnotationEditor'
+import { chosenVisible, pruneChoices, resolveVisibility, type LayerChoices } from '@/lib/operations/map-layers'
 
 const OperationMap = dynamic(() => import('./OperationMap'), { ssr: false })
 
@@ -27,6 +28,34 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
     const [activeA3Props, setActiveA3Props] = useState<A3ToolProps>(DEFAULT_A3_PROPS)
     const [sqfModal, setSqfModal] = useState(false)
     const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null)
+
+    /*
+     * Which overlays this viewer has switched on or off. Their own choice, kept
+     * in this browser — not in the shared document, where one person hiding a
+     * layer used to hide it for everybody, and where somebody who could not
+     * edit the map could not choose at all.
+     */
+    const choicesKey = `asot-map-layers:${operationId}`
+    const [choices, setChoices] = useState<LayerChoices>({})
+    useEffect(() => {
+        try {
+            const stored = JSON.parse(window.localStorage.getItem(choicesKey) ?? '{}')
+            if (stored && typeof stored === 'object') setChoices(stored)
+        } catch { /* a blocked or corrupt store just means no saved choices */ }
+    }, [choicesKey])
+
+    const toggleLayer = useCallback((id: string) => {
+        setChoices(prev => {
+            const layer = state.layers.find(l => l.id === id)
+            if (!layer) return prev
+            const next = pruneChoices({ ...prev, [id]: !chosenVisible(layer, prev) }, state.layers)
+            try { window.localStorage.setItem(choicesKey, JSON.stringify(next)) } catch { /* see above */ }
+            return next
+        })
+    }, [state.layers, choicesKey])
+
+    // What is on the map, and what Export SQF writes: the same list.
+    const viewLayers = useMemo(() => resolveVisibility(state.layers, choices), [state.layers, choices])
 
     const handleA3PropsChange = useCallback((patch: Partial<A3ToolProps>) => {
         setActiveA3Props(prev => ({ ...prev, ...patch }))
@@ -206,7 +235,7 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
                     <OperationMap
                         world={world}
                         mapMode={mapMode}
-                        layers={state.layers}
+                        layers={viewLayers}
                         annotations={state.annotations}
                         peers={state.peers}
                         activeTool={canEdit ? activeTool : null}
@@ -226,6 +255,8 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
 
                 <LayersPanel
                     layers={state.layers}
+                    choices={choices}
+                    onToggleVisible={toggleLayer}
                     activeLayerId={activeLayerId}
                     activeTool={activeTool}
                     activeColor={activeColor}
@@ -241,7 +272,7 @@ export default function MapSection({ operationId, canEdit, world }: Props) {
 
             {sqfModal && (
                 <SqfExportModal
-                    code={buildSqf(state.annotations, state.layers)}
+                    code={buildSqf(state.annotations, viewLayers)}
                     onClose={() => setSqfModal(false)}
                 />
             )}

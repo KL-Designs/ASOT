@@ -92,8 +92,12 @@ export interface MapLayer {
     id: string
     name: string
     color: string
+    /** The shared default. What a viewer actually sees is `resolveVisibility`
+     *  (lib/operations/map-layers.ts) over their own choices. */
     visible: boolean
     order: number
+    /** The overlay this layer sits inside, or null for an overlay itself. */
+    parentId?: string | null
 }
 
 export interface AnnotationProperties {

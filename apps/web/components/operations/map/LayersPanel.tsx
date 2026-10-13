@@ -5,6 +5,7 @@ import type { MapLayer, DrawingTool, A3ToolProps } from './types'
 import { A3_ICON_TYPES, A3_MARKER_COLORS, toolPropsFromPreset } from './types'
 import { MetisFilterDefs, MetisForm, MetisSymbol } from './Metis'
 import { DEFAULT_METIS } from '@/lib/operations/metis'
+import { chosenVisible, layerTree, type LayerChoices } from '@/lib/operations/map-layers'
 import type { MapYjsActions } from './useMapYjs'
 
 interface Props {
@@ -16,6 +17,9 @@ interface Props {
     canEdit: boolean
     actions: MapYjsActions
     onLayerSelect: (id: string) => void
+    /** This viewer's own on/off choices, and the switch for one layer. */
+    choices: LayerChoices
+    onToggleVisible: (id: string) => void
     onToolChange: (tool: DrawingTool) => void
     onColorChange: (color: string) => void
     onA3PropsChange: (patch: Partial<A3ToolProps>) => void
@@ -53,6 +57,8 @@ export default function LayersPanel({
     canEdit,
     actions,
     onLayerSelect,
+    choices,
+    onToggleVisible,
     onToolChange,
     onColorChange,
     onA3PropsChange,
@@ -453,23 +459,28 @@ export default function LayersPanel({
                         No layers yet
                     </div>
                 )}
-                {[...layers].sort((a, b) => a.order - b.order).map(layer => (
+                {/* Overlays, each with the layers inside it indented beneath. */}
+                {layerTree(layers).flatMap(node => [
+                    { layer: node.layer, depth: 0, dimmed: false },
+                    ...node.children.map(child => ({ layer: child, depth: 1, dimmed: !chosenVisible(node.layer, choices) })),
+                ]).map(({ layer, depth, dimmed }) => (
                     <div
                         key={layer.id}
                         onClick={() => canEdit && onLayerSelect(layer.id)}
                         style={{
-                            display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
+                            display: 'flex', alignItems: 'center', gap: 6, padding: `5px 10px 5px ${10 + depth * 16}px`,
+                            opacity: dimmed ? 0.45 : 1,
                             background: activeLayerId === layer.id ? 'rgba(255,255,255,0.06)' : 'transparent',
                             cursor: canEdit ? 'pointer' : 'default',
                             borderLeft: activeLayerId === layer.id ? `2px solid ${layer.color}` : '2px solid transparent',
                         }}
                     >
                         <button
-                            onClick={e => { e.stopPropagation(); canEdit && actions.updateLayer(layer.id, { visible: !layer.visible }) }}
-                            style={{ background: 'none', border: 'none', color: layer.visible ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', cursor: canEdit ? 'pointer' : 'default', padding: 0, fontSize: 14, lineHeight: 1, flexShrink: 0 }}
-                            title={layer.visible ? 'Hide layer' : 'Show layer'}
+                            onClick={e => { e.stopPropagation(); onToggleVisible(layer.id) }}
+                            style={{ background: 'none', border: 'none', color: chosenVisible(layer, choices) ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1, flexShrink: 0 }}
+                            title={chosenVisible(layer, choices) ? 'Hide for me' : 'Show for me'}
                         >
-                            {layer.visible ? '●' : '○'}
+                            {chosenVisible(layer, choices) ? '●' : '○'}
                         </button>
                         <div style={{ width: 10, height: 10, borderRadius: 2, background: layer.color, flexShrink: 0 }} />
                         {editingId === layer.id ? (
@@ -490,6 +501,35 @@ export default function LayersPanel({
                             >
                                 {layer.name}
                             </span>
+                        )}
+                        {canEdit && depth === 0 && (
+                            <button
+                                onClick={e => {
+                                    e.stopPropagation()
+                                    const name = window.prompt(`Name of the new layer inside "${layer.name}" (logistics, IDF, recon…)`)
+                                    if (name?.trim()) onLayerSelect(actions.addLayer(name.trim(), layer.color, layer.id))
+                                }}
+                                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1, flexShrink: 0 }}
+                                title="Add a layer inside this one"
+                            >
+                                +
+                            </button>
+                        )}
+                        {canEdit && (
+                            <button
+                                onClick={e => {
+                                    e.stopPropagation()
+                                    const name = window.prompt('Name for the copy (your callsign, for example)', `${layer.name} copy`)
+                                    if (name?.trim()) {
+                                        const copyId = actions.duplicateLayer(layer.id, name.trim())
+                                        if (copyId) onLayerSelect(copyId)
+                                    }
+                                }}
+                                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1, flexShrink: 0 }}
+                                title="Copy this layer and everything on it"
+                            >
+                                ⧉
+                            </button>
                         )}
                         {canEdit && (
                             <button
