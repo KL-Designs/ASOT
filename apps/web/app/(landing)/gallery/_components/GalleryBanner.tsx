@@ -5,6 +5,7 @@ import { StarIcon } from './icons'
 import type { ArchiveStats } from '../gallery-data'
 import s from '@/styles/gallery.module.css'
 import Banner from '@/public/images/home/adf_peaking3.png'
+import { focalPosition } from '@/lib/gallery/focal'
 
 /**
  * The page header.
@@ -74,7 +75,7 @@ export default function GalleryBanner({ stats, sotm, onOpenSotm }: {
                         </div>
 
                         <button type='button' className={s.sotmImg} onClick={onOpenSotm} aria-label='Open screenshot of the month'>
-                            <img src='/api/gallery/sotm/image' alt='' />
+                            <img src='/api/gallery/sotm/image' alt='' style={{ objectPosition: focalPosition(sotm) }} />
                         </button>
 
                         <div className={s.sotmB}>

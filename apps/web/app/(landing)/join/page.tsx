@@ -5,6 +5,7 @@ import MastheadAside from '@/components/ui/MastheadAside'
 import JoinForm from './JoinForm'
 import DevTestApplicationButton from './DevTestApplicationButton'
 import db from '@/lib/mongo'
+import { focalPosition } from '@/lib/gallery/focal'
 
 export const metadata: Metadata = {
     title: 'Join ASOT | Australian Special Operations Taskforce',
@@ -24,6 +25,7 @@ export default async function JoinPage() {
             kicker='Recruitment'
             subtitle='Fill out the form below to apply for membership. Our J1 Recruitment team will review your application and contact you via Discord.'
             backgroundUrl={sotm ? '/api/gallery/sotm/image' : '/images/home/1122.png'}
+            backgroundPosition={focalPosition(sotm)}
             aside={
                 <MastheadAside
                     heading='Applications'

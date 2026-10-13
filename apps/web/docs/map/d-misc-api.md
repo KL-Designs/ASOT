@@ -177,6 +177,7 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 #### /api/gallery/sotm
 - **GET** — returns SOTM metadata (filename, dateTaken, credit, operation link) sans `_id`. Auth: public/no auth. Collections: `Db.siteSettings`.
 - **POST** — uploads a new SOTM image (multipart: `file`, `dateTaken`, `credit`, optional `operationId`/`operationTitle`); validates MIME type, sanitises filename, deletes old file if replaced, upserts `Db.siteSettings`. Auth: `await hasPermission(me, 'departmentLeads.j5')`.
+- **PATCH** — sets (`{ focalX, focalY }`, percentages) or clears (`{ focalX: null }`) the current pick's focal point; cleared automatically when a new image is picked. Auth: `departmentLeads.j5`. Collections: `Db.siteSettings`.
 - **DELETE** — clears current SOTM (deletes file + doc). Auth: `await hasPermission(me, 'departmentLeads.j5')`.
 
 ---

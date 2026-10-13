@@ -24,13 +24,15 @@ import s from '@/styles/shell.module.css'
  * page-specific — the kicker included — is passed in by the caller.
  */
 export default function Container({
-    children, title, subtitle, background, backgroundUrl, kicker, lede, aside, rail, sx,
+    children, title, subtitle, background, backgroundUrl, backgroundPosition, kicker, lede, aside, rail, sx,
 }: {
     children?: React.ReactNode
     title?: string
     subtitle?: string
     background?: StaticImageData
     backgroundUrl?: string
+    /** Passed to the masthead: where `backgroundUrl`'s crop is anchored. */
+    backgroundPosition?: string
     /** The mono label above the title. Omit to render no kicker. */
     kicker?: string
     /** Overrides `subtitle` for the paragraph under the title. */
@@ -54,6 +56,7 @@ export default function Container({
                 lede={lede ?? subtitle}
                 background={background}
                 backgroundUrl={backgroundUrl}
+                backgroundPosition={backgroundPosition}
                 bannerHeight={sx?.bannerHeight}
                 aside={aside}
             />

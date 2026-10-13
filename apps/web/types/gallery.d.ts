@@ -33,6 +33,11 @@ declare global {
         setBy: string
         operationId?: string
         operationTitle?: string
+        /** The point of the image every crop is anchored on, as percentages of
+         *  its width and height. Both or neither; absent means centre. Cleared
+         *  whenever a new image is picked. See lib/gallery/focal.ts. */
+        focalX?: number
+        focalY?: number
     }
 
     /** One tile in the SOTM tab: a library browse candidate or a past

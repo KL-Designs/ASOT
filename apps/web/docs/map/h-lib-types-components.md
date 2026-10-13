@@ -65,6 +65,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/teamspeak/nickname.ts
 - Pure `nicknameCore()` / `nicknamesMatch()` — matches a member to their TeamSpeak client on the name alone (bracketed groups and a leading rank abbreviation stripped from both sides). Unit-tested. Used by `/api/me/teamspeak` `init`.
 
+### lib/gallery/focal.ts
+- Pure `clampFocal()` / `focalPosition(sotm)` — the Screenshot of the Month's focal point (`focalX`/`focalY` percentages on the `screenshotOfMonth` siteSettings doc) as a CSS `object-position`. Used by `PATCH /api/gallery/sotm`, the home hero, the gallery banner, the join masthead (via `Masthead`'s `backgroundPosition`) and the J5 `FocalPicker`. Unit-tested.
+
 ### lib/maps-preview.ts
 - `previewAvailable(worldDir)` / `ensurePreview(worldDir)` — a world's `preview.jpg`, built on first request as a 1280x720 mosaic of its GRAD Meh satellite tiles (`sat/{col}/{row}.jpg`) with sharp, written atomically and never over an existing file; one build per world at a time. Used by `lib/maps.ts` (`hasPreview`) and `/api/maps/assets/[...path]`. Unit-tested.
 
