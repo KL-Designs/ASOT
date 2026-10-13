@@ -6,8 +6,8 @@ import { rgbTriplet } from '@/lib/colour'
 import HideSiteNav from '@/components/HideSiteNav'
 import OperationBar from '../OperationBar'
 import {
-    ATTENDANCE_STATUSES, attendanceStatus, RATING_ASPECTS, RATING_SCALE,
-    type RatingAspectKey,
+    SELECTABLE_STATUSES, attendanceStatus, RATING_ASPECTS, RATING_SCALE,
+    type AttendanceStatus, type RatingAspectKey,
 } from '@/lib/operations/aar'
 import s from './aar.module.css'
 
@@ -30,6 +30,8 @@ interface SectionMember {
     rsvp: 'attending' | 'not_attending' | null
     confirmed: boolean
     attendanceType: string | null
+    /** Added by a roll call rather than placed on the roster. */
+    late?: boolean
     aar: Aar | null
 }
 
@@ -315,21 +317,74 @@ function SectionCard({ operationId, section, onSaved }: {
         Object.fromEntries(section.members.map(m => [
             m.userId,
             // Default to what the member said they would do. A roll call where
-            // everybody starts blank is one nobody finishes.
-            m.attendanceType ?? (m.rsvp === 'attending' ? 'ATTENDED' : m.rsvp === 'not_attending' ? 'NOT ATTENDING' : 'CONFIRM'),
+            // everybody starts blank is one nobody finishes. Somebody who gave
+            // no answer is left for the 1IC to decide — "Confirm" used to stand
+            // in for that and has been discontinued.
+            m.attendanceType ?? (m.rsvp === 'attending' ? 'ATTENDED' : m.rsvp === 'not_attending' ? 'NOT ATTENDING' : ''),
         ])),
     )
     const [openFor, setOpenFor] = useState<string | null>(null)
+    // Late joiners picked in this sitting and not yet submitted.
+    const [added, setAdded] = useState<{ userId: string; name: string }[]>([])
+    const [menuOpen, setMenuOpen] = useState(false)
+    const [searching, setSearching] = useState(false)
     const { state, save } = useSave()
+
+    const rows: SectionMember[] = [
+        ...section.members,
+        ...added
+            .filter(a => !section.members.some(m => m.userId === a.userId))
+            .map(a => ({
+                userId: a.userId, name: a.name, role: 'Late joiner', rsvp: null,
+                confirmed: false, attendanceType: null, late: true, aar: null,
+            })),
+    ]
+    const undecided = rows.filter(m => !statuses[m.userId]).length
 
     return (
         <section className={s.card}>
             <div className={s.cardHead}>
                 <h2 className={s.cardTitle}>{section.title}</h2>
                 <span className={s.cardNote}>{section.members.length} on the roster</span>
+                <div className={s.menuWrap}>
+                    <button
+                        type='button'
+                        className={s.menuBtn}
+                        aria-label={`More for ${section.title}`}
+                        aria-expanded={menuOpen}
+                        onClick={() => setMenuOpen(v => !v)}
+                    >
+                        ⋯
+                    </button>
+                    {menuOpen && (
+                        <div className={s.menu} role='menu'>
+                            <button
+                                type='button'
+                                role='menuitem'
+                                className={s.menuItem}
+                                onClick={() => { setMenuOpen(false); setSearching(true) }}
+                            >
+                                Add a late joiner
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {section.members.map(member => (
+            {searching && (
+                <LateJoinerSearch
+                    operationId={operationId}
+                    exclude={rows.map(m => m.userId)}
+                    onPick={picked => {
+                        setAdded(v => [...v, picked])
+                        // They are being added because they turned up.
+                        setStatuses(v => ({ ...v, [picked.userId]: 'ATTENDED' }))
+                    }}
+                    onClose={() => setSearching(false)}
+                />
+            )}
+
+            {rows.map(member => (
                 <div key={member.userId}>
                     <div className={s.row}>
                         <div className={s.rowName}>
@@ -338,35 +393,58 @@ function SectionCard({ operationId, section, onSaved }: {
                         </div>
 
                         <span className={s.rsvp}>
-                            {member.rsvp === 'attending' ? 'Said yes'
-                                : member.rsvp === 'not_attending' ? 'Said no'
-                                    : 'No answer'}
+                            {member.late ? 'Not on the roster'
+                                : member.rsvp === 'attending' ? 'Said yes'
+                                    : member.rsvp === 'not_attending' ? 'Said no'
+                                        : 'No answer'}
                         </span>
 
                         <label>
                             <span className='sr-only'>Attendance for {member.name}</span>
                             <select
                                 className={s.select}
-                                value={statuses[member.userId] ?? 'CONFIRM'}
+                                value={statuses[member.userId] ?? ''}
                                 onChange={e => setStatuses(v => ({ ...v, [member.userId]: e.target.value }))}
                             >
-                                {ATTENDANCE_STATUSES.map(opt => (
-                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                {!statuses[member.userId] && <option value=''>Choose…</option>}
+                                {statusOptions(member.attendanceType).map(opt => (
+                                    <option key={opt.value} value={opt.value}>
+                                        {opt.selectable ? opt.label : `${opt.label} (discontinued)`}
+                                    </option>
                                 ))}
                             </select>
                         </label>
 
-                        <button
-                            type='button'
-                            className={[
-                                s.writeup,
-                                openFor === member.userId ? s.writeupOn : '',
-                                member.aar ? s.hasAar : '',
-                            ].filter(Boolean).join(' ')}
-                            onClick={() => setOpenFor(v => v === member.userId ? null : member.userId)}
-                        >
-                            AAR
-                        </button>
+                        {/* Somebody added a moment ago has no record to hang a
+                            write-up on until the roll call is submitted. */}
+                        {added.some(a => a.userId === member.userId) ? (
+                            <button
+                                type='button'
+                                className={s.writeup}
+                                onClick={() => {
+                                    setAdded(v => v.filter(a => a.userId !== member.userId))
+                                    setStatuses(v => {
+                                        const next = { ...v }
+                                        delete next[member.userId]
+                                        return next
+                                    })
+                                }}
+                            >
+                                Remove
+                            </button>
+                        ) : (
+                            <button
+                                type='button'
+                                className={[
+                                    s.writeup,
+                                    openFor === member.userId ? s.writeupOn : '',
+                                    member.aar ? s.hasAar : '',
+                                ].filter(Boolean).join(' ')}
+                                onClick={() => setOpenFor(v => v === member.userId ? null : member.userId)}
+                            >
+                                AAR
+                            </button>
+                        )}
                     </div>
 
                     {openFor === member.userId && (
@@ -394,19 +472,90 @@ function SectionCard({ operationId, section, onSaved }: {
                         disabled={state === 'saving'}
                         onClick={() => save(
                             `/api/operations/${operationId}/aar/attendance`,
-                            { sectionTitle: section.title, statuses },
+                            { sectionTitle: section.title, statuses, lateJoiners: added.map(a => a.userId) },
                             'POST',
-                        ).then(ok => { if (ok) onSaved() })}
+                        ).then(ok => {
+                            if (!ok) return
+                            // They come back from the server as members now.
+                            setAdded([])
+                            onSaved()
+                        })}
                     >
                         {state === 'saving' ? 'Submitting…' : 'Submit roll call'}
                     </button>
                     <SaveState state={state} />
                     <span className={s.state} style={{ marginLeft: 'auto' }}>
-                        {countPresent(statuses)} of {section.members.length} present
+                        {countPresent(statuses)} of {rows.length} present
+                        {undecided > 0 && ` · ${undecided} still to decide`}
                     </span>
                 </div>
             </div>
         </section>
+    )
+}
+
+/**
+ * What a member's dropdown offers: the five live statuses, plus the one already
+ * on their record when it is a discontinued one — so a past operation still
+ * shows what was recorded instead of silently reading as something else.
+ */
+function statusOptions(saved: string | null): AttendanceStatus[] {
+    const kept = attendanceStatus(saved ?? undefined)
+    return kept && !kept.selectable ? [...SELECTABLE_STATUSES, kept] : SELECTABLE_STATUSES
+}
+
+/**
+ * Finding somebody who turned up without being on the roster.
+ *
+ * A search rather than a list: the people it is for are, by definition, not in
+ * the section, so there is no short list to offer.
+ */
+function LateJoinerSearch({ operationId, exclude, onPick, onClose }: {
+    operationId: string
+    exclude: string[]
+    onPick: (member: { userId: string; name: string }) => void
+    onClose: () => void
+}) {
+    const [query, setQuery] = useState('')
+    const [results, setResults] = useState<{ userId: string; name: string }[] | null>(null)
+
+    useEffect(() => {
+        const term = query.trim()
+        if (term.length < 2) return
+        const timer = setTimeout(() => {
+            fetch(`/api/operations/${operationId}/aar/members?q=${encodeURIComponent(term)}`)
+                .then(res => res.ok ? res.json() : { members: [] })
+                .then(d => setResults(d.members ?? []))
+                .catch(() => setResults([]))
+        }, 250)
+        return () => clearTimeout(timer)
+    }, [query, operationId])
+
+    const shown = query.trim().length < 2 ? null : results?.filter(r => !exclude.includes(r.userId)) ?? null
+
+    return (
+        <div className={s.lateSearch}>
+            <div className={s.lateSearchRow}>
+                <input
+                    autoFocus
+                    className={s.lateInput}
+                    placeholder='Search for a member by name'
+                    aria-label='Search for a member to add'
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                />
+                <button type='button' className={s.writeup} onClick={onClose}>Done</button>
+            </div>
+            {shown && (
+                shown.length === 0
+                    ? <p className={s.lateEmpty}>Nobody by that name who is not already on this operation.</p>
+                    : shown.map(r => (
+                        <button key={r.userId} type='button' className={s.lateResult} onClick={() => onPick(r)}>
+                            {r.name}
+                        </button>
+                    ))
+            )}
+        </div>
     )
 }
 

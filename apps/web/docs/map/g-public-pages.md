@@ -795,6 +795,16 @@ slot on the night, resolved by `sectionLead()`. `aar.manage` is the separate, gr
 staff closing an operation out. Each card saves on its own request: a member who fills in feedback
 and closes the tab has saved their feedback.
 
+A member of a **platoon's headquarters** on the night has the same positional authority over every
+section of that platoon (`platoonSections()`), and nobody else's. The roll call offers five statuses
+— Confirm is discontinued and only ever shown on a record that already carries it — and leaves a
+member who gave no RSVP on "Choose…" rather than defaulting them.
+
+**Late joiners**: each section card's three-dot menu has *Add a late joiner*, a name search backed by
+`GET /aar/members?q=` (only for somebody with a section to confirm; excludes anyone already on the
+night). The pick is submitted in `lateJoiners` with the roll call and stored as a record carrying
+`lateJoinSection`, after which they are part of that section's roll call and may have an AAR written.
+
 `POST /aar/attendance` is the roll call, and it **replaces the ORBAT-`isSenior` scoping** the old
 confirm route used. It also only counts a member into `billetCounts` on the transition into present —
 the route it supersedes incremented on every submission, so a 1IC correcting one status handed the

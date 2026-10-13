@@ -5,7 +5,7 @@ import Db from '@/lib/mongo'
 import { can } from '@/lib/operations/permissions'
 import { toBoardUser } from '@/lib/attendance/board-user'
 import {
-    aarOpen, canWriteSection, didAttend, ledSections, sectionLead, sectionsOf, validRating,
+    aarOpen, canWriteSection, didAttend, sectionLead, validRating, writableSections,
 } from '@/lib/operations/aar'
 
 /**
@@ -28,6 +28,8 @@ interface SectionMember {
     rsvp: OperationAttendanceRecord['rsvp']
     confirmed: boolean
     attendanceType: string | null
+    /** Added by a roll call rather than placed on the roster. */
+    late?: boolean
     aar: { fix: string; sustain: string; improve: string; writtenByName: string | null } | null
 }
 
@@ -57,8 +59,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const attended = didAttend(myRecord, heldAPosition)
 
     const canManageAll = await can(me, 'aar.manage')
-    // Positional first, granted second — see `sectionLead`.
-    const mySections = canManageAll ? sectionsOf(roster) : ledSections(roster, me.id)
+    // Positional first (led it, or was in its platoon's headquarters), granted
+    // second — see `writableSections`.
+    const mySections = writableSections(roster, me.id, canManageAll)
+
+    // Late joiners: on no slot, tied to a section only by their record.
+    const onRoster = new Set(roster.filter(s => s.occupantUserId).map(s => s.occupantUserId as string))
+    const lateJoiners = records.filter(r => r.lateJoinSection && !onRoster.has(r.userId))
 
     /*
      * Everything for the sections this viewer is responsible for, in one pass.
@@ -68,10 +75,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const aars = await Db.operationAars.find({ operationId }).toArray()
     const aarByUser = new Map(aars.map(a => [a.userId, a]))
 
-    const memberIds = [...new Set(
-        roster.filter(s => s.occupantUserId && mySections.includes(s.sectionTitle))
+    const memberIds = [...new Set([
+        ...roster.filter(s => s.occupantUserId && mySections.includes(s.sectionTitle))
             .map(s => s.occupantUserId as string),
-    )]
+        ...lateJoiners.filter(r => mySections.includes(r.lateJoinSection as string)).map(r => r.userId),
+    ])]
     const users = memberIds.length
         ? await Db.users.find({ $or: [{ _id: { $in: memberIds } }, { id: { $in: memberIds } }] }).toArray()
         : []
@@ -81,32 +89,40 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         userMap.set(u._id, u)
     }
 
+    const toMember = (userId: string, role: string, late: boolean): SectionMember => {
+        const record = records.find(r => r.userId === userId)
+        const aar = aarByUser.get(userId)
+        const u = userMap.get(userId)
+        return {
+            userId,
+            // The board's own name composition — rank plus member
+            // name, with the same fallbacks — so a member reads the
+            // same on the AAR as they do on the roster they came from.
+            name: u ? toBoardUser(u, userId).displayName : userId,
+            role,
+            rsvp: record?.rsvp ?? null,
+            confirmed: !!record?.confirmed,
+            attendanceType: record?.attendanceType ?? null,
+            ...(late ? { late: true } : {}),
+            aar: aar
+                ? { fix: aar.fix, sustain: aar.sustain, improve: aar.improve, writtenByName: aar.writtenByName }
+                : null,
+        }
+    }
+
     const sections = mySections.map(title => ({
         title,
         leadUserId: sectionLead(roster, title),
-        members: roster
-            .filter(slot => slot.sectionTitle === title && slot.occupantUserId)
-            .sort((a, b) => a.order - b.order)
-            .map<SectionMember>(slot => {
-                const userId = slot.occupantUserId as string
-                const record = records.find(r => r.userId === userId)
-                const aar = aarByUser.get(userId)
-                const u = userMap.get(userId)
-                return {
-                    userId,
-                    // The board's own name composition — rank plus member
-                    // name, with the same fallbacks — so a member reads the
-                    // same on the AAR as they do on the roster they came from.
-                    name: u ? toBoardUser(u, userId).displayName : userId,
-                    role: slot.role,
-                    rsvp: record?.rsvp ?? null,
-                    confirmed: !!record?.confirmed,
-                    attendanceType: record?.attendanceType ?? null,
-                    aar: aar
-                        ? { fix: aar.fix, sustain: aar.sustain, improve: aar.improve, writtenByName: aar.writtenByName }
-                        : null,
-                }
-            }),
+        members: [
+            ...roster
+                .filter(slot => slot.sectionTitle === title && slot.occupantUserId)
+                .sort((a, b) => a.order - b.order)
+                .map(slot => toMember(slot.occupantUserId as string, slot.role, false)),
+            // After the roster, in the order they were added.
+            ...lateJoiners
+                .filter(r => r.lateJoinSection === title)
+                .map(r => toMember(r.userId, 'Late joiner', true)),
+        ],
     }))
 
     const mine = aarByUser.get(me.id) ?? null
@@ -170,8 +186,10 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (body.aar) {
         const targetId: string = typeof body.aar.userId === 'string' ? body.aar.userId : me.id
         const slot = roster.find(s => s.occupantUserId === targetId)
+        const targetRecord = records.find(r => r.userId === targetId)
         const section = slot?.sectionTitle
-            ?? records.find(r => r.userId === targetId)?.orbatSection
+            ?? targetRecord?.lateJoinSection
+            ?? targetRecord?.orbatSection
             ?? ''
 
         // Your own is always yours. Somebody else's needs the section.

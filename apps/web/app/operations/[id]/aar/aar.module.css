@@ -288,6 +288,64 @@
     color: var(--ink-3);
 }
 
+/* The section's three-dot menu, and the late-joiner search it opens. */
+.menuWrap { position: relative; }
+.menuBtn {
+    padding: 0 8px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    background: none;
+    color: var(--ink-3);
+    font-size: 16px;
+    line-height: 22px;
+    cursor: pointer;
+}
+.menuBtn:hover { color: var(--ink); border-color: var(--acc); }
+.menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 5;
+    min-width: 170px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r);
+    background: var(--s2);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.menuItem, .lateResult {
+    display: block;
+    width: 100%;
+    padding: 9px 14px;
+    border: none;
+    background: none;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.82rem;
+    text-align: left;
+    cursor: pointer;
+}
+.menuItem:hover, .lateResult:hover { background: rgba(var(--acc-rgb), 0.14); }
+
+.lateSearch {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(var(--acc-rgb), 0.04);
+}
+.lateSearchRow { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
+.lateInput {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--s2);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.85rem;
+}
+.lateInput:focus { outline: none; border-color: var(--acc); }
+.lateEmpty { margin: 8px 0 0; font-size: 0.8rem; color: var(--ink-3); }
+
 /* What they said they would do, next to what they did. The roll call is a
    comparison, and putting the two side by side is the whole job. */
 .rsvp {

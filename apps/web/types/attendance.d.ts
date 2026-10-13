@@ -16,6 +16,12 @@ declare global {
         confirmedAt: Date | null
         importedStatus?: string     // 'ATTENDED' | 'NOT ATTENDING' | 'RESOLVED' | 'LOA' (from CSV)
         attendanceType?: string     // Visual flag: 'ATTENDED' | 'NOT ATTENDING' | 'RESOLVED' | 'NO NOTICE' | 'LOA' | 'CONFIRM' | 'N/A' | 'ADDED TO UNIT'
+        /**
+         * Set when the member was not on the roster and a roll call added them
+         * afterwards: the section they played in. They hold no slot, so this is
+         * the only thing that ties them to a section on the night.
+         */
+        lateJoinSection?: string
         reservistSection?: string   // if set, member is attending as a reservist in this section instead of their own
         /**
          * Reservist pool preference — a signal for staff and for auto-fill, not

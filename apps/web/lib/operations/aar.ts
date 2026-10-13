@@ -1,5 +1,6 @@
 import type { RosterSlot } from '@/lib/attendance/roster'
 import { stageIndex, type AttendanceStage } from '@/lib/operations/stage'
+import { isHeadquartersSection } from '@/lib/military/bio-approval'
 
 /**
  * @file The After Action Report — what happens once an operation has run.
@@ -80,12 +81,44 @@ export function ledSections(roster: RosterSlot[], userId: string | null): string
 }
 
 /**
- * May this member write up this section?
+ * The sections this member answers for as platoon headquarters.
  *
- * Two ways in, and they are different in kind. `isLead` is positional — they
- * ran it. `canManageAll` is granted, and exists because somebody has to be able
- * to close an operation out when a 1IC never fills theirs in.
+ * Somebody who played in a platoon's HQ section on the night may confirm every
+ * section of that platoon — their own platoon and no other. Positional like
+ * `sectionLead`, and for the same reason: it is who was in the PHQ on the
+ * night, not who holds the billet on paper. Every slot in the HQ section
+ * counts, not only its top one — a platoon sergeant closes out a section as
+ * readily as the platoon commander does.
  */
+export function platoonSections(roster: RosterSlot[], userId: string | null): string[] {
+    if (!userId) return []
+    const platoons = new Set(
+        roster
+            .filter(slot => slot.occupantUserId === userId && isHeadquartersSection(slot.sectionTitle))
+            .map(slot => slot.category),
+    )
+    if (!platoons.size) return []
+    const titles = new Set(roster.filter(slot => platoons.has(slot.category)).map(slot => slot.sectionTitle))
+    return sectionsOf(roster).filter(title => titles.has(title))
+}
+
+/**
+ * Every section this member may write up, in roster order.
+ *
+ * Three ways in. Two are positional — they led the section, or they were in
+ * the headquarters of the platoon it belongs to. The third, `canManageAll`, is
+ * granted, and exists because somebody has to be able to close an operation
+ * out when a 1IC never fills theirs in.
+ */
+export function writableSections(roster: RosterSlot[], userId: string | null, canManageAll: boolean): string[] {
+    const all = sectionsOf(roster)
+    if (canManageAll) return all
+    if (!userId) return []
+    const mine = new Set([...ledSections(roster, userId), ...platoonSections(roster, userId)])
+    return all.filter(title => mine.has(title))
+}
+
+/** May this member write up this section? See `writableSections`. */
 export function canWriteSection(
     roster: RosterSlot[],
     userId: string | null,
@@ -93,8 +126,7 @@ export function canWriteSection(
     canManageAll: boolean,
 ): boolean {
     if (canManageAll) return true
-    if (!userId) return false
-    return sectionLead(roster, sectionTitle) === userId
+    return writableSections(roster, userId, false).includes(sectionTitle)
 }
 
 /* ── Who may say how it went ────────────────────────────────────────────── */
@@ -123,8 +155,12 @@ export function didAttend(
     return record.rsvp === 'attending' && heldAPosition
 }
 
-/** Statuses that mean "was not on the operation". */
-const NON_ATTENDING = new Set(['NOT ATTENDING', 'LOA', 'NO NOTICE', 'N/A'])
+/**
+ * Statuses that mean "was not on the operation". Resolved is one of them: the
+ * member was absent and their reason was accepted, which spares them a No
+ * Notice but does not put them on the night.
+ */
+const NON_ATTENDING = new Set(['NOT ATTENDING', 'RESOLVED', 'LOA', 'NO NOTICE', 'N/A'])
 
 /* ── The statuses a 1IC can set ─────────────────────────────────────────── */
 
@@ -135,6 +171,11 @@ export interface AttendanceStatus {
     colour: string
     /** Whether picking it counts the member as present. */
     present: boolean
+    /**
+     * Whether a roll call may still set it. The rest are kept so a past record
+     * carrying one still reads with its own label and colour.
+     */
+    selectable: boolean
 }
 
 /**
@@ -144,19 +185,29 @@ export interface AttendanceStatus {
  * The AAR needs the same list, and two copies of "what states can a member be
  * in" is how the board and the write-up end up disagreeing about a night that
  * has already happened.
+ *
+ * Five can be chosen. **Confirm is discontinued**: it is no longer offered and
+ * counts for nothing — `present` is false, so it earns no billet point — but
+ * it stays in the list so the operations that already carry it remain
+ * readable. N/A and Added To Unit are likewise read-only leftovers of the old
+ * board.
  */
 export const ATTENDANCE_STATUSES: AttendanceStatus[] = [
-    { value: 'ATTENDED', label: 'Attended', colour: '#4caf50', present: true },
-    { value: 'NOT ATTENDING', label: 'Not Attending', colour: 'rgba(219,0,29,0.9)', present: false },
-    { value: 'RESOLVED', label: 'Resolved', colour: '#2196f3', present: false },
-    { value: 'NO NOTICE', label: 'No Notice', colour: '#ff9800', present: false },
-    { value: 'LOA', label: 'LOA', colour: '#9c27b0', present: false },
-    { value: 'CONFIRM', label: 'Confirm', colour: '#00bcd4', present: true },
-    { value: 'N/A', label: 'N/A', colour: 'rgba(237,237,237,0.35)', present: false },
-    { value: 'ADDED TO UNIT', label: 'Added To Unit', colour: '#3f51b5', present: true },
+    { value: 'ATTENDED', label: 'Attended', colour: '#4caf50', present: true, selectable: true },
+    { value: 'NOT ATTENDING', label: 'Not Attending', colour: 'rgba(219,0,29,0.9)', present: false, selectable: true },
+    // Absent, reason accepted: not a No Notice, and no billet point.
+    { value: 'RESOLVED', label: 'Resolved', colour: '#2196f3', present: false, selectable: true },
+    { value: 'NO NOTICE', label: 'No Notice', colour: '#ff9800', present: false, selectable: true },
+    { value: 'LOA', label: 'LOA', colour: '#9c27b0', present: false, selectable: true },
+    { value: 'CONFIRM', label: 'Confirm', colour: '#00bcd4', present: false, selectable: false },
+    { value: 'N/A', label: 'N/A', colour: 'rgba(237,237,237,0.35)', present: false, selectable: false },
+    { value: 'ADDED TO UNIT', label: 'Added To Unit', colour: '#3f51b5', present: true, selectable: false },
 ]
 
 export const ATTENDANCE_STATUS_VALUES = ATTENDANCE_STATUSES.map(s => s.value)
+
+/** What a roll call offers. */
+export const SELECTABLE_STATUSES = ATTENDANCE_STATUSES.filter(s => s.selectable)
 
 export function attendanceStatus(value: string | undefined): AttendanceStatus | null {
     return ATTENDANCE_STATUSES.find(s => s.value === value) ?? null

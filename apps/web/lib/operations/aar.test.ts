@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest'
 import type { RosterSlot } from '@/lib/attendance/roster'
 import {
     aarOpen, sectionLead, sectionsOf, ledSections, canWriteSection, didAttend,
+    platoonSections, writableSections, SELECTABLE_STATUSES,
     ATTENDANCE_STATUSES, attendanceStatus, RATING_SCALE, validRating, averageRating,
 } from './aar'
 
@@ -140,6 +141,40 @@ describe('canWriteSection', () => {
     })
 })
 
+describe('platoon headquarters', () => {
+    const roster = [
+        slot({ sectionTitle: '1-1 PHQ', order: 0, role: 'Platoon Commander', occupantUserId: 'lt' }),
+        slot({ sectionTitle: '1-1 PHQ', order: 1, role: 'Platoon Sergeant', occupantUserId: 'wo' }),
+        ...ALPHA.map(s => ({ ...s, order: s.order + 2 })),
+        ...BRAVO.map(s => ({ ...s, order: s.order + 2 })),
+        slot({ sectionTitle: '1-2 PHQ', order: 20, category: 'platoon12', occupantUserId: 'lt2' }),
+        slot({ sectionTitle: 'Charlie', order: 21, category: 'platoon12', occupantUserId: 'sgt3' }),
+    ]
+
+    test('answers for every section of its own platoon', () => {
+        expect(platoonSections(roster, 'lt')).toEqual(['1-1 PHQ', 'Alpha', 'Bravo'])
+    })
+
+    test('anybody in the headquarters section counts, not only its commander', () => {
+        expect(canWriteSection(roster, 'wo', 'Bravo', false)).toBe(true)
+    })
+
+    test('and for no other platoon', () => {
+        expect(canWriteSection(roster, 'lt', 'Charlie', false)).toBe(false)
+        expect(canWriteSection(roster, 'lt2', 'Alpha', false)).toBe(false)
+        expect(canWriteSection(roster, 'lt2', 'Charlie', false)).toBe(true)
+    })
+
+    test('a section commander still has only their own section', () => {
+        expect(writableSections(roster, 'sgt', false)).toEqual(['Alpha'])
+        expect(platoonSections(roster, 'sgt')).toEqual([])
+    })
+
+    test('staff get every section, in roster order', () => {
+        expect(writableSections(roster, 'nobody', true)).toEqual(['1-1 PHQ', 'Alpha', 'Bravo', '1-2 PHQ', 'Charlie'])
+    })
+})
+
 describe('didAttend', () => {
     const base: OperationAttendanceRecord = {
         userId: 'rfn1', unit: 'Alpha', orbatSection: 'Alpha', orbatRole: 'Rifleman',
@@ -189,6 +224,25 @@ describe('attendance statuses', () => {
             'ATTENDED', 'NOT ATTENDING', 'RESOLVED', 'NO NOTICE',
             'LOA', 'CONFIRM', 'N/A', 'ADDED TO UNIT',
         ])
+    })
+
+    test('a roll call offers five, and Confirm is not one of them', () => {
+        expect(SELECTABLE_STATUSES.map(s => s.value)).toEqual([
+            'ATTENDED', 'NOT ATTENDING', 'RESOLVED', 'NO NOTICE', 'LOA',
+        ])
+    })
+
+    test('Confirm is still readable but counts for nothing', () => {
+        expect(attendanceStatus('CONFIRM')).toMatchObject({ label: 'Confirm', present: false, selectable: false })
+    })
+
+    test('Resolved is an absence: no point, and not on the operation', () => {
+        expect(attendanceStatus('RESOLVED')?.present).toBe(false)
+        const record = {
+            userId: 'a', unit: '', orbatSection: '', orbatRole: '', rsvp: 'attending' as const,
+            confirmed: false, confirmedBy: null, confirmedAt: null, attendanceType: 'RESOLVED',
+        }
+        expect(didAttend(record, true)).toBe(false)
     })
 
     test('every one of them has a colour and a label', () => {
