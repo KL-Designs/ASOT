@@ -14,6 +14,7 @@ import OrbatOnboarding from '@/app/recruit-session/OrbatOnboarding'
 import ApplicantPageView, { STEP_LABELS } from '@/app/recruit-session/ApplicantPageView'
 import BCTAvailabilityCalendar, { type BCTSlotSummary } from './BCTAvailabilityCalendar'
 import { LEVEL_LABEL, type ReturningLevel } from '@/lib/j1/rejoin'
+import { RESTORE_ITEMS, RESTORE_LABEL, type RestoreItem } from '@/lib/military/reinstate-items'
 
 const RS_WS_URL = (process.env.NEXT_PUBLIC_BASEURL ?? '')
     .replace(/^http/, 'ws')
@@ -366,6 +367,9 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
     // For a discharged member: whether they are welcome back, and why.
     const [returningCheck, setReturningCheck] = useState<{ level: ReturningLevel; details: string } | null>(null)
     const [j4Notify, setJ4Notify] = useState<'idle' | 'sending' | 'sent' | string>('idle')
+    // For a discharged member: what to bring back from their old record.
+    // Trainings by default; applied only when the J1 lead signs the recruit off.
+    const [restoreItems, setRestoreItems] = useState<RestoreItem[]>([])
 
     // ── Joining name check ─────────────────────────────────────────────────
     const [nameStatus, setNameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
@@ -491,6 +495,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
             // The same returning-member check a website application gets.
             setReturningCheck(null)
             setJ4Notify('idle')
+            setRestoreItems(['trainings'])
             fetch(`/api/admin/j1/check-returning?discordId=${encodeURIComponent(selectedMember.id)}`)
                 .then(r => (r.ok ? r.json() : null))
                 .then(d => { if (d?.level) setReturningCheck({ level: d.level, details: d.details ?? '' }) })
@@ -981,7 +986,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
             const res = await fetch('/api/admin/j1/applications', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...fields, isDirectRecruit: true }),
+                body: JSON.stringify({ ...fields, isDirectRecruit: true, ...(returningStatus === 'discharged' ? { restoreItems } : {}) }),
             })
             const data = await res.json()
             if (!res.ok) {
@@ -2249,6 +2254,33 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                                 </div>
                                             )
                                         })()}
+
+                                        {/* What to bring back for a returning member. A
+                                            proposal: it goes to the J1 lead with the recruit
+                                            and is applied when they accept it. */}
+                                        {returningStatus === 'discharged' && (
+                                            <div style={{ padding: '10px 14px', border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.02)', marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--txt-3)' }}>
+                                                    Restore from their previous service
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                                                    {RESTORE_ITEMS.map(item => (
+                                                        <label key={item} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: 'var(--txt-2)', cursor: 'pointer' }}>
+                                                            <input
+                                                                type='checkbox'
+                                                                checked={restoreItems.includes(item)}
+                                                                onChange={e => setRestoreItems(prev => e.target.checked ? [...prev, item] : prev.filter(i => i !== item))}
+                                                                style={{ accentColor: '#f59e0b' }}
+                                                            />
+                                                            {RESTORE_LABEL[item]}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                                <div style={{ fontSize: '0.72rem', color: 'var(--txt-3)', lineHeight: 1.5 }}>
+                                                    Nothing is restored yet. Your choice goes to the J1 lead with this recruit, and is applied if they accept it.
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Under-16 warning */}
                                         {fields.age && Number(fields.age) > 0 && Number(fields.age) <= 16 && (

@@ -9,6 +9,8 @@ import { buildNickname } from '@/lib/buildNickname'
 import { calculatePromotionPoints } from '@/lib/military/points'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { runReturningMemberCheck } from '@/lib/j1/returning-check'
+import { restoreFromSnapshot, sanitiseRestoreItems } from '@/lib/military/reinstate'
+import { logAction } from '@/lib/logAction'
 
 // ── Award billet points to recruiter ─────────────────────────────────────────
 
@@ -584,6 +586,32 @@ export async function PATCH(
                     timestamp: new Date().toISOString(),
                 }],
             }, 'raw').catch(() => null)
+        }
+    }
+
+    /*
+       A returning member's record, restored on sign-off.
+
+       The recruiter proposed what to bring back from the discharge snapshot;
+       nothing was applied then. It is applied here, when the J1 lead or J4
+       accepts the recruit — that acceptance is the sign-off — and the member
+       stops being marked discharged. Awaited, because the onboarding below
+       sets their rank and position and must not race the restore.
+    */
+    if (isFinalDecision && status === 'accepted' && app.discordId && app.restoreItems?.length) {
+        try {
+            const restored = await restoreFromSnapshot(app.discordId, sanitiseRestoreItems(app.restoreItems))
+            await Db.users.updateOne({ id: app.discordId }, { $unset: { discharged: '' } })
+            logAction({
+                action: 'member.reinstate',
+                category: 'member',
+                performedBy: me.id,
+                performedByName: displayName,
+                target: applicantName,
+                details: { targetUserId: app.discordId, proposed: app.restoreItems, restored, via: 'j1-recruit', applicationId: id },
+            })
+        } catch (err) {
+            console.error('[j1/applications] Restoring a returning member failed:', err)
         }
     }
 

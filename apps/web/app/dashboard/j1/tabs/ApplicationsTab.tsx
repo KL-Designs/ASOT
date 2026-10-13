@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material'
 import { Typography } from '@mui/material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
+import { RESTORE_LABEL } from '@/lib/military/reinstate-items'
 
 type Application = J1Application & { _id: string }
 
@@ -348,6 +349,19 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                         <Field label='Prior Milsim' value={app.priorMilsim ? 'Yes' : (app.priorMilsim === false ? 'No' : null)} />
                         <Field label='Dual Clan' value={app.dualClan ? 'Yes' : (app.dualClan === false ? 'No' : null)} />
                     </div>
+
+                    {/* A returning member's restore proposal — what accepting
+                        this recruit will also do. */}
+                    {!!app.restoreItems?.length && (
+                        <div style={{ padding: '10px 12px', border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.06)' }}>
+                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', color: 'rgba(245,158,11,0.9)', marginBottom: 6 }}>
+                                Returning member: restore on acceptance
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: 'rgba(237,237,237,0.75)', lineHeight: 1.5 }}>
+                                Accepting this recruit reinstates them and restores from their discharge snapshot: {app.restoreItems.map(item => RESTORE_LABEL[item]).join(', ')}.
+                            </div>
+                        </div>
+                    )}
 
                     {(app.heardAbout) && (
                         <div>

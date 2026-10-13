@@ -13,6 +13,10 @@ interface J1Application {
     reviewedAt?: Date
     notes?: string
     isDirectRecruit?: boolean
+    /** For a returning member: what the recruiter proposes restoring from their
+     *  discharge snapshot. Applied, and the member reinstated, only when the
+     *  J1 lead or J4 accepts the recruit. See lib/military/reinstate.ts. */
+    restoreItems?: ('qualifications' | 'awards' | 'trainings' | 'operations')[]
     recruiter?: string
     linkedUserId?: string
     linkedUserDisplayName?: string

@@ -65,6 +65,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/teamspeak/nickname.ts
 - Pure `nicknameCore()` / `nicknamesMatch()` — matches a member to their TeamSpeak client on the name alone (bracketed groups and a leading rank abbreviation stripped from both sides). Unit-tested. Used by `/api/me/teamspeak` `init`.
 
+### lib/military/reinstate.ts (+ reinstate-items.ts)
+- `restoreFromSnapshot(discordId, items)` — restores chosen parts (`qualifications`/`awards`/`trainings`/`operations`) of a member's milpac from their latest discharge snapshot; `restoreOperations` is the pure, tested `$set` builder. `reinstate-items.ts` holds the import-free names (`RESTORE_ITEMS`, `RESTORE_LABEL`, `sanitiseRestoreItems`) for client components. Used by J4's reinstate (`PATCH /api/admin/members/discharged`) and by J1 recruit sign-off: a recruiter's `J1Application.restoreItems` proposal for a returning member is applied, and `discharged` cleared, when the lead accepts (`PATCH /api/admin/j1/applications/[id]`).
+
 ### lib/j1/rejoin.ts and lib/j1/returning-check.ts
 - `rejoin.ts` (pure, tested): `dischargeLevel(type, rejoinStatus)` maps a discharge to HD (welcome back) / GD (to be reviewed) / DD (not welcome), reading both the site's `honorable|general|dishonorable` and the master sheet's `HD|GD|DD`; a J4-set `discharged.rejoinStatus` wins. Also `defaultRejoinStatus`, `worseLevel`, labels.
 - `returning-check.ts`: `runReturningMemberCheck(discordId)` — the most cautious verdict across rejected applications, the site discharge, leaving history and denied applications. Used by `PATCH /api/admin/j1/applications/[id]` and `GET /api/admin/j1/check-returning` (which now returns `level`/`details`; its POST pings J4 in the J1 recruitment channel).
