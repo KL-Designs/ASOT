@@ -33,6 +33,14 @@ interface TrainingType {
     infoDocUrl?: string
     coverImageUrl?: string
     linkedMedia?: TrainingMedia[]
+    /**
+     * Material a member works through before a session of this training.
+     * Locked until they hold a seat (or are in the first two on the waitlist)
+     * and open for two weeks from then — see lib/training/pre-learning.ts.
+     * Never sent to a member by the types API; only `/api/training/pre-learning`
+     * hands it out, and only while it is open to them.
+     */
+    preLearning?: TrainingMedia[]
     // Ordering
     sortOrder?: number
     // Course type — only set for Selection / Reinforcement Cycle categories
@@ -91,10 +99,25 @@ interface TrainingAttendance {
     memberName: string
     slotType: TrainingSlotType          // which slot this RSVP occupies
     rsvpStatus: 'attending' | 'not_attending' | 'waitlist'
+    /** On a waitlisted trainee: goes ahead of everybody without it. Earned by
+     *  finishing the pre-learning and then missing the session it was for. */
+    priority?: boolean
     attended?: boolean
     qualificationAwarded?: boolean
     createdAt: Date
     updatedAt: Date
+}
+
+/** One member's access to one training's pre-learning. One document per
+ *  (trainingTypeId, memberId); an expired one is reset, not kept. */
+interface TrainingPreLearning {
+    _id?: import('mongodb').ObjectId
+    trainingTypeId: string
+    memberId: string
+    /** The session whose seat unlocked it. */
+    eventId: string
+    unlockedAt: Date
+    completedAt?: Date
 }
 
 interface TrainingDocument {

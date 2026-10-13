@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { TRAINING_TYPE_DEFAULTS } from '@/lib/training/defaults'
 import { logAction } from '@/lib/logAction'
 import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
+import { sanitisePreLearning } from '@/lib/training/pre-learning'
 
 export async function GET() {
     const me = await client.fetchMe().catch(() => null)
@@ -24,7 +25,17 @@ export async function GET() {
     const query = isJ3Lead ? {} : isTrainer ? { status: { $in: ['active', 'wip'] as TrainingType['status'][] } } : { status: 'active' as TrainingType['status'] }
     const types = await Db.trainingTypes.find(query).sort({ sortOrder: 1, category: 1, name: 1 }).toArray()
 
-    return NextResponse.json({ types, isJ3Lead, isTrainer })
+    /*
+     * Pre-learning is locked material, and this list goes to every member. The
+     * people who run trainings get it in full; everybody else gets the type
+     * without it. A member's own unlocked material comes from
+     * `/api/training/pre-learning`, which is the only place the lock lives.
+     */
+    const visible = (isJ3Lead || isTrainer)
+        ? types
+        : types.map(({ preLearning: _locked, ...rest }) => rest)
+
+    return NextResponse.json({ types: visible, isJ3Lead, isTrainer })
 }
 
 export async function POST(req: NextRequest) {
@@ -62,6 +73,7 @@ export async function POST(req: NextRequest) {
         infoDocUrl: body.infoDocUrl?.trim() || undefined,
         coverImageUrl: body.coverImageUrl?.trim() || undefined,
         linkedMedia: Array.isArray(body.linkedMedia) ? body.linkedMedia : undefined,
+        preLearning: sanitisePreLearning(body.preLearning),
         sortOrder: body.sortOrder !== undefined ? Number(body.sortOrder) || undefined : undefined,
         createdAt: now,
         updatedAt: now,

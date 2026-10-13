@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import MemberPicker from '@/app/dashboard/_components/meetings/MemberPicker'
 import { Add, CheckCircle, Cancel, Edit, Delete } from '@mui/icons-material'
 
@@ -132,6 +132,74 @@ function SlotPill({ slotType, rsvpStatus }: { slotType: string; rsvpStatus: stri
         <span style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color, border: `1px solid ${color.replace('0.7', '0.3')}`, padding: '2px 6px', flexShrink: 0 }}>
             {SLOT_LABELS[slotType] ?? slotType}{rsvpStatus === 'waitlist' ? ' (Waitlist)' : ''}
         </span>
+    )
+}
+
+type PreLearning = {
+    trainingTypeId: string
+    trainingTypeName: string
+    state: 'locked' | 'open' | 'done' | 'expired'
+    count: number
+    expiresAt: string | null
+    completedAt: string | null
+    material: { type: 'video' | 'file' | 'url'; label: string; url: string }[]
+}
+
+const PRE_LEARNING_KIND = { video: 'Video', file: 'Document', url: 'Link' } as const
+
+/**
+ * A training's pre-learning, under each of its sessions.
+ *
+ * Locked and expired say what would open it, because a locked panel with no
+ * reason reads as a fault. The links themselves only exist in `item.material`
+ * while the server considers it open — this component cannot show what it was
+ * never sent.
+ */
+function PreLearningPanel({ item, onDone }: { item: PreLearning; onDone: () => void }) {
+    const open = item.state === 'open' || item.state === 'done'
+    const tone = item.state === 'done' ? 'rgba(80,200,120,0.75)' : open ? 'rgba(120,160,220,0.8)' : 'rgba(237,237,237,0.35)'
+    const until = item.expiresAt ? new Date(item.expiresAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : null
+
+    return (
+        <div style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderTop: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: tone }}>
+                    Pre-learning{item.state === 'done' ? ' · done' : item.state === 'locked' ? ' · locked' : item.state === 'expired' ? ' · expired' : ''}
+                </span>
+                <span style={{ fontSize: '0.7rem', lineHeight: 1.5, color: 'rgba(237,237,237,0.5)' }}>
+                    {item.state === 'locked' && `${item.count} item${item.count === 1 ? '' : 's'}. Opens when you have a seat on a session, or are in the first two on the waitlist.`}
+                    {item.state === 'expired' && 'Your two weeks ran out before you attended. Sign up to a session to open it again, and work through it again.'}
+                    {open && until && `Open to you until ${until}. Work through it before the session.`}
+                </span>
+            </div>
+
+            {open && (
+                <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {item.material.map((m, i) => (
+                            <a
+                                key={i}
+                                href={m.url}
+                                target='_blank'
+                                rel='noopener noreferrer'
+                                style={{ fontSize: '0.78rem', color: 'rgba(160,190,235,0.9)', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                            >
+                                {PRE_LEARNING_KIND[m.type]}: {m.label}
+                            </a>
+                        ))}
+                    </div>
+                    {item.state === 'open' && (
+                        <button
+                            type='button'
+                            onClick={onDone}
+                            style={{ alignSelf: 'flex-start', padding: '4px 12px', background: 'rgba(80,200,120,0.1)', border: '1px solid rgba(80,200,120,0.25)', color: 'rgba(80,200,120,0.75)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}
+                        >
+                            I have done the pre-learning
+                        </button>
+                    )}
+                </>
+            )}
+        </div>
     )
 }
 
@@ -344,6 +412,16 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
     const [rsvpingId, setRsvpingId] = useState<string | null>(null)
     // Why a sign-up was refused, per event — most often missing prerequisites.
     const [rsvpErrors, setRsvpErrors] = useState<Record<string, string>>({})
+    // The caller's pre-learning, by training type. Re-read after every sign-up
+    // change, since that is what opens it.
+    const [preLearning, setPreLearning] = useState<Record<string, PreLearning>>({})
+    const loadPreLearning = useCallback(() => {
+        fetch('/api/training/pre-learning')
+            .then(r => (r.ok ? r.json() : { items: [] }))
+            .then(d => setPreLearning(Object.fromEntries((d.items ?? []).map((i: PreLearning) => [i.trainingTypeId, i]))))
+            .catch(() => { })
+    }, [])
+    useEffect(() => { loadPreLearning() }, [loadPreLearning])
     // Prerequisite waivers for the session whose attendance panel is open.
     const [waivers, setWaivers] = useState<Record<string, { memberId: string; memberName: string; byName: string }[]>>({})
     const [waiverPick, setWaiverPick] = useState<{ id: string; name: string } | null>(null)
@@ -570,6 +648,7 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
             setMyRsvps(prev => ({ ...prev, [eventId]: { slotType: record.slotType ?? slotType, rsvpStatus: record.rsvpStatus } }))
             const refresh = await fetch('/api/training/events').then(r => r.json())
             setSlotCounts(refresh.slotCounts ?? {})
+            loadPreLearning()
         } finally {
             setRsvpingId(null)
         }
@@ -588,6 +667,7 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
             setMyRsvps(prev => ({ ...prev, [eventId]: { slotType: prev[eventId]?.slotType ?? 'trainee', rsvpStatus: 'not_attending' } }))
             const refresh = await fetch('/api/training/events').then(r => r.json())
             setSlotCounts(refresh.slotCounts ?? {})
+            loadPreLearning()
         } finally {
             setRsvpingId(null)
         }
@@ -706,6 +786,19 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
                                     onEdit={() => openEditModal(ev)}
                                     onComplete={() => setCompleteModal({ eventId: ev._id, notes: '' })}
                                 />
+                                {ev.approvalStatus === 'approved' && ev.status === 'Scheduled' && preLearning[ev.trainingTypeId] && (
+                                    <PreLearningPanel
+                                        item={preLearning[ev.trainingTypeId]}
+                                        onDone={async () => {
+                                            await fetch('/api/training/pre-learning', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ trainingTypeId: ev.trainingTypeId }),
+                                            }).catch(() => null)
+                                            loadPreLearning()
+                                        }}
+                                    />
+                                )}
                                 {rsvpErrors[ev._id] && (
                                     <div role='alert' style={{ padding: '9px 14px', fontSize: '0.72rem', lineHeight: 1.5, color: 'rgba(255,170,150,0.95)', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.3)', borderTop: 'none' }}>
                                         {rsvpErrors[ev._id]}

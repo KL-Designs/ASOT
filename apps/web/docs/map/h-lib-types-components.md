@@ -97,6 +97,10 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/training/bct-availability.ts
 - `clearBctAvailabilityIfDone(discordId)` — once a member holds both `BCT 1` and `BCT 2` (`hasCompletedBct`, pure + tested), deletes their upcoming `isBCTAvailability` calendar events (`applicantId` = their Discord id). Never throws. Called from `award-qualifications` and from `j3-qualification` ticket approval. Collections: `Db.users`, `Db.calendarEvents`.
 
+### lib/training/pre-learning.ts + pre-learning-sync.ts
+- Pre-learning: material on a `TrainingType` (`preLearning`) locked until the member has a place. `pre-learning.ts` is pure and tested: `unlockedMemberIds(records)` (confirmed trainees + the first `WAITLIST_UNLOCKED` = 2 of the waitlist), `waitlistOrder` (priority first, then first come — the one definition of "who is next", used by both the unlock rule and the sign-up route's promotion sort), `grantIsLive` / `grantExpiresAt` (two weeks from unlock), `preLearningState` (locked / open / done / expired), `hasSeatPriority` (finished it, missed that session, signing up to another inside the window), `sanitisePreLearning`.
+- `pre-learning-sync.ts` — `syncPreLearning(event)`: after any seat change, upserts a `Db.trainingPreLearning` grant (`TrainingPreLearning`, one per member per type; an expired one is reset, clearing `completedAt`) for whoever is newly entitled and notifies them (`training_prelearning_unlocked`). Only ever opens access. Never throws.
+
 ### lib/training/prerequisites.ts
 - Pure `missingPrerequisites(required, held)` / `listNames()` — which of a training type's named prerequisites a member still lacks (a milpac qualification of that name, or attendance at a completed session of it, satisfies one). Unit-tested. Used by `POST /api/training/events/[id]/attendance` to block a trainee sign-up; waived per member per session via `TrainingEvent.prerequisiteWaivers` (PATCH on the same route).
 

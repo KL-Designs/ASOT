@@ -7,6 +7,8 @@ import { createNotification } from '@/lib/notifications'
 import { logAction } from '@/lib/logAction'
 import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 import { listNames, missingPrerequisites } from '@/lib/training/prerequisites'
+import { hasSeatPriority } from '@/lib/training/pre-learning'
+import { syncPreLearning } from '@/lib/training/pre-learning-sync'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -62,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         if (wasAttendingTrainee) {
             const first = await Db.trainingAttendance.findOne(
                 { eventId, slotType: { $in: ['trainee', null] as any }, rsvpStatus: 'waitlist' },
-                { sort: { createdAt: 1 } }
+                { sort: { priority: -1, createdAt: 1 } }
             )
             if (first) {
                 await Db.trainingAttendance.updateOne(
@@ -81,6 +83,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
 
         await Db.calendarReminders.deleteOne({ userId: me.id, relatedId: eventId } as unknown as CalendarReminder)
+
+        // Somebody has moved up: a new seat, or a new place in the first two
+        // of the queue, may have just opened the pre-learning for them.
+        await syncPreLearning(event)
 
         logAction({
             action: 'training.rsvp.cancel',
@@ -157,7 +163,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         if (wasAttendingTrainee) {
             const first = await Db.trainingAttendance.findOne(
                 { eventId, slotType: { $in: ['trainee', null] as any }, rsvpStatus: 'waitlist', memberId: { $ne: me.id } },
-                { sort: { createdAt: 1 } }
+                { sort: { priority: -1, createdAt: 1 } }
             )
             if (first) {
                 await Db.trainingAttendance.updateOne({ _id: first._id }, { $set: { rsvpStatus: 'attending', updatedAt: now } })
@@ -175,6 +181,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Determine actual RSVP status based on capacity
     let actualStatus: 'attending' | 'waitlist' = 'attending'
+    // Front of the queue, for somebody who finished the pre-learning and then
+    // missed the session it was for. Only matters if they end up waiting.
+    let priority = false
 
     if (slotType === 'trainer') {
         const currentTrainers = await Db.trainingAttendance.countDocuments({
@@ -190,6 +199,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         })
         if (event.maxTraineeSlots && currentTrainees >= event.maxTraineeSlots) {
             actualStatus = 'waitlist'
+            const grant = await Db.trainingPreLearning.findOne({ trainingTypeId: event.trainingTypeId, memberId: me.id })
+            priority = hasSeatPriority(grant, { eventId, scheduledAt: event.scheduledAt }, now)
         }
     } else if (slotType === 'sit-in') {
         const currentSitIns = await Db.trainingAttendance.countDocuments({
@@ -203,11 +214,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await Db.trainingAttendance.updateOne(
         { eventId, memberId: me.id },
         {
-            $set: { eventId, memberId: me.id, memberName, slotType, rsvpStatus: actualStatus, updatedAt: now },
+            $set: { eventId, memberId: me.id, memberName, slotType, rsvpStatus: actualStatus, priority, updatedAt: now },
             $setOnInsert: { createdAt: now },
         },
         { upsert: true }
     )
+
+    // A seat, or a place in the first two of the queue, opens the pre-learning.
+    await syncPreLearning(event)
 
     // Reminder for confirmed trainee/sit-in attending
     if (actualStatus === 'attending' && slotType !== 'trainer') {

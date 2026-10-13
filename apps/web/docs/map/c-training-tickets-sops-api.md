@@ -76,6 +76,9 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 #### /api/training/tickets/[id]/amend
 - **POST** — requests amendments on a pending ticket (requires `amendmentNotes`), sets status `amendments_requested`. Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTickets`. Side effects: `createNotification` to trainer, `logAction('training.ticket.amend')`.
 
+#### /api/training/pre-learning
+- **GET** — the caller's pre-learning per training type: `state` (locked / open / done / expired), `count`, `expiresAt`, `completedAt`, and `material` **only while it is open to them** — this route is the lock. **POST** `{ trainingTypeId }` marks open pre-learning as done. Gate: dashboard access. `GET /api/training/types` strips `preLearning` for anyone who is not a J3 lead or trainer; `POST /api/training/events/[id]/attendance` calls `syncPreLearning` after every sign-up and cancellation, and sets `priority` on a waitlisted trainee who has earned it (promotion sorts `priority` first).
+
 #### /api/training/types
 - **GET** — lists training types (auto-seeds `TRAINING_TYPE_DEFAULTS` if collection empty); visibility scoped by role (J3 leads: all, trainers: active+wip, members: active only). Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingTypes`.
 - **POST** — creates a new training type (name/category/billetField/points/description/status/etc). Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTypes` (insert). Side effects: `logAction('training.type.create')`.
