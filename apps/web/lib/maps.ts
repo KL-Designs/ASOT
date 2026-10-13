@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from 'fs'
 import { join } from 'path'
 import type { MapWorld } from '@/components/operations/map/types'
+import { previewAvailable } from '@/lib/maps-preview'
 
 function countSatTiles(worldDir: string): number {
     const satDir = join(worldDir, 'sat')
@@ -23,7 +24,9 @@ export function getAvailableWorlds(): MapWorld[] {
         const hasTerrain    = existsSync(join(worldDir, 'terrain.png'))
         const hasCoastline  = existsSync(join(worldDir, 'coastline.png'))
         const hasContours   = existsSync(join(worldDir, 'contours.geojson.gz'))
-        const hasPreview    = existsSync(join(worldDir, 'preview.jpg'))
+        // True when the file exists *or* can be built from the satellite tiles —
+        // the assets route builds it on first request (lib/maps-preview.ts).
+        const hasPreview    = previewAvailable(worldDir)
 
         const metaPath = join(worldDir, 'meta.json')
         let displayName = entry.name

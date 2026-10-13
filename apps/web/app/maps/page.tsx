@@ -21,7 +21,11 @@ export default function InteractiveMapPage() {
 
     return (
         <div style={{ minHeight: '60vh', padding: '48px 32px' }}>
-            <div style={{ maxWidth: 960, margin: '0 auto' }}>
+            {/* Two columns: the worlds, and beside them how to use what you
+                open. A wrapping flex row rather than a grid, so the guide
+                drops underneath on a narrow screen without a media query. */}
+            <div style={{ maxWidth: 1280, margin: '0 auto', display: 'flex', flexWrap: 'wrap', gap: 40, alignItems: 'flex-start' }}>
+            <div style={{ flex: '999 1 520px', minWidth: 0 }}>
 
                 <div style={{ marginBottom: 40 }}>
                     <h1 style={{
@@ -120,6 +124,63 @@ export default function InteractiveMapPage() {
                     </div>
                 )}
             </div>
+
+            <HowToUse />
+            </div>
         </div>
+    )
+}
+
+/**
+ * What the interactive map is for and how to drive it.
+ *
+ * Beside the list rather than inside each map: the map itself is full-screen
+ * with no room for prose, and the moment somebody wonders what this page is,
+ * they are still looking at this one.
+ */
+function HowToUse() {
+    const steps: [string, string][] = [
+        ['Pick a world', 'Choose any terrain from the list to open it full screen.'],
+        ['Move around', 'Drag to pan. Scroll, pinch, or use the + and − buttons to zoom.'],
+        ['Read a grid', 'Grid lines get finer as you zoom in, with their numbers along every edge. Your cursor shows the 10-figure grid reference of the spot under it.'],
+        ['Switch the view', 'SAT is satellite imagery. MAP is the in-game topographic map with roads, buildings and contours. TERRAIN shades the ground by height. A world only offers the views it has data for.'],
+        ['Measure', 'The scale bar in the bottom right shows distance at the current zoom.'],
+    ]
+
+    return (
+        <aside style={{
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderTop: '2px solid rgba(219,0,29,0.6)',
+            background: 'rgba(255,255,255,0.025)',
+            padding: '20px 22px',
+            minWidth: 0,
+            flex: '1 1 280px',
+            maxWidth: 420,
+        }}>
+            <h2 style={{ margin: '0 0 6px', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.55)' }}>
+                How to use
+            </h2>
+            <p style={{ margin: '0 0 16px', fontSize: '0.82rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.45)' }}>
+                Every terrain the unit plays on, to plan a route, check a grid reference or get to know
+                the ground before an operation.
+            </p>
+            <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 14 }}>
+                {steps.map(([title, body], i) => (
+                    <li key={title} style={{ display: 'grid', gridTemplateColumns: '24px minmax(0, 1fr)', gap: 10 }}>
+                        <span style={{ fontFamily: 'monospace', fontSize: '0.72rem', fontWeight: 700, color: 'rgba(219,0,29,0.8)', paddingTop: 2 }}>
+                            {String(i + 1).padStart(2, '0')}
+                        </span>
+                        <span>
+                            <b style={{ display: 'block', fontSize: '0.82rem', color: 'rgba(255,255,255,0.85)', letterSpacing: '0.03em', marginBottom: 2 }}>{title}</b>
+                            <span style={{ fontSize: '0.78rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.45)' }}>{body}</span>
+                        </span>
+                    </li>
+                ))}
+            </ol>
+            <p style={{ margin: '16px 0 0', paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.07)', fontSize: '0.74rem', lineHeight: 1.6, color: 'rgba(255,255,255,0.35)' }}>
+                Looking for the plan for a particular mission? That lives on the Map tab of the
+                operation itself, under Operations.
+            </p>
+        </aside>
     )
 }

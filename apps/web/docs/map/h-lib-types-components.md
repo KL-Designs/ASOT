@@ -65,6 +65,12 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/teamspeak/nickname.ts
 - Pure `nicknameCore()` / `nicknamesMatch()` — matches a member to their TeamSpeak client on the name alone (bracketed groups and a leading rank abbreviation stripped from both sides). Unit-tested. Used by `/api/me/teamspeak` `init`.
 
+### lib/maps-preview.ts
+- `previewAvailable(worldDir)` / `ensurePreview(worldDir)` — a world's `preview.jpg`, built on first request as a 1280x720 mosaic of its GRAD Meh satellite tiles (`sat/{col}/{row}.jpg`) with sharp, written atomically and never over an existing file; one build per world at a time. Used by `lib/maps.ts` (`hasPreview`) and `/api/maps/assets/[...path]`. Unit-tested.
+
+### lib/operations/map-grid-view.ts
+- Pure grid-view maths for the map's grid canvas: `viewFor` (affine world→canvas for a centre+zoom), `lerpView`, `visibleWorld`, `zoomEase` + `ZOOM_ANIMATION_MS` (Leaflet's zoom transition). Lets `OperationMap` redraw the grid every frame of an animated zoom instead of snapping at `zoomend`. Unit-tested.
+
 ### lib/operations/default-template.ts
 - Pure `newMissionContent(template, newId)` — the sections/pages a brand-new mission starts with: the J2 default template's content when one is set (`OperationTemplate.isDefault`), always with a Zeus Notes and an OCAP page added back if missing. Unit-tested. Used by `/api/operations/new`.
 

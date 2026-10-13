@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld, MapMode, A3ToolProps } from './types'
 import { A3_MARKER_COLORS, METIS_ICONS, METIS_SIDE_KEY } from './types'
+import { lerpView, viewFor, visibleWorld, zoomEase, ZOOM_ANIMATION_MS, type GridView } from '@/lib/operations/map-grid-view'
 
 // ── GeoJSON layer definitions (rendered in order, back → front) ──────────────
 // detail:true layers only appear at DETAIL_MIN_ZOOM or closer to avoid rendering
@@ -51,8 +52,14 @@ function outsideBg(rgba?: [number, number, number, number]): string {
     return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`
 }
 
-function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, mode: MapMode): void {
-    const size = map.getSize() as { x: number; y: number }
+/**
+ * Draws the grid through `view` rather than by asking the map where things are.
+ *
+ * The map's own answers are stale for the length of a zoom animation (see
+ * lib/operations/map-grid-view.ts), so the caller passes the view it wants drawn — the map's
+ * current one normally, an interpolated one while a zoom is in flight.
+ */
+function drawGridCanvas(canvas: HTMLCanvasElement, size: { x: number; y: number }, view: GridView, worldSize: number, mode: MapMode): void {
     if (canvas.width !== size.x || canvas.height !== size.y) {
         canvas.width  = size.x
         canvas.height = size.y
@@ -61,12 +68,10 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
     if (!ctx) return
     ctx.clearRect(0, 0, size.x, size.y)
 
-    const zoom   = map.getZoom() as number
-    const bounds = map.getBounds()
-    const minX   = bounds.getWest()  as number
-    const maxX   = bounds.getEast()  as number
-    const minY   = bounds.getSouth() as number
-    const maxY   = bounds.getNorth() as number
+    const zoom = view.zoom
+    const { minX, maxX, minY, maxY } = visibleWorld(view, size)
+    const toX = (easting: number) => view.ax * easting + view.bx
+    const toY = (northing: number) => view.ay * northing + view.by
 
     const isSat     = mode === 'sat'
     const lineColor = isSat ? '#ffffff' : '#444444'
@@ -83,12 +88,12 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
         ctx.beginPath()
         for (let x = Math.floor(minX / interval) * interval; x <= maxX + interval; x += interval) {
             if (skip > 0 && x % skip === 0) continue
-            const px = (map.latLngToContainerPoint([0, x]) as { x: number }).x
+            const px = toX(x)
             ctx.moveTo(px, 0); ctx.lineTo(px, size.y)
         }
         for (let y = Math.floor(minY / interval) * interval; y <= maxY + interval; y += interval) {
             if (skip > 0 && y % skip === 0) continue
-            const py = (map.latLngToContainerPoint([y, 0]) as { y: number }).y
+            const py = toY(y)
             ctx.moveTo(0, py); ctx.lineTo(size.x, py)
         }
         ctx.stroke()
@@ -101,8 +106,8 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
 
     // ── Map border ─────────────────────────────────────────────────────────────
     {
-        const sw = map.latLngToContainerPoint([0, 0])                 as { x: number; y: number }
-        const ne = map.latLngToContainerPoint([worldSize, worldSize]) as { x: number; y: number }
+        const sw = { x: toX(0), y: toY(0) }
+        const ne = { x: toX(worldSize), y: toY(worldSize) }
         ctx.save()
         ctx.strokeStyle = isSat ? 'rgba(255,255,255,0.9)' : 'rgba(50,50,50,0.9)'
         ctx.lineWidth   = 2.5
@@ -143,7 +148,7 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
         // X axis labels — top + bottom edges
         ctx.textAlign = 'center'
         for (let x = Math.floor(minX / li) * li; x <= maxX + li; x += li) {
-            const px = (map.latLngToContainerPoint([0, x]) as { x: number }).x
+            const px = toX(x)
             if (px < LW || px > size.x - LW) continue
             drawLabel(fmt(x), px, LH)
             drawLabel(fmt(x), px, size.y - LH)
@@ -151,7 +156,7 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
 
         // Y axis labels — left + right edges
         for (let y = Math.floor(minY / li) * li; y <= maxY + li; y += li) {
-            const py = (map.latLngToContainerPoint([y, 0]) as { y: number }).y
+            const py = toY(y)
             if (py < LH || py > size.y - LH) continue
             drawLabel(fmt(y), LW, py)
             drawLabel(fmt(y), size.x - LW, py)
@@ -412,10 +417,57 @@ export default function OperationMap({
                     c.getContext('2d')?.clearRect(0, 0, c.width, c.height)
                     return
                 }
-                drawGridCanvas(c, m, w.worldSize, mapModeRef.current)
+                const size = m.getSize() as { x: number; y: number }
+                drawGridCanvas(c, size, currentView(), w.worldSize, mapModeRef.current)
             }
+
+            const project = (lat: number, lng: number, zoom: number) => map.project([lat, lng], zoom) as { x: number; y: number }
+            const currentView = () => viewFor(project, map.getCenter(), map.getZoom(), map.getSize())
+
+            /*
+               Keeping the grid on the terrain during an animated zoom.
+
+               Leaflet announces an animated zoom with `zoomanim`, carrying the
+               centre and zoom it is heading for, then CSS-transitions its panes
+               there and only updates its own state at `zoomend`. The grid canvas
+               is not one of those panes, so without this it stood still for the
+               whole transition and snapped into place at the end.
+
+               So for that quarter of a second the grid is drawn every frame
+               through a view interpolated between where the map was and where
+               it is going, on Leaflet's own easing curve. `zoomend` cancels the
+               loop and `redrawGrid` draws the settled state as before.
+            */
+            let zoomFrame = 0
+            function stopGridZoom() {
+                if (zoomFrame) cancelAnimationFrame(zoomFrame)
+                zoomFrame = 0
+            }
+            function animateGridZoom(e: { center: { lat: number; lng: number }; zoom: number }) {
+                stopGridZoom()
+                const c = gridCanvasRef.current
+                const w = worldRef.current
+                if (!c || !w) return
+                const size = map.getSize() as { x: number; y: number }
+                const from = currentView()
+                const to = viewFor(project, e.center, e.zoom, size)
+                const started = performance.now()
+                const frame = (now: number) => {
+                    const t = (now - started) / ZOOM_ANIMATION_MS
+                    drawGridCanvas(c, size, lerpView(from, to, zoomEase(t)), w.worldSize, mapModeRef.current)
+                    zoomFrame = t < 1 ? requestAnimationFrame(frame) : 0
+                }
+                zoomFrame = requestAnimationFrame(frame)
+            }
+
             syncGridRef.current = redrawGrid
-            map.on('move zoomend resize', redrawGrid)
+            map.on('zoomanim', animateGridZoom)
+            map.on('zoomend', stopGridZoom)
+            // A `move` that arrives mid-animation is Leaflet reporting its
+            // pre-zoom state; drawing it would yank the grid back for a frame.
+            map.on('move resize', () => { if (!zoomFrame) redrawGrid() })
+            map.on('zoomend', redrawGrid)
+            map.on('unload', stopGridZoom)
 
             // ── Map cursor canvas ─────────────────────────────────────────────
             function drawCursor(
