@@ -65,6 +65,9 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### lib/teamspeak/nickname.ts
 - Pure `nicknameCore()` / `nicknamesMatch()` — matches a member to their TeamSpeak client on the name alone (bracketed groups and a leading rank abbreviation stripped from both sides). Unit-tested. Used by `/api/me/teamspeak` `init`.
 
+### lib/military/bio-approval.ts
+- Pure `bioApproversFor(memberId, positions)` — who approves a MILPAC biography change: the member's platoon HQ, else company HQ, else J4 (`isHeadquartersSection`, `BIO_LEVEL_LABEL`, `BIO_MAX_LENGTH`). Unit-tested. `POST /api/me { content }` stores the edit as `User.bioPending` (with the resolved approvers) instead of publishing; `/api/milpac/bio-approvals` approves or sends it back (`User.bioRejected`).
+
 ### lib/gallery/focal.ts
 - Pure `clampFocal()` / `focalPosition(sotm)` — the Screenshot of the Month's focal point (`focalX`/`focalY` percentages on the `screenshotOfMonth` siteSettings doc) as a CSS `object-position`. Used by `PATCH /api/gallery/sotm`, the home hero, the gallery banner, the join masthead (via `Masthead`'s `backgroundPosition`) and the J5 `FocalPicker`. Unit-tested.
 

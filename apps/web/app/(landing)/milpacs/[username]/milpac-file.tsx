@@ -21,6 +21,7 @@ import { loadConfirmedOps, resolvePromotionPoints, resolveEnlistedDate, duration
 import { CoverUpload } from './cover-upload'
 import { AccentPicker } from './accent-picker'
 import { BiographyEditor } from './bio-editor'
+import { BioApprovalPanel } from './bio-approval'
 import { RequestAwardButton } from './RequestAwardButton'
 import { ImageLightbox } from './image-lightbox'
 import { CertificateViewer } from './certificate-link'
@@ -349,10 +350,23 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 						<RankProgress currentRank={member.milpac?.currentRank} progress={progress} accent='var(--acc)' />
 						<Panel title='Personnel Summary' tag={`${member.milpac?.currentRank ?? ''} ${name}`.trim()} delay='.05s'>
 							{isOwn
-								? <BiographyEditor initial={member.bio?.content ?? null} accent={accent} />
-								: member.bio?.content
-									? <p className={s.bio}>{member.bio.content}</p>
-									: <Empty text='No biography on record.' />}
+								? (
+									<BiographyEditor
+										initial={member.bio?.content ?? null}
+										accent={accent}
+										pending={member.bioPending ? { content: member.bioPending.content, level: member.bioPending.level } : null}
+										rejected={member.bioRejected ? { reason: member.bioRejected.reason, byName: member.bioRejected.byName } : null}
+									/>
+								)
+								: (
+									<div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+										{/* For this member's approvers only; renders nothing for anybody else. */}
+										{me && <BioApprovalPanel memberId={member.id} memberName={name} />}
+										{member.bio?.content
+											? <p className={s.bio}>{member.bio.content}</p>
+											: <Empty text='No biography on record.' />}
+									</div>
+								)}
 						</Panel>
 						<Panel title='Combat Record' tag='Operations attended · last 12 months' delay='.1s'>
 							<MonthChart months={months} />

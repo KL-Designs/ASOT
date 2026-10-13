@@ -129,7 +129,11 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 #### /api/me
 - **GET** — returns current user document plus computed `isStaff`/`isMember` flags. Auth: any authenticated user.
-- **POST** — updates `bio.*` fields on the current user document (upsert). Collections: `Db.users`.
+- **POST** — `{ timezone }` sets the member's timezone; `{ content }` submits a biography edit, which is NOT published: it is stored as `bioPending` with approvers resolved from the ORBAT (`lib/military/bio-approval.ts`) and they are notified once per request. Submitting the live text withdraws a pending edit. Collections: `Db.users`, `Db.orbatPositions`.
+
+#### /api/milpac/bio-approvals
+- **GET** `?member=<discordId>` — that member's pending biography edit for a viewer who may decide it (one of `bioPending.approverIds`, or J4; never the member); `{ pending: null }` otherwise. Collections: `Db.users`.
+- **POST** `{ memberId, action: 'approve'|'reject', reason? }` — publishes the pending text to `bio.content`, or sends it back with a reason (`bioRejected`). Same gate. Notifies the member; `logAction('milpac.bio.approve'|'milpac.bio.reject')`.
 
 #### /api/me/teamspeak
 - **POST** — multi-action TS account linking flow via body `action`: `init` (auto-match online TS client by expected nickname, stores verify code), `poke` (poke a manually chosen client with the code), `verify` (confirm code, saves `teamspeak` field on user), `notify` (poke linked account with expected nickname), `list` (list online clients for manual pick). Auth: any authenticated user. Collections: `Db.users`. Side effects: TeamSpeak `clientPoke`/`clientList` calls.

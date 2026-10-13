@@ -5,12 +5,18 @@ import Image from 'next/image'
 import { UploadFile } from '@mui/icons-material'
 import { Badge, Button, Panel, PanelBody, PanelHeader, Textarea } from '@/components/dashboard'
 import s from '@/styles/dashboard.module.css'
+import { BIO_LEVEL_LABEL, type BioApprovalLevel } from '@/lib/military/bio-approval'
 
 const MAX = 2000
 
 function useBioData() {
     const [id, setId] = useState<string | null>(null)
     const [bio, setBio] = useState<string | null>(null)
+    // What is live on the milpac, as opposed to what is in the box.
+    const [live, setLive] = useState('')
+    // Whether a change is waiting on approval, and on whom.
+    const [waitingOn, setWaitingOn] = useState<BioApprovalLevel | null>(null)
+    const [rejected, setRejected] = useState<{ reason: string; byName: string } | null>(null)
 
     useEffect(() => {
         fetch('/api/me')
@@ -19,32 +25,44 @@ function useBioData() {
                 if (json.error) return console.error(json.error)
                 const user = json as User
                 setId(user.id)
-                setBio(user.bio?.content || '')
+                setLive(user.bio?.content || '')
+                // The box opens on the waiting change when there is one, so a
+                // member can keep working on what they submitted.
+                setBio(user.bioPending?.content ?? user.bio?.content ?? '')
+                setWaitingOn(user.bioPending?.level ?? null)
+                setRejected(user.bioRejected ? { reason: user.bioRejected.reason, byName: user.bioRejected.byName } : null)
             })
     }, [])
 
-    const save = (patch: object) => {
-        fetch('/api/me', {
+    const save = async (content: string): Promise<boolean> => {
+        const res = await fetch('/api/me', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(patch),
-        })
+            body: JSON.stringify({ content }),
+        }).catch(() => null)
+        const data = await res?.json().catch(() => null)
+        if (!res?.ok) return false
+        setWaitingOn(data?.pending ? data.level : null)
+        setRejected(null)
+        return true
     }
 
-    return { id, bio, setBio, save }
+    return { id, bio, setBio, save, live, waitingOn, rejected }
 }
 
 /**
  * The member's own bio, and the image that sits beside it on their milpac.
  *
- * Saves on blur, as it always did — but the card now says so. The old version
- * gave no acknowledgement at all, so the only way to know your bio had been
- * kept was to reload the page.
+ * Submitted with a button, not saved on blur. It used to save whenever the box
+ * lost focus, which was fine while a save published straight away; now that a
+ * change goes to the member's chain of command for approval, every stray
+ * click out of the box would have been a request sent to their PHQ.
  */
 export function BioCard({ canUploadImage }: { canUploadImage?: boolean }) {
-    const { id, bio, setBio, save } = useBioData()
+    const { id, bio, setBio, save, live, waitingOn, rejected } = useBioData()
     const [cacheKey, setCacheKey] = useState('')
     const [saved, setSaved] = useState(false)
+    const [saving, setSaving] = useState(false)
     const [uploading, setUploading] = useState(false)
 
     useEffect(() => { setCacheKey(String(Date.now())) }, [])
@@ -63,12 +81,19 @@ export function BioCard({ canUploadImage }: { canUploadImage?: boolean }) {
         }
     }
 
-    function commit() {
-        if (bio === null) return
-        save({ content: bio })
+    async function commit() {
+        if (bio === null || saving) return
+        setSaving(true)
+        const ok = await save(bio)
+        setSaving(false)
+        if (!ok) return
         setSaved(true)
         setTimeout(() => setSaved(false), 2200)
     }
+
+    // Nothing to submit when the box matches what is live and nothing is
+    // waiting; submitting the live text while something waits withdraws it.
+    const unchanged = (bio ?? '').trim() === live.trim() && !waitingOn
 
     const length = (bio || '').length
 
@@ -76,8 +101,10 @@ export function BioCard({ canUploadImage }: { canUploadImage?: boolean }) {
         <Panel>
             <PanelHeader
                 title='Bio'
-                sub='Shown on your milpac. Saves when you click away.'
-                right={saved ? <Badge tone='live' dot>Saved</Badge> : null}
+                sub='Shown on your milpac once your chain of command has approved it.'
+                right={saved
+                    ? <Badge tone='live' dot>Submitted</Badge>
+                    : waitingOn ? <Badge tone='warn' dot>Awaiting {BIO_LEVEL_LABEL[waitingOn]}</Badge> : null}
             />
             <PanelBody>
                 <div className='flex flex-wrap gap-4 items-start'>
@@ -88,8 +115,20 @@ export function BioCard({ canUploadImage }: { canUploadImage?: boolean }) {
                             value={bio ?? ''}
                             maxLength={MAX}
                             onChange={e => setBio(e.currentTarget.value.slice(0, MAX))}
-                            onBlur={commit}
                         />
+                        {rejected && !waitingOn && (
+                            <span className={s.hint} style={{ color: 'var(--red-hi)', lineHeight: 1.5 }}>
+                                Your last change was sent back by {rejected.byName}: {rejected.reason}
+                            </span>
+                        )}
+                        <div className='flex items-center gap-3'>
+                            <Button variant='primary' size='sm' disabled={saving || unchanged} onClick={commit}>
+                                {saving ? 'Submitting…' : 'Submit for approval'}
+                            </Button>
+                            {waitingOn && (
+                                <span className={s.hint}>A change is waiting. Your milpac shows the previous version until it is approved.</span>
+                            )}
+                        </div>
                         {/* Turns amber before it stops accepting characters, so
                             hitting the ceiling is not the first you hear of it. */}
                         <span
