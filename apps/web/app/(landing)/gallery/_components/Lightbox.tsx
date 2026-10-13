@@ -126,7 +126,12 @@ export default function Lightbox({ item, index, count, onClose, onStep, onTagCli
                     ><ChevronLeft /></button>
                 )}
 
-                <div className={s.lbImg}>
+                {/* The frame fills the whole stage so the media can size against
+                    it, which means the dark area around a photograph is this
+                    element, not the stage. It has to close on a click too, or
+                    "click the background to close" only works in the stage's
+                    padding — a 56px strip nobody aims for. */}
+                <div className={s.lbImg} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
                     {/* An uploaded video plays from local storage; a YouTube or
                         Twitch item has no bytes of its own here, only a provider
                         id, so it plays through that provider's own player. */}

@@ -120,7 +120,14 @@ export function useGalleryData() {
     const toLightboxItem = useCallback((p: Photo): LightboxItem => {
         const rows: [string, string][] = [['Operation', p.opLabel ?? 'Unknown operation']]
         if (p.mission) rows.push(['Mission', p.mission])
-        if (p.year) rows.push(['Year', p.year])
+        // The operation's date, which is what `takenAt` holds — every item in
+        // one operation shares it. Replaces the bare Year row when it is known,
+        // and is left out rather than guessed when it is not.
+        if (p.takenAt) {
+            rows.push(['Mission date', new Date(p.takenAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })])
+        } else if (p.year) {
+            rows.push(['Year', p.year])
+        }
 
         return {
             src: p.src,

@@ -20,7 +20,10 @@ export const MAX_ITEMS_PER_SUBMISSION = 20
  *  done nothing wrong. */
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024
 
-export const MAX_VIDEO_BYTES = 500 * 1024 * 1024
+/** 50MB, down from 500MB. Every uploaded clip is kept on the unit's own disk
+ *  and transcoded there; a five-minute clip compresses comfortably under this,
+ *  and anything larger belongs on YouTube with a link pasted in instead. */
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024
 export const MAX_VIDEO_SECONDS = 300
 
 /** No SVG. It is scriptable, it is never a screenshot of an operation, and it
@@ -64,13 +67,20 @@ export function checkFile(f: { mime: string, bytes: number, durationSec?: number
     if (f.bytes <= 0) return { code: 'size', message: 'That file is empty.' }
 
     const max = kind === 'image' ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES
-    if (f.bytes > max) return { code: 'size', message: `${kind === 'image' ? 'Photos' : 'Video'} must be under ${MB(max)}. That one is ${MB(f.bytes)}.` }
+    if (f.bytes > max) {
+        // The way out is part of the refusal for video: the submit page takes
+        // a link in the field beside the file picker, and a member who has
+        // just been told "too big" should not have to work that out.
+        return kind === 'image'
+            ? { code: 'size', message: `Photos must be under ${MB(max)}. That one is ${MB(f.bytes)}.` }
+            : { code: 'size', message: `Video must be under ${MB(max)}. That one is ${MB(f.bytes)}. Compress it, or upload it to YouTube and paste the link instead.` }
+    }
 
     // An unreadable duration is not a refusal: some containers do not expose it
     // to the browser at all, and ffprobe checks it again on arrival, before any
     // CPU is spent transcoding.
     if (kind === 'video' && f.durationSec !== undefined && f.durationSec > MAX_VIDEO_SECONDS) {
-        return { code: 'duration', message: `Clips must be under ${MAX_VIDEO_SECONDS / 60} minutes. That one is ${Math.round(f.durationSec / 60)} minutes.` }
+        return { code: 'duration', message: `Clips must be under ${MAX_VIDEO_SECONDS / 60} minutes. That one is ${Math.round(f.durationSec / 60)} minutes. For anything longer, upload it to YouTube and paste the link instead.` }
     }
 
     return null

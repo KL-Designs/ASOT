@@ -92,7 +92,6 @@ export default function UpcomingBand({ upcoming, campaigns, missions, lastFlown,
                 <div className={s.staff}>
                     <span>Staff</span>
                     <span><b>{staff.inDevelopment}</b> {staff.inDevelopment === 1 ? 'mission' : 'missions'} in development</span>
-                    <Link href='/dashboard/j2'>Open in J2 dashboard →</Link>
                 </div>
             )}
         </section>

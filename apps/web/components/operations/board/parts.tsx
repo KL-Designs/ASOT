@@ -55,20 +55,25 @@ export function slotTag(
     slot: SlotView,
     nameOf: (userId: string) => string,
     compact = false,
-): { label: string; className: string } | null {
+): { label: string; className: string; title?: string } | null {
     const who = slot.vacatedBy ? nameOf(slot.vacatedBy) : ''
     switch (slot.state) {
-        case 'held':       return null
+        // A filled position says so. Without a badge an attending row and a
+        // row still waiting on its data looked the same at a glance.
+        case 'held':       return slot.occupantUserId ? { label: 'Atten', className: s.tagGood } : null
         case 'open':       return null
-        case 'backfilled': return { label: 'Ressy', className: s.tagRessy }
+        case 'backfilled': return { label: 'Ressie', className: s.tagRessy, title: 'Reservist filling in from another section' }
         case 'awaiting':   return { label: compact ? 'Await' : 'Awaiting', className: s.tagWarn }
         case 'lapsed':     return {
             label: compact ? 'No reply' : who ? `No response · ${who}` : 'No response',
             className: s.tagWarn,
         }
+        // Short on every row; the member who declined is on hover, where it
+        // does not have to fight the occupant's name for the width.
         case 'declined':   return {
-            label: compact ? 'Declined' : who ? `Declined · ${who}` : 'Declined',
+            label: 'Declin',
             className: s.tagCrit,
+            title: who ? `Declined · ${who}` : 'Declined',
         }
         case 'released':   return {
             label: compact ? 'Released' : who ? `Released · ${who}` : 'Released',

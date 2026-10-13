@@ -123,7 +123,7 @@ function SlotRow({
                     // full label without a pointer, and `title` alone is not
                     // reachable by keyboard.
                     tabIndex={occupied ? 0 : undefined}
-                    title={occupied ? tag.label : undefined}
+                    title={tag.title ?? (occupied ? tag.label : undefined)}
                     {...(occupied ? swallow : {})}
                 >{tag.label}</span>
             )}

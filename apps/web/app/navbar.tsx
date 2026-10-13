@@ -10,7 +10,7 @@ import {
     Dashboard as DashboardIcon, AccountCircle,
 } from '@mui/icons-material'
 
-import { CrateIcon } from '@/components/ui/icons'
+import { HeartIcon } from '@/components/ui/icons'
 import Button from '@/components/ui/Button'
 import { ENLIST_HREF } from '@/components/enlist-transition'
 
@@ -96,7 +96,7 @@ export default function Navbar() {
     const donateButton = (
         <Button variant='amber' href='/donate' aria-label='Donate'
             className={`${s.navAct} ${s.actDonate}`}>
-            <CrateIcon />
+            <HeartIcon />
             <span className={s.lbl}>Donate</span>
         </Button>
     )

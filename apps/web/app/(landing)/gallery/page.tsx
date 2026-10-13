@@ -53,13 +53,13 @@ export default function Page() {
 
     const [filters, setFilters] = useState<Filters>(emptyFilters)
     const [sort, setSort] = useState<SortKey>('new')
-    /* Grouped by default: the archive is ~4,781 photographs across five years,
-       and a flat grid opens on whichever 48 happen to sort first with nothing
-       saying what they are. The grouped view opens on operations, which is how
-       the unit actually refers to its own photographs — a visitor looking for
-       one night's screenshots starts from its name, not from a wall. */
-    const [view, setView] = useState<GridView>('grouped')
-    const [shown, setShown] = useState(PAGE_SIZE.grouped)
+    /* The collage by default. Grouped was the default for a while, on the
+       reasoning that the unit refers to its photographs by operation — but a
+       visitor opening the gallery wants to see pictures, and the grouped view
+       opens on eight headings with a strip under each. By operation is one
+       click away in the toolbar for anybody looking for a particular night. */
+    const [view, setView] = useState<GridView>('masonry')
+    const [shown, setShown] = useState(PAGE_SIZE.masonry)
 
     const [lightbox, setLightbox] = useState<{ list: Photo[], index: number } | null>(null)
     const [singleImage, setSingleImage] = useState<LightboxItem | null>(null)

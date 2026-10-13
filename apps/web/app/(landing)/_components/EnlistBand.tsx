@@ -4,7 +4,7 @@ import Button from '@/components/ui/Button'
 import EnlistButton from '@/components/ui/EnlistButton'
 import Topo from '@/components/ui/Topo'
 import { Kicker, Lede } from '@/components/ui/SectionHead'
-import { ArrowIcon, DiscordIcon, CrateIcon } from '@/components/ui/icons'
+import { ArrowIcon, DiscordIcon, HeartIcon } from '@/components/ui/icons'
 import s from '@/styles/landing.module.css'
 import ui from '@/styles/ui.module.css'
 
@@ -28,7 +28,7 @@ const STEPS = [
     },
     {
         n: 'Step 03', title: 'Basic training',
-        body: "One session covering comms, movement and our systems. Pass it and you're posted to a section for your first operation.",
+        body: "Complete our basic training session or confirmation quiz if you're an experienced ARMA player, and you're ready to join our operations!",
     },
 ]
 
@@ -42,7 +42,7 @@ export default function EnlistBand() {
                 <h2 className={ui.h2}>Three steps to the field</h2>
                 <Lede>
                     No experience with milsim required — most of our members had none when they
-                    joined. Bring ArmA 3, a working mic and a Saturday night.
+                    joined. Bring ArmA 3, a working mic and a positive attitude.
                 </Lede>
 
                 <div className={s.steps}>
@@ -63,7 +63,7 @@ export default function EnlistBand() {
                             <DiscordIcon /> Join Discord
                         </Button>
                         <Button variant='amber' href='/donate'>
-                            <CrateIcon /> Donate
+                            <HeartIcon /> Donate
                         </Button>
                     </div>
                 </div>

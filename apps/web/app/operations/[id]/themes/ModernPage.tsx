@@ -336,10 +336,10 @@ function AttendanceCall({ href, attendance }: { href: Route; attendance: ModernP
     const action = myRsvp === 'not_attending'
         ? 'Change'
         : myPosition
-            ? 'View board'
+            ? 'View attendance'
             : rsvpOpen
                 ? 'Sign Up'
-                : 'View board'
+                : 'View attendance'
 
     return (
         <Link className={s.cta} href={href}>

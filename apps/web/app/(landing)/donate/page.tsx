@@ -6,7 +6,7 @@ import List from '@/components/ui/List'
 import QaRow, { QaStack } from '@/components/ui/QaRow'
 import SectionHead, { Kicker } from '@/components/ui/SectionHead'
 import Topo from '@/components/ui/Topo'
-import { CrateIcon } from '@/components/ui/icons'
+import { HeartIcon } from '@/components/ui/icons'
 
 import Banner from '@/public/images/home/Rooftopincert.jpg'
 import s from '@/styles/donate.module.css'
@@ -84,7 +84,7 @@ export default function Page() {
 					</p>
 
 					<Button variant='amber' href={PAYPAL} external className={s.cta}>
-						<CrateIcon /> Donate with PayPal
+						<HeartIcon /> Donate with PayPal
 					</Button>
 
 					<div className={s.assure}>
@@ -123,7 +123,7 @@ export default function Page() {
 				<div className={s.close}>
 					<p className={s.closeLine}>Now you know where it goes.</p>
 					<Button variant='amber' href={PAYPAL} external>
-						<CrateIcon /> Donate with PayPal
+						<HeartIcon /> Donate with PayPal
 					</Button>
 				</div>
 

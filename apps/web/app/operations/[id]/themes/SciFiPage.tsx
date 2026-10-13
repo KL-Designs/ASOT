@@ -284,7 +284,7 @@ export default function SciFiPage({
                                         <span className={s.musterKey}>{postingLine(attendance)}</span>
                                         <span className={s.musterSub}>{seatLine(attendance)}</span>
                                     </span>
-                                    <span className={s.btnGo}>Sign Up →</span>
+                                    <span className={s.btnGo}>{attendance.rsvpOpen && !attendance.myRsvp ? 'Sign Up' : 'Attendance'} →</span>
                                 </Link>
                             )}
                         </div>

@@ -28,11 +28,11 @@ function Stroke({ d, ...props }: IconProps & { d: string }) {
 }
 
 /**
- * A supply crate. Donations read as resupply rather than charity, which sits
- * better with the milsim framing than a heart would.
+ * A heart, for donating. It was a supply crate — resupply rather than charity —
+ * but nobody read a crate as "donate" without the label beside it.
  */
-export const CrateIcon = (props: IconProps) => (
-    <Stroke d='M3 7.5 12 4l9 3.5v9L12 20l-9-3.5v-9zM3 7.5 12 11l9-3.5M12 11v9M8.5 12.4v3.2M15.5 12.4v3.2' {...props} />
+export const HeartIcon = (props: IconProps) => (
+    <Stroke d='M12 20.5l-1.3-1.2C6 15 3 12.3 3 8.9 3 6.2 5.1 4 7.8 4c1.6 0 3.1.7 4.2 1.9C13.1 4.7 14.6 4 16.2 4 18.9 4 21 6.2 21 8.9c0 3.4-3 6.1-7.7 10.4L12 20.5z' {...props} />
 )
 
 /** A campaign medal — service and time served. */

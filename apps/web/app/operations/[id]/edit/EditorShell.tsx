@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
+import type { Route } from 'next'
 import { rgbTriplet } from '@/lib/colour'
 import { useThinScrollFade } from '@/components/editor/useThinScrollFade'
 import styles from './shell.module.css'
@@ -283,7 +284,9 @@ export default function EditorShell({
                      */}
                     {operationId && active === 'orders' && (
                         <Link
-                            href={tabHref(operationId, 'orders')}
+                            // `from=editor` is what makes the orders page's back
+                            // link return here instead of to the operations board.
+                            href={`${tabHref(operationId, 'orders')}?from=editor` as Route}
                             title='Read the orders as the unit sees them'
                             className={modeSwitch.btn}
                         >

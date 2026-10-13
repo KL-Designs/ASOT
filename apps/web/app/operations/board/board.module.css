@@ -263,8 +263,6 @@
     color: var(--ink-3);
 }
 .staff b { color: var(--acc); }
-.staff a { margin-left: auto; color: var(--acc); text-decoration: none; }
-.staff a:hover, .staff a:focus-visible { text-decoration: underline; }
 
 /* ── Filter rig ─────────────────────────────────────────────────────────── */
 
@@ -544,13 +542,18 @@
 }
 .mission {
     display: grid;
-    grid-template-columns: 44px minmax(140px, 1.3fr) repeat(2, minmax(126px, 1fr)) auto;
+    /* The last track is fixed, not `auto`. Sized to its content it took the
+       width of whichever status the row carried — "Complete", "You were
+       there", "You were on both" — so the two night columns started and
+       ended somewhere different on every row. */
+    grid-template-columns: 44px minmax(140px, 1.3fr) repeat(2, minmax(126px, 1fr)) 124px;
     align-items: center;
     gap: 14px;
     padding: 10px 14px;
     border-bottom: 1px solid var(--line);
 }
 .mission:last-child { border-bottom: none; }
+.mission > .badge { justify-self: end; }
 .seq {
     font-family: var(--mono);
     font-size: 15px;
@@ -683,4 +686,5 @@
 @media (max-width: 720px) {
     .mission { grid-template-columns: 32px minmax(0, 1fr); }
     .mission .slot { grid-column: 2; }
+    .mission > .badge { grid-column: 2; justify-self: start; }
 }

@@ -1,6 +1,7 @@
 import dayjs from 'dayjs'
 import Link from 'next/link'
 import DocBody from '../doc-body'
+import BackLink from '../back-link'
 import SectionNav from '../section-nav'
 import PagedView from '../paged-view'
 import PageNavClient from '../PageNavClient'
@@ -203,12 +204,12 @@ export default function ClassicPage({
                 >
                     {/* Back nav + edit */}
                     <div className='print-hide' style={{ position: 'absolute', top: 20, left: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <Link
-                            href={fromJ2 ? '/dashboard/j2' : '/operations'}
+                        <BackLink
+                            operationId={id}
+                            fromJ2={fromJ2}
+                            fallbackLabel='← Operations'
                             style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: isOF ? 'rgba(180,145,60,0.45)' : 'rgba(237,237,237,0.28)', textDecoration: 'none' }}
-                        >
-                            {fromJ2 ? '← J2 Operations' : '← Operations'}
-                        </Link>
+                        />
                         {isHQ && (
                             <>
                                 <div style={{ width: 1, height: 12, background: 'rgba(255,255,255,0.1)' }} />
