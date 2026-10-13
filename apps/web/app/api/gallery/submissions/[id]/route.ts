@@ -38,9 +38,17 @@ async function reviewer(): Promise<{ me: User, scope: ReviewScope } | null> {
     return canReviewAnything(scope) ? { me, scope } : null
 }
 
-/** 404, not 403, for somebody else's callsign: it does not confirm the item exists. */
-function mayReview(scope: ReviewScope, doc: GalleryMedia | null): doc is GalleryMedia {
-    return !!doc && canReviewCallsign(scope, doc.callsign)
+/**
+ * 404, not 403, for somebody else's callsign: it does not confirm the item exists.
+ *
+ * Section staff act on what is waiting in their queue and nothing else. Once
+ * an item is published or rejected it is the archive's, and the archive is
+ * J5's — without the status clause a section's staff could reject a
+ * photograph that is already live, which deletes its bytes.
+ */
+function mayReview(scope: ReviewScope, doc: Pick<GalleryMedia, 'callsign' | 'status'> | null): boolean {
+    if (!doc || !canReviewCallsign(scope, doc.callsign)) return false
+    return scope.all || doc.status === 'pending'
 }
 
 /** Same fallback chain `submissions/route.ts` uses for `authorName` — kept in
@@ -58,11 +66,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const target = await Db.galleryMedia.findOne({ _id: new ObjectId(id) }, { projection: { callsign: 1, status: 1 } })
-    if (!mayReview(who.scope, target as GalleryMedia | null)) {
-        return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    }
-    // Section staff correct what is in their queue; the published archive is J5's.
-    if (!who.scope.all && target?.status !== 'pending') {
+    if (!mayReview(who.scope, target)) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
@@ -123,7 +127,7 @@ export async function POST(_: NextRequest, { params }: { params: Promise<{ id: s
     if (!ObjectId.isValid(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const doc = await Db.galleryMedia.findOne({ _id: new ObjectId(id) })
-    if (!mayReview(who.scope, doc)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!doc || !mayReview(who.scope, doc)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (!canTransition(doc.status, 'live')) {
         return NextResponse.json({ error: `Cannot publish something that is ${doc.status}.` }, { status: 409 })
     }
@@ -216,7 +220,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (!trimmed) return NextResponse.json({ error: 'A reason is required.' }, { status: 400 })
 
     const doc = await Db.galleryMedia.findOne({ _id: new ObjectId(id) })
-    if (!mayReview(who.scope, doc)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!doc || !mayReview(who.scope, doc)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     if (!canTransition(doc.status, 'rejected')) {
         return NextResponse.json({ error: `Cannot reject something that is ${doc.status}.` }, { status: 409 })
