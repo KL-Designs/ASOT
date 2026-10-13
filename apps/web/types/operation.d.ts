@@ -316,6 +316,9 @@ declare global {
         extraPageSections?: Record<string, OperationSection[]>
         createdBy: string    // Discord user ID
         createdAt: string    // ISO timestamp
+        /** The template every new mission starts from. At most one template
+         *  carries it; set by a J2 lead. See lib/operations/default-template.ts. */
+        isDefault?: boolean
     }
 
 }

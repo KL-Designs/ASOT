@@ -2444,15 +2444,27 @@ function TemplatesSection({ refreshKey }: { refreshKey: number }) {
     const [templates, setTemplates] = useState<OperationTemplate[]>([])
     const [loading, setLoading] = useState(false)
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+    // J2 leads only — the API says so, and enforces it again on PATCH.
+    const [canSetDefault, setCanSetDefault] = useState(false)
 
     useEffect(() => {
         if (!open) return
         setLoading(true)
         fetch('/api/operations/templates')
             .then(r => r.json())
-            .then(data => setTemplates(data.templates ?? []))
+            .then(data => { setTemplates(data.templates ?? []); setCanSetDefault(!!data.canSetDefault) })
             .finally(() => setLoading(false))
     }, [open, refreshKey])
+
+    /** Make this the template every new mission starts from, or stop it being. */
+    async function setDefault(id: string, isDefault: boolean) {
+        const res = await fetch('/api/operations/templates', {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, isDefault }),
+        })
+        if (!res.ok) return
+        setTemplates(ts => ts.map(t => ({ ...t, isDefault: isDefault && t._id.toString() === id })))
+    }
 
     async function deleteTemplate(id: string) {
         await fetch(`/api/operations/templates?id=${id}`, { method: 'DELETE' })
@@ -2474,11 +2486,21 @@ function TemplatesSection({ refreshKey }: { refreshKey: number }) {
                         return (
                             <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}>
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
+                                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {t.name}
+                                        {t.isDefault && <span style={{ marginLeft: 8, fontSize: '0.56rem', fontWeight: 800, letterSpacing: '0.12em', padding: '1px 6px', color: 'rgba(219,160,0,0.95)', border: '1px solid rgba(219,160,0,0.45)', verticalAlign: 'middle' }}>DEFAULT FOR NEW MISSIONS</span>}
+                                    </div>
                                     <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
                                         {t.sections?.length ?? 0} section{(t.sections?.length ?? 0) !== 1 ? 's' : ''} · {new Date(t.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                                     </div>
                                 </div>
+                                {canSetDefault && (
+                                    <button
+                                        onClick={() => setDefault(tid, !t.isDefault)}
+                                        title={t.isDefault ? 'New missions currently start from this template. Click to stop.' : 'Make every new mission start from this template'}
+                                        style={{ background: 'none', border: `1px solid ${t.isDefault ? 'rgba(219,160,0,0.45)' : 'rgba(255,255,255,0.12)'}`, cursor: 'pointer', padding: '3px 9px', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', color: t.isDefault ? 'rgba(219,160,0,0.95)' : 'rgba(237,237,237,0.45)', whiteSpace: 'nowrap' }}
+                                    >{t.isDefault ? 'CLEAR DEFAULT' : 'SET AS DEFAULT'}</button>
+                                )}
                                 <button onClick={() => setConfirmDeleteId(tid)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'rgba(219,0,29,0.22)', display: 'flex', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.22)')}>
                                     <Delete style={{ fontSize: 15 }} />
                                 </button>

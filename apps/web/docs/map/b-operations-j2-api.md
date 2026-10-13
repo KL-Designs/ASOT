@@ -63,6 +63,7 @@ Scope: 43 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 #### /api/operations/templates
 - **GET** — lists all operation templates, newest first. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationTemplates`.
 - **POST** — creates a template snapshot (sections/pages/extraPageSections) from an existing operation (`sourceOperationId`). Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationTemplates`, `Db.operations` (read source).
+- **PATCH** — `{ id, isDefault }` sets or clears the one template every new mission starts from (clears all others first). GET also returns `canSetDefault`. Gate: `PERMISSIONS.operations.write` AND `PERMISSIONS.departmentLeads.j2`. Collections: `Db.operationTemplates`. Side effects: `logAction('operation.template.setDefault' | 'clearDefault')`.
 - **DELETE** — deletes a template by `?id=`. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationTemplates`.
 
 #### /api/operations/templates/apply
