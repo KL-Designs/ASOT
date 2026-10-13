@@ -7,6 +7,7 @@ import AttendanceBoard from '@/components/operations/board/AttendanceBoard'
 import ConfirmDialog from '@/components/confirm-dialog'
 import type { TurnoutKey } from '@/lib/attendance/simulate'
 import { DEV_TOOLS_ENABLED } from '@/lib/dev-tools'
+import DiscordPostCard from './DiscordPostCard'
 
 interface AckEntry { userId: string; userName: string; acknowledgedAt: string }
 
@@ -409,6 +410,10 @@ Sign-up answers themselves are kept.`}
                         )}
                     </div>
                 </div>
+            </TabPanel>
+
+            <TabPanel title='Discord attendance post'>
+                <DiscordPostCard opID={opID} />
             </TabPanel>
 
             {status === 'Upcoming' && (

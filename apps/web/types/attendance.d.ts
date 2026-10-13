@@ -72,6 +72,33 @@ declare global {
         confirmationOpenedAt?: Date // when confirmation was last opened (for 24h auto-close)
         stage?: 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' | 'confirmations_open' | 'completed'
 
+        /**
+         * This operation's own details for its Discord attendance post: which
+         * kind it is, its timings, and server details where they differ from
+         * the site's. Anything absent uses the default. See
+         * lib/attendance/discord-post.ts.
+         */
+        postDetails?: {
+            kind?: 'main' | 'midweek'
+            timings?: Partial<Record<'staffLoadIn' | 'staffBriefing' | 'membersLoadIn' | 'stepOff' | 'missionEnd', number>>
+            serverAddress?: string
+            serverPort?: string
+            serverPassword?: string
+            modlistUrl?: string
+        }
+        /**
+         * The Discord attendance post, once made. `fingerprint` and `drawnAt`
+         * decide when the roster picture is redrawn; `closedAt` is set when
+         * sign-ups shut and the post is finished with.
+         */
+        discordPost?: {
+            channelId: string
+            messageId: string
+            postedAt: Date
+            fingerprint?: string
+            drawnAt?: Date
+            closedAt?: Date
+        }
         chqAllocationReminderSentAt?: Date  // set when the 1hr-before CHQ reminder fires (prevents re-send)
 
         // Lead Zeus nomination — CHQ picks one Zeus for the night
