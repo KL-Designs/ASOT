@@ -118,6 +118,9 @@ roster, next-op countdown — then four `.channel` cards (Discord, TeamSpeak, Em
 same three figures. Replaced the embedded Discord widget iframe, which published members' display
 names to anyone loading the page. Public.
 
+#### app/(landing)/about/awards/page.tsx (+ awards-data.ts, awards.module.css)
+`/about/awards` — every award and citation by category with its ribbon/medallion artwork (ribbons resolved through `AWARD_TO_CITATION` in `@asot/lib`, the same table the milpac renderer uses), eligibility, a campaign-clasp ladder, removal rules, and buttons into the ticket form (`/tickets/new?type=award-nomination` / `award-creation`). Content is LTCOL Thomas's Citations and Awards document, held as data in `awards-data.ts`. In the About rail, the nav menu and the sitemap. Public.
+
 #### app/(landing)/about/contact/next-op-figure.tsx
 Client component: the countdown tile's figure. Takes the server-rendered string as `initial` so the
 first client render matches the server HTML, then re-derives via `formatUntil` every 30s.

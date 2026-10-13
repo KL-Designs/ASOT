@@ -1,0 +1,316 @@
+/*
+   /about/awards. Uses the public shell's tokens (--ink-*, --line-*, --txt-*,
+   --amber, --font-*), which the About shell's Container provides.
+*/
+
+.k {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+    margin-bottom: 10px;
+}
+
+/* ---------- intro -------------------------------------------------------- */
+
+.intro {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+}
+
+.introCopy p {
+    color: var(--txt-2);
+    font-size: 14.5px;
+    line-height: 1.7;
+    margin: 0 0 12px;
+    max-width: 68ch;
+}
+
+.jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+}
+
+.jump a {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: 6px 10px;
+    border: 1px solid var(--line-2);
+    color: var(--txt-2);
+    text-decoration: none;
+    transition: color .16s, border-color .16s;
+}
+
+.jump a:hover,
+.jump a:focus-visible {
+    color: var(--txt-1);
+    border-color: var(--amber);
+}
+
+.eligibility {
+    border: 1px solid var(--line-1);
+    border-top: 2px solid var(--amber);
+    background: var(--ink-1);
+    padding: 20px 22px;
+}
+
+.eligibility p,
+.eligibility li,
+.note p,
+.note li {
+    color: var(--txt-2);
+    font-size: 13.5px;
+    line-height: 1.65;
+}
+
+.eligibility p,
+.note p {
+    margin: 0 0 8px;
+}
+
+.eligibility ul,
+.note ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
+}
+
+/* ---------- nominate ------------------------------------------------------ */
+
+.nominate {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+    border: 1px solid var(--line-2);
+    background:
+        linear-gradient(120deg, rgba(212, 160, 58, .09), transparent 55%),
+        var(--ink-1);
+    padding: 24px 26px;
+}
+
+.nominate h2 {
+    font-family: var(--font-disp);
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    margin: 0 0 8px;
+    color: var(--txt-1);
+}
+
+.nominate p {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--txt-2);
+    font-size: 13.8px;
+    line-height: 1.65;
+}
+
+.nominateBtns {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* ---------- categories ---------------------------------------------------- */
+
+.category {
+    /* Anchored from the jump links; the fixed navbar would otherwise sit on
+       top of the heading the link was aimed at. */
+    scroll-margin-top: 96px;
+}
+
+.blurb {
+    margin: 8px 0 0;
+    color: var(--txt-3);
+    font-size: 13.5px;
+    line-height: 1.6;
+    max-width: 70ch;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+}
+
+.award {
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    display: flex;
+    flex-direction: column;
+    transition: border-color .2s, background .2s;
+}
+
+.award:hover {
+    border-color: var(--line-2);
+    background: var(--ink-2);
+}
+
+/* The artwork gets a stage of its own at the top of the card, at a fixed
+   height, so a row of cards lines up whether an award has a ribbon, a
+   medallion, or nothing yet. */
+.awardArt {
+    height: 92px;
+    display: grid;
+    place-items: center;
+    border-bottom: 1px solid var(--line-1);
+    background:
+        radial-gradient(ellipse at 50% 120%, rgba(212, 160, 58, .12), transparent 70%),
+        rgba(0, 0, 0, .22);
+}
+
+.ribbon {
+    width: 132px;
+    height: 40px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .5));
+}
+
+.medallion {
+    height: 64px;
+    width: auto;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .5));
+}
+
+.noArt {
+    color: var(--line-2);
+    display: grid;
+}
+
+.noArt svg {
+    width: 34px;
+    height: 34px;
+}
+
+.award h3 {
+    font-family: var(--font-disp);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    color: var(--txt-1);
+    margin: 0;
+    padding: 18px 20px 0;
+}
+
+.award dl {
+    margin: 0;
+    padding: 12px 20px 20px;
+}
+
+.award dt {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+    margin-top: 12px;
+}
+
+.award dd {
+    margin: 5px 0 0;
+    color: var(--txt-2);
+    font-size: 13.2px;
+    line-height: 1.6;
+}
+
+.award dd p {
+    margin: 0 0 6px;
+}
+
+.award dd ul {
+    margin: 0;
+    padding-left: 17px;
+    display: grid;
+    gap: 5px;
+}
+
+/* ---------- campaign ladder ----------------------------------------------- */
+
+.ladder {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 8px;
+}
+
+.rung {
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+}
+
+.rungArt {
+    display: grid;
+    place-items: center;
+}
+
+.rungArt .ribbon {
+    width: 78px;
+    height: 24px;
+    filter: none;
+}
+
+.rungName {
+    font-family: var(--font-disp);
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--txt-1);
+}
+
+.rungCount {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+    white-space: nowrap;
+}
+
+.rungCount b {
+    color: var(--amber);
+    font-size: 12px;
+}
+
+/* ---------- closing notes -------------------------------------------------- */
+
+.notes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.note {
+    border: 1px solid var(--line-1);
+    background: var(--ink-1);
+    padding: 20px 22px;
+}
+
+@media (max-width: 900px) {
+    .intro,
+    .notes {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
