@@ -7,6 +7,7 @@ import ZeusNotesPanel from './ZeusNotesPanel'
 import OcapStatsPanel from './OcapStatsPanel'
 import OcapLinkPanel from './OcapLinkPanel'
 import IntelPackageViewer from '@/components/editor/intel-package/IntelPackageViewer'
+import IntelReport, { IntelReportSignIn } from '@/components/intel-report/IntelReport'
 import DocAcknowledgeCard from './DocAcknowledgeCard'
 
 const ZEUS_TAB = '__zeus__'
@@ -237,6 +238,10 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                             <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
                         )}
                     </div>
+                ) : activePageMeta?.pageType === 'intel_report' && operationId ? (
+                    <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
+                        {isLoggedIn ? <IntelReport operationId={operationId} themeColor={themeColor} /> : <IntelReportSignIn />}
+                    </div>
                 ) : activePageMeta?.pageType === 'intel' && operationId ? (
                     <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
                         <IntelPackageViewer operationId={operationId} themeColor={themeColor} />
@@ -315,6 +320,10 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                         {ocap && (
                             <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
                         )}
+                    </div>
+                ) : activePageMeta?.pageType === 'intel_report' && operationId ? (
+                    <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
+                        {isLoggedIn ? <IntelReport operationId={operationId} themeColor={themeColor} /> : <IntelReportSignIn />}
                     </div>
                 ) : activePageMeta?.pageType === 'intel' && operationId ? (
                     <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>

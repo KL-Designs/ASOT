@@ -6,6 +6,7 @@ import DocBody from '../doc-body'
 import LocalDate from '../local-date'
 import PrintButton from '../print-button'
 import OcapLinkPanel from '../OcapLinkPanel'
+import IntelReport, { IntelReportSignIn } from '@/components/intel-report/IntelReport'
 import OcapStatsPanel from '../OcapStatsPanel'
 import DocAcknowledgeCard from '../DocAcknowledgeCard'
 import OperationBar from '../OperationBar'
@@ -72,7 +73,9 @@ export default function ModernPage({
         ? activePageParam
         : documents[0].id
 
-    const onContent = activeDocument !== OCAP
+    // Rows 331, 332: the Intelligence Report is Mongo-backed, not sections.
+    const isIntelReport = contentPages.find(pg => pg.id === activeDocument)?.pageType === 'intel_report'
+    const onContent = activeDocument !== OCAP && !isIntelReport
 
     // `main` is the operation's own sections; every other page keeps its
     // sections in `extraPageSections` under its id.
@@ -204,6 +207,7 @@ export default function ModernPage({
 
                 <main className={s.reader}>
                     <div className={s.readerInner}>
+                        {isIntelReport && (isLoggedIn ? <IntelReport operationId={id} themeColor={operation.themeColor || '#db001d'} /> : <IntelReportSignIn />)}
                         {activeDocument === OCAP && hasOcap && (
                             <>
                                 {canOcapManage && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}

@@ -248,6 +248,8 @@ declare global {
         ownedByName?: string     // Display name of owner
         /** Row 328: the shared Mission AAR block, for an operation outside a campaign. A campaign's setting wins. */
         missionAarEnabled?: boolean
+        /** Rows 331, 332: Intelligence Report settings, for an operation outside a campaign. */
+        intelSettings?: Partial<IntelReportSettings>
         billetPoints?: number    // Billet points awarded to owner on completion (default 2)
 
         // Orders acknowledgement — staff who have read and confirmed the orders
@@ -291,6 +293,8 @@ declare global {
         status?: 'Active' | 'Upcoming' | 'Completed' | 'In Development'  // explicit override
         /** Row 328: the shared Mission AAR block is on for every operation in the campaign. */
         missionAarEnabled?: boolean
+        /** Rows 331, 332: Intelligence Report settings for every operation in the campaign. */
+        intelSettings?: Partial<IntelReportSettings>
         isDeleted?: boolean
         deletedAt?: string
         deletedBy?: string

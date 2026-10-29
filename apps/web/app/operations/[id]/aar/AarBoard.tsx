@@ -10,6 +10,7 @@ import {
     type AttendanceStatus, type RatingAspectKey,
 } from '@/lib/operations/aar'
 import Consolidated from './Consolidated'
+import IntelBlock from './IntelBlock'
 import s from './aar.module.css'
 
 interface Props {
@@ -156,6 +157,9 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                         initial={data.mine ?? EMPTY_AAR}
                         onSaved={load}
                     />
+
+                    {/* Row 331: staff only; renders nothing for anyone else. */}
+                    <IntelBlock operationId={operationId} />
 
                     {data.sections.map(section => (
                         <SectionCard

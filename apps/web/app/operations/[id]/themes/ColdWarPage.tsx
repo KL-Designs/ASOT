@@ -4,6 +4,7 @@ import type { Route } from 'next'
 import DocBody from '../doc-body'
 import LocalDate from '../local-date'
 import OcapLinkPanel from '../OcapLinkPanel'
+import IntelReport, { IntelReportSignIn } from '@/components/intel-report/IntelReport'
 import OcapStatsPanel from '../OcapStatsPanel'
 import DocAcknowledgeCard from '../DocAcknowledgeCard'
 import OperationBar from '../OperationBar'
@@ -137,7 +138,9 @@ export default function ColdWarPage({
     const activeDocument = activePageParam && validIds.includes(activePageParam)
         ? activePageParam
         : documents[0].id
-    const onContent = activeDocument !== OCAP
+    // Rows 331, 332: the Intelligence Report is Mongo-backed, not sections.
+    const isIntelReport = contentPages.find(pg => pg.id === activeDocument)?.pageType === 'intel_report'
+    const onContent = activeDocument !== OCAP && !isIntelReport
 
     const rawSections = activeDocument === 'main'
         ? operation.sections ?? []
@@ -189,6 +192,7 @@ export default function ColdWarPage({
                         /* Staff instruments, not orders — they keep the dark chrome
                            they wear everywhere else and sit on the bare desk. */
                         <div className={s.panel}>
+                            {isIntelReport && (isLoggedIn ? <IntelReport operationId={id} themeColor={operation.themeColor || '#db001d'} /> : <IntelReportSignIn />)}
                             {activeDocument === OCAP && hasOcap && (
                                 <>
                                     {canOcapManage && <OcapLinkPanel operationId={id} initialOcap={operation.ocap ?? null} />}

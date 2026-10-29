@@ -81,6 +81,13 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - Rows 329 and 330. Pure half (tested): `reportViewer(positions, isJ4)` from the viewer's **current** ORBAT positions (CHQ or J4 → company; an HQ section → its platoon; `isSenior` → own call sign; otherwise nothing, Q8: no cross-call-sign requests), `levelsFor`, `canReadEntry`, `groupByUnit`, `summaryKey` / `sourceSignature` (the summary cache key and the signature that marks it stale), `SUMMARY_SYSTEM_PROMPT` / `buildSummaryInput` (no member names sent), `commendationsPost`.
 - Mongo half: `loadReportViewer`, `loadReportOptions`, `operationsInScope(scope, ref)`, `loadReportData(viewer, ops)` — an entry's platoon comes from that operation's own roster, so a call sign that later moved still rolls up where it was on the night.
 
+### lib/intel/report.ts / report-db.ts
+- Rows 331, 332, pure half tested (`report.test.ts`). `DEFAULT_INTEL_SETTINGS` / `resolveSettings` / `sanitiseSettings` (sharing, carry forward, intel from AARs, approval before publication). `intelStanding(roster, userId, grants, isOwner)` (staff on the night may add; owner holds everything) and `viewsFor`. `inReport` (same campaign or same standalone operation, at or before this mission; carry forward off keeps starting intel and this mission), `isReleased`, **`playerCanSee`** (sharing, not deleted, published, released; assessment plays no part, so declined intel still carries forward), `inView` (staff tabs), **`forViewer`** (the only shape that leaves the server: strips hidden-until, publication, versions and submitter id for players, and the assessment until released), `tallyVotes`, `groupByMission`, `safeUrl` / `sanitiseEvidence` / `sanitiseEntryInput` / `hiddenUntil`, `snapshotVersion` / `changed`, `canEditEntry`.
+- Mongo half: `loadIntelContext(operationId, me)` (position from `campaign_missions`, settings from the campaign or operation, standing via `can()`, `myCallSign`), `missionNames`, `loadReport(ctx, view, me)`, `loadEntryInScope` (null for a player asking for a hidden entry, the same as a missing one).
+
+### components/intel-report/
+- `IntelReport.tsx` — the Intelligence Report page (tabs, settings for `intel.manage`, entry cards with votes, assessment, approve / release / hide, edit with version history, soft delete, staff comments). Also exports `IntelReportSignIn`. `IntelEntryForm.tsx` — the entry form shared with the AAR block (title, description, grid, images by pick / drop / paste, video and links, captions; hidden-until, starting intel and call sign for assessors). Styles in `intel-report.module.css`, themed by `--intel-rgb`.
+
 ### lib/dashboard/layout.ts
 - Pure model of the dashboard home page's member-arranged layout: `PANEL_IDS`/`PANEL_TITLES`, `DEFAULT_LAYOUT`, `normaliseLayout(saved, available)` (every available panel exactly once), `sanitiseLayout` (what gets stored), `movePanel`. Unit-tested. Used by `/api/preferences` and `app/dashboard/DashboardOverview.tsx`.
 
@@ -762,6 +769,9 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 
 ### types/award-postage.d.ts
 - Row 384: `AwardPostagePreference`, `AwardPostagePref` (`award_postage_prefs`: preference, first asked, last reminder, next reminder, answered at and by), `AwardPostageStatus`, `AwardPostageItem` (`award_postage_items`: member, award name/type/date, month, `carriedFrom`, status, sent at/by), `AwardPostageConfig` (`site_settings` `_id: 'awardPostage'`). No postal fields, by design.
+
+### types/intel-report.d.ts
+Rows 331, 332: `IntelEntry` (`intel_entries`: campaign, source operation and sequence, source AAR, call sign, title, description, `evidence[]`, grid, `hiddenUntilSequence`, `publication`, `assessment`, `versions[]`, soft-delete fields), `IntelEvidence`, `IntelAssessment` / `IntelAssessmentStatus`, `IntelVersion`, `IntelVote` (`intel_votes`, unique on entry and member), `IntelComment` (`intel_comments`), `IntelReportSettings` (stored as `intelSettings` on `OperationCampaign`, or on `Operation` outside a campaign).
 
 ### types/discord.d.ts
 - Empty/commented-out placeholder (`GuildMember`, `GuildRole` shapes commented out) — no active exports.

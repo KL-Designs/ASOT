@@ -52,6 +52,9 @@ export type OperationCapability =
     | 'aar.view'
     | 'aar.write'
     | 'aar.manage'
+    | 'intel.add'
+    | 'intel.assess'
+    | 'intel.manage'
 
 interface Rule {
     /** The dot-path key in `PERMISSIONS` this capability really is. */
@@ -215,6 +218,23 @@ const RULES: Record<OperationCapability, Rule> = {
         key: 'operations.aar.manage',
         legacyKeys: ['attendance.manage'],
         legacyRoles: [PERMISSIONS.attendance.manage, PERMISSIONS.admin.manageOrbat],
+    },
+
+    /* Rows 331, 332: the Intelligence Report. The positional arms (staff on the
+       night, the operation's owner) are in `intelStanding`, not here. */
+    'intel.add': {
+        key: 'intel.report.add',
+        legacyRoles: [PERMISSIONS.departments.j2, PERMISSIONS.operations.zeus],
+    },
+
+    'intel.assess': {
+        key: 'intel.report.assess',
+        legacyRoles: [PERMISSIONS.departments.j2, PERMISSIONS.operations.zeus],
+    },
+
+    'intel.manage': {
+        key: 'intel.report.manage',
+        legacyRoles: [PERMISSIONS.departmentLeads.j2],
     },
 }
 

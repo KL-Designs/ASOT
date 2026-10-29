@@ -815,6 +815,9 @@ const MIGRATION_ITEMS = [
     // indexes the kit rating/copy routes upsert against; must run before this
     // feature ships.
     { label: '🗃️ Create indexes: kit ratings & copies', script: 'scripts/2026-08-19-kit-rating-indexes.mjs', cwd: ROOT },
+    // Rows 331, 332: one vote per member on intel entries, plus the report's
+    // read indexes. Must run before the Intelligence Report ships.
+    { label: '🗃️ Create indexes: intelligence report', script: 'scripts/2026-10-29-intel-indexes.mjs', cwd: ROOT },
     // Dry-run first, then --apply, via runMigration's own flow. Writes one
     // gallery_media document per file already in storage and seeds the tag
     // vocabulary. Must run before the gallery starts reading Mongo, and it is

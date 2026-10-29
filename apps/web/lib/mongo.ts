@@ -48,6 +48,9 @@ const DbInterface = {
     operationCommendations: db.collection('operation_commendations') as MongoCollection<OperationCommendation>,
     /** Row 329: cached AI summaries of AAR entries, keyed by scope, level and unit. */
     aarSummaries: db.collection('aar_summaries') as MongoCollection<AarSummary>,
+    intelEntries: db.collection('intel_entries') as MongoCollection<IntelEntry>,
+    intelVotes: db.collection('intel_votes') as MongoCollection<IntelVote>,
+    intelComments: db.collection('intel_comments') as MongoCollection<IntelComment>,
     /** The comment thread under an operation's orders. See lib/operations/comments.ts. */
     operationComments: db.collection('operation_comments') as MongoCollection<OperationComment>,
 

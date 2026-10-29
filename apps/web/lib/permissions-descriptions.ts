@@ -102,6 +102,9 @@ export const PERMISSION_DESCRIPTIONS: Record<string, string> = {
 
     'intel.generateImages': 'Generate intel images with the AI image creator.',
     'intel.viewAllImages': "View every member's generated intel images, not just your own.",
+    'intel.report.add': 'Submit intelligence to an operation\'s Intelligence Report.',
+    'intel.report.assess': 'Assess Intelligence Report entries, approve them and release hidden intel.',
+    'intel.report.manage': 'Edit, delete and restore Intelligence Report entries and change the report\'s settings.',
 
     'ai.manage': 'Manage AI budgets, usage caps, and provider settings.',
     'ai.use': 'Use AI features that consume AI credits.',

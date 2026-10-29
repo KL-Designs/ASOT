@@ -18,6 +18,7 @@ import * as Y from 'yjs'
 
 import PageSidebar from './PageSidebar'
 import IntelPackageEditor from './intel-package/IntelPackageEditor'
+import IntelReport from '@/components/intel-report/IntelReport'
 import ImageLibraryModal from './ImageLibraryModal'
 import { useThinScrollFade } from './useThinScrollFade'
 import {
@@ -682,6 +683,9 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                                     readOnly={readOnly}
                                     themeColor={themeColor}
                                 />
+                            ) : activePageType === 'intel_report' ? (
+                                // Mongo-backed, like OCAP: the document only holds the page.
+                                <IntelReport key={activePage} operationId={operationId} themeColor={themeColor} />
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 56 }}>
                                     {sectionIds.map((id, idx) => (

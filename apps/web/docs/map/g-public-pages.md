@@ -792,6 +792,19 @@ by both. The tab key is `orders`, not `brief`: "Brief" was the editor's name for
 and nobody outside the editor used it. `?tab=brief` and `?tab=development` are aliased for the
 bookmarks already out there.
 
+#### Intelligence Report page (`pageType: 'intel_report'`)
+Rows 331, 332. A document type added from the editor's "Choose Document Type" menu (order: Staff
+Orders, Intelligence Report, Zeus Notes, Separator; one per operation; also offered to non-Zeus
+editors in `BriefTab`). Like OCAP, the page holds no sections: it renders
+`components/intel-report/IntelReport.tsx`, backed by Mongo, in the editor (`CollabEditor`), the
+Classic theme (`paged-view.tsx`) and the Modern, Cold War and Sci-Fi themes (in their staff-panel
+slot). Visitors who are not signed in see a sign-in line instead. The entries persist across the
+campaign: an operation's report shows every entry from its campaign reported at or before its
+mission sequence (`campaign_missions`), one record, never copied. Four tabs: Active, Add, Review,
+Deleted. Hidden future intel, pending entries, deleted entries and withheld assessments never reach a
+player (see `lib/intel/report.ts`). Q9: images upload through `/api/upload` (pick, drag and drop,
+paste); video and other files are links for now. Q11: the Intel Package stays as the briefing.
+
 #### app/operations/[id]/aar/
 The **After Action Report** — the fifth tab, and the only one that does not exist for most of an
 operation's life. It appears at `confirmations_open` (see `aarOpen()`) and stays.
@@ -837,6 +850,10 @@ authorise per field. `/api/auth/collab` gates `maar-` on `aar.view`; `server.mjs
 **Commendations** (row 330): `POST/DELETE /aar/commendations`, for a member (searched with
 `GET /aar/members?on=1`, the night's own attendees) or a whole call sign, by anyone `canCommend`
 (section staff and above on the night). Logged. Never AI-summarised; rolled up in AAR Reports.
+
+**Intelligence block** (row 331, `IntelBlock.tsx`): for staff on the night or anyone with an intel
+grant, while the campaign takes intel from AARs. Each observation is posted straight into the
+Intelligence Report as its own entry (`fromAar`), filed under the author's call sign on the night.
 
 `POST /aar/attendance` is the roll call, and it **replaces the ORBAT-`isSenior` scoping** the old
 confirm route used. It also only counts a member into `billetCounts` on the transition into present —

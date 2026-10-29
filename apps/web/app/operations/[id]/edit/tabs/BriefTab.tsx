@@ -63,7 +63,7 @@ export default function BriefTab({
                 metaHandleRef={metaHandleRef}
                 onSaveStatusChange={onSaveStatusChange}
                 onProviderReady={onProviderReady}
-                allowedTypes={canZeus ? undefined : ['orders', 'staff_orders', 'separator']}
+                allowedTypes={canZeus ? undefined : ['orders', 'staff_orders', 'intel_report', 'separator']}
                 hiddenTypes={canZeus ? undefined : ['zeus']}
             />
         </div>

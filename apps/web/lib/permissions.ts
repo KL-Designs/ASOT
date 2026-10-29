@@ -1419,6 +1419,29 @@ const PERMISSIONS = {
          *  - `app/api/ai/images/route.ts` (GET with ?scope=all)
          */
         viewAllImages: ['J2 - Mission Making', 'HQ Staff'],
+
+        /**
+         * Rows 331 and 332: the Intelligence Report.
+         *
+         * Each also has a positional arm, resolved per operation in
+         * `lib/intel/report.ts` (`intelStanding`): staff on the night's roster
+         * (section leads, PHQ, CHQ) may add, and the operation's owner holds
+         * all three. These keys are the standing grants beside that, for J2
+         * and Zeus. Real gate: `can(me, 'intel.add' | 'intel.assess' |
+         * 'intel.manage')` in `lib/operations/permissions.ts`.
+         *
+         * Used by:
+         *  - `app/api/operations/[id]/intel/**`
+         *  - `app/operations/[id]/IntelReport.tsx`
+         */
+        report: {
+            /** Submit intelligence, from an AAR or the report's Add tab. */
+            add: ['J2 - Mission Making', 'J6 - Game Master', 'HQ Staff'],
+            /** Assess entries, approve them for publication and release hidden intel. */
+            assess: ['J2 - Mission Making', 'J6 - Game Master', 'HQ Staff'],
+            /** Edit anyone's entries, delete and restore them, and change the report's settings. */
+            manage: ['J2 - Department Leader', 'HQ Staff'],
+        },
     },
 
     ai: {

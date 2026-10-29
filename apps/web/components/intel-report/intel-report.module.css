@@ -1,0 +1,89 @@
+/* Rows 331, 332: Intelligence Report. `--intel-rgb` is the operation's theme colour, set inline. */
+
+.root {
+    --intel-rgb: 219, 0, 29;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    color: rgba(237, 237, 237, 0.9);
+    font-size: 0.82rem;
+}
+
+.header { display: flex; align-items: flex-end; gap: 12px; }
+.kicker { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; color: rgba(var(--intel-rgb), 0.7); font-family: monospace; }
+.title { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.flex { flex: 1; }
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid rgba(var(--intel-rgb), 0.35); }
+.tab {
+    padding: 7px 14px; background: transparent; border: none; border-bottom: 2px solid transparent;
+    color: rgba(237, 237, 237, 0.45); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; cursor: pointer;
+}
+.tabActive { color: rgba(var(--intel-rgb), 1); border-bottom-color: rgba(var(--intel-rgb), 0.9); }
+
+.mission { display: flex; flex-direction: column; gap: 10px; }
+.missionTitle {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase;
+    padding-bottom: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.callSign { display: flex; flex-direction: column; gap: 8px; padding-left: 10px; border-left: 2px solid rgba(var(--intel-rgb), 0.35); }
+
+.card {
+    display: flex; flex-direction: column; gap: 8px; padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.label { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(237, 237, 237, 0.45); }
+.muted { font-size: 0.72rem; color: rgba(237, 237, 237, 0.45); }
+.error { font-size: 0.75rem; color: #ff6b6b; }
+.notice { font-size: 0.75rem; color: #6ee7b7; }
+.entryTitle { font-weight: 700; font-size: 0.88rem; }
+.body { white-space: pre-wrap; line-height: 1.5; color: rgba(237, 237, 237, 0.8); }
+.grid { font-family: monospace; font-size: 0.7rem; letter-spacing: 0.08em; color: rgba(var(--intel-rgb), 0.9); }
+
+.badge { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; padding: 2px 7px; border: 1px solid currentColor; }
+.b_confirmed { color: #34d399; }
+.b_partial { color: #fbbf24; }
+.b_declined { color: #f87171; }
+.b_unassessed { color: rgba(237, 237, 237, 0.45); }
+.chip { font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; background: rgba(var(--intel-rgb), 0.12); color: rgba(var(--intel-rgb), 1); }
+
+.evidence { display: flex; flex-wrap: wrap; gap: 10px; }
+.figure { margin: 0; display: flex; flex-direction: column; gap: 4px; max-width: 260px; }
+.image { max-width: 260px; max-height: 180px; object-fit: cover; border: 1px solid rgba(255, 255, 255, 0.1); display: block; }
+.caption { font-size: 0.7rem; color: rgba(237, 237, 237, 0.55); }
+.linkEvidence { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid rgba(var(--intel-rgb), 0.3); color: rgba(var(--intel-rgb), 1); text-decoration: none; font-weight: 700; font-size: 0.72rem; }
+.url { font-weight: 400; font-size: 0.66rem; color: rgba(237, 237, 237, 0.5); word-break: break-all; }
+.assessComment { font-size: 0.76rem; color: rgba(237, 237, 237, 0.75); }
+
+.vote { background: transparent; border: 1px solid rgba(255, 255, 255, 0.12); color: rgba(237, 237, 237, 0.6); padding: 2px 9px; font-size: 0.7rem; cursor: pointer; }
+.voted { border-color: rgba(var(--intel-rgb), 0.8); color: rgba(var(--intel-rgb), 1); }
+
+.detail { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px dashed rgba(255, 255, 255, 0.1); }
+.assess { display: flex; flex-direction: column; gap: 6px; padding: 8px; background: rgba(0, 0, 0, 0.18); }
+.comment { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; background: rgba(0, 0, 0, 0.15); }
+.version { font-size: 0.74rem; padding: 6px 8px; background: rgba(0, 0, 0, 0.15); }
+.version summary { cursor: pointer; color: rgba(237, 237, 237, 0.6); }
+
+.form { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px dashed rgba(var(--intel-rgb), 0.35); background: rgba(255, 255, 255, 0.02); }
+.dragging { border-style: solid; background: rgba(var(--intel-rgb), 0.06); }
+.input, .textarea {
+    flex: 1; min-width: 120px; padding: 7px 9px; font: inherit; font-size: 0.8rem; color: inherit;
+    background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 0;
+}
+.input:focus, .textarea:focus { outline: none; border-color: rgba(var(--intel-rgb), 0.8); }
+.textarea { resize: vertical; width: 100%; }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 0.74rem; color: rgba(237, 237, 237, 0.7); }
+.evidenceList { display: flex; flex-direction: column; gap: 6px; }
+.evidenceEdit { display: flex; align-items: center; gap: 8px; }
+.evidenceFields { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.thumb { width: 64px; height: 48px; object-fit: cover; border: 1px solid rgba(255, 255, 255, 0.1); }
+.kind { width: 64px; text-align: center; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(var(--intel-rgb), 1); }
+
+.primary, .ghost {
+    padding: 6px 12px; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; cursor: pointer; border-radius: 0;
+}
+.primary { background: rgba(var(--intel-rgb), 0.85); border: 1px solid rgba(var(--intel-rgb), 1); color: #fff; }
+.ghost { background: transparent; border: 1px solid rgba(255, 255, 255, 0.14); color: rgba(237, 237, 237, 0.75); }
+.primary:disabled, .ghost:disabled { opacity: 0.45; cursor: default; }
