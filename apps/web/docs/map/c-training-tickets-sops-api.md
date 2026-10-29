@@ -223,3 +223,21 @@ All routes gated by `backups.manage` or `backups.restore` (new-system-only permi
 
 #### /api/j3/selection-interest
 - **GET** — members who registered interest in Selection from their induction in the last 180 days (`Db.inductionProgress.selectionInterest`), for the Selection course workspace's "Registered interest" list. Gate: `PERMISSIONS.training.manage`.
+
+---
+
+### J4 Awards and Citation Postage (row 384)
+
+Every route goes through `postageGate()` (`app/api/j4/award-postage/gate.ts`): `canManagePostage(me.id)`, which is LT GEN Thomas's account (`AWARD_POSTAGE_OWNER_ID`, defaulting to his Discord id) or the OVERRIDE env list. Deliberately not `hasRoles`, so J4-Administration gets 403. No route accepts or returns a postal detail; the collections have no field for one.
+
+#### /api/j4/award-postage
+- **GET** — rolls items over first, then returns the current month, every active member with their preference and reminder dates (Unassigned when never set), and every postage item. Collections: `Db.users`, `Db.awardPostagePrefs`, `Db.awardPostageItems`.
+
+#### /api/j4/award-postage/preference
+- **POST** `{ userId, preference }` — a manual correction via `setPostagePreference()`; logged `j4.awardPostage.preference`.
+
+#### /api/j4/award-postage/sent
+- **POST** `{ ids }` — marks Ready items Sent with time and who (`markSent()`); one item, a member's group or a month's Mark All Sent. Logged `j4.awardPostage.sent`.
+
+#### /api/j4/award-postage/config
+- **GET/PUT** — the Automated Message: title, text, case colours image, include Campaign Medallions. `Db.siteSettings` `_id: 'awardPostage'`. Logged `j4.awardPostage.config`.

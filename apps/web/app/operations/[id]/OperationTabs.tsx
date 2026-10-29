@@ -1,5 +1,6 @@
 'use client'
 
+import type { Route } from 'next'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import {
@@ -94,9 +95,11 @@ export default function OperationTabs({ operationId, active, canEdit, access, ed
         setOrdersMode(readOrdersMode(operationId))
     }, [canEdit, active, editing, operationId])
 
-    const ordersHref = canEdit && ordersMode === 'edit'
-        ? editHref(operationId)
-        : tabHref(operationId, 'orders')
+    // Widened to string and back: a ternary over two `Route`s asks TypeScript to
+    // union the whole typed-route list with itself, which is past its size limit.
+    const ordersHref = (canEdit && ordersMode === 'edit'
+        ? editHref(operationId) as string
+        : tabHref(operationId, 'orders') as string) as Route
 
     const [open, setOpen] = useState(false)
     const slotRef = useRef<HTMLSpanElement>(null)
@@ -160,7 +163,7 @@ export default function OperationTabs({ operationId, active, canEdit, access, ed
                         ref={hasMenu ? slotRef : undefined}
                     >
                         <Link
-                            href={t === 'orders' ? ordersHref : tabHref(operationId, t)}
+                            href={(t === 'orders' ? ordersHref as string : tabHref(operationId, t) as string) as Route}
                             aria-current={t === active ? 'page' : undefined}
                             className={`${s.tab} ${t === active ? s.tabOn : ''} ${hasMenu ? s.tabSplit : ''}`}
                             onClick={e => {

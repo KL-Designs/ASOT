@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import type { Route } from 'next'
 
 type LinkItem = { label: string; url: string }
 type Step = { id: string; title: string; body: string; links?: LinkItem[] }
@@ -33,7 +34,7 @@ function Links({ links }: { links?: LinkItem[] }) {
             {links.map(l => {
                 const style: React.CSSProperties = { fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', padding: '5px 12px', border: '1px solid rgba(219,0,29,0.35)', color: 'var(--red)', textDecoration: 'none' }
                 return l.url.startsWith('/')
-                    ? <Link key={l.url + l.label} href={l.url} style={style}>{l.label}</Link>
+                    ? <Link key={l.url + l.label} href={l.url as Route} style={style}>{l.label}</Link>
                     : <a key={l.url + l.label} href={l.url} target='_blank' rel='noreferrer' style={style}>{l.label}</a>
             })}
         </div>

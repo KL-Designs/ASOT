@@ -1,5 +1,6 @@
 import { createHash } from 'crypto'
 import { fillPlaceholders, selectionDateLine, type NextSelection } from '@/lib/training/next-selection'
+import { absoluteUrl } from '@/lib/absolute-url'
 
 /**
  * Row 212: the Want to Join channel's "next Selection" post. Pure half — what
@@ -29,13 +30,6 @@ export function countdownDate(config: Pick<SelectionCountdownConfig, 'overrideAt
     const override = config.overrideAt ? new Date(config.overrideAt) : null
     if (override && !isNaN(override.getTime()) && override > now) return override
     return next?.at ?? null
-}
-
-/** Absolute URL for an image the site serves at a relative path. */
-export function absoluteUrl(url: string | undefined, baseUrl: string): string | undefined {
-    if (!url) return undefined
-    if (/^https?:\/\//i.test(url)) return url
-    return `${baseUrl.replace(/\/$/, '')}/${url.replace(/^\//, '')}`
 }
 
 export type CountdownPost = {

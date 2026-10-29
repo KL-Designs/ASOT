@@ -801,6 +801,29 @@ async function triggerSelectionCountdownCron() {
 setInterval(triggerSelectionCountdownCron, 5 * 60 * 1000)
 triggerSelectionCountdownCron()
 
+// ── Award postage cron (every 5 minutes) ─────────────────────────────────────
+// Row 384: carries unsent awards into the new month and sends the physical
+// awards preference DMs that are due (first ask, then every two weeks).
+
+async function triggerAwardPostageCron() {
+    await trackJob('cron:award-postage', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/award-postage`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            if (!res.ok) {
+                console.error(`[cron/award-postage] HTTP ${res.status} — check CRON_SECRET`)
+                return
+            }
+            const data = await res.json()
+            if (data.sent || data.failed) console.log(`[cron/award-postage] tick — ${data.sent} DM(s) sent, ${data.failed} failed`)
+        } catch (e) {
+            console.error('[cron/award-postage] error:', e)
+        }
+    })
+}
+
+setInterval(triggerAwardPostageCron, 5 * 60 * 1000)
+triggerAwardPostageCron()
+
 // ── Operations cron (every 1 minute) ─────────────────────────────────────────
 
 async function triggerOperationsCron() {

@@ -1,4 +1,4 @@
-import { absoluteUrl } from './selection-countdown'
+import { absoluteUrl } from '@/lib/absolute-url'
 import { fillPlaceholders, selectionDateLine } from '@/lib/training/next-selection'
 
 /**

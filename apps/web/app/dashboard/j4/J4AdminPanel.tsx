@@ -21,6 +21,7 @@ import RolesManagerPanel from '@/app/dashboard/orbat/RolesManagerPanel'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 import { Badge, SectionLabel, Switch, ToolCard, ToolGrid } from '@/components/dashboard'
 import { defaultRejoinStatus, REJOIN_LABEL, REJOIN_STATUSES, type RejoinStatus } from '@/lib/j1/rejoin'
+import AwardPostageTab from './tabs/AwardPostageTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -1064,7 +1065,7 @@ function TestNotificationModal({ open, onClose, selfId }: { open: boolean; onClo
 /** Old main-tab numbers of the tools that now live under Admin (row 84). */
 const MOVED_TABS: Record<number, string> = { 2: 'meetings', 3: 'backups', 4: 'teamspeak', 6: 'ai-admin' }
 
-export default function J4AdminPanel({ userId, displayName, canManageLinks, canBackupManage, canBackupRestore }: { userId: string; displayName: string; canManageLinks: boolean; canBackupManage: boolean; canBackupRestore: boolean }) {
+export default function J4AdminPanel({ userId, displayName, canManageLinks, canBackupManage, canBackupRestore, canAwardPostage }: { userId: string; displayName: string; canManageLinks: boolean; canBackupManage: boolean; canBackupRestore: boolean; canAwardPostage: boolean }) {
     const { tab, setTab, view, setView, adminTab, setAdminTab } = useTabState(0, 'dept', MOVED_TABS)
 
     // Backups (the sidebar's "Snapshots") stays gated on backups.manage: a
@@ -1079,6 +1080,8 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
             </div>
         ) },
         { key: 'ai-admin',  label: 'AI Admin',  render: () => <AIAdminTab /> },
+        // Row 384: LT GEN Thomas only (plus OVERRIDE), not every J4 member. The API enforces the same.
+        { key: 'award-postage', label: 'Awards and Citation Postage', visible: canAwardPostage, render: () => <AwardPostageTab /> },
     ]
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)

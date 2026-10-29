@@ -678,10 +678,16 @@ Content-addressed, deduplicating backup system via [restic](https://restic.net/)
 - Rows 212 and 213: when the next Selection starts. `pickNextSelection(instances, now)` (pure, tested): Session 1 of the earliest Selection course in `UPCOMING` statuses that has not started, so a running Selection is skipped for the next one. `discordTimestamp`, `selectionDateLine` (`<t:…:F> (<t:…:R>)`, or "To be confirmed"), `fillPlaceholders` (unknown `{keys}` are left visible). `find-next-selection.ts` is the database read, kept apart so the pure file tests without Mongo.
 
 ### lib/recruitment/selection-countdown.ts + selection-countdown-sync.ts
-- Row 212. Pure, tested: `DEFAULT_COUNTDOWN` (disabled), `withDefaults`, `countdownDate` (a future override wins, an expired one is ignored), `absoluteUrl`, `buildCountdownPost`, `fingerprint`, `countdownAction` (off / unconfigured / unchanged / post / edit; a changed channel means a new post). `selection-countdown-sync.ts`: `loadCountdownConfig`, `countdownChannel` (config, else `DISCORD_WANT_TO_JOIN_CHANNEL_ID`), `syncSelectionCountdown()` (never throws; records `lastError`). Called by `cron/selection-countdown` and the J3 settings PUT.
+- Row 212. Pure, tested: `DEFAULT_COUNTDOWN` (disabled), `withDefaults`, `countdownDate` (a future override wins, an expired one is ignored), `buildCountdownPost`, `fingerprint`, `countdownAction` (off / unconfigured / unchanged / post / edit; a changed channel means a new post). `absoluteUrl` now lives in `lib/absolute-url.ts`. `selection-countdown-sync.ts`: `loadCountdownConfig`, `countdownChannel` (config, else `DISCORD_WANT_TO_JOIN_CHANNEL_ID`), `syncSelectionCountdown()` (never throws; records `lastError`). Called by `cron/selection-countdown` and the J3 settings PUT.
 
 ### lib/recruitment/induction-pack.ts + induction-pack-db.ts
 - Row 213. Pure, tested: `DEFAULT_STEPS` (rows 348 Attendance, 349 Orders, 350 MILPAC), `DEFAULT_INDUCTION_PACK`, `withInductionDefaults`, `inductionUrls`, `buildInductionDM` (placeholders filled, Selection date from the same helper as 212), `inductionRecipient` (linked account, else `discordId`), `inductionStatus`, `doneSteps` / `allStepsDone` (removed steps stop counting), `sanitiseInductionPack` (lengths, http(s) or site-relative links only, unique step ids). `induction-pack-db.ts`: `loadInductionPack`, `sendInductionPack(applicationId, sender)` (DM, `J1Application.inductionPack`, `Db.inductionProgress` upsert, log).
+
+### lib/military/award-postage.ts + award-postage-db.ts
+- Row 384. Pure, tested: `postageOwnerId` / `canManagePostage` (the owner or OVERRIDE, never roles), `DEFAULT_POSTAGE_CONFIG` (LT GEN Thomas's own wording), `isPhysicalAward` (every `milpac.awards` entry except Campaign Medallions unless switched on), `addedAwards(before, after)`, `monthKey` / `monthLabel`, `carryOver`, `POSTAGE_STATUS_LABEL`, `awardList`, `buildPostageDM` (embed plus `award_postage.yes` / `.no` buttons), `sanitisePostageConfig`. `award-postage-db.ts`: `onAwardsAdded(userId, awards)` (the hook both award write paths call; Yes queues Ready, No nothing, Unassigned queues Awaiting and schedules one DM; never throws), `setPostagePreference`, `markSent`, `rollOver`, `sendDuePreferenceDMs`, `memberName`.
+
+### lib/absolute-url.ts
+- `absoluteUrl(url, baseUrl)` — a site-relative URL made absolute for Discord embeds. Its own file, with no Node imports, so client components can import the modules that use it.
 
 ### lib/training/categories.ts
 - `CATEGORY_ORDER` (the Training Hub's category headings, moved out of `TrainingHub.tsx`) and `groupByCategory(items)`.
@@ -743,6 +749,9 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 
 ### types/induction.d.ts
 - `SelectionCountdownConfig` (row 212, `site_settings` `_id: 'selectionCountdown'`: enabled, channel, title, text, image, override, posted message id/channel/fingerprint, last error), `InductionStep`, `InductionPackConfig` (row 213, `_id: 'inductionPack'`), `InductionProgress` (`induction_progress`, one per member: sent, opened, steps done, completed, Selection interest). `J1Application.inductionPack` (`types/j1.d.ts`) records who sent it and how often.
+
+### types/award-postage.d.ts
+- Row 384: `AwardPostagePreference`, `AwardPostagePref` (`award_postage_prefs`: preference, first asked, last reminder, next reminder, answered at and by), `AwardPostageStatus`, `AwardPostageItem` (`award_postage_items`: member, award name/type/date, month, `carriedFrom`, status, sent at/by), `AwardPostageConfig` (`site_settings` `_id: 'awardPostage'`). No postal fields, by design.
 
 ### types/discord.d.ts
 - Empty/commented-out placeholder (`GuildMember`, `GuildRole` shapes commented out) — no active exports.

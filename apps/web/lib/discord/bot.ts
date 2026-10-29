@@ -39,6 +39,8 @@ export interface DiscordEmbed {
 export interface MessagePayload {
     content?: string
     embeds?: DiscordEmbed[]
+    /** Action rows of buttons, as Discord's API takes them. */
+    components?: unknown[]
 }
 
 // ─── Core HTTP helper (exported for reuse in index.ts) ────────────────────────
