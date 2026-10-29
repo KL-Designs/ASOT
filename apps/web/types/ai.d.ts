@@ -5,6 +5,7 @@ type AiFeature =
     | 'intel.image_edit'
     | 'training.answer_review'
     | 'text.general'
+    | 'aar.summary'
 
 type AiImageQuality = 'standard' | 'hd'
 

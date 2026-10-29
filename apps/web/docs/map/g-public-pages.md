@@ -817,6 +817,27 @@ member who gave no RSVP on "Choose…" rather than defaulting them.
 night). The pick is submitted in `lateJoiners` with the roll call and stored as a record carrying
 `lateJoinSection`, after which they are part of that section's roll call and may have an AAR written.
 
+**Row 328, the consolidated view.** Below the member's own cards, once they have written their report
+and, if they attended, left feedback (`consolidatedUnlocked`), the tab shows `Consolidated.tsx`:
+Mission Feedback averages (Enjoyment added as a fourth diverging scale, Q7), each call sign's points,
+the shared Mission AAR block, and Commendations. J4 and the mission maker skip the gate
+(`bypassesUnlock`). Who reads which call sign is `viewableSections`: a section lead their own, PHQ
+their platoon, CHQ/J4/mission maker everything; an ordinary member reads only the averages.
+`GET /aar/consolidated` returns it. Editing another member's report logs `operations.aar.editOther`.
+
+**Mission AAR block** (Situation, Missing/Captured, Vehicles): off by default, switched on per campaign
+or per standalone operation by the mission maker or J4 (`POST /aar/settings`, logs
+`operations.aar.missionToggle`; the campaign's setting wins). One block per section in
+`operation_mission_aars`, written with `PUT /aar/mission` by section staff, PHQ, CHQ or the overrides
+(`canEditMissionAar`, logs `operations.aar.missionBlock`). **Mongo is the authority**; the live
+document `maar-{operationId}` (`useMissionAarLive.ts`) only carries presence and a per-section
+revision so other editors reload, the attendance board's split, because the collab socket cannot
+authorise per field. `/api/auth/collab` gates `maar-` on `aar.view`; `server.mjs` never stores it.
+
+**Commendations** (row 330): `POST/DELETE /aar/commendations`, for a member (searched with
+`GET /aar/members?on=1`, the night's own attendees) or a whole call sign, by anyone `canCommend`
+(section staff and above on the night). Logged. Never AI-summarised; rolled up in AAR Reports.
+
 `POST /aar/attendance` is the roll call, and it **replaces the ORBAT-`isSenior` scoping** the old
 confirm route used. It also only counts a member into `billetCounts` on the transition into present —
 the route it supersedes incremented on every submission, so a 1IC correcting one status handed the

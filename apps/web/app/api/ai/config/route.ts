@@ -15,6 +15,7 @@ const DEFAULT_CONFIG: Omit<AiSiteConfig, '_id' | 'updatedAt' | 'updatedById' | '
         'intel.image_edit':     { provider: 'openai',    model: DEFAULT_IMAGE_MODEL_OPENAI },
         'training.answer_review': { provider: 'anthropic', model: DEFAULT_TEXT_MODEL_ANTHROPIC },
         'text.general':         { provider: 'anthropic', model: DEFAULT_TEXT_MODEL_ANTHROPIC },
+        'aar.summary':          { provider: 'anthropic', model: DEFAULT_TEXT_MODEL_ANTHROPIC },
     },
 }
 

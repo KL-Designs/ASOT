@@ -103,7 +103,7 @@ Full milpac editor + J4 administration panel for one member — **shared** betwe
 Route: `/dashboard/personnel/all-staff`. Gate: `PERMISSIONS.pages.admin`. Renders `AllStaffPanel`.
 
 #### app/dashboard/personnel/all-staff/AllStaffPanel.tsx
-Simple tab shell ("Move Requests" / "Discipline" / "Performance Reports") over the three staff-ticket tabs below. No fetches itself.
+Simple tab shell ("Move Requests" / "Discipline" / "Performance Reports" / "Objective Suggestions" / "AAR Reports") over the tabs below. No fetches itself.
 
 #### app/dashboard/personnel/all-staff/tabs/MoveRequestsTab.tsx
 Submit/approve ORBAT move-request tickets. Form: autocomplete pick an occupied ORBAT position (member), pick destination (Active Reservist or a section with a vacant position, then a specific vacant role), optional notes; submits — auto-applies immediately if the requester has authority, else routes to the required approver. Also shows "Pending My Approval" table (Approve/Reject buttons) and "My Submitted Requests" table with status chips. Calls `GET /api/admin/orbat/for-move` (flat position list), `GET /api/admin/tickets?issuedById=`/`?requiredApproverUserId=&status=open` (filtered client-side to `type === 'move-request'`), `POST /api/admin/tickets` (`{type:'move-request', targetUserId, fromPositionId, toPositionId|toIsReservist, notes}`), `PATCH /api/admin/tickets/{id}` (`{decision: 'approve'|'reject'}`). Uses `PLATOON_CATEGORIES`/`RESERVIST_CATEGORY_IDS` from `lib/orbat/constants`.
@@ -113,6 +113,9 @@ Submit a discipline ticket against a member (member autocomplete + reason + note
 
 #### app/dashboard/personnel/all-staff/tabs/PerformanceReportTab.tsx
 Same shape as DisciplineTab but for performance reports (`type==='performance-report'`, field `performanceReason`). Calls `GET /api/admin/members`, `GET /api/admin/tickets?issuedById=`, `POST /api/admin/tickets`.
+
+#### app/dashboard/personnel/all-staff/tabs/AarReportsTab.tsx
+Rows 329 and 330. Pick a scope (Mission, Campaign, last 6 or 12 months) and a level (Call sign, Platoon, Company, limited to what `reportViewer` allows). Each unit's Fix / Improve / Sustain entries are listed, with a per-unit **Summarise** button when AI is on (cached; marked out of date when entries change) and the raw entries always shown when it is off. Commendations are listed beneath with **Copy Discord post** for the Monday post. Calls `GET /api/aar-reports` and `POST /api/aar-reports/summary`. A viewer whose ORBAT position is not a section senior, PHQ, CHQ or J4 sees a notice instead.
 
 #### app/dashboard/personnel/all-staff/loading.tsx
 `<TacticalLoader label='LOADING PERSONNEL' />`.

@@ -246,6 +246,8 @@ declare global {
         // Ownership — the J2 member responsible for this mission
         ownedBy?: string         // Discord user ID of owner/mission maker
         ownedByName?: string     // Display name of owner
+        /** Row 328: the shared Mission AAR block, for an operation outside a campaign. A campaign's setting wins. */
+        missionAarEnabled?: boolean
         billetPoints?: number    // Billet points awarded to owner on completion (default 2)
 
         // Orders acknowledgement — staff who have read and confirmed the orders
@@ -287,6 +289,8 @@ declare global {
         startDate?: string   // ISO date string e.g. "2026-05-12"
         endDate?: string     // ISO date string e.g. "2026-05-26"
         status?: 'Active' | 'Upcoming' | 'Completed' | 'In Development'  // explicit override
+        /** Row 328: the shared Mission AAR block is on for every operation in the campaign. */
+        missionAarEnabled?: boolean
         isDeleted?: boolean
         deletedAt?: string
         deletedBy?: string

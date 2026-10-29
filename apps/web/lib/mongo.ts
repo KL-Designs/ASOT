@@ -42,6 +42,12 @@ const DbInterface = {
      *  they answer to different people — the section's commander, and the
      *  mission maker. */
     operationFeedback: db.collection('operation_feedback') as MongoCollection<OperationFeedback>,
+    /** Row 328: a section's shared Mission AAR block (situation, MIA/captured, vehicles) per operation. */
+    operationMissionAars: db.collection('operation_mission_aars') as MongoCollection<OperationMissionAar>,
+    /** Row 330: commendations written on the AAR, rolled up in AAR Reports. */
+    operationCommendations: db.collection('operation_commendations') as MongoCollection<OperationCommendation>,
+    /** Row 329: cached AI summaries of AAR entries, keyed by scope, level and unit. */
+    aarSummaries: db.collection('aar_summaries') as MongoCollection<AarSummary>,
     /** The comment thread under an operation's orders. See lib/operations/comments.ts. */
     operationComments: db.collection('operation_comments') as MongoCollection<OperationComment>,
 

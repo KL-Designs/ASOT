@@ -51,10 +51,15 @@ export async function GET(request: NextRequest) {
          */
         const isMapDoc = doc.endsWith('-map')
         const isOperationDoc = !!doc && !isMapDoc
-            && !doc.startsWith('sop-') && !doc.startsWith('att-')
+            && !doc.startsWith('sop-') && !doc.startsWith('att-') && !doc.startsWith('maar-')
             && !doc.startsWith('ws-') && !doc.startsWith('cfb-')
 
-        const authorized = doc.startsWith('sop-') || doc.startsWith('att-')
+        // maar-{operationId}: row 328's Mission AAR presence channel. Like att-,
+        // it carries a revision and who is looking, never content; every save
+        // goes through /api/operations/{id}/aar/mission, which checks the section.
+        const authorized = doc.startsWith('maar-')
+            ? await can(me, 'aar.view')
+            : doc.startsWith('sop-') || doc.startsWith('att-')
             ? await hasDashboardAccess(me)
             : doc.startsWith('ws-')
                 ? client.hasRoles(me, PERMISSIONS.departments.j2) || (await hasPermission(me, 'departmentLeads.j2')) || client.hasRoles(me, PERMISSIONS.pages.admin)

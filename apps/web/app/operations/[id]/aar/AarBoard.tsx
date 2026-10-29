@@ -9,6 +9,7 @@ import {
     SELECTABLE_STATUSES, attendanceStatus, RATING_ASPECTS, RATING_SCALE,
     type AttendanceStatus, type RatingAspectKey,
 } from '@/lib/operations/aar'
+import Consolidated from './Consolidated'
 import s from './aar.module.css'
 
 interface Props {
@@ -47,8 +48,14 @@ interface Payload {
     canManageAll: boolean
     mySections: string[]
     mine: Aar | null
-    feedback: { server: number | null; combat: number | null; story: number | null; comment: string } | null
+    feedback: { server: number | null; combat: number | null; story: number | null; enjoyment: number | null; comment: string } | null
     sections: Section[]
+    /** Row 328: whether the consolidated view is open to this viewer yet. */
+    unlocked: boolean
+    bypass: boolean
+    viewableSections: string[]
+    canCommend: boolean
+    missionAar: { enabled: boolean; canToggle: boolean; scope: 'campaign' | 'operation' }
 }
 
 const EMPTY_AAR: Aar = { fix: '', sustain: '', improve: '', writtenByName: null }
@@ -138,6 +145,7 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                         <FeedbackCard
                             operationId={operationId}
                             initial={data.feedback}
+                            onSaved={load}
                         />
                     )}
 
@@ -146,6 +154,7 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                         note={data.mine?.writtenByName ? `Written by ${data.mine.writtenByName}` : undefined}
                         operationId={operationId}
                         initial={data.mine ?? EMPTY_AAR}
+                        onSaved={load}
                     />
 
                     {data.sections.map(section => (
@@ -156,6 +165,25 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                             onSaved={load}
                         />
                     ))}
+
+                    {/* Row 328: everyone else's side of the night, once yours is in. */}
+                    {data.unlocked ? (
+                        <Consolidated
+                            operationId={operationId}
+                            missionAar={data.missionAar}
+                            canCommend={data.canCommend}
+                            sections={data.viewableSections.length ? data.viewableSections : data.sections.map(x => x.title)}
+                            onToggled={load}
+                        />
+                    ) : (
+                        <div className={s.notice}>
+                            <p className={s.noticeTitle}>Mission AAR</p>
+                            <p className={s.noticeBody}>
+                                Save your own report{data.attended ? ' and your feedback' : ''} above to open the Mission AAR,
+                                the feedback averages and the commendations.
+                            </p>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
@@ -164,14 +192,16 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
 
 /* ── How the night went ─────────────────────────────────────────────────── */
 
-function FeedbackCard({ operationId, initial }: {
+function FeedbackCard({ operationId, initial, onSaved }: {
     operationId: string
     initial: Payload['feedback']
+    onSaved?: () => void
 }) {
     const [scores, setScores] = useState<Record<RatingAspectKey, number | null>>({
         server: initial?.server ?? null,
         combat: initial?.combat ?? null,
         story: initial?.story ?? null,
+        enjoyment: initial?.enjoyment ?? null,
     })
     const [comment, setComment] = useState(initial?.comment ?? '')
     const { state, save } = useSave()
@@ -228,7 +258,7 @@ function FeedbackCard({ operationId, initial }: {
 
                 <div className={s.field} style={{ marginTop: 22 }}>
                     <span className={s.fieldLabel}>Anything else</span>
-                    <span className={s.fieldHint}>Optional. Whatever the three scales could not carry.</span>
+                    <span className={s.fieldHint}>Optional. Whatever the scales could not carry.</span>
                     <textarea
                         className={s.textarea}
                         value={comment}
@@ -244,7 +274,7 @@ function FeedbackCard({ operationId, initial }: {
                         disabled={state === 'saving'}
                         onClick={() => save(`/api/operations/${operationId}/aar`, {
                             feedback: { ...scores, comment },
-                        })}
+                        }).then(ok => { if (ok) onSaved?.() })}
                     >
                         {state === 'saving' ? 'Saving…' : 'Save feedback'}
                     </button>

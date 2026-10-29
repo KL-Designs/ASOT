@@ -9,6 +9,14 @@ Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,miniga
 
 ---
 
+### aar-reports (2 files)
+
+#### /api/aar-reports
+- **GET** `?scope=mission|campaign|6m|1y&ref=&level=section|platoon|company` — rows 329 and 330. Gate: `PERMISSIONS.pages.admin`, then `reportViewer` from the caller's current `Db.orbatPositions` plus `departments.j4` decides what they may read (a viewer with none gets `level: null`). Returns `levels`, `options` (recent operations, campaigns), `groups[{unit, entries, summary}]` (summary from `Db.aarSummaries`, `stale` when the entries changed), `commendations`, `commendationsPost`, `aiEnabled`. Collections: `operations`, `operationCampaigns`, `operationAttendance` (roster → platoon), `operationAars`, `operationCommendations`, `users`, `aiConfig`.
+
+#### /api/aar-reports/summary
+- **POST** `{scope, ref, level, unit, force?}` — AI summary of one unit via `callText` feature `aar.summary`, cached in `Db.aarSummaries` by `summaryKey` and reused while `sourceSignature` matches. Commendations and member names are never sent. 503 with the reason when AI is off or over budget. Logs `aar.summary.generate`.
+
 ### teamspeak (11 files)
 
 #### /api/teamspeak/clients
