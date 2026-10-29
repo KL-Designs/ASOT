@@ -674,8 +674,20 @@ Content-addressed, deduplicating backup system via [restic](https://restic.net/)
 ### lib/training/approve.ts
 - `approveTrainingEvent(event, approver)` — the one approval path: J3 calendar entry (`department: 'j3'`, `templateTrainingTypeId`, end from `estimatedFinishAt` or duration), approval fields, reminders from the event's own offsets, trainer notification + DM (skipped when the trainer approved it themself), `training.event.approve` log. Used by `POST /api/training/events/[id]/approve` and by `POST /api/training/events` when a J3 lead sends `approveNow`.
 
+### lib/training/next-selection.ts + find-next-selection.ts
+- Rows 212 and 213: when the next Selection starts. `pickNextSelection(instances, now)` (pure, tested): Session 1 of the earliest Selection course in `UPCOMING` statuses that has not started, so a running Selection is skipped for the next one. `discordTimestamp`, `selectionDateLine` (`<t:…:F> (<t:…:R>)`, or "To be confirmed"), `fillPlaceholders` (unknown `{keys}` are left visible). `find-next-selection.ts` is the database read, kept apart so the pure file tests without Mongo.
+
+### lib/recruitment/selection-countdown.ts + selection-countdown-sync.ts
+- Row 212. Pure, tested: `DEFAULT_COUNTDOWN` (disabled), `withDefaults`, `countdownDate` (a future override wins, an expired one is ignored), `absoluteUrl`, `buildCountdownPost`, `fingerprint`, `countdownAction` (off / unconfigured / unchanged / post / edit; a changed channel means a new post). `selection-countdown-sync.ts`: `loadCountdownConfig`, `countdownChannel` (config, else `DISCORD_WANT_TO_JOIN_CHANNEL_ID`), `syncSelectionCountdown()` (never throws; records `lastError`). Called by `cron/selection-countdown` and the J3 settings PUT.
+
+### lib/recruitment/induction-pack.ts + induction-pack-db.ts
+- Row 213. Pure, tested: `DEFAULT_STEPS` (rows 348 Attendance, 349 Orders, 350 MILPAC), `DEFAULT_INDUCTION_PACK`, `withInductionDefaults`, `inductionUrls`, `buildInductionDM` (placeholders filled, Selection date from the same helper as 212), `inductionRecipient` (linked account, else `discordId`), `inductionStatus`, `doneSteps` / `allStepsDone` (removed steps stop counting), `sanitiseInductionPack` (lengths, http(s) or site-relative links only, unique step ids). `induction-pack-db.ts`: `loadInductionPack`, `sendInductionPack(applicationId, sender)` (DM, `J1Application.inductionPack`, `Db.inductionProgress` upsert, log).
+
 ### lib/training/categories.ts
 - `CATEGORY_ORDER` (the Training Hub's category headings, moved out of `TrainingHub.tsx`) and `groupByCategory(items)`.
+
+### app/dashboard/_components/ImageUploadField.tsx
+- One image for a message or post: click, drag and drop or paste, replace and remove. Uploads through `POST /api/upload` and hands back its URL. Used by the Selection countdown post and the Induction Pack.
 
 ### lib/safe-fetch.ts
 - SSRF-guarded fetcher, the only outbound-fetch path in the department-quick-links feature (`lib/dept-links/favicon.ts`). Exports `isPublicIpAddress(ip): boolean` (fail-closed IPv4/IPv6 classifier: rejects loopback/private/CGNAT/link-local incl. cloud metadata/documentation/multicast/6to4/Teredo/NAT64/IPv4-mapped ranges), `assertPublicHttpUrl(input): URL` (throws `BlockedUrlError`; http/https only, no embedded credentials, default/80/443 port only, rejects `localhost`/single-label/`.local`/`.internal`/`.lan`/`.home.arpa` hosts and non-public IP literals), `safeFetch(url, opts): Promise<SafeFetchResult>` (manual redirect handling with full per-hop re-validation, hard byte cap via `readCapped`, per-hop timeout via `AbortController`), and the `BlockedUrlError`/`FetchCapError` error classes. Transport is an undici `Agent` with a connect-time guarded DNS `lookup` (validates **every** resolved address, after resolution, on every socket); rebinding-proof, unlike a pre-fetch resolve-then-check pattern. `undici` is a `serverExternalPackages` entry (`next.config.ts`).
@@ -728,6 +740,9 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 - `CommunityTicketCategory`, `CommunityTicketSubtype`, `CommunityTicketStatus`, `CommunityTicketVisibility` — union types for the community tickets ("/tickets") feature.
 - `CommunityTicket` — the big ticket document interface, with per-category optional field groups (request/bug/mission-campaign/unit-feedback/complaint/award fields), `statuses[]` multi-status support, `ticketTags[]`, `activityLog`.
 - `CommunityTicketTask`, `CampaignPhase`, `CommunityTicketComment`, `CommunityTicketActivity`.
+
+### types/induction.d.ts
+- `SelectionCountdownConfig` (row 212, `site_settings` `_id: 'selectionCountdown'`: enabled, channel, title, text, image, override, posted message id/channel/fingerprint, last error), `InductionStep`, `InductionPackConfig` (row 213, `_id: 'inductionPack'`), `InductionProgress` (`induction_progress`, one per member: sent, opened, steps done, completed, Selection interest). `J1Application.inductionPack` (`types/j1.d.ts`) records who sent it and how often.
 
 ### types/discord.d.ts
 - Empty/commented-out placeholder (`GuildMember`, `GuildRole` shapes commented out) — no active exports.

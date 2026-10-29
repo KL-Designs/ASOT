@@ -151,6 +151,8 @@ export default function CourseWorkspaceClient({
     const [showCandidateSearch, setShowCandidateSearch] = useState(false)
     const [candidateQuery, setCandidateQuery] = useState('')
     const [candidateResults, setCandidateResults] = useState<TSearchResult[]>([])
+    // Row 213: members who registered interest from their induction, Selection only.
+    const [interest, setInterest] = useState<(TSearchResult & { at: string; instanceRef: string | null })[]>([])
     const [searchingCandidates, setSearchingCandidates] = useState(false)
     const [addingCandidate, setAddingCandidate] = useState(false)
     const [removingCandidateId, setRemovingCandidateId] = useState<string | null>(null)
@@ -215,12 +217,19 @@ export default function CourseWorkspaceClient({
             .catch(() => {})
             .finally(() => setCandidatesLoading(false))
 
+        if (courseType === 'selection') {
+            fetch('/api/j3/selection-interest')
+                .then(r => r.ok ? r.json() : { interest: [] })
+                .then(d => setInterest((d.interest ?? []).map((i: Omit<TSearchResult, 'type'>) => ({ ...i, type: 'member' as const }))))
+                .catch(() => {})
+        }
+
         fetch(`/api/j3/course-instances/${instanceId}/staff`)
             .then(r => r.json())
             .then(d => setStaff(d.staff ?? []))
             .catch(() => {})
             .finally(() => setStaffLoading(false))
-    }, [instanceId])
+    }, [instanceId, courseType])
 
     // Candidate search debounce
     useEffect(() => {
@@ -667,6 +676,29 @@ export default function CourseWorkspaceClient({
                             })}
                         </div>
                     )}
+
+                    {(() => {
+                        const waiting = interest.filter(i => !candidates.some(c => c.userId === i.userId))
+                        if (!waiting.length) return null
+                        return (
+                            <div style={{ marginTop: 12 }}>
+                                <div style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>Registered interest ({waiting.length})</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    {waiting.map(i => (
+                                        <button key={i.userId} type='button' onClick={() => handleAddCandidate(i)} disabled={addingCandidate}
+                                            title='Add as a candidate on this course'
+                                            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.08)', color: 'rgba(237,237,237,0.7)', cursor: addingCandidate ? 'default' : 'pointer', textAlign: 'left' }}>
+                                            <span style={{ fontSize: '0.72rem', fontWeight: 600, flex: 1 }}>{i.displayName}</span>
+                                            <span style={{ fontSize: '0.56rem', color: 'rgba(237,237,237,0.3)' }}>
+                                                {new Date(i.at).toLocaleDateString()}{i.instanceRef ? ` · for ${i.instanceRef}` : ''}
+                                            </span>
+                                            <span style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(80,200,120,0.7)', border: '1px solid rgba(80,200,120,0.2)', padding: '1px 5px', flexShrink: 0 }}>Add</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )
+                    })()}
                 </div>
 
                 {/* Staff */}

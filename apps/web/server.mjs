@@ -776,6 +776,31 @@ async function triggerTaskRemindersCron() {
 setInterval(triggerTaskRemindersCron, 60 * 1000)
 triggerTaskRemindersCron()
 
+// ── Selection countdown post (every 5 minutes) ───────────────────────────────
+// Row 212: keeps the Want to Join channel's "next Selection" post current.
+// Does nothing while J3 has it switched off.
+
+async function triggerSelectionCountdownCron() {
+    await trackJob('cron:selection-countdown', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/selection-countdown`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            if (!res.ok) {
+                console.error(`[cron/selection-countdown] HTTP ${res.status} — check CRON_SECRET`)
+                return
+            }
+            const data = await res.json()
+            if (data.result === 'post' || data.result === 'edit' || data.result === 'failed') {
+                console.log(`[cron/selection-countdown] tick — ${data.result}`)
+            }
+        } catch (e) {
+            console.error('[cron/selection-countdown] Error:', e.message)
+        }
+    })
+}
+
+setInterval(triggerSelectionCountdownCron, 5 * 60 * 1000)
+triggerSelectionCountdownCron()
+
 // ── Operations cron (every 1 minute) ─────────────────────────────────────────
 
 async function triggerOperationsCron() {

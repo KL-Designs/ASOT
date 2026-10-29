@@ -65,6 +65,7 @@ type NotificationType =
     | 'training_ticket_rejected'        // Trainer: ticket rejected
     | 'training_ticket_amendments'      // Trainer: amendments requested on ticket
     | 'training_request_submitted'      // J3 leads: new training request from member
+    | 'selection_interest'              // J3 leads: a new member registered interest in Selection (induction, row 213)
     | 'training_request_approved'       // Requester: training request approved
     | 'training_request_rejected'       // Requester: training request rejected
     | 'training_video_checkpoint_fail'  // J3 lead: member failed a checkpoint 3 times

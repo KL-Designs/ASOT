@@ -126,6 +126,10 @@ const DbInterface = {
     recruitVideoConfig:   db.collection('recruit_video_config')   as MongoCollection<RecruitVideoConfig & { _id: string }>,
     recruitVideoProgress: db.collection('recruit_video_progress') as MongoCollection<RecruitVideoProgress>,
 
+    // ── Member Induction (row 213) ────────────────────────────────────────────
+    /** One new member's progress through the website induction. Config lives in siteSettings ('inductionPack'). */
+    inductionProgress: db.collection('induction_progress') as MongoCollection<InductionProgress>,
+
     // ── Training Guides ───────────────────────────────────────────────────────
     trainingGuides: db.collection('training_guides') as MongoCollection<TrainingGuide>,
 

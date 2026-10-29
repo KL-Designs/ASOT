@@ -49,7 +49,7 @@ Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,miniga
 
 ---
 
-### cron (9 files)
+### cron (10 files)
 
 All routes gated by `verifyCronSecret(request)` from `lib/cron-auth.ts` (Bearer `CRON_SECRET`), called on a schedule by `server.mjs`.
 
@@ -70,6 +70,9 @@ All routes gated by `verifyCronSecret(request)` from `lib/cron-auth.ts` (Bearer 
 
 #### /api/cron/operations
 - **GET** — runs every 5 min; multi-stage operations lifecycle driver: (0) RSVP auto-open at `rsvpOpenAt`; (1) RSVP auto-close (configurable offset before op date) + notifies section leaders via `getSectionLeaders`; (1b) CHQ allocation reminder 1hr before op start if unassigned reservists exist; (2) auto-activate Upcoming→Active at op start, mirrors attendance `stage` to `op_running`; (3) confirmation auto-open when op Completed, calls `createAttendanceTasksForOperation`; (4) confirmation auto-close 24h after opened. Collections: `Db.operationAttendance`, `Db.operations`, `Db.orbatPositions`. Side effects: `createNotification`, `lib/attendance/tasks.ts` task creation.
+
+#### /api/cron/selection-countdown
+- **GET** — every 5 min; `syncSelectionCountdown()` (`lib/recruitment/selection-countdown-sync.ts`): when enabled, posts the Want to Join "next Selection" embed once and then edits that same message whenever the date, override, text or image changes (fingerprinted, so an unchanged post is not touched); a deleted message is reposted, a new channel gets a new post, and a Discord failure is stored as `lastError`. Collections: `Db.siteSettings` (`selectionCountdown`), `Db.courseInstances`. Side effects: `upsertChannelPost()`.
 
 #### /api/cron/task-reminders
 - **GET** — runs every minute; (1) chase-up reminders for tasks past `reminderDateTime` not yet notified → notification + `sendTaskReminderDM`; (1b) one-shot "orders check maker" reminders for `orders_check` tasks; (2) due/overdue notifications for tasks past `dueDate` → sets status `overdue`, notification + `sendTaskOverdueDM`; (3) task-limit escalation — counts incomplete tasks per member against `Db.notifPolicyConfig` policy thresholds, escalates via `createNotification` + `sendTaskEscalationDM` to configured recipient roles, sets `escalationLevel`. Collections: `Db.tasks`, `Db.notifPolicyConfig`, `Db.users`.
@@ -120,6 +123,9 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 #### /api/me/promotion-progress
 - **GET** — the caller's progress toward their next rank, for the navbar account menu: `{ currentRank, progress }`. Runs the same `loadConfirmedOps` → `resolvePromotionPoints` → `getPromotionProgress` chain (`lib/military/milpac-stats.ts`) the milpac file renders its bar from, so the two can never disagree. `progress` is `null` (no rank / rank on no known track), `{ atMax }`, `{ billetOnly }`, or the full `{ nextRank, required, current, pct }`. Auth: any authenticated user (`client.fetchMe()`). Collections: `Db.operationAttendance`, `Db.operations` (via `loadConfirmedOps`).
+
+#### /api/me/induction
+- **GET** — the signed-in member's induction (row 213): welcome, links, steps from `Db.siteSettings` `inductionPack`, steps done, completion, Selection interest, next Selection. Marks `openedAt` the first time for a member who was sent the pack. **POST** — `{ action: 'step', stepId, done }` ticks or unticks a step (completion is recorded once, when every current step is done); `{ action: 'selection-interest' }` registers interest in the next Selection (Q4: interest only, J3 adds the candidate), notifies the J3 leads (`selection_interest`) and logs `j3.selection.interest`. Auth: any authenticated user. Collections: `Db.inductionProgress`.
 
 #### /api/me/roles
 - **GET** — `?has=role1,role2` checks whether current user holds any of the given Discord roles. Auth: any authenticated user.

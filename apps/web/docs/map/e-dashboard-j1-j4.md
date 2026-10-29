@@ -18,16 +18,24 @@ Above the member table, a "Department Leadership" card shows the department's 3 
 Route `/dashboard/j1`. Gated by `PERMISSIONS.departments.j1`; computes `canManageMembers` via `hasPermission(me, 'departmentLeads.j1')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j1', 'deptLinks.manage')`, and `isJ4` from `PERMISSIONS.departments.j4`. Renders `J1Panel`.
 
 #### app/dashboard/j1/J1Panel.tsx
-Top-level client panel. Main tabs: Recruit Member (0), Applications (1), Mastersheet (2). Under Admin: Statistics, Meetings (shared `MeetingsTab`), Tickets (shared `DeptTicketsTab department='j1'`), TFAR Plugin and Recruit Video (lead/J4 only); old tab numbers 3 to 7 redirect there. Header toggles to `DeptSettingsView`/`DeptCalendarTab`/`ActivityLogTab` for `department='j1'`.
+Top-level client panel. Main tabs: Recruit Member (0), Applications (1), Mastersheet (2). Under Admin: Statistics, Meetings (shared `MeetingsTab`), Tickets (shared `DeptTicketsTab department='j1'`), TFAR Plugin and Recruit Video (lead/J4 only), Induction Pack (every J1 member sees it, leads edit; `tabs/InductionPackTab.tsx`); old tab numbers 3 to 7 redirect there. Header toggles to `DeptSettingsView`/`DeptCalendarTab`/`ActivityLogTab` for `department='j1'`.
 
 #### app/dashboard/j1/tabs/RecruitMemberTab.tsx
 **Very large (3400 lines)** multi-step (14-step) guided recruitment wizard used live during a Discord/TS interview. Manages: interview checklist, introduction, background, availability, roles, BCT availability calendar (embeds `BCTAvailabilityCalendar`), ORBAT onboarding (`app/recruit-session/OrbatOnboarding`), rules/joining-agreement Q&A, join decision (accept/pend/decline), TS/TFAR/Discord role admin steps. Supports a **live co-browsing recruit session** over WebSocket (`NEXT_PUBLIC_BASEURL` rewritten to ws(s), path `/recruit-session`) that mirrors state to an applicant-facing page (`app/recruit-session/ApplicantPageView.tsx`) — cursor position, step sync, rules answers, name/field previews, raised-hand. Auto-saves an in-progress draft with debounce.
+The finish screen after a successful submit shows `InductionPackSend` for the new application (row 213).
 API calls: `GET/PUT /api/admin/j1/in-progress` (draft save/restore), `GET /api/admin/j1/members`, `GET/POST /api/admin/j1/applications`, `GET /api/applications/check-name`, `GET /api/applications/resolve-steam`, `POST /api/recruit-session` (create live session), `GET/POST /api/admin/tasks`.
 Props: `{ displayName }`.
 
 #### app/dashboard/j1/tabs/ApplicationsTab.tsx
-Full applications queue/table with search, sort, status filters (pending/reviewing/returned/accepted/rejected), deep-link via `?app=<id>` query param. `ApplicationModal` sub-component handles the full review workflow: recruiter assignment with configurable review-deadline, recruiter recommendation (approve/deny/pend), J1 lead final decision (accept/reject/send-back/resubmit), J4 "returning member" override review, Discord account linking, delete (J4 only).
-API calls: `GET /api/admin/j1/applications`, `GET /api/admin/j1/members`, `PATCH /api/admin/j1/applications/{id}`, `DELETE /api/admin/j1/applications/{id}`.
+Full applications queue/table with search, sort, status filters (pending/reviewing/returned/accepted/rejected), deep-link via `?app=<id>` query param. `ApplicationModal` sub-component handles the full review workflow: recruiter assignment with configurable review-deadline, recruiter recommendation (approve/deny/pend), J1 lead final decision (accept/reject/send-back/resubmit), J4 "returning member" override review, Discord account linking, Induction Pack send/resend and status (`InductionPackSend`, hidden for rejected applications), delete (J4 only).
+API calls: `GET /api/admin/j1/applications`, `GET /api/admin/j1/members`, `PATCH /api/admin/j1/applications/{id}`, `DELETE /api/admin/j1/applications/{id}`, `GET/POST /api/admin/j1/applications/{id}/induction-pack`.
+
+#### app/dashboard/j1/tabs/InductionPackSend.tsx
+Row 213, Part A. Status line (not sent / sent / opened / in progress / completed, steps done, Selection interest) and a Send / Resend Induction Pack button for one application. Used on the recruit wizard's finish screen and in `ApplicationModal`.
+
+#### app/dashboard/j1/tabs/InductionPackTab.tsx
+Row 213, Part C, J1 → Admin → Induction Pack. DM title and text (placeholders `{name}`, `{selectionDate}`, `{inductionUrl}`, `{selectionUrl}`, `{calendarUrl}`), image (`ImageUploadField`), calendar link, induction welcome text, useful links, Selection section text, and the ordered step list (add, reorder, remove; each with text and links). Saved-state DM preview with the real next Selection, and sent / opened / completed / interest counts. Read-only unless the API says `canEdit`.
+API calls: `GET/PUT /api/admin/j1/induction-pack`.
 Props: `{ isJ4, isLead, userId }`.
 
 #### app/dashboard/j1/tabs/MastersheetTab.tsx
@@ -90,7 +98,10 @@ API calls: `GET/POST/PATCH/DELETE /api/admin/era-options[?id=]`.
 Route `/dashboard/j3`. Gated by `PERMISSIONS.departments.j3`; computes `canManageMembers` via `hasPermission(me, 'departmentLeads.j3')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j3', 'deptLinks.manage')`. Renders `J3Panel`.
 
 #### app/dashboard/j3/J3Panel.tsx
-Main tabs: Training Hub (0, via shared `TrainingHub` from `app/dashboard/unit/training-docs/TrainingHub.tsx`), Training Tickets (1), Training Calendar (2, `DeptCalendarTab department='j3'`), Training Requests (3, via shared `EventsTab` from `app/dashboard/unit/training-docs/EventsTab.tsx`), Training Records (4), Master Sheet (7). Under Admin: Meetings, Tickets (`DeptTicketsTab department='j3'`); old tab numbers 5 and 6 redirect there. Header toggles Admin/Activity Logs only (no Calendar toggle; calendar is an inline tab instead).
+Main tabs: Training Hub (0, via shared `TrainingHub` from `app/dashboard/unit/training-docs/TrainingHub.tsx`), Training Tickets (1), Training Calendar (2, `DeptCalendarTab department='j3'`), Training Requests (3, via shared `EventsTab` from `app/dashboard/unit/training-docs/EventsTab.tsx`), Training Records (4), Master Sheet (7). Under Admin: Meetings, Tickets (`DeptTicketsTab department='j3'`), Selection Countdown Post (leads/J4, `tabs/SelectionCountdownTab.tsx`); old tab numbers 5 and 6 redirect there. Header toggles Admin/Activity Logs only (no Calendar toggle; calendar is an inline tab instead).
+
+#### app/dashboard/j3/tabs/SelectionCountdownTab.tsx
+Row 212. Enable toggle, the next Selection from the course records, optional override date, channel ID (blank uses `DISCORD_WANT_TO_JOIN_CHANNEL_ID`), title, text with `{date}`, image, and a Discord-style preview with timestamps rendered in the viewer's timezone. Shows the last Discord error, if any. API calls: `GET/PUT /api/j3/selection-countdown`.
 
 #### app/dashboard/j3/tabs/TrainingTicketsTab.tsx
 Review queue for completed-training tickets submitted by trainers (per-attendee trainer/trainee/sit-in slot type, pass/fail, qualification + billet-point award flags). J3 leads approve/reject/request-amendments; ticket detail expands to show all attendees and trainer/J3 notes.

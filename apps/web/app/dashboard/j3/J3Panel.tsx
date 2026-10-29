@@ -5,6 +5,7 @@ import { Settings, HistoryEdu } from '@mui/icons-material'
 import { Construction } from '@mui/icons-material'
 import TrainingRecordsTab from './tabs/TrainingRecordsTab'
 import TrainingTicketsTab from './tabs/TrainingTicketsTab'
+import SelectionCountdownTab from './tabs/SelectionCountdownTab'
 import J3MasterSheetTab from './tabs/J3MasterSheetTab'
 import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
@@ -70,6 +71,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, canMana
     const adminSections: DeptAdminSection[] = [
         { key: 'meetings', label: 'Meetings', render: () => <MeetingsTab department='j3' userId={userId} isLead={isLead} /> },
         { key: 'tickets',  label: 'Tickets',  render: () => <DeptTicketsTab department='j3' canManage={isLead} isJ4={isJ4} /> },
+        { key: 'selection-countdown', label: 'Selection Countdown Post', visible: isLead, render: () => <SelectionCountdownTab /> },
     ]
 
     const tabSx = {

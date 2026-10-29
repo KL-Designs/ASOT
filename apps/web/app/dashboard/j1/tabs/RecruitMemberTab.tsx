@@ -15,6 +15,7 @@ import ApplicantPageView, { STEP_LABELS } from '@/app/recruit-session/ApplicantP
 import BCTAvailabilityCalendar, { type BCTSlotSummary } from './BCTAvailabilityCalendar'
 import { LEVEL_LABEL, type ReturningLevel } from '@/lib/j1/rejoin'
 import { RESTORE_ITEMS, RESTORE_LABEL, type RestoreItem } from '@/lib/military/reinstate-items'
+import InductionPackSend from './InductionPackSend'
 
 const RS_WS_URL = (process.env.NEXT_PUBLIC_BASEURL ?? '')
     .replace(/^http/, 'ws')
@@ -310,6 +311,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
     // ── Pended / success state ─────────────────────────────────────────────
     const [pendedApplicationId, setPendedApplicationId] = useState('')
+    const [loggedApplicationId, setLoggedApplicationId] = useState('')
     const [reminderDate, setReminderDate] = useState('')
     const [reminderTime, setReminderTime] = useState('')
     const [reminderSaving, setReminderSaving] = useState(false)
@@ -1000,6 +1002,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                 } else {
                     fetch('/api/admin/j1/in-progress', { method: 'DELETE' }).catch(() => {})
                     setHasDraft(false)
+                    setLoggedApplicationId(String(data.id ?? ''))
                     setSuccess('complete')
                     resetForm()
                 }
@@ -1888,6 +1891,14 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                     <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)' }}>The record is in the Applications tab and awaits sign-off from a J1 lead.</div>
                 </div>
             </div>
+            {loggedApplicationId && (
+                <div style={{ padding: '12px 16px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                    <InductionPackSend applicationId={loggedApplicationId} />
+                    <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)', marginTop: 8, lineHeight: 1.5 }}>
+                        Sends the new member a DM with the website induction and the next Selection. It can also be sent or resent later from the application in the Applications tab.
+                    </div>
+                </div>
+            )}
             <Button onClick={() => { clearDraftFully(); setSuccess(false) }} sx={{ borderRadius: 0, color: 'rgba(237,237,237,0.5)', border: '1px solid rgba(255,255,255,0.1)', alignSelf: 'flex-start', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', padding: '6px 16px', '&:hover': { background: 'rgba(255,255,255,0.04)' } }}>
                 ADD ANOTHER RECRUIT
             </Button>

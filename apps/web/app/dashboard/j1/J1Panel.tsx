@@ -9,6 +9,7 @@ import MastersheetTab from './tabs/MastersheetTab'
 import StatisticsTab from './tabs/StatisticsTab'
 import TFARPluginTab from './tabs/TFARPluginTab'
 import RecruitVideoTab from './tabs/RecruitVideoTab'
+import InductionPackTab from './tabs/InductionPackTab'
 import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -74,6 +75,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, canMana
         { key: 'tickets',       label: 'Tickets',       render: () => <DeptTicketsTab department='j1' canManage={isLead} isJ4={isJ4} /> },
         { key: 'tfar',          label: 'TFAR Plugin',   visible: isLead, render: () => <TFARPluginTab /> },
         { key: 'recruit-video', label: 'Recruit Video', visible: isLead, render: () => <RecruitVideoTab /> },
+        { key: 'induction-pack', label: 'Induction Pack', render: () => <InductionPackTab /> },
     ]
 
     const tabSx = {
