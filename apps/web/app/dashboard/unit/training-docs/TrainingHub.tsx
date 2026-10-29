@@ -12,12 +12,12 @@ import EventsTab from './EventsTab'
 import AssessmentsTab from './AssessmentsTab'
 import RequestsTab from './RequestsTab'
 import TrainingVideosTab from './TrainingVideosTab'
+import { CATEGORY_ORDER } from '@/lib/training/categories'
 import { calculateSessionDates, SESSION_DEFS } from '@/lib/training/session-dates'
 
 const RED = '#db001d'
 type Tab = 'courses' | 'events' | 'requests' | 'assessments' | 'guides' | 'videos'
 
-const CATEGORY_ORDER = ['Selection', 'Reinforcement Cycle', 'BCT', 'Medical', 'CQB', 'Fires', 'Aviation', 'Communications', 'Leadership', 'Special', 'Armoured', 'Proficiency']
 
 const BILLET_LABELS: Record<string, string> = {
     j3Bct12: 'BCT',

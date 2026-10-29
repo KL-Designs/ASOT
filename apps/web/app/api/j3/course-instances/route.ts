@@ -5,6 +5,8 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { calculateSessionDates, SESSION_DEFS } from '@/lib/training/session-dates'
 import { logAction } from '@/lib/logAction'
+import { sanitiseOffsets } from '@/lib/training/reminder-offsets'
+import { rescheduleCourseReminders } from '@/lib/training/scheduleReminders'
 
 export const dynamic = 'force-dynamic'
 
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest) {
     }
 
     const status: CourseInstanceStatus = 'planning'
+    const reminderOffsets = sanitiseOffsets(body.reminderOffsets) ?? undefined
 
     const doc: Omit<CourseInstance, '_id'> = {
         trainingTypeId,
@@ -85,6 +88,7 @@ export async function POST(req: NextRequest) {
         createdByName: name,
         createdAt: now,
         updatedAt: now,
+        ...(reminderOffsets ? { reminderOffsets } : {}),
         ...(parsedSession1Date ? {
             session1Date: parsedSession1Date,
             startDate: sessionDates![0],
@@ -149,6 +153,8 @@ export async function POST(req: NextRequest) {
     const calIds = Object.values(calResult.insertedIds).map(id => String(id))
     await Db.courseInstances.updateOne({ _id: result.insertedId }, { $set: { calendarEventIds: calIds } })
     }
+
+    rescheduleCourseReminders({ ...doc, _id: result.insertedId }).catch(console.error)
 
     return NextResponse.json({ ...doc, _id: result.insertedId }, { status: 201 })
 }

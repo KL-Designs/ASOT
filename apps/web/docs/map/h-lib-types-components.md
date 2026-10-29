@@ -664,8 +664,18 @@ Content-addressed, deduplicating backup system via [restic](https://restic.net/)
 - `TRAINING_TYPE_DEFAULTS: Array<Omit<TrainingType,'_id'|'createdAt'|'updatedAt'>>` — seed list of ~24 default training types (BCT 1/2, medical, CQB, fires, aviation, comms, leadership, special, armoured, proficiency courses) with billet field/points pre-assigned.
 
 ### lib/training/scheduleReminders.ts
-- `scheduleTrainingReminders(eventId, eventTitle, scheduledAt): Promise<void>` — upserts 60-min and 15-min-before reminder docs into `Db.trainingReminders` (skips reminders that would fire in the past).
+- `scheduleTrainingReminders(eventId, eventTitle, scheduledAt, offsets = LEGACY_OFFSETS, kind = 'event'): Promise<void>` — upserts one reminder doc per offset (minutes before) into `Db.trainingReminders` (skips reminders that would fire in the past). Events with no stored `reminderOffsets` keep the old 60 and 15.
 - `cancelTrainingReminders(eventId): Promise<void>` — deletes all unfired reminders for an event (on cancellation).
+- `courseReminderId(instanceId)` → `course:{id}`, and `rescheduleCourseReminders(instance)` — a Selection / Reinforcement Cycle course's Session 1 reminders (`kind: 'course'`, sent by `cron/calendar-reminders` to the course's active candidates). Called on course create and restore; cancelled on complete, cancel and delete.
+
+### lib/training/reminder-offsets.ts
+- Row 213's reminder rules, pure and unit-tested: `defaultReminderOffsets(courseType)` (Selection: 1 month and 1 week before Session 1; otherwise 1 day and 30 minutes), `sanitiseOffsets(input)`, `formatOffset(minutes)`, `reminderSentence(title, minutes)` (the 30-minute one adds "Be ready to load in in 15 minutes."), `suggestedEnd(start, durationMinutes)`. Used by the cron's wording, `sendTrainingReminderDM`, and `TrainingEventModal`.
+
+### lib/training/approve.ts
+- `approveTrainingEvent(event, approver)` — the one approval path: J3 calendar entry (`department: 'j3'`, `templateTrainingTypeId`, end from `estimatedFinishAt` or duration), approval fields, reminders from the event's own offsets, trainer notification + DM (skipped when the trainer approved it themself), `training.event.approve` log. Used by `POST /api/training/events/[id]/approve` and by `POST /api/training/events` when a J3 lead sends `approveNow`.
+
+### lib/training/categories.ts
+- `CATEGORY_ORDER` (the Training Hub's category headings, moved out of `TrainingHub.tsx`) and `groupByCategory(items)`.
 
 ### lib/safe-fetch.ts
 - SSRF-guarded fetcher, the only outbound-fetch path in the department-quick-links feature (`lib/dept-links/favicon.ts`). Exports `isPublicIpAddress(ip): boolean` (fail-closed IPv4/IPv6 classifier: rejects loopback/private/CGNAT/link-local incl. cloud metadata/documentation/multicast/6to4/Teredo/NAT64/IPv4-mapped ranges), `assertPublicHttpUrl(input): URL` (throws `BlockedUrlError`; http/https only, no embedded credentials, default/80/443 port only, rejects `localhost`/single-label/`.local`/`.internal`/`.lan`/`.home.arpa` hosts and non-public IP literals), `safeFetch(url, opts): Promise<SafeFetchResult>` (manual redirect handling with full per-hop re-validation, hard byte cap via `readCapped`, per-hop timeout via `AbortController`), and the `BlockedUrlError`/`FetchCapError` error classes. Transport is an undici `Agent` with a connect-time guarded DNS `lookup` (validates **every** resolved address, after resolution, on every socket); rebinding-proof, unlike a pre-fetch resolve-then-check pattern. `undici` is a `serverExternalPackages` entry (`next.config.ts`).

@@ -9,6 +9,7 @@ import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import { Add, Block, AssignmentLate } from '@mui/icons-material'
 import EventModal, { CalendarEventRow, DEPT_COLORS } from '@/app/dashboard/unit/calendar/EventModal'
 import J2EventModal from '@/app/dashboard/unit/calendar/J2EventModal'
+import TrainingEventModal from '@/app/dashboard/unit/calendar/TrainingEventModal'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import '@/app/dashboard/unit/calendar/calendar-overrides.css'
 
@@ -80,7 +81,13 @@ export default function DeptCalendarTab({ department, userId, isJ4, isJ2Lead }: 
         setModalOpen(true)
     }
 
+    // J3's Add Event schedules a real training session or course (row 213)
+    // rather than a plain calendar entry.
+    const isTrainingCalendar = department === 'j3'
+    const [trainingModalOpen, setTrainingModalOpen] = useState(false)
+
     function handleAddClick() {
+        if (isTrainingCalendar) { setTrainingModalOpen(true); return }
         setSelectedEvent(undefined)
         setModalOpen(true)
     }
@@ -336,6 +343,10 @@ export default function DeptCalendarTab({ department, userId, isJ4, isJ2Lead }: 
                 userId={userId}
                 isJ4={isJ4}
             />
+
+            {isTrainingCalendar && (
+                <TrainingEventModal open={trainingModalOpen} onClose={() => setTrainingModalOpen(false)} onSaved={fetchEvents} />
+            )}
 
             {j2Modal && (
                 <J2EventModal

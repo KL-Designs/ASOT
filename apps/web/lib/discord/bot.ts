@@ -18,6 +18,7 @@
  * 3. Call logDiscordAction() for both the blocked and sent paths.
  */
 
+import { reminderSentence } from '@/lib/training/reminder-offsets'
 import { logDiscord } from '@/lib/logs'
 
 const BASE = 'https://discord.com/api'
@@ -456,10 +457,9 @@ export async function sendTrainingReminderDM(
     scheduledAt: string,
     actionUrl?: string,
 ): Promise<void> {
-    const label = minutesBefore <= 15 ? `in ${minutesBefore} minutes` : 'in 1 hour'
     const embed: DiscordEmbed = {
         title: '⏰ Training Reminder',
-        description: `**${eventTitle}** starts ${label}.`,
+        description: reminderSentence(`**${eventTitle}**`, minutesBefore),
         color: 0xf59e0b,
         fields: [{ name: 'Scheduled', value: scheduledAt, inline: true }],
         footer: { text: 'ASOT Dashboard' },
