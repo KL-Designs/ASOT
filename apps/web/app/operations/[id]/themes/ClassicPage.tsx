@@ -427,6 +427,7 @@ export default function ClassicPage({
                         const _seenIds = new Set<string>()
                         const contentPages = (operation.pages ?? []).filter(pg => {
                             if (pg.pageType === 'zeus' || pg.pageType === 'ocap') return false
+                            if (pg.pageType === 'doctrine' && !canZeus) return false
                             if (_seenIds.has(pg.id)) return false
                             _seenIds.add(pg.id)
                             return true

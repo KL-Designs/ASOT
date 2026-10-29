@@ -55,6 +55,9 @@ export type OperationCapability =
     | 'intel.add'
     | 'intel.assess'
     | 'intel.manage'
+    | 'doctrine.view'
+    | 'doctrine.edit'
+    | 'doctrine.approve'
 
 interface Rule {
     /** The dot-path key in `PERMISSIONS` this capability really is. */
@@ -234,6 +237,25 @@ const RULES: Record<OperationCapability, Rule> = {
 
     'intel.manage': {
         key: 'intel.report.manage',
+        legacyRoles: [PERMISSIONS.departmentLeads.j2],
+    },
+
+    /* Rows 334, 335: Enemy Doctrine. Zeus-facing; never on a baseline. */
+    'doctrine.view': {
+        key: 'operations.doctrine.view',
+        legacyKeys: ['operations.zeus', 'departmentLeads.j2'],
+        legacyRoles: [PERMISSIONS.departments.j2, PERMISSIONS.operations.zeus, PERMISSIONS.pages.operationsEdit],
+    },
+
+    'doctrine.edit': {
+        key: 'operations.doctrine.edit',
+        legacyKeys: ['departmentLeads.j2'],
+        legacyRoles: [PERMISSIONS.departments.j2, PERMISSIONS.operations.write],
+    },
+
+    'doctrine.approve': {
+        key: 'operations.doctrine.approve',
+        legacyKeys: ['departmentLeads.j2'],
         legacyRoles: [PERMISSIONS.departmentLeads.j2],
     },
 }

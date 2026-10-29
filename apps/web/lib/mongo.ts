@@ -51,6 +51,9 @@ const DbInterface = {
     intelEntries: db.collection('intel_entries') as MongoCollection<IntelEntry>,
     intelVotes: db.collection('intel_votes') as MongoCollection<IntelVote>,
     intelComments: db.collection('intel_comments') as MongoCollection<IntelComment>,
+    doctrines: db.collection('doctrines') as MongoCollection<Doctrine>,
+    doctrineVersions: db.collection('doctrine_versions') as MongoCollection<DoctrineVersion>,
+    doctrineOptions: db.collection('doctrine_options') as MongoCollection<DoctrineGlobalOption>,
     /** The comment thread under an operation's orders. See lib/operations/comments.ts. */
     operationComments: db.collection('operation_comments') as MongoCollection<OperationComment>,
 

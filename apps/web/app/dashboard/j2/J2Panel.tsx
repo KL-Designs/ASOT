@@ -16,6 +16,7 @@ import MissionChecksTab from '@/app/dashboard/j2/tabs/MissionChecksTab'
 import IntelImagesTab from '@/app/dashboard/j2/tabs/IntelImagesTab'
 import EraOptionsTab from '@/app/dashboard/j2/tabs/EraOptionsTab'
 import MissionBibleTab from './tabs/MissionBibleTab'
+import DoctrineTab from './tabs/DoctrineTab'
 import ObjectiveSuggestions from '@/components/j2/ObjectiveSuggestions'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
@@ -131,6 +132,7 @@ export default function J2Panel({
                             <Tab value={4} label={<PinTabLabel label='Mission Checks'    pinLabel='J2 — Checks'    href='/dashboard/j2' tabIndex={4} />} sx={tabSx} />
                             <Tab value={7} label={<PinTabLabel label='Mission Bible' pinLabel='J2 — Mission Bible' href='/dashboard/j2' tabIndex={7} />} sx={tabSx} />
                             <Tab value={8} label={<PinTabLabel label='Objective Suggestions' pinLabel='J2 — Objectives' href='/dashboard/j2' tabIndex={8} />} sx={tabSx} />
+                            <Tab value={9} label={<PinTabLabel label='Enemy Doctrine' pinLabel='J2 — Enemy Doctrine' href='/dashboard/j2' tabIndex={9} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -140,6 +142,7 @@ export default function J2Panel({
                         {tab === 4 && <MissionChecksTab userId={userId} isJ2Lead={canManageMembers || isJ4} />}
                         {tab === 7 && <MissionBibleTab />}
                         {tab === 8 && <ObjectiveSuggestions />}
+                        {tab === 9 && <div className='h-full overflow-y-auto'><DoctrineTab /></div>}
                     </div>
                 </>
             )}

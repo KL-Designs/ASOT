@@ -792,6 +792,16 @@ by both. The tab key is `orders`, not `brief`: "Brief" was the editor's name for
 and nobody outside the editor used it. `?tab=brief` and `?tab=development` are aliased for the
 bookmarks already out there.
 
+#### Enemy Doctrine page (`pageType: 'doctrine'`)
+Rows 334, 335. Added after Zeus Notes in "Choose Document Type" (one per operation). Zeus-facing: the
+themes hide it from anyone without `canZeus`, as they do Zeus Notes, and the API needs
+`doctrine.view`. Renders `components/doctrine/DoctrinePage.tsx`: pick a faction to start, then the
+doctrine in force as Quick Reference and Full Doctrine (`DoctrineViews.tsx`, both generated from the
+same values), with "Edit mission / campaign / faction" opening `DoctrineBuilder.tsx` on that level.
+The builder has the twelve sections, collapsed Additional Notes on every question, custom options
+(pending J2 Lead review), collapsed advanced modules, and a Preview modal that renders the unsaved
+values. Choosing doctrine never changes Arma AI; triggers are reference instructions for Zeus.
+
 #### Intelligence Report page (`pageType: 'intel_report'`)
 Rows 331, 332. A document type added from the editor's "Choose Document Type" menu (order: Staff
 Orders, Intelligence Report, Zeus Notes, Separator; one per operation; also offered to non-Zeus
@@ -804,6 +814,8 @@ mission sequence (`campaign_missions`), one record, never copied. Four tabs: Act
 Deleted. Hidden future intel, pending entries, deleted entries and withheld assessments never reach a
 player (see `lib/intel/report.ts`). Q9: images upload through `/api/upload` (pick, drag and drop,
 paste); video and other files are links for now. Q11: the Intel Package stays as the briefing.
+For staff, each entry's Details shows an advisory comparison with the doctrine in force
+(`lib/doctrine/compare.ts`): matches and things the doctrine does not list, never true or false.
 
 #### app/operations/[id]/aar/
 The **After Action Report** — the fifth tab, and the only one that does not exist for most of an

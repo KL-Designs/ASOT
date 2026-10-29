@@ -8,6 +8,7 @@ import OcapStatsPanel from './OcapStatsPanel'
 import OcapLinkPanel from './OcapLinkPanel'
 import IntelPackageViewer from '@/components/editor/intel-package/IntelPackageViewer'
 import IntelReport, { IntelReportSignIn } from '@/components/intel-report/IntelReport'
+import DoctrinePage from '@/components/doctrine/DoctrinePage'
 import DocAcknowledgeCard from './DocAcknowledgeCard'
 
 const ZEUS_TAB = '__zeus__'
@@ -51,6 +52,8 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
         const seen = new Set<string>()
         return pages.filter(p => {
             if (p.pageType === 'zeus' || p.pageType === 'ocap') return false
+            // Enemy Doctrine is Zeus-facing (rows 334, 335).
+            if (p.pageType === 'doctrine' && !isJ6) return false
             if (seen.has(p.id)) return false
             seen.add(p.id)
             return true
@@ -238,6 +241,10 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                             <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
                         )}
                     </div>
+                ) : activePageMeta?.pageType === 'doctrine' && operationId ? (
+                    <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
+                        <DoctrinePage operationId={operationId} themeColor={themeColor} />
+                    </div>
                 ) : activePageMeta?.pageType === 'intel_report' && operationId ? (
                     <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
                         {isLoggedIn ? <IntelReport operationId={operationId} themeColor={themeColor} /> : <IntelReportSignIn />}
@@ -320,6 +327,10 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                         {ocap && (
                             <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
                         )}
+                    </div>
+                ) : activePageMeta?.pageType === 'doctrine' && operationId ? (
+                    <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
+                        <DoctrinePage operationId={operationId} themeColor={themeColor} />
                     </div>
                 ) : activePageMeta?.pageType === 'intel_report' && operationId ? (
                     <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>

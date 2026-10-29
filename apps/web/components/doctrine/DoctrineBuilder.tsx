@@ -1,0 +1,459 @@
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import {
+    ADVANCED_MODULES, COMPOSITION, COMPOSITION_DETAIL_FIELDS, EMPTY_VALUES, FORCE_LAYERS, PROFICIENCY, RELIABILITY, SECTIONS, TRIGGER_EVENTS,
+    compositionKey, fieldApplies, presentCategories,
+    type CompositionCategory, type DoctrineCustomOption, type DoctrineField, type DoctrineValues, type ForceLayer, type Indicator, type Trigger,
+} from '@/lib/doctrine/schema'
+import { LEVEL_LABEL, type DoctrineChange, type DoctrineLevel } from '@/lib/doctrine/values'
+import DoctrineViews from './DoctrineViews'
+import s from './doctrine.module.css'
+
+/**
+ * Rows 334 and 335: the guided Enemy Doctrine Builder.
+ *
+ * Twelve sections, each question with collapsed Additional Notes; advanced
+ * modules collapsed so a basic doctrine takes minutes. The builder edits the
+ * effective doctrine and the server keeps only what this level changes.
+ * Preview opens both Zeus views over the builder from the unsaved values.
+ * Publishing a significant change asks for a reason and goes to the J2 Lead;
+ * the current version stays live until it is approved.
+ */
+
+interface Payload {
+    doctrine: {
+        id: string; level: DoctrineLevel; name: string; publishedVersion: number
+        draftUpdatedAt: string | null; draftByName: string | null
+        pending: { reason: string; reasons: string[]; changes: DoctrineChange[]; proposedByName: string; proposedAt: string } | null
+    }
+    standing: { canView: boolean; canEdit: boolean; canApprove: boolean }
+    chain: { id: string; level: DoctrineLevel; name: string; version: number | null }[]
+    published: { values: DoctrineValues }
+    draft: { values: DoctrineValues } | null
+    versions: { version: number; publishedAt: string; publishedByName: string; reason: string; approvedByName: string | null; significant: boolean }[]
+    options: { global: Record<string, string[]>; custom: DoctrineCustomOption[] }
+}
+
+async function json(url: string, method: string, body?: unknown) {
+    const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
+    const b = await res.json().catch(() => ({}))
+    return { ok: res.ok, body: b }
+}
+
+export default function DoctrineBuilder({ doctrineId, onClose, onPublished }: { doctrineId: string; onClose?: () => void; onPublished?: () => void }) {
+    const [data, setData] = useState<Payload | null>(null)
+    const [values, setValues] = useState<DoctrineValues>(EMPTY_VALUES)
+    const [dirty, setDirty] = useState(false)
+    const [status, setStatus] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    const [preview, setPreview] = useState(false)
+    const [reasonFor, setReasonFor] = useState<string[] | null>(null)
+    const [reason, setReason] = useState('')
+    const [reviewNote, setReviewNote] = useState('')
+    const [busy, setBusy] = useState(false)
+
+    const base = `/api/doctrines/${doctrineId}`
+
+    const load = useCallback(async () => {
+        const { ok, body } = await json(base, 'GET')
+        if (!ok) { setError(body.error ?? 'Could not load the doctrine'); return }
+        setData(body)
+        setValues(body.draft?.values ?? body.published.values)
+        setDirty(false)
+    }, [base])
+
+    useEffect(() => { load() }, [load])
+
+    // Unsaved edits survive a reload attempt only if the member confirms leaving.
+    useEffect(() => {
+        if (!dirty) return
+        const warn = (e: BeforeUnloadEvent) => { e.preventDefault() }
+        window.addEventListener('beforeunload', warn)
+        return () => window.removeEventListener('beforeunload', warn)
+    }, [dirty])
+
+    if (error && !data) return <div className={s.root}><p className={s.error}>{error}</p></div>
+    if (!data) return <div className={s.root}><p className={s.muted}>Loading the doctrine…</p></div>
+
+    const readOnly = !data.standing.canEdit
+    const update = (fn: (v: DoctrineValues) => DoctrineValues) => { setValues(fn); setDirty(true); setStatus(null) }
+    const options = (key: string, schema: string[] = []) => [...new Set([
+        ...schema, ...(data.options.global[key] ?? []),
+        ...data.options.custom.filter(o => o.fieldKey === key && o.status !== 'rejected').map(o => o.label),
+    ])]
+    const pendingLabel = (key: string, label: string) => data.options.custom.some(o => o.fieldKey === key && o.label === label && o.status === 'pending')
+
+    async function addCustom(fieldKey: string, label: string, description: string) {
+        const { ok, body } = await json(`${base}/options`, 'POST', { fieldKey, label, description })
+        if (!ok) { setError(body.error ?? 'Could not add the option'); return false }
+        if (body.option) setData(d => d && { ...d, options: { ...d.options, custom: [...d.options.custom, body.option] } })
+        return true
+    }
+
+    async function save() {
+        setBusy(true)
+        const { ok, body } = await json(base, 'PUT', { values })
+        setBusy(false)
+        if (!ok) { setError(body.error ?? 'Could not save'); return false }
+        setDirty(false)
+        setStatus('Draft saved.')
+        return true
+    }
+
+    async function doPublish(withReason: string) {
+        if (dirty && !(await save())) return
+        setBusy(true)
+        const { ok, body } = await json(`${base}/publish`, 'POST', { reason: withReason })
+        setBusy(false)
+        if (!ok) { setError(body.error ?? 'Could not publish'); return }
+        if (body.status === 'needs-reason') { setReasonFor(body.reasons); return }
+        setReasonFor(null)
+        setReason('')
+        setStatus(body.status === 'pending'
+            ? 'Sent to the J2 Lead for approval. The current version stays live until then.'
+            : `Published as version ${body.version}.`)
+        await load()
+        onPublished?.()
+    }
+
+    async function review(decision: 'approve' | 'reject' | 'revise') {
+        setBusy(true)
+        const { ok, body } = await json(`${base}/review`, 'POST', { decision, note: reviewNote })
+        setBusy(false)
+        if (!ok) { setError(body.error ?? 'Could not record the decision'); return }
+        setReviewNote('')
+        setStatus(decision === 'approve' ? `Approved as version ${body.version}.` : 'The proposed change was sent back.')
+        await load()
+        onPublished?.()
+    }
+
+    const present = presentCategories(values)
+
+    return (
+        <div className={s.root}>
+            <div className={s.toolbar}>
+                <div>
+                    <div className={s.kicker}>{LEVEL_LABEL[data.doctrine.level]} doctrine · {data.doctrine.publishedVersion ? `v${data.doctrine.publishedVersion} live` : 'not published'}</div>
+                    <div className={s.title}>{data.doctrine.name}</div>
+                    {data.chain.length > 1 && (
+                        <div className={s.muted}>Inherits {data.chain.slice(0, -1).map(c => `${LEVEL_LABEL[c.level]}: ${c.name}${c.version ? ` v${c.version}` : ''}`).join(' → ')}</div>
+                    )}
+                </div>
+                <div className={s.flex} />
+                {dirty && <span className={s.unsaved}>Unsaved changes</span>}
+                <button type='button' className={s.ghost} onClick={() => setPreview(true)}>Preview Doctrine</button>
+                {!readOnly && <button type='button' className={s.ghost} disabled={busy || !dirty} onClick={save}>Save draft</button>}
+                {!readOnly && <button type='button' className={s.primary} disabled={busy} onClick={() => doPublish('')}>Publish</button>}
+                {onClose && <button type='button' className={s.ghost} onClick={() => { if (!dirty || window.confirm('Close without saving?')) onClose() }}>Close</button>}
+            </div>
+
+            {readOnly && <p className={s.muted}>Read only: you can preview this doctrine but not change it.</p>}
+            {error && <p className={s.error}>{error}</p>}
+            {status && <p className={s.notice}>{status}</p>}
+
+            {data.doctrine.pending && (
+                <div className={s.pending}>
+                    <div className={s.label}>Waiting for J2 Lead approval · proposed by {data.doctrine.pending.proposedByName}</div>
+                    <div>Reason: {data.doctrine.pending.reason}</div>
+                    {data.doctrine.pending.reasons.map(r => <div key={r} className={s.muted}>{r}</div>)}
+                    <details>
+                        <summary>{data.doctrine.pending.changes.length} change(s) against the approved version</summary>
+                        {data.doctrine.pending.changes.map(c => (
+                            <div key={c.key} className={s.kv}><span>{c.significant ? '● ' : ''}{c.label}</span><span>{c.before || '—'} → {c.after || '—'}</span></div>
+                        ))}
+                    </details>
+                    {data.standing.canApprove && (
+                        <div className={s.row}>
+                            <input className={s.input} placeholder='Note for the mission maker (optional)' value={reviewNote} onChange={e => setReviewNote(e.target.value)} />
+                            <button type='button' className={s.primary} disabled={busy} onClick={() => review('approve')}>Approve</button>
+                            <button type='button' className={s.ghost} disabled={busy} onClick={() => review('revise')}>Request revision</button>
+                            <button type='button' className={s.ghost} disabled={busy} onClick={() => review('reject')}>Reject</button>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {reasonFor && (
+                <div className={s.pending}>
+                    <div className={s.label}>This is a significant change and needs J2 Lead approval</div>
+                    {reasonFor.map(r => <div key={r} className={s.muted}>{r}</div>)}
+                    <textarea className={s.textarea} rows={3} placeholder='Why is the doctrine changing?' value={reason} onChange={e => setReason(e.target.value)} />
+                    <div className={s.row}>
+                        <button type='button' className={s.primary} disabled={busy || !reason.trim()} onClick={() => doPublish(reason)}>Send for approval</button>
+                        <button type='button' className={s.ghost} onClick={() => setReasonFor(null)}>Cancel</button>
+                    </div>
+                </div>
+            )}
+
+            <fieldset className={s.fieldset} disabled={readOnly}>
+                {SECTIONS.map(sec => (
+                    <details key={sec.key} className={s.section} open={sec.number <= 1}>
+                        <summary className={s.sectionSummary}>{sec.number}. {sec.title}</summary>
+                        <div className={s.sectionBody}>
+                            {sec.kind === 'composition' ? (
+                                <CompositionEditor values={values} update={update} options={options} pendingLabel={pendingLabel} addCustom={addCustom} />
+                            ) : sec.kind === 'indicators' ? (
+                                <ListEditor<Indicator>
+                                    rows={values.indicators}
+                                    empty={{ observed: '', interpretation: '', capability: '', reliability: '', notes: '' }}
+                                    onChange={rows => update(v => ({ ...v, indicators: rows }))}
+                                    addLabel='Add indicator'
+                                    columns={[
+                                        { key: 'observed', label: 'Observed equipment / unit / behaviour' },
+                                        { key: 'interpretation', label: 'Possible interpretation' },
+                                        { key: 'capability', label: 'Associated capability / tendency' },
+                                        { key: 'reliability', label: 'Reliability', options: RELIABILITY },
+                                        { key: 'notes', label: 'Notes' },
+                                    ]}
+                                />
+                            ) : sec.fields.filter(f => fieldApplies(f, present)).map(f => (
+                                <FieldInput key={f.key} field={f} values={values} update={update} options={options(f.key, f.options)} pendingLabel={pendingLabel} addCustom={addCustom} />
+                            ))}
+                            {sec.kind === 'composition' && <Notes k='composition' values={values} update={update} />}
+                            {sec.key === 'support' && !present.size && <p className={s.muted}>Vehicle, aviation and fire support questions appear once Section 4 lists those assets.</p>}
+                        </div>
+                    </details>
+                ))}
+
+                <div className={s.label} style={{ marginTop: 12 }}>Optional advanced modules</div>
+                {ADVANCED_MODULES.map(m => (
+                    <details key={m.key} className={s.section}>
+                        <summary className={s.sectionSummary}>{m.title}</summary>
+                        <div className={s.sectionBody}>
+                            <p className={s.muted}>{m.hint}</p>
+                            {m.kind === 'text' && (
+                                <textarea className={s.textarea} rows={4} value={values.modules[m.key] ?? ''}
+                                    onChange={e => update(v => ({ ...v, modules: { ...v.modules, [m.key]: e.target.value } }))} />
+                            )}
+                            {m.kind === 'layers' && (
+                                <ListEditor<ForceLayer>
+                                    rows={values.layers}
+                                    empty={{ layer: '', units: '', strength: '', role: '', area: '', activation: '', notes: '' }}
+                                    onChange={rows => update(v => ({ ...v, layers: rows }))}
+                                    addLabel='Add force layer'
+                                    columns={[
+                                        { key: 'layer', label: 'Layer', options: FORCE_LAYERS },
+                                        { key: 'units', label: 'Assigned units' },
+                                        { key: 'strength', label: 'Approximate strength' },
+                                        { key: 'role', label: 'Battlefield role' },
+                                        { key: 'area', label: 'General deployment area' },
+                                        { key: 'activation', label: 'Activation conditions' },
+                                        { key: 'notes', label: 'Notes' },
+                                    ]}
+                                />
+                            )}
+                            {m.kind === 'triggers' && (
+                                <ListEditor<Trigger>
+                                    rows={values.triggers}
+                                    empty={{ event: '', response: '' }}
+                                    onChange={rows => update(v => ({ ...v, triggers: rows }))}
+                                    addLabel='Add trigger'
+                                    columns={[{ key: 'event', label: 'Event', options: TRIGGER_EVENTS }, { key: 'response', label: 'Intended response' }]}
+                                />
+                            )}
+                        </div>
+                    </details>
+                ))}
+            </fieldset>
+
+            {data.versions.length > 0 && (
+                <details className={s.section}>
+                    <summary className={s.sectionSummary}>Version history</summary>
+                    <div className={s.sectionBody}>
+                        {data.versions.map(v => (
+                            <div key={v.version} className={s.kv}>
+                                <span>v{v.version} · {new Date(v.publishedAt).toLocaleDateString('en-AU')}</span>
+                                <span>{v.publishedByName}{v.approvedByName ? `, approved by ${v.approvedByName}` : ''}{v.reason ? ` — ${v.reason}` : ''}</span>
+                            </div>
+                        ))}
+                    </div>
+                </details>
+            )}
+
+            {preview && (
+                <div className={s.modalBackdrop} onClick={() => setPreview(false)}>
+                    <div className={s.modal} onClick={e => e.stopPropagation()} role='dialog' aria-label='Preview doctrine'>
+                        <div className={s.row}>
+                            <div className={s.label}>Preview{dirty ? ' · includes unsaved changes' : ''} · not published</div>
+                            <div className={s.flex} />
+                            <button type='button' className={s.ghost} onClick={() => setPreview(false)}>Close</button>
+                        </div>
+                        <DoctrineViews values={values} title={data.doctrine.name} />
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+/* ── Pieces ─────────────────────────────────────────────────────────────── */
+
+type Update = (fn: (v: DoctrineValues) => DoctrineValues) => void
+type AddCustom = (fieldKey: string, label: string, description: string) => Promise<boolean>
+
+function Notes({ k, values, update }: { k: string; values: DoctrineValues; update: Update }) {
+    const [open, setOpen] = useState(!!values.notes[k])
+    if (!open) return <button type='button' className={s.notesToggle} onClick={() => setOpen(true)}>+ Additional Notes</button>
+    return (
+        <textarea className={s.textarea} rows={2} placeholder='Additional Notes' value={values.notes[k] ?? ''}
+            onChange={e => update(v => ({ ...v, notes: { ...v.notes, [k]: e.target.value } }))} />
+    )
+}
+
+function CustomOption({ fieldKey, addCustom, onAdded }: { fieldKey: string; addCustom: AddCustom; onAdded: (label: string) => void }) {
+    const [open, setOpen] = useState(false)
+    const [label, setLabel] = useState('')
+    const [description, setDescription] = useState('')
+    if (!open) return <button type='button' className={s.notesToggle} onClick={() => setOpen(true)}>+ Add Custom Option</button>
+    return (
+        <div className={s.row}>
+            <input className={s.input} placeholder='Custom option' value={label} onChange={e => setLabel(e.target.value)} />
+            <input className={s.input} placeholder='Description (optional)' value={description} onChange={e => setDescription(e.target.value)} />
+            <button type='button' className={s.ghost} disabled={!label.trim()} onClick={async () => {
+                if (await addCustom(fieldKey, label.trim(), description.trim())) { onAdded(label.trim()); setLabel(''); setDescription(''); setOpen(false) }
+            }}>Add</button>
+            <span className={s.muted}>Usable now; pending global review.</span>
+        </div>
+    )
+}
+
+function FieldInput({ field: f, values, update, options, pendingLabel, addCustom }: {
+    field: DoctrineField; values: DoctrineValues; update: Update; options: string[]; pendingLabel: (k: string, l: string) => boolean; addCustom: AddCustom
+}) {
+    const v = values.fields[f.key]
+    const set = (val: string | string[]) => update(x => ({ ...x, fields: { ...x.fields, [f.key]: val } }))
+    return (
+        <div className={s.field}>
+            <label className={s.fieldLabel}>{f.label}{f.significant && <span className={s.sig} title='Changing this mid-campaign needs J2 Lead approval'>●</span>}</label>
+            {f.type === 'text' && <input className={s.input} value={(v as string) ?? ''} onChange={e => set(e.target.value)} />}
+            {f.type === 'textarea' && <textarea className={s.textarea} rows={3} value={(v as string) ?? ''} onChange={e => set(e.target.value)} />}
+            {f.type === 'select' && (
+                <>
+                    <select className={s.input} value={(v as string) ?? ''} onChange={e => set(e.target.value)}>
+                        <option value=''>—</option>
+                        {options.map(o => <option key={o} value={o}>{o}{pendingLabel(f.key, o) ? ' (pending review)' : ''}</option>)}
+                        {typeof v === 'string' && v && !options.includes(v) && <option value={v}>{v}</option>}
+                    </select>
+                    <CustomOption fieldKey={f.key} addCustom={addCustom} onAdded={set} />
+                </>
+            )}
+            {f.type === 'multi' && (
+                <>
+                    <div className={s.chips}>
+                        {[...new Set([...options, ...((v as string[]) ?? [])])].map(o => {
+                            const on = ((v as string[]) ?? []).includes(o)
+                            return (
+                                <label key={o} className={`${s.chip} ${on ? s.chipOn : ''}`}>
+                                    <input type='checkbox' checked={on} hidden
+                                        onChange={() => set(on ? ((v as string[]) ?? []).filter(x => x !== o) : [...((v as string[]) ?? []), o])} />
+                                    {o}{pendingLabel(f.key, o) ? ' *' : ''}
+                                </label>
+                            )
+                        })}
+                    </div>
+                    <CustomOption fieldKey={f.key} addCustom={addCustom} onAdded={label => set([...((v as string[]) ?? []), label])} />
+                </>
+            )}
+            <Notes k={f.key} values={values} update={update} />
+        </div>
+    )
+}
+
+function CompositionEditor({ values, update, options, pendingLabel, addCustom }: {
+    values: DoctrineValues; update: Update; options: (k: string, schema?: string[]) => string[]; pendingLabel: (k: string, l: string) => boolean; addCustom: AddCustom
+}) {
+    return (
+        <div className={s.composition}>
+            <p className={s.muted}>Primary category → subcategory → specific unit or equipment. Select any number; open one to add details.</p>
+            {COMPOSITION.map(cat => <CategoryEditor key={cat.key} cat={cat} values={values} update={update} subtypes={options(`composition.${cat.key}`, cat.subtypes)} pendingLabel={pendingLabel} addCustom={addCustom} />)}
+        </div>
+    )
+}
+
+function CategoryEditor({ cat, values, update, subtypes, pendingLabel, addCustom }: {
+    cat: CompositionCategory; values: DoctrineValues; update: Update; subtypes: string[]; pendingLabel: (k: string, l: string) => boolean; addCustom: AddCustom
+}) {
+    const selected = Object.keys(values.composition).filter(k => k.startsWith(`${cat.key}.`)).map(k => k.slice(cat.key.length + 1))
+    const all = [...new Set([...subtypes, ...selected])]
+    const toggle = (sub: string) => update(v => {
+        const key = compositionKey(cat.key, sub)
+        const composition = { ...v.composition }
+        if (key in composition) delete composition[key]
+        else composition[key] = {}
+        return { ...v, composition }
+    })
+    return (
+        <details className={s.category} open={selected.length > 0}>
+            <summary>{cat.label}{selected.length ? ` (${selected.length})` : ''}</summary>
+            <div className={s.chips}>
+                {all.map(sub => {
+                    const on = selected.includes(sub)
+                    return (
+                        <label key={sub} className={`${s.chip} ${on ? s.chipOn : ''}`}>
+                            <input type='checkbox' checked={on} hidden onChange={() => toggle(sub)} />
+                            {sub}{pendingLabel(`composition.${cat.key}`, sub) ? ' *' : ''}
+                        </label>
+                    )
+                })}
+            </div>
+            <CustomOption fieldKey={`composition.${cat.key}`} addCustom={addCustom} onAdded={label => { if (!selected.includes(label)) toggle(label) }} />
+            {selected.map(sub => {
+                const key = compositionKey(cat.key, sub)
+                const d = values.composition[key] ?? {}
+                return (
+                    <details key={key} className={s.unitEdit}>
+                        <summary>{sub}{d.name ? ` — ${d.name}` : ''}</summary>
+                        <div className={s.grid2}>
+                            {COMPOSITION_DETAIL_FIELDS.map(df => (
+                                <label key={df.key} className={s.field}>
+                                    <span className={s.fieldLabel}>{df.label}</span>
+                                    {df.key === 'proficiency' ? (
+                                        <select className={s.input} value={d.proficiency ?? ''} onChange={e => update(v => ({ ...v, composition: { ...v.composition, [key]: { ...d, proficiency: e.target.value } } }))}>
+                                            <option value=''>—</option>
+                                            {PROFICIENCY.map(p => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                    ) : (
+                                        <input className={s.input} value={d[df.key] ?? ''} onChange={e => update(v => ({ ...v, composition: { ...v.composition, [key]: { ...d, [df.key]: e.target.value } } }))} />
+                                    )}
+                                </label>
+                            ))}
+                        </div>
+                    </details>
+                )
+            })}
+        </details>
+    )
+}
+
+function ListEditor<T extends object>({ rows, empty, onChange, columns, addLabel }: {
+    rows: T[]; empty: T; onChange: (rows: T[]) => void; addLabel: string
+    columns: { key: keyof T & string; label: string; options?: string[] }[]
+}) {
+    const set = (i: number, key: keyof T, val: string) => onChange(rows.map((r, j) => j === i ? { ...r, [key]: val } : r))
+    return (
+        <div className={s.list}>
+            {rows.map((r, i) => (
+                <div key={i} className={s.listRow}>
+                    <div className={s.grid2}>
+                        {columns.map(c => (
+                            <label key={c.key} className={s.field}>
+                                <span className={s.fieldLabel}>{c.label}</span>
+                                {c.options ? (
+                                    <select className={s.input} value={String(r[c.key] ?? '')} onChange={e => set(i, c.key, e.target.value)}>
+                                        <option value=''>—</option>
+                                        {c.options.map(o => <option key={o} value={o}>{o}</option>)}
+                                    </select>
+                                ) : (
+                                    <input className={s.input} value={String(r[c.key] ?? '')} onChange={e => set(i, c.key, e.target.value)} />
+                                )}
+                            </label>
+                        ))}
+                    </div>
+                    <button type='button' className={s.ghost} onClick={() => onChange(rows.filter((_, j) => j !== i))}>Remove</button>
+                </div>
+            ))}
+            <button type='button' className={s.ghost} onClick={() => onChange([...rows, { ...empty }])}>{addLabel}</button>
+        </div>
+    )
+}

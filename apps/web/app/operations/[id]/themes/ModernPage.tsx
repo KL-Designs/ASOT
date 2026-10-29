@@ -7,6 +7,7 @@ import LocalDate from '../local-date'
 import PrintButton from '../print-button'
 import OcapLinkPanel from '../OcapLinkPanel'
 import IntelReport, { IntelReportSignIn } from '@/components/intel-report/IntelReport'
+import DoctrinePage from '@/components/doctrine/DoctrinePage'
 import OcapStatsPanel from '../OcapStatsPanel'
 import DocAcknowledgeCard from '../DocAcknowledgeCard'
 import OperationBar from '../OperationBar'
@@ -55,7 +56,8 @@ export default function ModernPage({
     const seen = new Set<string>()
     const contentPages = (operation.pages ?? []).filter(pg => {
         if (pg.pageType === 'ocap') return false
-        if (pg.pageType === 'zeus' && !canZeus) return false
+        // Enemy Doctrine (rows 334, 335) is Zeus-facing, like Zeus Notes.
+        if ((pg.pageType === 'zeus' || pg.pageType === 'doctrine') && !canZeus) return false
         if (seen.has(pg.id)) return false
         seen.add(pg.id)
         return true
@@ -75,7 +77,8 @@ export default function ModernPage({
 
     // Rows 331, 332: the Intelligence Report is Mongo-backed, not sections.
     const isIntelReport = contentPages.find(pg => pg.id === activeDocument)?.pageType === 'intel_report'
-    const onContent = activeDocument !== OCAP && !isIntelReport
+    const isDoctrine = contentPages.find(pg => pg.id === activeDocument)?.pageType === 'doctrine'
+    const onContent = activeDocument !== OCAP && !isIntelReport && !isDoctrine
 
     // `main` is the operation's own sections; every other page keeps its
     // sections in `extraPageSections` under its id.
@@ -207,6 +210,7 @@ export default function ModernPage({
 
                 <main className={s.reader}>
                     <div className={s.readerInner}>
+                        {isDoctrine && <DoctrinePage operationId={id} themeColor={operation.themeColor || '#db001d'} />}
                         {isIntelReport && (isLoggedIn ? <IntelReport operationId={id} themeColor={operation.themeColor || '#db001d'} /> : <IntelReportSignIn />)}
                         {activeDocument === OCAP && hasOcap && (
                             <>

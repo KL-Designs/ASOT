@@ -81,7 +81,7 @@ type NotificationType =
     | 'gallery_submission_rejected'     // Submitter: your gallery submission was rejected, with a reason
     | 'system'
 
-type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check' | 'mission_check'
+type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check' | 'mission_check' | 'doctrine_review'
 
 interface Task {
     _id?: import('mongodb').ObjectId

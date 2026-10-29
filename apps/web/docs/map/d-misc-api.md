@@ -17,6 +17,23 @@ Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,miniga
 #### /api/aar-reports/summary
 - **POST** `{scope, ref, level, unit, force?}` — AI summary of one unit via `callText` feature `aar.summary`, cached in `Db.aarSummaries` by `summaryKey` and reused while `sourceSignature` matches. Commendations and member names are never sent. 503 with the reason when AI is off or over budget. Logs `aar.summary.generate`.
 
+### doctrines (5 files)
+
+#### /api/doctrines
+- Rows 334, 335. **GET** the faction library (`?pending=1` adds everything waiting on the J2 Lead: significant changes and custom options). **POST** `{name}` creates a faction doctrine (`doctrine.edit`).
+
+#### /api/doctrines/[id]
+- **GET** one level: published (resolved through its parents, with provenance), draft (for editors), versions, pending change, options (approved globals from `doctrine_options` plus the chain's custom ones). **PUT** `{values}` saves the builder's values as this level's draft; only what differs from the parent is stored (`diffOverrides`).
+
+#### /api/doctrines/[id]/publish
+- **POST** `{reason?}`. First publish, minor changes and J2 Lead publishes go live. A significant change measured against the last **approved** version (`baselineVersion`, so splitting a change does not get round it) returns `needs-reason`, then with a reason becomes `pending` plus a `doctrine_review` task to the `J2 - Department Leader` role; the live version is unchanged until approved. Pending custom options raise their own review task here.
+
+#### /api/doctrines/[id]/review
+- **POST** `{decision: approve|reject|revise, note}` (`doctrine.approve`). Approve writes the pending change as a new approved version; the task closes with the note.
+
+#### /api/doctrines/[id]/options
+- **POST** `{fieldKey, label, description}` adds a custom option to this doctrine, usable at once and pending global review. **PATCH** `{optionId, action: approve|edit|merge|reject, label?, mergeInto?, note?}` (`doctrine.approve`): approve adds it to `doctrine_options` (no duplicates); reject keeps it valid where used. All logged as `doctrine.*`.
+
 ### teamspeak (11 files)
 
 #### /api/teamspeak/clients

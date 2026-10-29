@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// One-off migration: the indexes the Intelligence Report (rows 331, 332)
-// relies on. All three collections are new and empty, so there is nothing to
-// backfill.
+// One-off migration: the indexes the Intelligence Report (rows 331, 332) and
+// Enemy Doctrine (rows 334, 335) rely on. Every collection is new and empty,
+// so there is nothing to backfill.
 //
 // The unique `{ entryId, userId }` on intel_votes is what enforces one vote
 // per member; the vote route upserts against it. The other two are for the
@@ -25,6 +25,10 @@ const INDEXES = [
     { collection: 'intel_entries',  keys: { campaignId: 1, sourceSequence: 1 },     name: 'campaignId_sourceSequence' },
     { collection: 'intel_entries',  keys: { operationId: 1, submittedById: 1 },     name: 'operationId_submittedById' },
     { collection: 'intel_comments', keys: { entryId: 1, createdAt: 1 },             name: 'entryId_createdAt' },
+    // One row per published version; `publish` numbers them from the doctrine's counter.
+    { collection: 'doctrine_versions', keys: { doctrineId: 1, version: 1 },         name: 'doctrineId_version_unique', unique: true },
+    { collection: 'doctrines',      keys: { level: 1, operationId: 1 },             name: 'level_operationId' },
+    { collection: 'doctrines',      keys: { level: 1, campaignId: 1, parentId: 1 }, name: 'level_campaignId_parentId' },
 ]
 
 const client = new MongoClient(MONGO_URI)

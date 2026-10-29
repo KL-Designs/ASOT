@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react'
 import IntelEntryForm, { formToBody, type IntelFormValue } from './IntelEntryForm'
 import s from './intel-report.module.css'
 import type { ClientIntelEntry, IntelStanding, IntelView } from '@/lib/intel/report'
+import type { DoctrineValues } from '@/lib/doctrine/schema'
+import type { DoctrineLevel } from '@/lib/doctrine/values'
+import { compareIntel, levelName } from '@/lib/doctrine/compare'
+
+type DoctrineInForce = { values: DoctrineValues; sources: { fields: Record<string, DoctrineLevel>; composition: Record<string, DoctrineLevel> } }
 
 /**
  * Rows 331 and 332: the Intelligence Report document page (`pageType:
@@ -72,6 +77,16 @@ export default function IntelReport({ operationId, themeColor = '#db001d' }: { o
     }, [base, view])
 
     useEffect(() => { load() }, [load])
+
+    // Rows 334, 335: the doctrine in force, for the advisory comparison. Staff only; quietly absent otherwise.
+    const [doctrine, setDoctrine] = useState<DoctrineInForce | null>(null)
+    const isStaff = !!data && (data.standing.canAdd || data.standing.canAssess || data.standing.canManage)
+    useEffect(() => {
+        if (!isStaff) return
+        fetch(`/api/operations/${operationId}/doctrine`).then(r => r.ok ? r.json() : null).then(b => {
+            if (b?.values) setDoctrine({ values: b.values, sources: b.sources })
+        }).catch(() => {})
+    }, [isStaff, operationId])
 
     const style = { '--intel-rgb': hexToRgb(themeColor) } as CSSProperties
 
@@ -149,7 +164,7 @@ export default function IntelReport({ operationId, themeColor = '#db001d' }: { o
                             <div key={c.callSign} className={s.callSign}>
                                 <div className={s.label}>{c.callSign}</div>
                                 {c.entries.map(e => (
-                                    <EntryCard key={e.id} entry={e} view={view} standing={standing} base={base} sequence={data.sequence} onChanged={load} />
+                                    <EntryCard key={e.id} entry={e} view={view} standing={standing} base={base} sequence={data.sequence} onChanged={load} doctrine={doctrine} />
                                 ))}
                             </div>
                         ))}
@@ -187,8 +202,9 @@ interface Detail {
     canEdit: boolean
 }
 
-function EntryCard({ entry, view, standing, base, sequence, onChanged }: {
+function EntryCard({ entry, view, standing, base, sequence, onChanged, doctrine }: {
     entry: ClientIntelEntry; view: IntelView; standing: IntelStanding; base: string; sequence: number; onChanged: () => void
+    doctrine: DoctrineInForce | null
 }) {
     const staff = standing.canAdd || standing.canAssess || standing.canManage
     const url = `${base}/${entry.id}`
@@ -360,6 +376,8 @@ function EntryCard({ entry, view, standing, base, sequence, onChanged }: {
                         </div>
                     )}
 
+                    {doctrine && <DoctrineCompare entry={entry} doctrine={doctrine} />}
+
                     {detail && detail.versions.length > 0 && (
                         <>
                             <div className={s.label}>Version history</div>
@@ -377,5 +395,23 @@ function EntryCard({ entry, view, standing, base, sequence, onChanged }: {
                 </div>
             )}
         </article>
+    )
+}
+
+/** Rows 334, 335 with 331: advisory only. It never says whether the intel is true. */
+function DoctrineCompare({ entry, doctrine }: { entry: ClientIntelEntry; doctrine: DoctrineInForce }) {
+    const r = compareIntel(entry, doctrine.values, doctrine.sources)
+    if (!r.matches.length && !r.notListed.length) return null
+    return (
+        <div className={s.assess}>
+            <div className={s.label}>Compared with the doctrine in force (advisory)</div>
+            {r.matches.map((m, i) => (
+                <div key={`m${i}`} className={s.muted}>Mentions <strong>{m.term}</strong>: consistent with {levelName(m.level)} · {m.doctrine}</div>
+            ))}
+            {r.notListed.map((n, i) => (
+                <div key={`n${i}`} className={s.muted}>Mentions <strong>{n.term}</strong>: the doctrine lists no {n.doctrine}</div>
+            ))}
+            <div className={s.muted}>A faction having a capability does not prove it was there. The assessment is yours.</div>
+        </div>
     )
 }

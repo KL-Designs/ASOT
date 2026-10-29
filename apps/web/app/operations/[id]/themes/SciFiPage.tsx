@@ -5,6 +5,7 @@ import DocBody from '../doc-body'
 import LocalDate from '../local-date'
 import OcapLinkPanel from '../OcapLinkPanel'
 import IntelReport, { IntelReportSignIn } from '@/components/intel-report/IntelReport'
+import DoctrinePage from '@/components/doctrine/DoctrinePage'
 import OcapStatsPanel from '../OcapStatsPanel'
 import DocAcknowledgeCard from '../DocAcknowledgeCard'
 import OperationBar from '../OperationBar'
@@ -143,7 +144,8 @@ export default function SciFiPage({
     const seen = new Set<string>()
     const contentPages = (operation.pages ?? []).filter(pg => {
         if (pg.pageType === 'ocap') return false
-        if (pg.pageType === 'zeus' && !canZeus) return false
+        // Enemy Doctrine (rows 334, 335) is Zeus-facing, like Zeus Notes.
+        if ((pg.pageType === 'zeus' || pg.pageType === 'doctrine') && !canZeus) return false
         if (seen.has(pg.id)) return false
         seen.add(pg.id)
         return true
@@ -162,7 +164,8 @@ export default function SciFiPage({
         : documents[0].id
     // Rows 331, 332: the Intelligence Report is Mongo-backed, not sections.
     const isIntelReport = contentPages.find(pg => pg.id === activeDocument)?.pageType === 'intel_report'
-    const onContent = activeDocument !== OCAP && !isIntelReport
+    const isDoctrine = contentPages.find(pg => pg.id === activeDocument)?.pageType === 'doctrine'
+    const onContent = activeDocument !== OCAP && !isIntelReport && !isDoctrine
 
     const rawSections = activeDocument === 'main'
         ? operation.sections ?? []
@@ -307,6 +310,7 @@ export default function SciFiPage({
                                wear everywhere else — the glass behind them is dark, so they
                                need nothing from this theme but room. */
                             <div className={s.panel}>
+                                {isDoctrine && <DoctrinePage operationId={id} themeColor={operation.themeColor || '#db001d'} />}
                                 {isIntelReport && (isLoggedIn ? <IntelReport operationId={id} themeColor={operation.themeColor || '#db001d'} /> : <IntelReportSignIn />)}
                                 {activeDocument === OCAP && hasOcap && (
                                     <>

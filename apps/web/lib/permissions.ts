@@ -276,6 +276,23 @@ const PERMISSIONS = {
         zeus: ['J6 - Game Master'],
 
         /**
+         * Rows 334 and 335: Enemy Doctrine. Zeus-facing, so players never see
+         * it. `view` reads an operation's doctrine and the faction library;
+         * `edit` writes doctrine drafts and publishes minor changes; `approve`
+         * is the J2 Lead's: significant mid-campaign changes and custom
+         * options go to them through a task.
+         *
+         * Used by:
+         *  - `lib/operations/permissions.ts` (`'doctrine.view' | 'doctrine.edit' | 'doctrine.approve'`)
+         *  - `app/api/doctrines/**`, `app/api/operations/[id]/doctrine`
+         */
+        doctrine: {
+            view: ['J2 - Mission Making', 'J6 - Game Master', 'HQ Staff'],
+            edit: ['J2 - Mission Making', 'HQ Staff'],
+            approve: ['J2 - Department Leader'],
+        },
+
+        /**
          * Reading an operation's page beyond what a visitor sees.
          *
          * The public page stays public: anybody, signed in or not, reads the

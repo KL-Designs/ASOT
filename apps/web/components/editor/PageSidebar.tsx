@@ -10,7 +10,7 @@ interface PageEntry {
     id: string
     title: string
     isMain: boolean
-    pageType?: string  // 'intel' | 'orders' | 'zeus' | 'ocap' | 'staff_orders' | 'intel_report' | 'separator'
+    pageType?: string  // 'intel' | 'orders' | 'zeus' | 'ocap' | 'staff_orders' | 'intel_report' | 'doctrine' | 'separator'
     pageColor?: string
     parentId?: string
 }
@@ -232,10 +232,11 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
         if (renamingId) renameInputRef.current?.focus()
     }, [renamingId])
 
-    function addPage(type: 'orders' | 'zeus' | 'staff_orders' | 'intel_report' | 'separator', title?: string) {
+    function addPage(type: 'orders' | 'zeus' | 'staff_orders' | 'intel_report' | 'doctrine' | 'separator', title?: string) {
         const id = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
         const defaultTitle = type === 'zeus' ? 'Zeus Notes'
             : type === 'intel_report' ? 'Intelligence Report'
+            : type === 'doctrine' ? 'Enemy Doctrine'
             : type === 'separator' ? '──────────'
             : type === 'staff_orders' ? (title ?? 'Staff Orders')
             : 'New Page'
@@ -251,6 +252,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             pmeta.set('isMain', 'false')
             pmeta.set('pageType', type)
             if (type === 'intel_report') pmeta.set('pageColor', '#f59e0b')
+            if (type === 'doctrine') pmeta.set('pageColor', '#a855f7')
         })
         closeTypeModal()
         if (type !== 'separator') {
@@ -761,6 +763,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 const dotColor = page.pageType === 'zeus' ? '#00c3ff'
                     : page.pageType === 'ocap' ? '#10b981'
                     : page.pageType === 'intel_report' ? '#f59e0b'
+                    : page.pageType === 'doctrine' ? '#a855f7'
                     : page.pageType === 'staff_orders' ? (page.pageColor || '#22c55e')
                     : 'var(--acc)'
 
@@ -829,7 +832,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                 }}
                                 onDoubleClick={e => { e.stopPropagation(); startRename(page.id, page.title) }}
-                                title={`${page.title}${page.pageType === 'intel' ? ' (Intel Package)' : page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : page.pageType === 'ocap' ? ' (OCAP)' : page.pageType === 'intel_report' ? ' (Intelligence Report)' : page.pageType === 'staff_orders' ? ' (Staff Orders)' : ''} (double-click to rename)`}
+                                title={`${page.title}${page.pageType === 'intel' ? ' (Intel Package)' : page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : page.pageType === 'ocap' ? ' (OCAP)' : page.pageType === 'intel_report' ? ' (Intelligence Report)' : page.pageType === 'doctrine' ? ' (Enemy Doctrine)' : page.pageType === 'staff_orders' ? ' (Staff Orders)' : ''} (double-click to rename)`}
                             >
                                 {page.title}
                             </span>
@@ -1069,6 +1072,15 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 >
                                     Zeus Notes Page
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(0,195,255,0.45)', marginTop: 3 }}>J6-only notes and gamemaster planning. Visible to J6 staff only.</div>
+                                </button>
+                                )}
+                                {/* Rows 334, 335: Zeus-facing; one per operation, backed by Mongo. */}
+                                {allowed('doctrine') && !pages.some(p => p.pageType === 'doctrine') && (
+                                <button type='button' onClick={() => addPage('doctrine')}
+                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.3)', color: 'rgba(192,132,252,0.9)', cursor: 'pointer' }}
+                                >
+                                    Enemy Doctrine
+                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(168,85,247,0.5)', marginTop: 3 }}>Guided builder for how the enemy fights, with Quick Reference and Full Doctrine views for Zeus.</div>
                                 </button>
                                 )}
                                 {allowed('separator') && (
