@@ -2,7 +2,7 @@
 
 import { Typography, Tabs, Tab } from '@mui/material'
 import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
-import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
+import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import ZeusNotesTab from './ZeusNotesTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -12,6 +12,9 @@ import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
+
+/** Old main-tab numbers of the tools that now live under Admin (row 84). */
+const MOVED_TABS: Record<number, string> = { 1: 'meetings', 2: 'tickets' }
 
 export default function J6Panel({
     displayName,
@@ -26,7 +29,13 @@ export default function J6Panel({
     canManageLinks: boolean
     isJ4: boolean
 }) {
-    const { tab, setTab, view, setView } = useTabState(0, 'dept')
+    const { tab, setTab, view, setView, adminTab, setAdminTab } = useTabState(0, 'dept', MOVED_TABS)
+    const isLead = canManageMembers || isJ4
+
+    const adminSections: DeptAdminSection[] = [
+        { key: 'meetings', label: 'Meetings', render: () => <MeetingsTab department='j6' userId={userId} isLead={isLead} /> },
+        { key: 'tickets',  label: 'Tickets',  render: () => <DeptTicketsTab department='j6' canManage={isLead} isJ4={isJ4} /> },
+    ]
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -72,7 +81,7 @@ export default function J6Panel({
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
-                            <Settings sx={{ fontSize: '0.85rem' }} />Management
+                            <Settings sx={{ fontSize: '0.85rem' }} />Admin
                         </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
@@ -84,7 +93,8 @@ export default function J6Panel({
             </div>
 
             {view === 'settings' && (
-                <DeptSettingsView department='j6' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
+                <DeptSettingsView department='j6' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j6' userId={userId} isJ4={isJ4} />
@@ -106,15 +116,11 @@ export default function J6Panel({
                             sx={{ minHeight: 40 }}
                         >
                             <Tab label={<PinTabLabel label='Zeus Notes' pinLabel='J6 — Zeus Notes' href='/dashboard/j6' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'   pinLabel='J6 — Meetings'   href='/dashboard/j6' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets' pinLabel='J6 — Tickets' href='/dashboard/j6' tabIndex={2} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && <ZeusNotesTab />}
-                        {tab === 1 && <MeetingsTab department='j6' userId={userId} isLead={canManageMembers || isJ4} />}
-                        {tab === 2 && <DeptTicketsTab department='j6' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                     </div>
                 </>
             )}

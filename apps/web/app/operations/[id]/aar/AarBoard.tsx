@@ -56,9 +56,9 @@ const EMPTY_AAR: Aar = { fix: '', sustain: '', improve: '', writtenByName: null 
 /** What each box is actually asking for. Three narrow questions get answered
  *  where one wide one gets skipped. */
 const AAR_FIELDS = [
-    { key: 'sustain' as const, label: 'Sustain', hint: 'What worked and should happen again next time.' },
-    { key: 'improve' as const, label: 'Improve', hint: 'What was fine but could be sharper.' },
     { key: 'fix' as const, label: 'Fix', hint: 'What went wrong and needs to be different.' },
+    { key: 'improve' as const, label: 'Improve', hint: 'What was fine but could be sharper.' },
+    { key: 'sustain' as const, label: 'Sustain', hint: 'What worked and should happen again next time.' },
 ]
 
 /**
@@ -142,7 +142,7 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                     )}
 
                     <AarCard
-                        heading='Your report'
+                        heading='Call Sign After Action Report'
                         note={data.mine?.writtenByName ? `Written by ${data.mine.writtenByName}` : undefined}
                         operationId={operationId}
                         initial={data.mine ?? EMPTY_AAR}

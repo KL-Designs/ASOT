@@ -2,7 +2,7 @@
 
 import { Typography, Tabs, Tab } from '@mui/material'
 import { Settings, CalendarMonth, HistoryEdu, ConfirmationNumber } from '@mui/icons-material'
-import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
+import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
@@ -12,6 +12,9 @@ import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import BoardTab from './tabs/BoardTab'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
+
+/** Old main-tab numbers of the tools that now live under Admin (row 84). */
+const MOVED_TABS: Record<number, string> = { 1: 'meetings', 2: 'tickets' }
 
 export default function J7Panel({
     displayName,
@@ -26,7 +29,13 @@ export default function J7Panel({
     canManageLinks: boolean
     isJ4: boolean
 }) {
-    const { tab, setTab, view, setView } = useTabState(0, 'dept')
+    const { tab, setTab, view, setView, adminTab, setAdminTab } = useTabState(0, 'dept', MOVED_TABS)
+    const isLead = canManageMembers || isJ4
+
+    const adminSections: DeptAdminSection[] = [
+        { key: 'meetings', label: 'Meetings', render: () => <MeetingsTab department='j7' userId={userId} isLead={isLead} /> },
+        { key: 'tickets',  label: 'Tickets',  render: () => <DeptTicketsTab department='j7' canManage={isLead} isJ4={isJ4} /> },
+    ]
 
     const btnSx = (active: boolean): React.CSSProperties => ({
         fontSize: '0.62rem',
@@ -62,7 +71,7 @@ export default function J7Panel({
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
-                            <Settings sx={{ fontSize: '0.85rem' }} />Management
+                            <Settings sx={{ fontSize: '0.85rem' }} />Admin
                         </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
@@ -74,7 +83,8 @@ export default function J7Panel({
             </div>
 
             {view === 'settings' && (
-                <DeptSettingsView department='j7' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
+                <DeptSettingsView department='j7' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j7' userId={userId} isJ4={isJ4} />
@@ -96,15 +106,11 @@ export default function J7Panel({
                             sx={{ minHeight: 40 }}
                         >
                             <Tab label={<PinTabLabel label='Board'    pinLabel='J7 — Board'    href='/dashboard/j7' tabIndex={0} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
-                            <Tab label={<PinTabLabel label='Meetings' pinLabel='J7 — Meetings' href='/dashboard/j7' tabIndex={1} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
-                            <Tab label={<PinTabLabel label='Tickets'  pinLabel='J7 — Tickets'  href='/dashboard/j7' tabIndex={2} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
                         </Tabs>
                     </div>
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && <BoardTab department='j7' canManageColumns={canManageMembers || isJ4} />}
-                        {tab === 1 && <MeetingsTab department='j7' userId={userId} isLead={canManageMembers || isJ4} />}
-                        {tab === 2 && <DeptTicketsTab department='j7' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                     </div>
                 </>
             )}

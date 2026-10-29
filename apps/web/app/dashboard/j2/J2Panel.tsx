@@ -2,7 +2,7 @@
 
 import { Typography, Tabs, Tab } from '@mui/material'
 import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
-import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
+import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import J2OperationsTab from '@/app/dashboard/j2/tabs/J2OperationsTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
@@ -19,6 +19,9 @@ import MissionBibleTab from './tabs/MissionBibleTab'
 import ObjectiveSuggestions from '@/components/j2/ObjectiveSuggestions'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
+/** Old main-tab numbers of the tools that now live under Admin (row 84). */
+const MOVED_TABS: Record<number, string> = { 1: 'meetings', 2: 'tickets', 5: 'intel-images', 6: 'era-options' }
+
 export default function J2Panel({
     displayName,
     userId,
@@ -32,7 +35,15 @@ export default function J2Panel({
     canManageLinks: boolean
     isJ4: boolean
 }) {
-    const { tab, setTab, view, setView } = useTabState(0, 'dept')
+    const { tab, setTab, view, setView, adminTab, setAdminTab } = useTabState(0, 'dept', MOVED_TABS)
+    const isLead = canManageMembers || isJ4
+
+    const adminSections: DeptAdminSection[] = [
+        { key: 'meetings',     label: 'Meetings',     render: () => <MeetingsTab department='j2' userId={userId} isLead={isLead} /> },
+        { key: 'tickets',      label: 'Tickets',      render: () => <DeptTicketsTab department='j2' canManage={isLead} isJ4={isJ4} /> },
+        { key: 'intel-images', label: 'Intel Images', render: () => <IntelImagesTab /> },
+        { key: 'era-options',  label: 'ERA Options',  visible: canManageMembers, render: () => <EraOptionsTab /> },
+    ]
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -78,7 +89,7 @@ export default function J2Panel({
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                     <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
-                        <Settings sx={{ fontSize: '0.85rem' }} />Management
+                        <Settings sx={{ fontSize: '0.85rem' }} />Admin
                     </button>
                     <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                         <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
@@ -90,7 +101,8 @@ export default function J2Panel({
             </div>
 
             {view === 'settings' && (
-                <DeptSettingsView department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
+                <DeptSettingsView department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} isJ2Lead={canManageMembers} />
@@ -111,19 +123,12 @@ export default function J2Panel({
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Operations'        pinLabel='J2 — Operations'  href='/dashboard/j2' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'          pinLabel='J2 — Meetings'    href='/dashboard/j2' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets'           pinLabel='J2 — Tickets'     href='/dashboard/j2' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Members Workspace' pinLabel='J2 — Workspace'   href='/dashboard/j2' tabIndex={3} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Mission Checks'    pinLabel='J2 — Checks'    href='/dashboard/j2' tabIndex={4} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Intel Images'      pinLabel='J2 — Intel Images' href='/dashboard/j2' tabIndex={5} />} sx={tabSx} />
-                            {canManageMembers && (
-                                <Tab label={<PinTabLabel label='ERA Options' pinLabel='J2 — ERA Options' href='/dashboard/j2' tabIndex={6} />} sx={tabSx} />
-                            )}
-                            {/* An explicit value: ERA Options above is only there for
-                                leads, so position alone would give this tab a
-                                different index for a lead than for a member, and a
-                                pinned link to it would open the wrong tab. */}
+                            {/* Explicit values: these are the tabs' old numbers, which pins
+                                and bookmarks still carry. The gaps are tools that moved
+                                under Admin (MOVED_TABS). */}
+                            <Tab value={0} label={<PinTabLabel label='Operations'        pinLabel='J2 — Operations'  href='/dashboard/j2' tabIndex={0} />} sx={tabSx} />
+                            <Tab value={3} label={<PinTabLabel label='Members Workspace' pinLabel='J2 — Workspace'   href='/dashboard/j2' tabIndex={3} />} sx={tabSx} />
+                            <Tab value={4} label={<PinTabLabel label='Mission Checks'    pinLabel='J2 — Checks'    href='/dashboard/j2' tabIndex={4} />} sx={tabSx} />
                             <Tab value={7} label={<PinTabLabel label='Mission Bible' pinLabel='J2 — Mission Bible' href='/dashboard/j2' tabIndex={7} />} sx={tabSx} />
                             <Tab value={8} label={<PinTabLabel label='Objective Suggestions' pinLabel='J2 — Objectives' href='/dashboard/j2' tabIndex={8} />} sx={tabSx} />
                         </Tabs>
@@ -131,12 +136,8 @@ export default function J2Panel({
 
                     <div className='flex-1 min-h-0 mt-0'>
                         {tab === 0 && <J2OperationsTab isJ4={isJ4} />}
-                        {tab === 1 && <MeetingsTab department='j2' userId={userId} isLead={canManageMembers || isJ4} />}
-                        {tab === 2 && <DeptTicketsTab department='j2' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                         {tab === 3 && <MembersWorkspaceTab userId={userId} isJ4={isJ4} canManage={canManageMembers} />}
                         {tab === 4 && <MissionChecksTab userId={userId} isJ2Lead={canManageMembers || isJ4} />}
-                        {tab === 5 && <IntelImagesTab />}
-                        {tab === 6 && canManageMembers && <EraOptionsTab />}
                         {tab === 7 && <MissionBibleTab />}
                         {tab === 8 && <ObjectiveSuggestions />}
                     </div>

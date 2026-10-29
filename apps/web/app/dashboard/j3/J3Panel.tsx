@@ -6,7 +6,7 @@ import { Construction } from '@mui/icons-material'
 import TrainingRecordsTab from './tabs/TrainingRecordsTab'
 import TrainingTicketsTab from './tabs/TrainingTicketsTab'
 import J3MasterSheetTab from './tabs/J3MasterSheetTab'
-import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
+import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
@@ -60,8 +60,17 @@ const btnSx = (active: boolean): React.CSSProperties => ({
     borderRadius: 999,
 })
 
+/** Old main-tab numbers of the tools that now live under Admin (row 84). */
+const MOVED_TABS: Record<number, string> = { 5: 'meetings', 6: 'tickets' }
+
 export default function J3Panel({ displayName, userId, canManageMembers, canManageLinks, isJ4 }: J3PanelProps) {
-    const { tab, setTab, view, setView } = useTabState(0, 'dept')
+    const { tab, setTab, view, setView, adminTab, setAdminTab } = useTabState(0, 'dept', MOVED_TABS)
+    const isLead = canManageMembers || isJ4
+
+    const adminSections: DeptAdminSection[] = [
+        { key: 'meetings', label: 'Meetings', render: () => <MeetingsTab department='j3' userId={userId} isLead={isLead} /> },
+        { key: 'tickets',  label: 'Tickets',  render: () => <DeptTicketsTab department='j3' canManage={isLead} isJ4={isJ4} /> },
+    ]
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -95,7 +104,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, canMana
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
-                            <Settings sx={{ fontSize: '0.85rem' }} />Management
+                            <Settings sx={{ fontSize: '0.85rem' }} />Admin
                         </button>
                         <button style={{ ...btnSx(view === 'activity'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'activity' ? 'dept' : 'activity')}>
                             <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
@@ -104,7 +113,8 @@ export default function J3Panel({ displayName, userId, canManageMembers, canMana
             </div>
 
             {view === 'settings' && (
-                <DeptSettingsView department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
+                <DeptSettingsView department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
             )}
             {view === 'activity' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
@@ -123,14 +133,14 @@ export default function J3Panel({ displayName, userId, canManageMembers, canMana
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Training Hub'       pinLabel='J3 — Training Hub'       href='/admin/j3' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Training Tickets'  pinLabel='J3 — Tickets'            href='/admin/j3' tabIndex={1} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Training Calendar' pinLabel='J3 — Calendar'           href='/admin/j3' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Training Requests' pinLabel='J3 — Training Requests'  href='/admin/j3' tabIndex={3} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Training Records'  pinLabel='J3 — Records'            href='/admin/j3' tabIndex={4} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'          pinLabel='J3 — Meetings'           href='/admin/j3' tabIndex={5} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets'           pinLabel='J3 — Dept Tickets'       href='/dashboard/j3' tabIndex={6} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Master Sheet'      pinLabel='J3 — Master Sheet'       href='/dashboard/j3' tabIndex={7} />} sx={tabSx} />
+                            {/* Explicit values: the tabs' old numbers, which pins and
+                                bookmarks still carry. 5 and 6 moved under Admin (MOVED_TABS). */}
+                            <Tab value={0} label={<PinTabLabel label='Training Hub'       pinLabel='J3 — Training Hub'       href='/dashboard/j3' tabIndex={0} />} sx={tabSx} />
+                            <Tab value={1} label={<PinTabLabel label='Training Tickets'  pinLabel='J3 — Tickets'            href='/dashboard/j3' tabIndex={1} />} sx={tabSx} />
+                            <Tab value={2} label={<PinTabLabel label='Training Calendar' pinLabel='J3 — Calendar'           href='/dashboard/j3' tabIndex={2} />} sx={tabSx} />
+                            <Tab value={3} label={<PinTabLabel label='Training Requests' pinLabel='J3 — Training Requests'  href='/dashboard/j3' tabIndex={3} />} sx={tabSx} />
+                            <Tab value={4} label={<PinTabLabel label='Training Records'  pinLabel='J3 — Records'            href='/dashboard/j3' tabIndex={4} />} sx={tabSx} />
+                            <Tab value={7} label={<PinTabLabel label='Master Sheet'      pinLabel='J3 — Master Sheet'       href='/dashboard/j3' tabIndex={7} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -156,8 +166,6 @@ export default function J3Panel({ displayName, userId, canManageMembers, canMana
                             />
                         )}
                         {tab === 4 && <TrainingRecordsTab userId={userId} canManageMembers={canManageMembers} />}
-                        {tab === 5 && <MeetingsTab department='j3' userId={userId} isLead={canManageMembers || isJ4} />}
-                        {tab === 6 && <DeptTicketsTab department='j3' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
                         {tab === 7 && <J3MasterSheetTab />}
                     </div>
                 </>

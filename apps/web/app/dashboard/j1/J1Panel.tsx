@@ -9,7 +9,7 @@ import MastersheetTab from './tabs/MastersheetTab'
 import StatisticsTab from './tabs/StatisticsTab'
 import TFARPluginTab from './tabs/TFARPluginTab'
 import RecruitVideoTab from './tabs/RecruitVideoTab'
-import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
+import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
@@ -61,8 +61,20 @@ const btnSx = (active: boolean): React.CSSProperties => ({
     borderRadius: 999,
 })
 
+/** Old main-tab numbers of the tools that now live under Admin (row 84). */
+const MOVED_TABS: Record<number, string> = { 3: 'statistics', 4: 'meetings', 5: 'tickets', 6: 'tfar', 7: 'recruit-video' }
+
 export default function J1Panel({ displayName, userId, canManageMembers, canManageLinks, isJ4 }: J1PanelProps) {
-    const { tab, setTab, view, setView } = useTabState(0, 'dept')
+    const { tab, setTab, view, setView, adminTab, setAdminTab } = useTabState(0, 'dept', MOVED_TABS)
+    const isLead = canManageMembers || isJ4
+
+    const adminSections: DeptAdminSection[] = [
+        { key: 'statistics',    label: 'Statistics',    render: () => <StatisticsTab /> },
+        { key: 'meetings',      label: 'Meetings',      render: () => <MeetingsTab department='j1' userId={userId} isLead={isLead} /> },
+        { key: 'tickets',       label: 'Tickets',       render: () => <DeptTicketsTab department='j1' canManage={isLead} isJ4={isJ4} /> },
+        { key: 'tfar',          label: 'TFAR Plugin',   visible: isLead, render: () => <TFARPluginTab /> },
+        { key: 'recruit-video', label: 'Recruit Video', visible: isLead, render: () => <RecruitVideoTab /> },
+    ]
 
     const tabSx = {
         fontSize: '0.72rem',
@@ -96,7 +108,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, canMana
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
-                            <Settings sx={{ fontSize: '0.85rem' }} />Management
+                            <Settings sx={{ fontSize: '0.85rem' }} />Admin
                         </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
@@ -108,7 +120,8 @@ export default function J1Panel({ displayName, userId, canManageMembers, canMana
             </div>
 
             {view === 'settings' && (
-                <DeptSettingsView department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
+                <DeptSettingsView department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j1' userId={userId} isJ4={isJ4} />
@@ -133,15 +146,6 @@ export default function J1Panel({ displayName, userId, canManageMembers, canMana
                             <Tab label={<PinTabLabel label='Recruit Member' pinLabel='J1 — Recruit Member' href='/dashboard/j1' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/dashboard/j1' tabIndex={1} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Mastersheet'    pinLabel='J1 — Mastersheet'    href='/dashboard/j1' tabIndex={2} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Statistics'     pinLabel='J1 — Statistics'     href='/dashboard/j1' tabIndex={3} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Meetings'       pinLabel='J1 — Meetings'       href='/dashboard/j1' tabIndex={4} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Tickets' pinLabel='J1 — Tickets' href='/dashboard/j1' tabIndex={5} />} sx={tabSx} />
-                            {(canManageMembers || isJ4) && (
-                                <Tab label={<PinTabLabel label='TFAR Plugin' pinLabel='J1 — TFAR Plugin' href='/dashboard/j1' tabIndex={6} />} sx={tabSx} />
-                            )}
-                            {(canManageMembers || isJ4) && (
-                                <Tab label={<PinTabLabel label='Recruit Video' pinLabel='J1 — Recruit Video' href='/dashboard/j1' tabIndex={7} />} sx={tabSx} />
-                            )}
                         </Tabs>
                     </div>
 
@@ -167,11 +171,6 @@ export default function J1Panel({ displayName, userId, canManageMembers, canMana
                                 <MastersheetTab />
                             </div>
                         )}
-                        {tab === 3 && <StatisticsTab />}
-                        {tab === 4 && <MeetingsTab department='j1' userId={userId} isLead={canManageMembers || isJ4} />}
-                        {tab === 5 && <DeptTicketsTab department='j1' canManage={canManageMembers || isJ4} isJ4={isJ4} />}
-                        {tab === 6 && (canManageMembers || isJ4) && <TFARPluginTab />}
-                        {tab === 7 && (canManageMembers || isJ4) && <RecruitVideoTab />}
                     </div>
                 </>
             )}

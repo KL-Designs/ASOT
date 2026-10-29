@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Typography, Tabs, Tab } from '@mui/material'
 import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
-import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
+import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import GalleryOperationsTab from '@/app/dashboard/j5/tabs/GalleryOperationsTab'
 import MediaTab from '@/app/dashboard/j5/tabs/media/MediaTab'
@@ -38,7 +38,8 @@ export default function J5Panel({
     canManageGalleryTags: boolean
     canManageGallery: boolean
 }) {
-    const { tab, setTab, view, setView } = useTabState(0, 'dept')
+    const { tab, setTab, view, setView, adminTab, setAdminTab } = useTabState(0, 'dept')
+    const isLead = canManageMembers || isJ4
 
     /* How many submissions are waiting, for the Submissions tab's badge.
 
@@ -81,10 +82,16 @@ export default function J5Panel({
         { key: 'featured', label: 'Featured', pinLabel: 'J5 — Featured', visible: true, render: () => <FeaturedTab /> },
         { key: 'sotm', label: 'Screenshot of month', pinLabel: 'J5 — SOTM', visible: true, render: () => <SotmTab canManage={canManageMembers} /> },
         { key: 'tags', label: 'Tags', pinLabel: 'J5 — Tags', visible: canManageGalleryTags, render: () => <GalleryTagsTab /> },
-        { key: 'meetings', label: 'Meetings', pinLabel: 'J5 — Meetings', visible: true, render: () => <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} /> },
-        { key: 'tickets', label: 'Tickets', pinLabel: 'J5 — Tickets', visible: true, render: () => <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} /> },
     ]
     const visibleTabs = allTabs.filter(t => t.visible)
+
+    // Moved under Admin (row 84). Their old tab numbers depended on which gated
+    // tabs a member could see, so an old pin is not redirected; it is clamped
+    // to the last tab below like any other out-of-range index.
+    const adminSections: DeptAdminSection[] = [
+        { key: 'meetings', label: 'Meetings', render: () => <MeetingsTab department='j5' userId={userId} isLead={isLead} /> },
+        { key: 'tickets',  label: 'Tickets',  render: () => <DeptTicketsTab department='j5' canManage={isLead} isJ4={isJ4} /> },
+    ]
 
     // A pinned/bookmarked tab index from the old FIXED_TABS ordering (or one
     // that predates a permission grant/revoke shrinking this list) can point
@@ -135,7 +142,7 @@ export default function J5Panel({
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
-                            <Settings sx={{ fontSize: '0.85rem' }} />Management
+                            <Settings sx={{ fontSize: '0.85rem' }} />Admin
                         </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
@@ -147,7 +154,8 @@ export default function J5Panel({
             </div>
 
             {view === 'settings' && (
-                <DeptSettingsView department='j5' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
+                <DeptSettingsView department='j5' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
             )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j5' userId={userId} isJ4={isJ4} />

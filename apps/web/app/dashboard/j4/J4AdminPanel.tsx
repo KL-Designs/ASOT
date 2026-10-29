@@ -5,7 +5,7 @@ import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, Men
 import { CalendarMonth, HistoryEdu, Settings } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
-import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
+import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
@@ -1061,15 +1061,25 @@ function TestNotificationModal({ open, onClose, selfId }: { open: boolean; onClo
     )
 }
 
+/** Old main-tab numbers of the tools that now live under Admin (row 84). */
+const MOVED_TABS: Record<number, string> = { 2: 'meetings', 3: 'backups', 4: 'teamspeak', 6: 'ai-admin' }
+
 export default function J4AdminPanel({ userId, displayName, canManageLinks, canBackupManage, canBackupRestore }: { userId: string; displayName: string; canManageLinks: boolean; canBackupManage: boolean; canBackupRestore: boolean }) {
-    const { tab: requestedTab, setTab, view, setView } = useTabState(0, 'dept')
-    // Backups is tab 3, but its <Tab> is only rendered for backups.manage
-    // holders. The active tab comes straight off the URL (?tab=3), which
-    // survives in bookmarks and pinned sidebar links, so a viewer without the
-    // permission can land on a tab with no matching child — MUI warns about a
-    // Tabs value that matches nothing and the body renders empty. Fall back to
-    // the first tab instead.
-    const tab = requestedTab === 3 && !canBackupManage ? 0 : requestedTab
+    const { tab, setTab, view, setView, adminTab, setAdminTab } = useTabState(0, 'dept', MOVED_TABS)
+
+    // Backups (the sidebar's "Snapshots") stays gated on backups.manage: a
+    // viewer without it who follows an old ?tab=3 link lands on Admin's
+    // Members & Links instead, because a hidden section is never selected.
+    const adminSections: DeptAdminSection[] = [
+        { key: 'meetings',  label: 'Meetings',  render: () => <J4MeetingsTab userId={userId} /> },
+        { key: 'backups',   label: 'Backups',   visible: canBackupManage, render: () => <BackupsTab canRestore={canBackupRestore} /> },
+        { key: 'teamspeak', label: 'TeamSpeak', render: () => (
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <TeamspeakTab />
+            </div>
+        ) },
+        { key: 'ai-admin',  label: 'AI Admin',  render: () => <AIAdminTab /> },
+    ]
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
     const [testNotifOpen, setTestNotifOpen] = useState(false)
@@ -1150,7 +1160,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
-                            <Settings sx={{ fontSize: '0.85rem' }} />Management
+                            <Settings sx={{ fontSize: '0.85rem' }} />Admin
                         </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
@@ -1161,7 +1171,10 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                     </div>
             </div>
 
-            {view === 'settings'     && <DeptSettingsView department='j4' displayName={displayName} userId={userId} canManage={true} canManageLinks={canManageLinks} isJ4={true} />}
+            {view === 'settings'     && (
+                <DeptSettingsView department='j4' displayName={displayName} userId={userId} canManage={true} canManageLinks={canManageLinks} isJ4={true}
+                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
+            )}
             {view === 'calendar'     && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
             {view === 'logs' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
@@ -1182,13 +1195,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                         >
                             <Tab value={0} label={<PinTabLabel label='Mastersheet'  pinLabel='J4 — Mastersheet'  href='/dashboard/j4' tabIndex={0} />} sx={tabSx} />
                             <Tab value={1} label={<PinTabLabel label='Tickets'      pinLabel='J4 — Tickets'      href='/dashboard/j4' tabIndex={1} />} sx={tabSx} />
-                            <Tab value={2} label={<PinTabLabel label='Meetings'     pinLabel='J4 — Meetings'     href='/dashboard/j4' tabIndex={2} />} sx={tabSx} />
-                            {canBackupManage && (
-                                <Tab value={3} label={<PinTabLabel label='Backups' pinLabel='J4 — Backups' href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
-                            )}
-                            <Tab value={4} label={<PinTabLabel label='Teamspeak'    pinLabel='J4 — Teamspeak'    href='/dashboard/j4' tabIndex={4} />} sx={tabSx} />
                             <Tab value={5} label={<PinTabLabel label='Tools'        pinLabel='J4 — Tools'        href='/dashboard/j4' tabIndex={5} />} sx={tabSx} />
-                            <Tab value={6} label={<PinTabLabel label='AI Admin'     pinLabel='J4 — AI Admin'     href='/dashboard/j4' tabIndex={6} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -1203,14 +1210,6 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                                 <CommunityTicketsTab />
                             </div>
                         )}
-                        {tab === 2 && <J4MeetingsTab userId={userId} />}
-                        {tab === 3 && canBackupManage && <BackupsTab canRestore={canBackupRestore} />}
-                        {tab === 4 && (
-                            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                                <TeamspeakTab />
-                            </div>
-                        )}
-                        {tab === 6 && <AIAdminTab />}
                         {tab === 5 && (
                             <div className='p-6 md:p-10 flex flex-col gap-8 overflow-y-auto'>
 
