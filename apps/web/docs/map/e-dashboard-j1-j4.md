@@ -108,8 +108,8 @@ Review queue for completed-training tickets submitted by trainers (per-attendee 
 API calls: `GET /api/training/tickets`, `POST /api/training/tickets/:id/approve`, `/reject`, `/amend`, `GET /api/training/tickets/:id`.
 
 #### app/dashboard/j3/tabs/TrainingRecordsTab.tsx
-BCT1 quiz attempt records list with status filter (all/pending_review/passed/failed); opens `AssignQuizModal` to assign the BCT1 quiz to a recruit (custom time limit with required justification if modified from default). Row click likely routes to a quiz review page.
-API calls: `GET /api/admin/quiz/attempts?status=`.
+Course-instance records table (year / type / status / search filters, sortable columns); a row opens `/dashboard/j3/training-records/[id]`. Row 372 added a **Documents** column: the number of orders assessments filed under that instance (`documentCount`, counted by `GET /api/j3/training-records` from `Db.ordersAssessments`), which opens the course's Assessment Orders page filtered to that session (`?session=instance:<id>&from=records`). The column does not sort.
+API calls: `GET /api/j3/training-records`.
 Props: `{ userId, canManageMembers }`.
 
 #### app/dashboard/j3/tabs/AssignQuizModal.tsx

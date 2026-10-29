@@ -87,7 +87,7 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 - **GET** — the caller's pre-learning per training type: `state` (locked / open / done / expired), `count`, `expiresAt`, `completedAt`, and `material` **only while it is open to them** — this route is the lock. **POST** `{ trainingTypeId }` marks open pre-learning as done. Gate: dashboard access. `GET /api/training/types` strips `preLearning` for anyone who is not a J3 lead or trainer; `POST /api/training/events/[id]/attendance` calls `syncPreLearning` after every sign-up and cancellation, and sets `priority` on a waitlisted trainee who has earned it (promotion sorts `priority` first).
 
 #### /api/training/types
-- **GET** — lists training types (auto-seeds `TRAINING_TYPE_DEFAULTS` if collection empty); visibility scoped by role (J3 leads: all, trainers: active+wip, members: active only). Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingTypes`.
+- **GET** — lists training types (each carries `documentSlots` when a J3 lead has customised them, row 372) (auto-seeds `TRAINING_TYPE_DEFAULTS` if collection empty); visibility scoped by role (J3 leads: all, trainers: active+wip, members: active only). Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingTypes`.
 - **POST** — creates a new training type (name/category/billetField/points/description/status/etc). Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTypes` (insert). Side effects: `logAction('training.type.create')`.
 
 #### /api/training/types/[id]
@@ -105,6 +105,20 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 
 #### /api/training/types/[id]/docs/[docId]/reject
 - **POST** — rejects a pending doc with optional note. Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTypeDocs`, `Db.trainingTypes` (read). Side effects: `createNotification` to uploader.
+
+#### /api/training/types/[id]/document-slots
+- Row 372. A course's documents as a list of slots (`TrainingType.documentSlots`, read through `slotsFor` in `lib/training/document-slots.ts`: Training Document and Trainer's Guide always, Assessment Orders added for a Leadership course). **POST** `{ name }` adds a slot ("+ Add Document"); **PUT** `{ slots }` renames or reorders (`sanitiseSlots` keeps the defaults). Gate: J3 lead (`assessmentStanding(me).isLead`: `trainingGuides.delete` roles, J4, or the `departmentLeads.j3` permission). Side effects: `logAction('training.type.documents.add|edit')`.
+
+#### /api/training-guides (POST, row 372)
+- `POST` now also takes `slotId`: the guide fills that document slot of `trainingTypeId` (400 if the course has no such guide slot), its title defaults to the slot name, and a custom slot is stored as `TrainingGuide.slotId`. The two default slots still write `guideType` only, so existing guides need no migration (`guideSlotId` derives the slot from `guideType`).
+
+#### /api/training/assessments/** (row 373, orders-writing assessments)
+Collections `Db.ordersAssessmentConfigs` (keyed by training type id) and `Db.ordersAssessments`. Standing from `assessmentStanding(me)` in `lib/training/orders-assessment-db.ts`: `isLead` (J3 lead or J4: everything, similarity included), `isTrainingStaff` (adds `training.manage`: assign and read), `canEditConfig` (adds `trainingGuides.write`). Every write logs `training.assessment.*` (category `training`).
+- `GET/PUT /config/[typeId]` — the course's source orders (one per scenario variant) and the template trainees fill; defaults when none is saved. GET: training staff or config editors. PUT: `canEditConfig`. Issued copies are frozen, so an edit never changes an assessment already handed out.
+- `GET /sessions?typeId=` — the course's recent instances and training events to file assessments under; `?session=kind:id` returns that session's trainees (event: attending trainee RSVPs; instance: candidates with a `userId`); `?q=` a member search (non-skeleton, not discharged). Training staff only.
+- `GET /` — `?mine=1` is the caller's own list; otherwise `?typeId=` (and `?session=kind:id`) for training staff, or only the ones the caller is trainer on. Similarity is a score and level only, and only for those `canSeeSimilarity` allows. `POST /` `{ typeId, trainees[], session?, trainerId? }` assigns: needs at least one non-empty variant, spreads variants across the cohort with `assignVariants` (away from variants a trainee has sat), skips trainees who already have one for that session, freezes a copy of the orders and template, and notifies each trainee (website + DM, `orders_assessment`). Only a lead may name another trainer.
+- `GET /[id]` — the assessment through `shapeFor` (a trainee never receives `similarity`, on this attempt or earlier ones), plus `canReview` and `isTrainee`. `PUT /[id]` `{ answers }` saves the trainee's draft (`assigned` → `in_progress`). `POST /[id]` submits (`submitted`, or `resubmitted` after a reassessment), runs `runSimilarity` (which never blocks the submit) and notifies the trainer with a link to the review page.
+- `POST /[id]/review` `{ outcome, comment }` — assigned trainer or a lead, only while awaiting review. `passed` / `failed` close it (a comment is required to fail); `reassessment_required` moves the attempt (with its template, similarity and review) into `attempts`, picks a different variant with `nextVariant`, re-snapshots the current orders and template, clears the answers and notifies the trainee.
 
 #### /api/training/types/seed
 - **POST** — upserts `TRAINING_TYPE_DEFAULTS` into `Db.trainingTypes` (idempotent via `$setOnInsert`), returns count inserted. Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTypes`.

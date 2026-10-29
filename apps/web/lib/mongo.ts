@@ -54,6 +54,8 @@ const DbInterface = {
     doctrines: db.collection('doctrines') as MongoCollection<Doctrine>,
     doctrineVersions: db.collection('doctrine_versions') as MongoCollection<DoctrineVersion>,
     doctrineOptions: db.collection('doctrine_options') as MongoCollection<DoctrineGlobalOption>,
+    ordersAssessmentConfigs: db.collection('orders_assessment_configs') as MongoCollection<OrdersAssessmentConfig>,
+    ordersAssessments: db.collection('orders_assessments') as MongoCollection<OrdersAssessment>,
     /** The comment thread under an operation's orders. See lib/operations/comments.ts. */
     operationComments: db.collection('operation_comments') as MongoCollection<OperationComment>,
 

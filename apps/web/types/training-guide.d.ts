@@ -108,6 +108,12 @@ interface TrainingGuide {
 
     /** Distinguishes document purpose — both use the same editor for now */
     guideType?: 'trainers_guide' | 'training_document'
+    /**
+     * Row 372: which of the course's document slots this guide fills. Unset
+     * on guides from before slots existed; `guideSlotId` reads `guideType`
+     * for those.
+     */
+    slotId?: string
 
     createdAt: Date
     createdById: string

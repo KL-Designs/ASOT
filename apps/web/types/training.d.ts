@@ -45,6 +45,8 @@ interface TrainingType {
     sortOrder?: number
     // Course type — only set for Selection / Reinforcement Cycle categories
     courseType?: 'selection' | 'reinforcement_cycle'
+    /** Row 372: the course's document areas. Unset means the defaults (`lib/training/document-slots.ts`). */
+    documentSlots?: import('@/lib/training/document-slots').DocumentSlot[]
     createdAt: Date
     updatedAt: Date
 }

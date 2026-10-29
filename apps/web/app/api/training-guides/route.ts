@@ -3,6 +3,8 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
+import { ObjectId } from 'mongodb'
+import { slotsFor, TRAINING_DOCUMENT_SLOT, TRAINERS_GUIDE_SLOT } from '@/lib/training/document-slots'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,8 +49,21 @@ export async function POST(req: NextRequest) {
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     if (!client.hasRoles(me, PERMISSIONS.trainingGuides.write)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    let body: { title?: string; accentColor?: string; trainingTypeId?: string; guideType?: TrainingGuide['guideType'] }
+    let body: { title?: string; accentColor?: string; trainingTypeId?: string; guideType?: TrainingGuide['guideType']; slotId?: string }
     try { body = await req.json() } catch { return NextResponse.json({ error: 'bad json' }, { status: 400 }) }
+
+    // Row 372: a guide fills one of the course's document slots. The two
+    // default slots keep writing `guideType` so older readers still work.
+    let slot: { id: string; name: string } | null = null
+    if (body.slotId && body.trainingTypeId && ObjectId.isValid(body.trainingTypeId)) {
+        const type = await Db.trainingTypes.findOne({ _id: new ObjectId(body.trainingTypeId) })
+        const found = type ? slotsFor(type).find(s => s.id === body.slotId && s.kind === 'guide') : null
+        if (!found) return NextResponse.json({ error: 'Unknown document slot' }, { status: 400 })
+        slot = found
+    }
+    const guideType: TrainingGuide['guideType'] = slot
+        ? (slot.id === TRAINING_DOCUMENT_SLOT ? 'training_document' : 'trainers_guide')
+        : body.guideType || 'trainers_guide'
 
     const name = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || ''
     const count = await Db.trainingGuides.countDocuments({})
@@ -61,10 +76,11 @@ export async function POST(req: NextRequest) {
 
     const guide: Omit<TrainingGuide, '_id'> = {
         docRef,
-        title:       body.title?.trim() || 'Untitled Training Guide',
+        title:       body.title?.trim() || slot?.name || 'Untitled Training Guide',
         accentColor: body.accentColor || '#db001d',
         trainingTypeId: body.trainingTypeId,
-        guideType:   body.guideType || 'trainers_guide',
+        guideType,
+        ...(slot && slot.id !== TRAINING_DOCUMENT_SLOT && slot.id !== TRAINERS_GUIDE_SLOT ? { slotId: slot.id } : {}),
         status:      'draft',
         version:     '1.0',
         lastRevisedAt: now,

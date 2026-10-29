@@ -14,6 +14,8 @@ import RequestsTab from './RequestsTab'
 import TrainingVideosTab from './TrainingVideosTab'
 import { CATEGORY_ORDER } from '@/lib/training/categories'
 import { calculateSessionDates, SESSION_DEFS } from '@/lib/training/session-dates'
+import { guideSlotId, slotsFor, TRAINERS_GUIDE_SLOT, TRAINING_DOCUMENT_SLOT, type DocumentSlot } from '@/lib/training/document-slots'
+import type { Route } from 'next'
 
 const RED = '#db001d'
 type Tab = 'courses' | 'events' | 'requests' | 'assessments' | 'guides' | 'videos'
@@ -54,6 +56,7 @@ type TType = {
     preLearning?: { type: 'video' | 'file' | 'url'; label: string; url: string }[]
     sortOrder?: number
     courseType?: string
+    documentSlots?: DocumentSlot[]
 }
 
 type TCourseInstance = {
@@ -342,6 +345,8 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
     const [guidesCache, setGuidesCache] = useState<Record<string, TrainingGuide[]>>({})
     const [guidesLoading, setGuidesLoading] = useState<string | null>(null)
     const [creatingGuide, setCreatingGuide] = useState(false)
+    const [addingSlot, setAddingSlot] = useState<{ typeId: string; name: string } | null>(null)
+    const [slotError, setSlotError] = useState<{ typeId: string; message: string } | null>(null)
 
     // Videos state (per-course panel within Courses tab)
     const [videosExpanded, setVideosExpanded] = useState<string | null>(null)
@@ -559,14 +564,26 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
         }
     }
 
-    async function handleCreateGuide(typeId: string, guideType: TrainingGuide['guideType'] = 'trainers_guide') {
+    async function handleAddSlot(typeId: string) {
+        if (!addingSlot?.name.trim()) return
+        setSlotError(null)
+        const res = await fetch(`/api/training/types/${typeId}/document-slots`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: addingSlot.name }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) { setSlotError({ typeId, message: data.error ?? 'Could not add the document.' }); return }
+        setTypes(prev => prev.map(x => x._id === typeId ? { ...x, documentSlots: data.slots } : x))
+        setAddingSlot(null)
+    }
+
+    async function handleCreateGuide(typeId: string, slotId: string = TRAINERS_GUIDE_SLOT) {
         if (creatingGuide) return
         setCreatingGuide(true)
         try {
             const res = await fetch('/api/training-guides', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ trainingTypeId: typeId, guideType }),
+                body: JSON.stringify({ trainingTypeId: typeId, slotId }),
             })
             if (!res.ok) return
             const guide: TrainingGuide = await res.json()
@@ -1101,29 +1118,45 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     </div>
                 )}
 
-                {/* Persistent guide buttons for J3 context */}
+                {/* Row 372: one button per document slot, from the course's slot list */}
                 {isJ3Context && (() => {
                     const cached = guidesCache[t._id] ?? []
-                    const tDoc    = cached.find(g => g.guideType === 'training_document')
-                    const tGuide  = cached.find(g => g.guideType === 'trainers_guide' || !g.guideType)
+                    const slots = slotsFor(t)
+                    const btn = (filled: boolean, accent: string): React.CSSProperties => ({ flex: '1 1 30%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '8px 10px', background: filled ? `rgba(${accent},0.08)` : 'rgba(255,255,255,0.03)', border: `1px solid ${filled ? `rgba(${accent},0.3)` : 'rgba(255,255,255,0.1)'}`, color: filled ? `rgba(${accent},0.85)` : 'rgba(237,237,237,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: creatingGuide ? 'default' : 'pointer', opacity: (creatingGuide || guidesLoading === t._id) ? 0.5 : 1 })
                     return (
-                        <div style={{ display: 'flex', gap: 6 }}>
-                            {/* Training Document button */}
-                            <button type='button'
-                                onClick={() => tDoc ? handleOpenGuide(String(tDoc._id)) : handleCreateGuide(t._id, 'training_document')}
-                                disabled={creatingGuide || guidesLoading === t._id}
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '8px 10px', background: tDoc ? 'rgba(100,160,240,0.06)' : 'rgba(255,255,255,0.03)', border: `1px solid ${tDoc ? 'rgba(100,160,240,0.25)' : 'rgba(255,255,255,0.1)'}`, color: tDoc ? 'rgba(100,160,240,0.85)' : 'rgba(237,237,237,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: creatingGuide ? 'default' : 'pointer', opacity: (creatingGuide || guidesLoading === t._id) ? 0.5 : 1 }}>
-                                <Article style={{ fontSize: 12 }} />
-                                {tDoc ? 'Training Document' : (creatingGuide ? 'Creating…' : '+ Training Document')}
-                            </button>
-                            {/* Trainer's Guide button */}
-                            <button type='button'
-                                onClick={() => tGuide ? handleOpenGuide(String(tGuide._id)) : handleCreateGuide(t._id, 'trainers_guide')}
-                                disabled={creatingGuide || guidesLoading === t._id}
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '8px 10px', background: tGuide ? 'rgba(219,0,29,0.08)' : 'rgba(219,0,29,0.03)', border: `1px solid ${tGuide ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.15)'}`, color: tGuide ? 'rgba(219,0,29,0.85)' : 'rgba(219,0,29,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: creatingGuide ? 'default' : 'pointer', opacity: (creatingGuide || guidesLoading === t._id) ? 0.5 : 1 }}>
-                                <Article style={{ fontSize: 12 }} />
-                                {tGuide ? "Trainer's Guide" : (creatingGuide ? 'Creating…' : "+ Trainer's Guide")}
-                            </button>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {slots.map(slot => {
+                                if (slot.kind === 'assessment') return (
+                                    <button key={slot.id} type='button' onClick={() => router.push(`/dashboard/unit/training-hub/assessment/${t._id}` as Route)} style={btn(true, '245,158,11')}>
+                                        <Article style={{ fontSize: 12 }} />{slot.name}
+                                    </button>
+                                )
+                                const guide = cached.find(g => guideSlotId(g) === slot.id)
+                                const accent = slot.id === TRAINING_DOCUMENT_SLOT ? '100,160,240' : '219,0,29'
+                                return (
+                                    <button key={slot.id} type='button'
+                                        onClick={() => guide ? handleOpenGuide(String(guide._id)) : handleCreateGuide(t._id, slot.id)}
+                                        disabled={creatingGuide || guidesLoading === t._id}
+                                        style={btn(!!guide, accent)}>
+                                        <Article style={{ fontSize: 12 }} />
+                                        {guide ? slot.name : (creatingGuide ? 'Creating…' : `+ ${slot.name}`)}
+                                    </button>
+                                )
+                            })}
+                            {isJ3Lead && (addingSlot?.typeId === t._id ? (
+                                <form style={{ flex: '1 1 100%', display: 'flex', gap: 6 }} onSubmit={e => { e.preventDefault(); handleAddSlot(t._id) }}>
+                                    <input autoFocus value={addingSlot.name} onChange={e => setAddingSlot({ typeId: t._id, name: e.target.value })} placeholder='Document name'
+                                        style={{ flex: 1, padding: '6px 9px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', color: '#ededed', fontSize: '0.7rem' }} />
+                                    <button type='submit' disabled={!addingSlot.name.trim()} style={{ padding: '6px 12px', background: 'rgba(219,0,29,0.1)', border: '1px solid rgba(219,0,29,0.35)', color: 'var(--red)', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}>Add</button>
+                                    <button type='button' onClick={() => setAddingSlot(null)} style={{ padding: '6px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.45)', fontSize: '0.6rem', cursor: 'pointer' }}>Cancel</button>
+                                </form>
+                            ) : (
+                                <button type='button' onClick={() => setAddingSlot({ typeId: t._id, name: '' })}
+                                    style={{ flex: '1 1 30%', padding: '8px 10px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.4)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                    + Add Document
+                                </button>
+                            ))}
+                            {slotError?.typeId === t._id && <div style={{ flex: '1 1 100%', fontSize: '0.62rem', color: 'rgba(219,0,29,0.8)' }}>{slotError.message}</div>}
                         </div>
                     )
                 })()}

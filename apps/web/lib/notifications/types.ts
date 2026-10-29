@@ -222,6 +222,12 @@ export const NOTIFICATION_TYPES: NotifTypeMeta[] = [
         requiresAny: ['J3-Team Lead', 'J3-Head Trainer', 'J3-Assistant Head Trainer'],
     },
     {
+        type: 'orders_assessment',
+        label: 'Orders assessments',
+        description: 'When an orders-writing assessment is assigned to you or reviewed, or a trainee you assigned submits one.',
+        category: 'Training',
+    },
+    {
         type: 'training_request_approved',
         label: 'Training request approved',
         description: 'When your training request is approved and scheduled.',

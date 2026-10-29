@@ -1283,6 +1283,9 @@ Server page: `redirect('/login')` if not authenticated. Shows the current user's
 flags (not fully shown but present) likely for quick-link buttons (dashboard/preferences/calendar/
 member-management icons imported: `Api`, `Tune`, `CalendarToday`, `ManageAccounts`).
 
+#### app/me/assessments/page.tsx and app/me/assessments/[id]/page.tsx
+Row 373. A trainee's orders-writing assessments, under `/me` so a trainee without dashboard access can reach them; the assignment notification and DM link to `/me/assessments/[id]`. Login required; the API decides who may read. The list (`components/orders-assessment/MyAssessments.tsx`, `GET /api/training/assessments?mine=1`) and one assessment (`TraineeAssessment.tsx`): the trainee's source orders beside the template, saved as they type (`PUT`), submitted with an inline confirm (`POST`), then read-only with the trainer's feedback. Nothing about the similarity check is ever sent here.
+
 #### app/me/induction/page.tsx (+ InductionClient.tsx)
 Row 213, Part D, `/me/induction`: the website Member Induction the Induction Pack DM links to. Under `/me` because a recruit on day one usually cannot open the dashboard. Login required. Welcome text, image and links; a progress bar; each configured step (the first three are rows 348 Attendance, 349 Orders and 350 MILPAC) with a Mark as read toggle; and a `#selection` section with the next Selection in the reader's local time and a Register interest button. API calls: `GET/POST /api/me/induction`.
 
