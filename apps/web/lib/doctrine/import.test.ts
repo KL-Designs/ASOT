@@ -48,4 +48,12 @@ describe('parseDoctrineText', () => {
         const { values } = parseDoctrineText('1. Faction name: Takistani Army', EMPTY_VALUES)
         expect(values.fields['identity.name']).toBe('Takistani Army')
     })
+
+    test('a picture from a document goes with the question above it', () => {
+        const { values, pictures, unplaced } = parseDoctrineText('[[image:/a.png]]\nGeneral description: Conscripts\n[[image:/b.png]]\n4. Force Composition\n[[image:/c.png]]', EMPTY_VALUES)
+        expect(values.images['identity.description']).toEqual(['/b.png'])
+        expect(values.images.composition).toEqual(['/c.png'])
+        expect(pictures).toBe(2)
+        expect(unplaced).toEqual(['/a.png'])
+    })
 })

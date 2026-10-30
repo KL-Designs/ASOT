@@ -149,7 +149,7 @@ export default function DoctrineBuilder({ doctrineId, onClose, onPublished }: { 
                 </div>
                 <div className={s.flex} />
                 {dirty && <span className={s.unsaved}>Unsaved changes</span>}
-                {!readOnly && <button type='button' className={s.ghost} onClick={() => setImportOpen(true)}>Import text</button>}
+                {!readOnly && <button type='button' className={s.ghost} onClick={() => setImportOpen(true)}>Import Enemy Doctrine</button>}
                 <button type='button' className={s.ghost} onClick={() => setPreview(true)}>Preview Doctrine</button>
                 {!readOnly && <button type='button' className={s.ghost} disabled={busy || !dirty} onClick={save}>Save draft</button>}
                 {!readOnly && <button type='button' className={s.primary} disabled={busy} onClick={() => doPublish('')}>Publish</button>}
@@ -283,7 +283,7 @@ export default function DoctrineBuilder({ doctrineId, onClose, onPublished }: { 
             )}
 
             {importOpen && (
-                <ImportDialog values={values} onClose={() => setImportOpen(false)}
+                <ImportDialog base={base} values={values} onClose={() => setImportOpen(false)}
                     onApply={next => { update(() => next); setImportOpen(false); setStatus('Imported into the builder. Check it, then save the draft.') }} />
             )}
 
@@ -321,6 +321,7 @@ async function uploadImage(file: File): Promise<string> {
 function BoxExtras({ k, values, update, notes = true }: { k: string; values: DoctrineValues; update: Update; notes?: boolean }) {
     const [open, setOpen] = useState(!!values.notes[k])
     const [library, setLibrary] = useState(false)
+    const [menu, setMenu] = useState(false)
     const [uploading, setUploading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const images = values.images?.[k] ?? []
@@ -359,11 +360,18 @@ function BoxExtras({ k, values, update, notes = true }: { k: string; values: Doc
                     })} />
                     Not applicable
                 </label>
-                <label className={s.notesToggle}>
-                    {uploading ? 'Uploading…' : '+ Upload picture'}
-                    <input type='file' accept='image/*' multiple hidden disabled={uploading} onChange={e => { upload(e.target.files); e.target.value = '' }} />
-                </label>
-                <button type='button' className={s.notesToggle} onClick={() => setLibrary(true)}>+ From library</button>
+                <span className={s.menuWrap}>
+                    <button type='button' className={s.notesToggle} onClick={() => setMenu(m => !m)}>{uploading ? 'Uploading…' : '+ Add image'}</button>
+                    {menu && (
+                        <span className={s.menu} onMouseLeave={() => setMenu(false)}>
+                            <label className={s.menuItem}>
+                                Upload a picture
+                                <input type='file' accept='image/*' multiple hidden disabled={uploading} onChange={e => { setMenu(false); upload(e.target.files); e.target.value = '' }} />
+                            </label>
+                            <button type='button' className={s.menuItem} onClick={() => { setMenu(false); setLibrary(true) }}>From the library</button>
+                        </span>
+                    )}
+                </span>
                 {error && <span className={s.error}>{error}</span>}
             </div>
             {notes && open && (
@@ -385,32 +393,93 @@ function BoxExtras({ k, values, update, notes = true }: { k: string; values: Doc
     )
 }
 
-/** Paste a written doctrine; check what it matched, then merge it into the builder. Nothing is saved until the draft is. */
-function ImportDialog({ values, onClose, onApply }: { values: DoctrineValues; onClose: () => void; onApply: (next: DoctrineValues) => void }) {
+/**
+ * Import Enemy Doctrine: paste text, drop photos (they go to the image
+ * library), or drop a Word document (its text comes in for checking and its
+ * pictures attach to the questions they sat under). Check, then merge it into
+ * the builder. Nothing is saved until the draft is.
+ */
+function ImportDialog({ base, values, onClose, onApply }: { base: string; values: DoctrineValues; onClose: () => void; onApply: (next: DoctrineValues) => void }) {
     const [text, setText] = useState('')
     const [result, setResult] = useState<ImportResult | null>(null)
+    const [photos, setPhotos] = useState<string[]>([])
+    const [busy, setBusy] = useState(false)
+    const [note, setNote] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
+    const [over, setOver] = useState(false)
+
+    async function take(files: FileList | File[] | null) {
+        const list = Array.from(files ?? [])
+        if (!list.length) return
+        const docs = list.filter(f => /\.docx$/i.test(f.name))
+        const images = list.filter(f => f.type.startsWith('image/'))
+        const other = list.filter(f => !docs.includes(f) && !images.includes(f))
+        setError(other.length ? `Left out ${other.map(f => f.name).join(', ')}: import a Word document (.docx) or pictures. For a PDF, copy its text in instead.` : null)
+        if (!docs.length && !images.length) return
+        setBusy(true); setNote(null)
+        try {
+            const form = new FormData()
+            images.forEach(f => form.append('photos', f))
+            if (docs[0]) form.append('document', docs[0])
+            const res = await fetch(`${base}/import`, { method: 'POST', body: form })
+            const d = await res.json().catch(() => ({}))
+            if (!res.ok) { setError(d.error ?? 'The import failed.'); return }
+            if (d.photos?.length) setPhotos(p => [...p, ...d.photos])
+            if (d.text) { setText(t => t.trim() ? `${t}\n\n${d.text}` : d.text); setResult(null) }
+            setNote([
+                docs[0] ? `Read ${docs[0].name}${d.documentImages ? ` with ${d.documentImages} picture(s)` : ''}. Check the text below, then press Check.` : '',
+                d.photos?.length ? `${d.photos.length} photo(s) added to the image library: use Add image → From the library on any question.` : '',
+            ].filter(Boolean).join(' '))
+        } finally {
+            setBusy(false)
+        }
+    }
+
     return (
         <div className={s.modalBackdrop} onClick={onClose}>
-            <div className={s.modal} onClick={e => e.stopPropagation()} role='dialog' aria-label='Import doctrine text'>
+            <div className={s.modal} onClick={e => e.stopPropagation()} role='dialog' aria-label='Import Enemy Doctrine'>
                 <div className={s.row}>
-                    <div className={s.label}>Import doctrine text</div>
+                    <div className={s.label}>Import Enemy Doctrine</div>
                     <div className={s.flex} />
                     <button type='button' className={s.ghost} onClick={onClose}>Close</button>
                 </div>
+                <div
+                    className={`${s.dropZone} ${over ? s.dropZoneOver : ''}`}
+                    onDragOver={e => { e.preventDefault(); setOver(true) }}
+                    onDragLeave={() => setOver(false)}
+                    onDrop={e => { e.preventDefault(); setOver(false); take(e.dataTransfer.files) }}
+                >
+                    <div>{busy ? 'Importing…' : 'Drag a Word document (.docx) or photos here'}</div>
+                    <div className={s.row} style={{ justifyContent: 'center' }}>
+                        <label className={s.ghost}>Import document<input type='file' accept='.docx' hidden onChange={e => { take(e.target.files); e.target.value = '' }} /></label>
+                        <label className={s.ghost}>Add photos<input type='file' accept='image/*' multiple hidden onChange={e => { take(e.target.files); e.target.value = '' }} /></label>
+                    </div>
+                </div>
+                {note && <p className={s.notice}>{note}</p>}
+                {error && <p className={s.error}>{error}</p>}
+                {photos.length > 0 && (
+                    <div className={s.thumbs}>
+                        {photos.map(u => <div key={u} className={s.thumb}><img src={u} alt='' /></div>)}
+                    </div>
+                )}
                 <p className={s.muted}>
-                    Paste a doctrine written as &quot;Question: answer&quot; lines, for example &quot;Command structure: Centralised&quot;. Numbered section headings
+                    Or paste the text. Write it as &quot;Question: answer&quot; lines, for example &quot;Command structure: Centralised&quot;. Numbered section headings
                     (&quot;6. Contact and Engagement&quot;) help where questions share a name. &quot;N/A&quot; ticks Not applicable, &quot;Additional notes:&quot; adds notes
-                    to the question above, and &quot;Infantry: Rifle squads, Snipers&quot; adds force composition. Answers already in the builder are kept unless the text
-                    answers them again.
+                    to the question above, and &quot;Infantry: Rifle squads, Snipers&quot; adds force composition. In a document, a table with the question in one
+                    column and the answer in the next reads the same way. Answers already in the builder are kept unless the import answers them again.
                 </p>
                 <textarea className={s.textarea} rows={14} value={text} onChange={e => { setText(e.target.value); setResult(null) }} placeholder={'1. Faction Identity\nFaction name: …\nPrimary combat style: …'} />
                 <div className={s.row}>
-                    <button type='button' className={s.ghost} disabled={!text.trim()} onClick={() => setResult(parseDoctrineText(text, values))}>Check</button>
-                    <button type='button' className={s.primary} disabled={!result || !result.matched.length} onClick={() => result && onApply(result.values)}>Add to doctrine</button>
+                    <button type='button' className={s.ghost} disabled={!text.trim() || busy} onClick={() => setResult(parseDoctrineText(text, values))}>Check</button>
+                    <button type='button' className={s.primary} disabled={!result || (!result.matched.length && !result.pictures)} onClick={() => result && onApply(result.values)}>Add to doctrine</button>
                 </div>
                 {result && (
                     <>
-                        <div className={s.notice}>{result.matched.length} question(s) matched{result.matched.length ? `: ${result.matched.join(', ')}` : ''}.</div>
+                        <div className={s.notice}>
+                            {result.matched.length} question(s) matched{result.matched.length ? `: ${result.matched.join(', ')}` : ''}.
+                            {result.pictures ? ` ${result.pictures} picture(s) placed with their questions.` : ''}
+                        </div>
+                        {result.unplaced.length > 0 && <div className={s.muted}>{result.unplaced.length} picture(s) came before any question; they are in the image library to add by hand.</div>}
                         {result.unmatched.length > 0 && (
                             <details open>
                                 <summary className={s.error}>{result.unmatched.length} line(s) matched no question and will be left out</summary>

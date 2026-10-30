@@ -21,6 +21,10 @@ export interface ImportResult {
     matched: string[]
     /** Lines that matched no question. */
     unmatched: string[]
+    /** Pictures from a document attached to the question they sat under. */
+    pictures: number
+    /** Pictures that came before any question: in the image library, not on the doctrine. */
+    unplaced: string[]
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, ' ').trim()
@@ -67,6 +71,8 @@ export function parseDoctrineText(text: string, base: DoctrineValues): ImportRes
     }
     const matched: string[] = []
     const unmatched: string[] = []
+    let pictures = 0
+    const unplaced: string[] = []
     let section: DoctrineSection | null = null
     // Where an unlabelled line goes: the answer or the notes of the last question.
     let last = null as { key: string; target: 'field' | 'notes' } | null
@@ -83,6 +89,18 @@ export function parseDoctrineText(text: string, base: DoctrineValues): ImportRes
     for (const rawLine of text.replace(/\r/g, '').split('\n')) {
         const line = rawLine.replace(/^\s*[-*•]\s+/, '').replace(/\*\*/g, '').trim()
         if (!line) { last = null; continue }
+
+        // A picture from an imported document goes with the question it sat under.
+        const pic = line.match(/^\[\[image:(.+)\]\]$/)
+        if (pic) {
+            const key = last?.key ?? (section?.kind ?? null)
+            const url = pic[1].trim()
+            if (key && /^(\/|https?:\/\/)/i.test(url)) {
+                values.images[key] = [...new Set([...(values.images[key] ?? []), url])]
+                pictures++
+            } else unplaced.push(url)
+            continue
+        }
 
         const heading = findSection(line)
         if (heading) { section = heading; last = null; continue }
@@ -141,5 +159,5 @@ export function parseDoctrineText(text: string, base: DoctrineValues): ImportRes
         }
         unmatched.push(line)
     }
-    return { values, matched, unmatched }
+    return { values, matched, unmatched, pictures, unplaced }
 }
