@@ -14,6 +14,7 @@ import RequestsTab from './RequestsTab'
 import TrainingVideosTab from './TrainingVideosTab'
 import { CATEGORY_ORDER } from '@/lib/training/categories'
 import { calculateSessionDates, SESSION_DEFS } from '@/lib/training/session-dates'
+import AssessmentManager from '@/components/orders-assessment/AssessmentManager'
 import { guideSlotId, slotsFor, TRAINERS_GUIDE_SLOT, TRAINING_DOCUMENT_SLOT, type DocumentSlot } from '@/lib/training/document-slots'
 import type { Route } from 'next'
 
@@ -314,6 +315,8 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
         if (wanted === 'assessments' || wanted === 'events' || wanted === 'requests') setTab(wanted)
     }, [])
     const [types, setTypes] = useState<TType[]>([])
+    /** Staff Assessments: '' is NCO assessments, otherwise a course's Assessment Orders. */
+    const [staffAssessment, setStaffAssessment] = useState('')
     const [loading, setLoading] = useState(true)
     const [showInactive, setShowInactive] = useState(false)
     const [modal, setModal] = useState<ModalState | null>(null)
@@ -1360,7 +1363,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     {(['courses', 'events', 'requests', 'assessments'] as Tab[]).map(t => (
                         <button key={t} type='button' onClick={() => setTab(t)}
                             style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === t ? RED : 'transparent'}`, color: tab === t ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: -1, transition: 'color 0.15s, border-color 0.15s' }}>
-                            {t === 'courses' ? 'Courses' : t === 'events' ? 'Events' : t === 'requests' ? 'Requests' : 'NCO Assessments'}
+                            {t === 'courses' ? 'Courses' : t === 'events' ? 'Events' : t === 'requests' ? 'Requests' : 'Staff Assessments'}
                         </button>
                     ))}
                     {isJ3Context && (
@@ -1572,8 +1575,28 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {/* Tab: Events */}
             {tab === 'events' && <EventsTab isJ3Lead={isJ3Lead} isTrainer={isTrainer} isJ3Trainer={isJ3Trainer} />}
 
-            {/* Tab: NCO assessments */}
-            {tab === 'assessments' && <AssessmentsTab />}
+            {/* Tab: Staff assessments. NCO assessments, and each Leadership
+                course's Assessment Orders; senior NCO and officer ones join later. */}
+            {tab === 'assessments' && (() => {
+                const orderCourses = isJ3Context ? types.filter(t => slotsFor(t).some(sl => sl.kind === 'assessment')) : []
+                const subBtn = (on: boolean): React.CSSProperties => ({ padding: '6px 14px', background: on ? 'rgba(219,0,29,0.1)' : 'transparent', border: `1px solid ${on ? 'rgba(219,0,29,0.4)' : 'rgba(255,255,255,0.1)'}`, color: on ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' })
+                const current = orderCourses.find(t => t._id === staffAssessment)
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {orderCourses.length > 0 && (
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '14px 24px 0' }}>
+                                <button type='button' style={subBtn(!current)} onClick={() => setStaffAssessment('')}>NCO Assessments</button>
+                                {orderCourses.map(t => (
+                                    <button key={t._id} type='button' style={subBtn(current?._id === t._id)} onClick={() => setStaffAssessment(t._id)}>{t.name}: Orders</button>
+                                ))}
+                            </div>
+                        )}
+                        {current
+                            ? <div style={{ padding: '16px 24px' }}><AssessmentManager key={current._id} embedded typeId={current._id} myId={myId} initialReview={null} initialSession='' backUrl='/dashboard/unit/training-hub' /></div>
+                            : <AssessmentsTab />}
+                    </div>
+                )
+            })()}
 
             {/* Tab: Requests */}
             {tab === 'requests' && <RequestsTab isJ3Lead={isJ3Lead} myId={myId} />}

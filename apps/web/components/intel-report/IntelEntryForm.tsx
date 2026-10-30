@@ -87,7 +87,11 @@ export default function IntelEntryForm({ initial, canAssess, simple, sequence, s
         setLink('')
     }
 
+    // Starting intel shows with the orders; holding it back for a later mission says the opposite.
+    const contradiction = v.starting && v.hiddenUntil !== '' && Number(v.hiddenUntil) > (sequence ?? 1)
+
     async function submit() {
+        if (contradiction) { setError('Choose either starting intel or hidden until a later mission, not both.'); return }
         setBusy(true)
         setError(null)
         const err = await onSubmit(v)
@@ -113,22 +117,31 @@ export default function IntelEntryForm({ initial, canAssess, simple, sequence, s
             <div className={s.row}>
                 <input className={s.input} style={{ maxWidth: 200 }} placeholder='Grid (e.g. 034 127)' value={v.grid} maxLength={40} onChange={e => set('grid', e.target.value)} />
                 {canAssess && !simple && (
-                    <>
-                        <input className={s.input} style={{ maxWidth: 200 }} placeholder='Call sign (optional)' value={v.callSign} maxLength={60}
-                            disabled={v.starting} onChange={e => set('callSign', e.target.value)} />
-                        <label className={s.check}>
-                            <input type='checkbox' checked={v.starting} onChange={e => set('starting', e.target.checked)} /> Starting intel
-                        </label>
-                    </>
+                    <input className={s.input} style={{ maxWidth: 200 }} placeholder='Call sign (optional)' value={v.callSign} maxLength={60}
+                        disabled={v.starting} onChange={e => set('callSign', e.target.value)} />
                 )}
-                {canAssess && (
+            </div>
+            {canAssess && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {!simple && (
+                        <label className={s.check} title='Players see it from the start, alongside the mission orders.'>
+                            <input type='checkbox' checked={v.starting} onChange={e => set('starting', e.target.checked)} /> Starting intel (visible with mission orders)
+                        </label>
+                    )}
                     <label className={s.check} title='Players will not see this entry until the campaign reaches that mission.'>
+                        <input type='checkbox' checked={v.hiddenUntil !== ''}
+                            onChange={e => set('hiddenUntil', e.target.checked ? String((sequence ?? 0) + 1) : '')} />
                         Hidden until mission
                         <input className={s.input} style={{ width: 70 }} type='number' min={(v.starting ? 0 : sequence ?? 0) + 1}
                             value={v.hiddenUntil} onChange={e => set('hiddenUntil', e.target.value)} />
                     </label>
-                )}
-            </div>
+                    {contradiction && (
+                        <span style={{ fontSize: '0.72rem', color: '#f59e0b' }}>
+                            Starting intel is visible straight away, but this is also hidden until mission {v.hiddenUntil}. Choose one or the other.
+                        </span>
+                    )}
+                </div>
+            )}
 
             {v.evidence.length > 0 && (
                 <div className={s.evidenceList}>

@@ -60,7 +60,8 @@ async function call<T>(url: string, method = 'GET', body?: unknown): Promise<{ o
 
 const sessionKey = (s: Session | null) => s ? `${s.kind}:${s.id}` : ''
 
-export default function AssessmentManager({ typeId, myId, initialReview, initialSession, backUrl }: { typeId: string; myId: string; initialReview: string | null; initialSession: string; backUrl: string }) {
+/** `embedded`: shown inside the Training Hub's Staff Assessments tab, which supplies its own heading and navigation. */
+export default function AssessmentManager({ typeId, myId, initialReview, initialSession, backUrl, embedded }: { typeId: string; myId: string; initialReview: string | null; initialSession: string; backUrl: string; embedded?: boolean }) {
     const [type, setType] = useState<{ name: string; category: string } | null>(null)
     const [standing, setStanding] = useState<Standing | null>(null)
     const [orders, setOrders] = useState<SourceOrders[]>([])
@@ -91,12 +92,14 @@ export default function AssessmentManager({ typeId, myId, initialReview, initial
     const tabs: [Tab, string][] = [['assessments', 'Assessments'], ...(standing?.isTrainingStaff ? [['assign', 'Assign'] as [Tab, string]] : []), ['orders', 'Source Orders'], ['template', 'Template']]
 
     return (
-        <div style={{ padding: '24px 20px', maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-                <Link href={backUrl as Route} style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.45)', textDecoration: 'none' }}>← Back</Link>
-                <div style={{ ...label, marginTop: 10 }}>Assessment Orders</div>
-                <h1 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '4px 0 0' }}>{type?.name ?? 'Loading…'}</h1>
-            </div>
+        <div style={{ padding: embedded ? 0 : '24px 20px', maxWidth: 1200, margin: embedded ? 0 : '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {!embedded && (
+                <div>
+                    <Link href={backUrl as Route} style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.45)', textDecoration: 'none' }}>← Back</Link>
+                    <div style={{ ...label, marginTop: 10 }}>Assessment Orders</div>
+                    <h1 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '4px 0 0' }}>{type?.name ?? 'Loading…'}</h1>
+                </div>
+            )}
             <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                 {tabs.map(([k, l]) => (
                     <button key={k} type='button' onClick={() => setTab(k)} style={{ padding: '8px 14px', background: 'transparent', border: 'none', borderBottom: `2px solid ${tab === k ? 'var(--red)' : 'transparent'}`, color: tab === k ? '#ededed' : 'rgba(237,237,237,0.45)', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>{l}</button>
