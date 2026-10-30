@@ -5,9 +5,15 @@ import ApplicantPageView from '@/app/recruit-session/ApplicantPageView'
 import { type IntroProgress, type LivePreview } from '@/app/recruit-session/StepContent'
 import TeamSpeakCard from '@/app/dashboard/profile/_components/TeamSpeakCard'
 
-const WS_URL = (process.env.NEXT_PUBLIC_BASEURL ?? '')
-    .replace(/^http/, 'ws')
-    .replace(/^https/, 'wss') + '/recruit-session'
+/**
+ * Same origin as the page, worked out in the browser. The build-time base URL
+ * can name another host (apex vs www, or empty in the image), and a WebSocket
+ * does not follow redirects, so the link sat on "Reconnecting" for good.
+ */
+function recruitSessionWsUrl(): string {
+    if (typeof window === 'undefined') return ''
+    return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/recruit-session`
+}
 
 interface Props {
     sessionId: string
@@ -51,7 +57,7 @@ export default function ApplicantSessionPage({ sessionId, initialStep, initialRa
 
     function connect() {
         if (wsRef.current?.readyState === WebSocket.OPEN) return
-        const ws = new WebSocket(`${WS_URL}?id=${sessionId}&role=applicant`)
+        const ws = new WebSocket(`${recruitSessionWsUrl()}?id=${sessionId}&role=applicant`)
         wsRef.current = ws
 
         ws.onopen = () => {

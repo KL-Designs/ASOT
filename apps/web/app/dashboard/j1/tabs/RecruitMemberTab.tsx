@@ -17,9 +17,15 @@ import { LEVEL_LABEL, type ReturningLevel } from '@/lib/j1/rejoin'
 import { RESTORE_ITEMS, RESTORE_LABEL, type RestoreItem } from '@/lib/military/reinstate-items'
 import InductionPackSend from './InductionPackSend'
 
-const RS_WS_URL = (process.env.NEXT_PUBLIC_BASEURL ?? '')
-    .replace(/^http/, 'ws')
-    .replace(/^https/, 'wss') + '/recruit-session'
+/**
+ * Same origin as the page, worked out in the browser. The build-time base URL
+ * can name another host (apex vs www, or empty in the image), and a WebSocket
+ * does not follow redirects, so the link sat on "Reconnecting" for good.
+ */
+function recruitSessionWsUrl(): string {
+    if (typeof window === 'undefined') return ''
+    return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/recruit-session`
+}
 
 const ASOT_TS_ADDRESS = process.env.NEXT_PUBLIC_TS_ADDRESS ?? 'ts.asotmilsim.com'
 const TS3_DOWNLOAD = 'https://www.teamspeak.com/en/downloads/#ts3client'
@@ -575,7 +581,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
     const connectSessionWs = useCallback((id: string, token: string) => {
         if (sessionWsRef.current?.readyState === WebSocket.OPEN) return
-        const ws = new WebSocket(`${RS_WS_URL}?id=${id}&role=recruiter&token=${token}`)
+        const ws = new WebSocket(`${recruitSessionWsUrl()}?id=${id}&role=recruiter&token=${token}`)
         sessionWsRef.current = ws
 
         ws.onmessage = (event) => {
