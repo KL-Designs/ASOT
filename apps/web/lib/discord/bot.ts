@@ -95,7 +95,7 @@ async function openDMChannel(userId: string): Promise<string> {
 let devModeCache: { enabled: boolean; ts: number } | null = null
 const DEV_MODE_TTL_MS = 30_000 // 30 seconds
 
-async function isDevModeEnabled(): Promise<boolean> {
+export async function isDevModeEnabled(): Promise<boolean> {
     const now = Date.now()
     if (devModeCache && now - devModeCache.ts < DEV_MODE_TTL_MS) {
         return devModeCache.enabled

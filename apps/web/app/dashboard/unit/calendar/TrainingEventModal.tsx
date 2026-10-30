@@ -69,6 +69,7 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
     const [offsets, setOffsets] = useState<number[]>(defaultReminderOffsets())
     /** Selection / Reinforcement Cycle: one row per session. */
     const [sessions, setSessions] = useState<SessionRow[]>([])
+    const [courseNumber, setCourseNumber] = useState<{ prefix: string; value: string } | null>(null)
     const [addOffset, setAddOffset] = useState<number | ''>('')
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -98,12 +99,19 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
         const t = courses.find(x => x._id === id)
         setOffsets(defaultReminderOffsets(t?.courseType))
         setSessions(t?.courseType ? rowsFromTemplate(sessionTemplateFor(t), date, startTime) : [])
+        setCourseNumber(null)
+        // The run number defaults to the next after the highest used; J3 may type another.
+        if (t?.courseType) {
+            fetch(`/api/j3/course-instances?trainingTypeId=${t._id}`).then(r => r.json())
+                .then(d => { if (d?.nextNumber) setCourseNumber({ prefix: d.prefix ?? (t.courseType === 'selection' ? 'SEL' : 'RC'), value: String(d.nextNumber).padStart(3, '0') }) })
+                .catch(() => {})
+        }
         if (t?.description && !description) setDescription(t.description)
         recalcEnd(t, date, startTime)
     }
 
     function reset() {
-        setTypeId(''); setDescription(''); setEndEdited(false); setError(null); setSessions([])
+        setTypeId(''); setDescription(''); setEndEdited(false); setError(null); setSessions([]); setCourseNumber(null)
         setOffsets(defaultReminderOffsets()); setAddOffset('')
     }
 
@@ -124,7 +132,7 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
             const res = isCourse
                 ? await fetch('/api/j3/course-instances', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ trainingTypeId: selected._id, sessions: course!.plan, reminderOffsets: offsets }),
+                    body: JSON.stringify({ trainingTypeId: selected._id, sessions: course!.plan, reminderOffsets: offsets, ...(courseNumber && Number(courseNumber.value) > 0 ? { instanceNumber: Number(courseNumber.value) } : {}) }),
                 })
                 : await fetch('/api/training/events', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -190,9 +198,14 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
 
                 {isCourse ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <TextField label='Course number' size='small' value={courseNumber?.value ?? ''}
+                            onChange={e => setCourseNumber(c => ({ prefix: c?.prefix ?? (selected?.courseType === 'selection' ? 'SEL' : 'RC'), value: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
+                            InputProps={{ startAdornment: <span style={{ color: 'rgba(237,237,237,0.5)', marginRight: 4, fontSize: '0.85rem' }}>{courseNumber?.prefix ?? (selected?.courseType === 'selection' ? 'SEL' : 'RC')}-</span> }}
+                            helperText='Defaults to the next after the last one run. Change it if needed.'
+                            sx={{ ...inputSx, maxWidth: 260 }} />
                         <span style={labelStyle}>Sessions</span>
                         <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.45)', lineHeight: 1.5 }}>
-                            Creates the next numbered {selected?.name} run. Rename or remove sessions for this run; the defaults are set on the course in the Training Hub.
+                            Each session takes its name from the course in the Training Hub (Course Instances → Sessions). Change a name, date or time here for this run only.
                         </span>
                         <CourseSessionsEditor rows={sessions} onChange={setSessions}
                             onResuggest={() => selected && sessions[0] && setSessions(rowsFromTemplate(

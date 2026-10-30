@@ -1,5 +1,5 @@
 import Db from '@/lib/mongo'
-import { botRequest, upsertChannelPost } from '@/lib/discord/bot'
+import { botRequest, isDevModeEnabled, upsertChannelPost } from '@/lib/discord/bot'
 import { findNextSelection } from '@/lib/training/find-next-selection'
 import {
     SELECTION_COUNTDOWN_ID, buildCountdownPost, countdownAction, countdownDate, fingerprint, withDefaults,
@@ -28,7 +28,7 @@ export function countdownChannel(config: SelectionCountdownConfig): string {
  *
  * Never throws: a Discord failure is recorded on the settings for J3 to see.
  */
-export async function syncSelectionCountdown(now = new Date(), opts: { fresh?: boolean } = {}): Promise<CountdownAction | 'failed'> {
+export async function syncSelectionCountdown(now = new Date(), opts: { fresh?: boolean } = {}): Promise<CountdownAction | 'failed' | 'held'> {
     const config = await loadCountdownConfig()
     const channelId = countdownChannel(config)
     const next = config.enabled || opts.fresh ? await findNextSelection(now) : null
@@ -36,6 +36,8 @@ export async function syncSelectionCountdown(now = new Date(), opts: { fresh?: b
     const fp = fingerprint(channelId, post)
     let action = countdownAction(config, channelId, fp)
     if (opts.fresh && channelId) {
+        // Developer mode holds every Discord message back: say so, and leave the old post where it is.
+        if (await isDevModeEnabled()) return 'held'
         if (config.messageId && config.postedChannelId) {
             await botRequest('DELETE', `/channels/${config.postedChannelId}/messages/${config.messageId}`).catch(() => null)
         }
@@ -54,7 +56,7 @@ export async function syncSelectionCountdown(now = new Date(), opts: { fresh?: b
             else throw err
         }
         // Null means developer mode held it back; record nothing so it goes out once the mode is off.
-        if (!messageId) return action
+        if (!messageId) return 'held'
         await Db.siteSettings.updateOne(
             { _id: SELECTION_COUNTDOWN_ID },
             { $set: { messageId, postedChannelId: channelId, postedFingerprint: fp, postedAt: now, ...(action === 'post' ? { sentAt: now } : {}) }, $unset: { lastError: '' } },

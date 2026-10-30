@@ -28,6 +28,7 @@ interface State {
         updatedByName: string | null
     }
     channelFromEnv: boolean
+    devMode?: boolean
     next: { at: string; instanceRef: string } | null
     shownAt: string | null
     preview: { title: string; description: string; image?: { url: string } }
@@ -153,6 +154,7 @@ export default function SelectionCountdownTab() {
                         )}
                     </div>
                     {error && <Alert severity='error' sx={{ borderRadius: 0, fontSize: '0.8rem' }}>{error}</Alert>}
+                    {state.devMode && <Alert severity='warning' sx={{ borderRadius: 0, fontSize: '0.8rem' }}>Discord developer mode is on (J4 → Tools → Discord Dev Mode), so nothing is posted to Discord. The post goes out once it is turned off.</Alert>}
                     {form.lastError && <Alert severity='warning' sx={{ borderRadius: 0, fontSize: '0.8rem' }}>Last Discord attempt failed: {form.lastError}</Alert>}
                 </div>
 

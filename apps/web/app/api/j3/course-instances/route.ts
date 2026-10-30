@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { COURSE_PREFIX, courseTypeOf, nextCourseNumber } from '@/lib/training/course-type'
 import { sanitiseSessionPlan, sessionTemplateFor, sessionTitle, suggestedSessionDates, weekOf } from '@/lib/training/course-sessions'
 import { logAction } from '@/lib/logAction'
 import { sanitiseOffsets } from '@/lib/training/reminder-offsets'
@@ -25,7 +26,12 @@ export async function GET(req: NextRequest) {
     if (!includeDeleted) filter.deletedAt = { $exists: false }
 
     const instances = await Db.courseInstances.find(filter).sort({ instanceNumber: 1 }).toArray()
-    return NextResponse.json({ instances })
+    // The number the next run of this course gets by default (001, 002, …), for the Add Training Event form.
+    const counter = await Db.courseInstanceCounters.findOne({ _id: typeId })
+    const type = ObjectId.isValid(typeId) ? await Db.trainingTypes.findOne({ _id: new ObjectId(typeId) }, { projection: { courseType: 1, category: 1, name: 1 } }) : null
+    const courseType = type ? courseTypeOf(type) : undefined
+    const all = includeDeleted ? instances : await Db.courseInstances.find({ trainingTypeId: typeId }, { projection: { instanceNumber: 1, instanceRef: 1 } }).toArray()
+    return NextResponse.json({ instances, nextNumber: nextCourseNumber(counter?.seq, all), prefix: courseType ? COURSE_PREFIX[courseType] : null })
 }
 
 export async function POST(req: NextRequest) {
@@ -42,7 +48,8 @@ export async function POST(req: NextRequest) {
 
     const trainingType = await Db.trainingTypes.findOne({ _id: oid })
     if (!trainingType) return NextResponse.json({ error: 'Training type not found' }, { status: 404 })
-    if (!trainingType.courseType) return NextResponse.json({ error: 'Not a course type' }, { status: 400 })
+    const courseType = courseTypeOf(trainingType)
+    if (!courseType) return NextResponse.json({ error: 'Not a course type' }, { status: 400 })
 
     const existing = await Db.courseInstances.findOne({
         trainingTypeId,
@@ -51,14 +58,22 @@ export async function POST(req: NextRequest) {
     })
     if (existing) return NextResponse.json({ error: 'An active course instance already exists for this type' }, { status: 409 })
 
-    const counter = await Db.courseInstanceCounters.findOneAndUpdate(
-        { _id: trainingTypeId },
-        { $inc: { seq: 1 } },
-        { upsert: true, returnDocument: 'after' },
-    )
-    const seq = counter?.seq ?? 1
-    const prefix = trainingType.courseType === 'selection' ? 'SEL' : 'RC'
+    /*
+     * The course number: the next after the highest used by default, or the
+     * one J3 typed (to follow on from runs recorded before the site counted
+     * them). Either way it must not already be taken, and the counter moves
+     * up to it so the next default follows on.
+     */
+    const prefix = COURSE_PREFIX[courseType]
+    const used = await Db.courseInstances.find({ trainingTypeId }, { projection: { instanceNumber: 1, instanceRef: 1, deletedAt: 1 } }).toArray()
+    const counterNow = await Db.courseInstanceCounters.findOne({ _id: trainingTypeId })
+    const requested = Number(body.instanceNumber)
+    const seq = Number.isInteger(requested) && requested > 0 && requested < 10000 ? requested : nextCourseNumber(counterNow?.seq, used)
     const instanceRef = `${prefix}-${String(seq).padStart(3, '0')}`
+    if (used.some(u => !u.deletedAt && (u.instanceRef === instanceRef || u.instanceNumber === seq))) {
+        return NextResponse.json({ error: `${instanceRef} is already used. Choose another number.` }, { status: 409 })
+    }
+    await Db.courseInstanceCounters.updateOne({ _id: trainingTypeId }, { $max: { seq } }, { upsert: true })
 
     const name = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || ''
     const now = new Date()
@@ -73,7 +88,7 @@ export async function POST(req: NextRequest) {
     if (!plan && session1DateRaw) {
         const d = new Date(session1DateRaw)
         if (!isNaN(d.getTime())) {
-            const template = sessionTemplateFor(trainingType)
+            const template = sessionTemplateFor({ ...trainingType, courseType })
             plan = suggestedSessionDates(d, template.length).map((start, i) => ({ name: template[i].name, start, durationMinutes: template[i].durationMinutes }))
         }
     }
@@ -85,7 +100,7 @@ export async function POST(req: NextRequest) {
     const doc: Omit<CourseInstance, '_id'> = {
         trainingTypeId,
         trainingTypeName: trainingType.name,
-        courseType: trainingType.courseType as CourseInstanceType,
+        courseType: courseType as CourseInstanceType,
         instanceNumber: seq,
         instanceRef,
         status,
@@ -112,7 +127,7 @@ export async function POST(req: NextRequest) {
         department: 'J3',
         entityType: 'course_instance',
         entityId: instanceId,
-        after: { instanceRef, courseType: trainingType.courseType, trainingTypeName: trainingType.name, status: 'planning' },
+        after: { instanceRef, courseType, trainingTypeName: trainingType.name, status: 'planning' },
     })
 
     // One session document and one pair of calendar events (J3 and unit) per session.
@@ -130,7 +145,7 @@ export async function POST(req: NextRequest) {
         }))
         await Db.courseSessions.insertMany(sessionDocs as CourseSession[])
 
-    const courseLabel = trainingType.courseType === 'selection' ? 'Selection' : 'Reinforcement Cycle'
+    const courseLabel = courseType === 'selection' ? 'Selection' : 'Reinforcement Cycle'
     const calendarDocs: Omit<CalendarEvent, '_id'>[] = []
     plan.forEach((p, i) => {
         const minutes = p.durationMinutes ?? trainingType.durationMinutes ?? 120

@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { logAction } from '@/lib/logAction'
 import { findNextSelection } from '@/lib/training/find-next-selection'
 import { SELECTION_COUNTDOWN_ID, buildCountdownPost, countdownDate } from '@/lib/recruitment/selection-countdown'
+import { isDevModeEnabled } from '@/lib/discord/bot'
 import { countdownChannel, loadCountdownConfig, syncSelectionCountdown } from '@/lib/recruitment/selection-countdown-sync'
 
 export const dynamic = 'force-dynamic'
@@ -45,6 +46,7 @@ async function state() {
             updatedByName: config.updatedByName ?? null,
         },
         channelFromEnv: !config.channelId && !!countdownChannel(config),
+        devMode: await isDevModeEnabled(),
         next: next ? { at: next.at, instanceRef: next.instanceRef } : null,
         shownAt: at,
         preview: buildCountdownPost(config, at, process.env.NEXT_PUBLIC_BASEURL ?? '').embeds[0],
@@ -115,6 +117,7 @@ export async function POST() {
     const me = g.me!
     const result = await syncSelectionCountdown(new Date(), { fresh: true })
     if (result === 'unconfigured') return NextResponse.json({ error: 'Set the channel first.' }, { status: 400 })
+    if (result === 'held') return NextResponse.json({ error: 'Not sent: Discord developer mode is on (J4 → Tools → Discord Dev Mode), which holds back every message the site sends. The post goes out once it is turned off.' }, { status: 409 })
     logAction({
         action: 'j3.selectionCountdown.send',
         category: 'training',
@@ -125,5 +128,11 @@ export async function POST() {
         entityId: SELECTION_COUNTDOWN_ID,
         details: { result },
     }).catch(console.error)
-    return NextResponse.json(await state())
+    const after = await state()
+    if (result === 'failed') {
+        const reason = after.config.lastError ?? 'unknown error'
+        const hint = /50013|50001|Missing (Permissions|Access)/i.test(reason) ? ' The bot needs View Channel, Send Messages, Embed Links and Attach Files in that channel.' : ''
+        return NextResponse.json({ error: `Discord refused the post: ${reason}.${hint}` }, { status: 502 })
+    }
+    return NextResponse.json(after)
 }

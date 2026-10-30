@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Db from '@/lib/mongo'
+import { normaliseTrainingType } from '@/lib/training/course-type'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { TRAINING_TYPE_DEFAULTS } from '@/lib/training/defaults'
@@ -22,8 +23,11 @@ export async function GET() {
     }
 
     // J3 leads see all; trainers see active + wip; members see active only
-    const query = isJ3Lead ? {} : isTrainer ? { status: { $in: ['active', 'wip'] as TrainingType['status'][] } } : { status: 'active' as TrainingType['status'] }
-    const types = await Db.trainingTypes.find(query).sort({ sortOrder: 1, category: 1, name: 1 }).toArray()
+    // Filtered after normalising: a type saved before `status` existed has only `isActive`.
+    const allowed: TrainingType['status'][] = isJ3Lead ? ['active', 'wip', 'inactive'] : isTrainer ? ['active', 'wip'] : ['active']
+    const types = (await Db.trainingTypes.find({}).sort({ sortOrder: 1, category: 1, name: 1 }).toArray())
+        .map(normaliseTrainingType)
+        .filter(t => allowed.includes(t.status))
 
     /*
      * Pre-learning is locked material, and this list goes to every member. The
