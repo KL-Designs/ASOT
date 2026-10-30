@@ -43,6 +43,9 @@ export async function GET(request: NextRequest) {
             ownedBy: me.id,
             ownedByName: ownerName,
             ...content,
+            // The template's document itself, so the mission opens with its
+            // content; see OperationTemplate.yjsState.
+            ...(template?.yjsState ? { yjsState: template.yjsState } : {}),
         })
 
         logAction({

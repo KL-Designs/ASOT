@@ -20,7 +20,7 @@ export async function GET() {
     const me = await checkAuth()
     if (!me) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
-    const templates = await Db.operationTemplates.find({}).sort({ createdAt: -1 }).toArray()
+    const templates = await Db.operationTemplates.find({}, { projection: { yjsState: 0 } }).sort({ createdAt: -1 }).toArray()
     // Whether this viewer may choose the default, so the tab can draw the
     // control only for the people PATCH will accept it from.
     return NextResponse.json({ templates, canSetDefault: client.hasRoles(me, PERMISSIONS.departmentLeads.j2) })
@@ -83,6 +83,10 @@ export async function POST(request: NextRequest) {
         sections: source.sections,
         pages: source.pages,
         extraPageSections: source.extraPageSections,
+        // The editor builds the document from this, not from the fields above,
+        // and starts from defaults when it is missing; without it a template
+        // carried the outline but none of the writing.
+        ...((source as { yjsState?: unknown }).yjsState ? { yjsState: (source as { yjsState?: unknown }).yjsState } : {}),
         createdBy: me.id,
         createdAt: new Date().toISOString(),
     }

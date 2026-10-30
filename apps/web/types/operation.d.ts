@@ -319,6 +319,11 @@ declare global {
         /** The template every new mission starts from. At most one template
          *  carries it; set by a J2 lead. See lib/operations/default-template.ts. */
         isDefault?: boolean
+        /** The source mission's collaborative document state (the editor's
+         *  Yjs doc), so a mission made from the template opens with its
+         *  content and not only its layout. Absent on templates saved before
+         *  this was kept; those still give just the outline. */
+        yjsState?: unknown
     }
 
 }
