@@ -145,7 +145,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - Pure grid-view maths for the map's grid canvas: `viewFor` (affine world→canvas for a centre+zoom), `lerpView`, `visibleWorld`, `zoomEase` + `ZOOM_ANIMATION_MS` (Leaflet's zoom transition). Lets `OperationMap` redraw the grid every frame of an animated zoom instead of snapping at `zoomend`. Unit-tested.
 
 ### lib/operations/default-template.ts
-- Pure `newMissionContent(template, newId)` — the sections/pages a brand-new mission starts with: the J2 default template's content when one is set (`OperationTemplate.isDefault`), always with a Zeus Notes and an OCAP page added back if missing. Unit-tested. Used by `/api/operations/new`.
+- Pure `newMissionContent(template, newId)` — the sections/pages a brand-new mission starts with: the J2 default template's content when one is set (`OperationTemplate.isDefault` for single missions, `isCampaignDefault` for a campaign's slots via `?kind=campaign`), with its `yjsState` copied by the route, always with a Zeus Notes and an OCAP page added back if missing. Unit-tested. Used by `/api/operations/new`.
 
 ### lib/operations/comments.ts
 - Server helpers for the orders comment thread: `commentViewer()` (who may read/write/moderate), `readOperationComments(operationId)` (thread with deleted shells + callsign colours), `toView()`. Collections: `Db.operationComments`. Used by `/api/operations/[id]/comments*`.

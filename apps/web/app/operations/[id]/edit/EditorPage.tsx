@@ -40,6 +40,8 @@ export default function EditorPage() {
     const { id: routeId } = useParams<{ id: string }>()
     const editSearchParams = useSearchParams()
     const fromJ2 = editSearchParams?.get('from') === 'j2'
+    // Opened from J2 → Templates to edit a template's mission; Back returns there.
+    const fromTemplates = editSearchParams?.get('from') === 'j2-templates'
 
     const [opID, setOpID] = useState(routeId || '')
     const [title, setTitle] = useState('')
@@ -908,6 +910,7 @@ export default function EditorPage() {
                     <Header
                         operationId={opID}
                         fromJ2={fromJ2}
+                        fromTemplates={fromTemplates}
                         title={title}
                         status={status}
                         saveStatus={saveStatus}

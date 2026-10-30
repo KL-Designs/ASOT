@@ -12,6 +12,7 @@ export type SaveStatus = 'saved' | 'saving' | 'unsaved'
 interface HeaderProps {
     operationId: string
     fromJ2: boolean
+    fromTemplates?: boolean
     title: string
     /** The operation's own lifecycle status — Upcoming / Active / Completed / In Development. */
     status: string
@@ -87,7 +88,7 @@ const menuItemStyle: CSSProperties = {
 }
 
 export default function Header({
-    operationId, fromJ2, title, status, saveStatus, isHQ, canSchedule, canAttendance, canAar,
+    operationId, fromJ2, fromTemplates, title, status, saveStatus, isHQ, canSchedule, canAttendance, canAar,
     onDelete, activityOpen, onToggleActivity,
     publishConfirmOpen, publishSaving, onPublishClick, onPublishConfirm, onPublishCancel,
     tab, onTabChange, editing = false,
@@ -127,10 +128,10 @@ export default function Header({
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 1 }}>
                 <Link
-                    href={fromJ2 ? '/dashboard/j2' : '/operations'}
+                    href={fromTemplates ? '/dashboard/j2?tab=9' : fromJ2 ? '/dashboard/j2' : '/operations'}
                     style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-3)', textDecoration: 'none', flexShrink: 0 }}
                 >
-                    {fromJ2 ? '← J2 Operations' : '← Back'}
+                    {fromTemplates ? '← J2 Templates' : fromJ2 ? '← J2 Operations' : '← Back'}
                 </Link>
                 <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
                 <span style={{

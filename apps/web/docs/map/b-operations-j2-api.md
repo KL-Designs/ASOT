@@ -63,7 +63,8 @@ Scope: 43 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 #### /api/operations/templates
 - **GET** — lists all operation templates, newest first. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationTemplates`.
 - **POST** — creates a template snapshot (sections/pages/extraPageSections) from an existing operation (`sourceOperationId`). Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationTemplates`, `Db.operations` (read source).
-- **PATCH** — `{ id, isDefault }` sets or clears the one template every new mission starts from (clears all others first). GET also returns `canSetDefault`. Gate: `PERMISSIONS.operations.write` AND `PERMISSIONS.departmentLeads.j2`. Collections: `Db.operationTemplates`. Side effects: `logAction('operation.template.setDefault' | 'clearDefault')`.
+- **PATCH** — `{ id, kind?: 'single' | 'campaign', isDefault }` sets or clears the one template new single missions (`isDefault`) or a campaign's mission slots (`isCampaignDefault`) start from (clears all others first). GET also returns `canSetDefault`. Gate: `PERMISSIONS.operations.write` AND `PERMISSIONS.departmentLeads.j2`. Collections: `Db.operationTemplates`. Side effects: `logAction('operation.template.setDefault' | 'clearDefault')`.
+- **PUT** — `{ id }` refreshes a template's sections, pages and `yjsState` from its `sourceOperationId` (recorded by POST since 2026-10-30; older templates get 409). Gate: `PERMISSIONS.operations.write`. Side effects: `logAction('operation.template.refresh')`. UI: J2 → Templates tab (`app/dashboard/j2/tabs/TemplatesTab.tsx`), whose Open link edits the source mission with `?from=j2-templates`.
 - **DELETE** — deletes a template by `?id=`. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationTemplates`.
 
 #### /api/operations/templates/apply
