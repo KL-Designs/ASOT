@@ -59,7 +59,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         ? !!(await Db.orbatPositions.findOne({ userId: me.id, isSenior: true }))
         : false
 
-    const showAcknowledgeCard = isAllStaff && operation?.status === 'Upcoming'
+    // The banner is a reminder to sign, so it goes once this viewer has signed
+    // the main orders. DocAcknowledgeCard refreshes the page after signing so
+    // this is re-read without a reload.
+    const ackedMain = me && isAllStaff && operation?.status === 'Upcoming'
+        ? !!(await Db.operationDocAcks.findOne({ operationId: id, pageId: 'main', userId: me.id }, { projection: { _id: 1 } }))
+        : false
+    const showAcknowledgeCard = isAllStaff && operation?.status === 'Upcoming' && !ackedMain
 
     if (!operation) return (
         <div className='flex items-center justify-center h-full' style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
