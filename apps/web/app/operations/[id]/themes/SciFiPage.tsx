@@ -6,6 +6,7 @@ import LocalDate from '../local-date'
 import OcapLinkPanel from '../OcapLinkPanel'
 import IntelReport, { IntelReportSignIn } from '@/components/intel-report/IntelReport'
 import DoctrinePage from '@/components/doctrine/DoctrinePage'
+import AarBoard from '@/app/operations/[id]/aar/AarBoard'
 import OcapStatsPanel from '../OcapStatsPanel'
 import DocAcknowledgeCard from '../DocAcknowledgeCard'
 import OperationBar from '../OperationBar'
@@ -146,6 +147,8 @@ export default function SciFiPage({
         if (pg.pageType === 'ocap') return false
         // Enemy Doctrine (rows 334, 335) is Zeus-facing, like Zeus Notes.
         if ((pg.pageType === 'zeus' || pg.pageType === 'doctrine') && !canZeus) return false
+        // Rows 328 to 330: the AAR page is there once the operation has run, for whoever may read AARs.
+        if (pg.pageType === 'aar' && !access.aar) return false
         if (seen.has(pg.id)) return false
         seen.add(pg.id)
         return true
@@ -165,7 +168,8 @@ export default function SciFiPage({
     // Rows 331, 332: the Intelligence Report is Mongo-backed, not sections.
     const isIntelReport = contentPages.find(pg => pg.id === activeDocument)?.pageType === 'intel_report'
     const isDoctrine = contentPages.find(pg => pg.id === activeDocument)?.pageType === 'doctrine'
-    const onContent = activeDocument !== OCAP && !isIntelReport && !isDoctrine
+    const isAar = contentPages.find(pg => pg.id === activeDocument)?.pageType === 'aar'
+    const onContent = activeDocument !== OCAP && !isIntelReport && !isDoctrine && !isAar
 
     const rawSections = activeDocument === 'main'
         ? operation.sections ?? []
@@ -311,6 +315,7 @@ export default function SciFiPage({
                                need nothing from this theme but room. */
                             <div className={s.panel}>
                                 {isDoctrine && <DoctrinePage key={activeDocument} operationId={id} pageId={activeDocument} themeColor={operation.themeColor || '#db001d'} />}
+                                {isAar && <AarBoard key={activeDocument} embedded operationId={id} title={operation.title} themeColor={operation.themeColor || '#db001d'} date={null} open />}
                                 {isIntelReport && (isLoggedIn ? <IntelReport operationId={id} themeColor={operation.themeColor || '#db001d'} /> : <IntelReportSignIn />)}
                                 {activeDocument === OCAP && hasOcap && (
                                     <>

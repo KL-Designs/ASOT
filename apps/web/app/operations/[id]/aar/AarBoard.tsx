@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import dayjs from 'dayjs'
 import { rgbTriplet } from '@/lib/colour'
 import HideSiteNav from '@/components/HideSiteNav'
@@ -19,9 +19,23 @@ interface Props {
     status?: string
     themeColor?: string
     date: string | null
-    /** Whether the operation has actually finished. */
+    /** Whether the operation has actually finished. Ignored when `embedded`: the report says. */
     open: boolean
+    /**
+     * Shown as a page of the operation document rather than its own tab: no
+     * operation bar, and whether it is open comes from the report itself.
+     */
+    embedded?: boolean
+    /**
+     * Before the operation finishes, show the report as it will look instead
+     * of "Not yet", with saving switched off (rows 328 to 330). For the people
+     * building the document; members still see "Not yet".
+     */
+    allowPreview?: boolean
 }
+
+/** True inside a preview: every save is a no-op that says so. */
+const PreviewContext = createContext(false)
 
 interface Aar { fix: string; sustain: string; improve: string; writtenByName: string | null }
 
@@ -81,7 +95,7 @@ const AAR_FIELDS = [
  * their feedback and closes the tab has saved their feedback; nothing here
  * makes them finish the whole page to keep any of it.
  */
-export default function AarBoard({ operationId, title, status, themeColor, date, open }: Props) {
+export default function AarBoard({ operationId, title, status, themeColor, date, open: openProp, embedded, allowPreview }: Props) {
     const accent = themeColor || '#db001d'
     const [data, setData] = useState<Payload | null>(null)
     const [failed, setFailed] = useState(false)
@@ -93,29 +107,37 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
             .catch(() => setFailed(true))
     }, [operationId])
 
-    useEffect(() => { if (open) load() }, [open, load])
+    useEffect(() => { if (openProp || embedded) load() }, [openProp, embedded, load])
+
+    const open = embedded ? !!data?.open : openProp
+    const preview = !!embedded && !!allowPreview && !!data && !data.open
 
     return (
+        <PreviewContext.Provider value={preview}>
         <div
             className='command'
             style={{
                 ['--acc' as string]: accent,
                 ['--acc-rgb' as string]: rgbTriplet(accent),
-                display: 'flex', flexDirection: 'column', minHeight: '100%', background: 'var(--bg)',
+                display: 'flex', flexDirection: 'column', minHeight: embedded ? undefined : '100%', background: embedded ? 'transparent' : 'var(--bg)',
             }}
         >
-            <HideSiteNav />
-            <OperationBar
-                operationId={operationId}
-                title={title}
-                status={status}
-                themeColor={themeColor}
-                active='aar'
-                canEdit={false}
-                access={{ attendance: true, aar: true }}
-            />
+            {!embedded && <HideSiteNav />}
+            {!embedded && (
+                <OperationBar
+                    operationId={operationId}
+                    title={title}
+                    status={status}
+                    themeColor={themeColor}
+                    active='aar'
+                    canEdit={false}
+                    access={{ attendance: true, aar: true }}
+                />
+            )}
 
-            {!open ? (
+            {embedded && !data && !failed ? (
+                <p className={s.loading}>Loading…</p>
+            ) : !open && !preview ? (
                 <div className={s.notice}>
                     <p className={s.noticeTitle}>Not yet</p>
                     <p className={s.noticeBody}>
@@ -132,6 +154,14 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                 <p className={s.loading}>Loading…</p>
             ) : (
                 <div className={s.page}>
+                    {preview && (
+                        <div className={s.notice} style={{ borderColor: 'rgba(245,158,11,0.4)' }}>
+                            <p className={s.noticeTitle}>Preview</p>
+                            <p className={s.noticeBody}>
+                                This is the After Action Report as members will see it once the operation finishes. Try it out: nothing here is saved until then.
+                            </p>
+                        </div>
+                    )}
                     <header className={s.head}>
                         <p className={s.eyebrow}>After Action Report</p>
                         <h1 className={s.title}>{title || 'Operation'}</h1>
@@ -158,8 +188,9 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                         onSaved={load}
                     />
 
-                    {/* Row 331: staff only; renders nothing for anyone else. */}
-                    <IntelBlock operationId={operationId} />
+                    {/* Row 331: staff only; renders nothing for anyone else. A preview
+                        leaves it out: what it adds goes straight into the Intelligence Report. */}
+                    {!preview && <IntelBlock operationId={operationId} />}
 
                     {data.sections.map(section => (
                         <SectionCard
@@ -171,7 +202,15 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                     ))}
 
                     {/* Row 328: everyone else's side of the night, once yours is in. */}
-                    {data.unlocked ? (
+                    {preview ? (
+                        <div className={s.notice}>
+                            <p className={s.noticeTitle}>Mission AAR</p>
+                            <p className={s.noticeBody}>
+                                Once the operation has run and members have written theirs up, every call sign&apos;s report,
+                                the feedback averages and the commendations appear here.
+                            </p>
+                        </div>
+                    ) : data.unlocked ? (
                         <Consolidated
                             operationId={operationId}
                             missionAar={data.missionAar}
@@ -191,6 +230,7 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                 </div>
             )}
         </div>
+        </PreviewContext.Provider>
     )
 }
 
@@ -613,7 +653,7 @@ function countPresent(statuses: Record<string, string>): number {
 
 /* ── Saving ─────────────────────────────────────────────────────────────── */
 
-type SaveStateValue = 'idle' | 'saving' | 'saved' | 'failed'
+type SaveStateValue = 'idle' | 'saving' | 'saved' | 'failed' | 'preview'
 
 /**
  * One save, per card.
@@ -624,8 +664,10 @@ type SaveStateValue = 'idle' | 'saving' | 'saved' | 'failed'
  */
 function useSave() {
     const [state, setState] = useState<SaveStateValue>('idle')
+    const preview = useContext(PreviewContext)
 
     const save = useCallback(async (url: string, body: unknown, method: 'PUT' | 'POST' = 'PUT') => {
+        if (preview) { setState('preview'); return false }
         setState('saving')
         try {
             const res = await fetch(url, {
@@ -640,13 +682,14 @@ function useSave() {
             setState('failed')
             return false
         }
-    }, [])
+    }, [preview])
 
     return { state, save }
 }
 
 function SaveState({ state }: { state: SaveStateValue }) {
     if (state === 'saved') return <span className={`${s.state} ${s.stateOk}`}>Saved</span>
+    if (state === 'preview') return <span className={s.state}>Preview: not saved</span>
     if (state === 'failed') return <span className={`${s.state} ${s.stateBad}`}>Not saved — try again</span>
     return null
 }

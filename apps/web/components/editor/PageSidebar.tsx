@@ -25,6 +25,9 @@ const STAFF_SECTION_PRESETS = [
 
 /** Intelligence Report pages are green, set apart from the amber staff orders. */
 const INTEL_REPORT_COLOR = '#22c55e'
+const AAR_COLOR = '#38bdf8'
+/** The divider post-mission pages are added under. */
+const POST_MISSION_LABEL = 'Post-mission'
 
 /** Shape both `presenceUser` and each entry of `presencePeers` share — just
  * enough identity to render an avatar (visual-fixes FIX 3). `id` is a
@@ -241,9 +244,12 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
         if (renamingId) renameInputRef.current?.focus()
     }, [renamingId])
 
-    function addPage(type: 'orders' | 'zeus' | 'staff_orders' | 'intel_report' | 'doctrine' | 'separator', title?: string) {
+    function addPage(type: 'orders' | 'zeus' | 'staff_orders' | 'intel_report' | 'doctrine' | 'separator' | 'aar' | 'ocap', title?: string) {
         const id = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+        const postMission = type === 'aar' || type === 'ocap'
         const defaultTitle = type === 'zeus' ? 'Zeus Notes'
+            : type === 'aar' ? 'After Action Report'
+            : type === 'ocap' ? 'OCAP'
             : type === 'intel_report' ? 'Intelligence Report'
             : type === 'doctrine' ? 'Enemy Doctrine'
             : type === 'separator' ? '──────────'
@@ -254,6 +260,15 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             if (pageOrder.length === 0) {
                 pageOrder.push(['main'])
                 ydoc.getMap<string>('pmeta-main').set('title', 'CHQ Orders')
+            }
+            // Rows 328 to 330: post-mission pages sit under one "Post-mission" divider.
+            if (postMission && !pages.some(p => p.pageType === 'separator' && p.title.trim().toLowerCase() === POST_MISSION_LABEL.toLowerCase())) {
+                const sepId = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+                pageOrder.push([sepId])
+                const sep = ydoc.getMap<string>('pmeta-' + sepId)
+                sep.set('title', POST_MISSION_LABEL)
+                sep.set('isMain', 'false')
+                sep.set('pageType', 'separator')
             }
             pageOrder.push([id])
             const pmeta = ydoc.getMap<string>('pmeta-' + id)
@@ -266,6 +281,8 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 if (preset) pmeta.set('pageColor', preset.color)
             }
             if (type === 'doctrine') pmeta.set('pageColor', '#a855f7')
+            if (type === 'ocap') pmeta.set('pageColor', '#10b981')
+            if (type === 'aar') pmeta.set('pageColor', AAR_COLOR)
         })
         closeTypeModal()
         if (type !== 'separator') {
@@ -777,6 +794,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                     : page.pageType === 'ocap' ? '#10b981'
                     : page.pageType === 'intel_report' ? INTEL_REPORT_COLOR
                     : page.pageType === 'doctrine' ? '#a855f7'
+                    : page.pageType === 'aar' ? AAR_COLOR
                     : page.pageType === 'staff_orders' ? (page.pageColor || '#22c55e')
                     : 'var(--acc)'
 
@@ -845,7 +863,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                 }}
                                 onDoubleClick={e => { e.stopPropagation(); startRename(page.id, page.title) }}
-                                title={`${page.title}${page.pageType === 'intel' ? ' (Intel Package)' : page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : page.pageType === 'ocap' ? ' (OCAP)' : page.pageType === 'intel_report' ? ' (Intelligence Report)' : page.pageType === 'doctrine' ? ' (Enemy Doctrine)' : page.pageType === 'staff_orders' ? ' (Staff Orders)' : ''} (double-click to rename)`}
+                                title={`${page.title}${page.pageType === 'intel' ? ' (Intel Package)' : page.pageType === 'zeus' ? ' (Zeus Notes — J6 only)' : page.pageType === 'ocap' ? ' (OCAP)' : page.pageType === 'intel_report' ? ' (Intelligence Report)' : page.pageType === 'doctrine' ? ' (Enemy Doctrine)' : page.pageType === 'aar' ? ' (After Action Report)' : page.pageType === 'staff_orders' ? ' (Staff Orders)' : ''} (double-click to rename)`}
                             >
                                 {page.title}
                             </span>
@@ -1094,6 +1112,30 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 >
                                     Enemy Doctrine
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(168,85,247,0.5)', marginTop: 3 }}>Guided builder for how the enemy fights, with Quick Reference and Full Doctrine views for Zeus.</div>
+                                </button>
+                                )}
+                                {(allowed('aar') || allowed('ocap')) && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
+                                        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                                        {POST_MISSION_LABEL}
+                                        <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                                    </div>
+                                )}
+                                {/* Rows 328 to 330: in the document before the mission runs, so it can be laid out and tried. */}
+                                {allowed('aar') && !pages.some(p => p.pageType === 'aar') && (
+                                <button type='button' onClick={() => addPage('aar')}
+                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.3)', color: 'rgba(125,211,252,0.9)', cursor: 'pointer' }}
+                                >
+                                    After Action Report
+                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(56,189,248,0.5)', marginTop: 3 }}>Feedback, call sign reports and the Mission AAR. Opens to members once the operation finishes; a preview until then.</div>
+                                </button>
+                                )}
+                                {allowed('ocap') && !pages.some(p => p.pageType === 'ocap') && (
+                                <button type='button' onClick={() => addPage('ocap')}
+                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.3)', color: 'rgba(52,211,153,0.9)', cursor: 'pointer' }}
+                                >
+                                    OCAP
+                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(16,185,129,0.5)', marginTop: 3 }}>The replay link and stats from the night.</div>
                                 </button>
                                 )}
                                 {allowed('separator') && (

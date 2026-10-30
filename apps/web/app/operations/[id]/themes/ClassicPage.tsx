@@ -428,6 +428,7 @@ export default function ClassicPage({
                         const contentPages = (operation.pages ?? []).filter(pg => {
                             if (pg.pageType === 'zeus' || pg.pageType === 'ocap') return false
                             if (pg.pageType === 'doctrine' && !canZeus) return false
+                            if (pg.pageType === 'aar' && !access.aar) return false
                             if (_seenIds.has(pg.id)) return false
                             _seenIds.add(pg.id)
                             return true
@@ -529,6 +530,7 @@ export default function ClassicPage({
                     {/* Multi-page view */}
                     {operation.pages && operation.pages.length > 1 && (
                         <PagedView
+                            canAar={access.aar}
                             pages={operation.pages}
                             sectionsByPage={{ main: operation.sections ?? [], ...(operation.extraPageSections ?? {}) }}
                             operationTitle={operation.title}

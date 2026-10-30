@@ -20,6 +20,7 @@ import PageSidebar from './PageSidebar'
 import IntelPackageEditor from './intel-package/IntelPackageEditor'
 import IntelReport from '@/components/intel-report/IntelReport'
 import DoctrinePage from '@/components/doctrine/DoctrinePage'
+import AarBoard from '@/app/operations/[id]/aar/AarBoard'
 import ImageLibraryModal from './ImageLibraryModal'
 import { useThinScrollFade } from './useThinScrollFade'
 import {
@@ -689,6 +690,9 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                                 <IntelReport key={activePage} operationId={operationId} themeColor={themeColor} />
                             ) : activePageType === 'doctrine' ? (
                                 <DoctrinePage key={activePage} operationId={operationId} pageId={activePage} themeColor={themeColor} />
+                            ) : activePageType === 'aar' ? (
+                                // Rows 328 to 330: a preview while the operation is still being built.
+                                <AarBoard key={activePage} embedded allowPreview operationId={operationId} title={ydoc.getMap<string>('meta').get('title') ?? ''} themeColor={themeColor} date={null} open={false} />
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 56 }}>
                                     {sectionIds.map((id, idx) => (
