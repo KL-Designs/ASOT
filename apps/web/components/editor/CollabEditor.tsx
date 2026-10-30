@@ -688,7 +688,7 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                                 // Mongo-backed, like OCAP: the document only holds the page.
                                 <IntelReport key={activePage} operationId={operationId} themeColor={themeColor} />
                             ) : activePageType === 'doctrine' ? (
-                                <DoctrinePage key={activePage} operationId={operationId} themeColor={themeColor} />
+                                <DoctrinePage key={activePage} operationId={operationId} pageId={activePage} themeColor={themeColor} />
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: 56 }}>
                                     {sectionIds.map((id, idx) => (

@@ -30,19 +30,20 @@ function rgb(hex: string) {
     return `${parseInt(h.slice(0, 2), 16) || 219},${parseInt(h.slice(2, 4), 16) || 0},${parseInt(h.slice(4, 6), 16) || 29}`
 }
 
-export default function DoctrinePage({ operationId, themeColor = '#db001d' }: { operationId: string; themeColor?: string }) {
+/** `pageId` is the document page this sits on: an operation can hold more than one Enemy Doctrine page, one per enemy. */
+export default function DoctrinePage({ operationId, pageId, themeColor = '#db001d' }: { operationId: string; pageId?: string; themeColor?: string }) {
     const [data, setData] = useState<Payload | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [editing, setEditing] = useState<string | null>(null)
     const [faction, setFaction] = useState('')
 
     const load = useCallback(async () => {
-        const res = await fetch(`/api/operations/${operationId}/doctrine`)
+        const res = await fetch(`/api/operations/${operationId}/doctrine${pageId ? `?pageId=${encodeURIComponent(pageId)}` : ''}`)
         const body = await res.json().catch(() => ({}))
         if (!res.ok) { setError(res.status === 403 ? 'Enemy Doctrine is for mission makers and Zeus.' : body.error ?? 'Could not load the doctrine'); return }
         setData(body)
         setError(null)
-    }, [operationId])
+    }, [operationId, pageId])
 
     useEffect(() => { load() }, [load])
 
@@ -67,7 +68,7 @@ export default function DoctrinePage({ operationId, themeColor = '#db001d' }: { 
                                 {data.factions.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                             </select>
                             <button type='button' className={s.primary} disabled={!faction} onClick={async () => {
-                                const res = await fetch(`/api/operations/${operationId}/doctrine`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ factionId: faction }) })
+                                const res = await fetch(`/api/operations/${operationId}/doctrine`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ factionId: faction, pageId }) })
                                 const body = await res.json().catch(() => ({}))
                                 if (!res.ok) { setError(body.error ?? 'Could not set up the doctrine'); return }
                                 await load()

@@ -210,7 +210,7 @@ export default function ModernPage({
 
                 <main className={s.reader}>
                     <div className={s.readerInner}>
-                        {isDoctrine && <DoctrinePage operationId={id} themeColor={operation.themeColor || '#db001d'} />}
+                        {isDoctrine && <DoctrinePage key={activeDocument} operationId={id} pageId={activeDocument} themeColor={operation.themeColor || '#db001d'} />}
                         {isIntelReport && (isLoggedIn ? <IntelReport operationId={id} themeColor={operation.themeColor || '#db001d'} /> : <IntelReportSignIn />)}
                         {activeDocument === OCAP && hasOcap && (
                             <>

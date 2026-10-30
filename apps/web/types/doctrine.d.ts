@@ -21,6 +21,8 @@ declare global {
         parentId: ObjectId | null
         campaignId?: string | null
         operationId?: string | null
+        /** Mission level: the Enemy Doctrine page of the operation it belongs to. */
+        pageId?: string | null
         /** This level's unpublished changes on top of its parent. */
         draft: import('@/lib/doctrine/values').DoctrineOverrides
         draftUpdatedAt?: Date | null

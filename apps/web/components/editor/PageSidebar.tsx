@@ -15,7 +15,16 @@ interface PageEntry {
     parentId?: string
 }
 
-const STAFF_SECTION_PRESETS = ['HQ Orders', '1 PLT Orders', '2 PLT Orders', '3 PLT Orders'] as const
+/** Each platoon's orders in that platoon's colour, as the ORBAT and MILPACs show it. */
+const STAFF_SECTION_PRESETS = [
+    { title: 'HQ Orders',    color: '#ef4444' },
+    { title: '1 PLT Orders', color: '#f59e0b' },
+    { title: '2 PLT Orders', color: '#2a9d74' },
+    { title: '3 PLT Orders', color: '#3b8fd0' },
+] as const
+
+/** Intelligence Report pages are green, set apart from the amber staff orders. */
+const INTEL_REPORT_COLOR = '#22c55e'
 
 /** Shape both `presenceUser` and each entry of `presencePeers` share — just
  * enough identity to render an avatar (visual-fixes FIX 3). `id` is a
@@ -251,7 +260,11 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
             pmeta.set('title', defaultTitle)
             pmeta.set('isMain', 'false')
             pmeta.set('pageType', type)
-            if (type === 'intel_report') pmeta.set('pageColor', '#f59e0b')
+            if (type === 'intel_report') pmeta.set('pageColor', INTEL_REPORT_COLOR)
+            if (type === 'staff_orders') {
+                const preset = STAFF_SECTION_PRESETS.find(p => p.title === title)
+                if (preset) pmeta.set('pageColor', preset.color)
+            }
             if (type === 'doctrine') pmeta.set('pageColor', '#a855f7')
         })
         closeTypeModal()
@@ -762,7 +775,7 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                 // operation's own accent instead of a fixed colour.
                 const dotColor = page.pageType === 'zeus' ? '#00c3ff'
                     : page.pageType === 'ocap' ? '#10b981'
-                    : page.pageType === 'intel_report' ? '#f59e0b'
+                    : page.pageType === 'intel_report' ? INTEL_REPORT_COLOR
                     : page.pageType === 'doctrine' ? '#a855f7'
                     : page.pageType === 'staff_orders' ? (page.pageColor || '#22c55e')
                     : 'var(--acc)'
@@ -1060,10 +1073,10 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 {/* Rows 331, 332: one per operation; the entries live in Mongo, not this document. */}
                                 {allowed('intel_report') && !pages.some(p => p.pageType === 'intel_report') && (
                                 <button type='button' onClick={() => addPage('intel_report')}
-                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', color: 'rgba(245,158,11,0.9)', cursor: 'pointer' }}
+                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.3)', color: 'rgba(74,222,128,0.9)', cursor: 'pointer' }}
                                 >
                                     Intelligence Report
-                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(245,158,11,0.45)', marginTop: 3 }}>Intel reported through AARs and by staff, carried across the campaign, with assessments and player votes.</div>
+                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(34,197,94,0.5)', marginTop: 3 }}>Intel reported through AARs and by staff, carried across the campaign, with assessments and player votes.</div>
                                 </button>
                                 )}
                                 {allowed('zeus') && (
@@ -1074,8 +1087,8 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(0,195,255,0.45)', marginTop: 3 }}>J6-only notes and gamemaster planning. Visible to J6 staff only.</div>
                                 </button>
                                 )}
-                                {/* Rows 334, 335: Zeus-facing; one per operation, backed by Mongo. */}
-                                {allowed('doctrine') && !pages.some(p => p.pageType === 'doctrine') && (
+                                {/* Rows 334, 335: Zeus-facing, backed by Mongo; one doctrine per page, so one page per enemy. */}
+                                {allowed('doctrine') && (
                                 <button type='button' onClick={() => addPage('doctrine')}
                                     style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.3)', color: 'rgba(192,132,252,0.9)', cursor: 'pointer' }}
                                 >
@@ -1106,11 +1119,11 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 <div style={{ fontSize: '0.88rem', fontWeight: 700, textTransform: 'uppercase', color: 'rgba(245,185,11,0.9)' }}>Select Section</div>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                {STAFF_SECTION_PRESETS.map(section => (
-                                    <button key={section} type='button' onClick={() => addPage('staff_orders', section)}
-                                        style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', color: 'rgba(245,185,11,0.85)', cursor: 'pointer' }}
+                                {STAFF_SECTION_PRESETS.map(({ title, color }) => (
+                                    <button key={title} type='button' onClick={() => addPage('staff_orders', title)}
+                                        style={{ padding: '10px 14px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: `${color}10`, border: `1px solid ${color}40`, color, cursor: 'pointer' }}
                                     >
-                                        {section}
+                                        {title}
                                     </button>
                                 ))}
                                 <div style={{ marginTop: 4, display: 'flex', gap: 6 }}>

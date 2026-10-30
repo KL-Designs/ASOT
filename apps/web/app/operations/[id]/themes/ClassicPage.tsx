@@ -447,6 +447,8 @@ export default function ClassicPage({
                                 let color: string | undefined
                                 if (pg.pageType === 'intel') {
                                     color = 'rgba(245,158,11,0.8)'
+                                } else if (pg.pageType === 'intel_report') {
+                                    color = 'rgba(34,197,94,0.8)'
                                 } else if (pg.pageType === 'orders') {
                                     color = `rgba(${r},${g},${b},0.8)`
                                 } else if (pg.pageColor) {

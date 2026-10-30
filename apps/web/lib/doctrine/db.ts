@@ -217,11 +217,25 @@ export async function logDoctrine(action: string, doctrine: DoctrineDoc, by: { i
 }
 
 /**
- * The mission doctrine for an operation, if it has one. Historic operations
- * read every level as it stood on the night: the end of the operation's day.
+ * The mission doctrine for one Enemy Doctrine page of an operation, if it has
+ * one. Historic operations read every level as it stood on the night: the end
+ * of the operation's day.
+ *
+ * An operation can have several doctrine pages, so each mission doctrine
+ * carries the `pageId` it belongs to. One made before that has none: the
+ * first page to ask for it takes it over.
  */
-export async function operationDoctrine(operationId: string) {
-    const doc = await Db.doctrines.findOne({ level: 'mission', operationId, deletedAt: null }) as DoctrineDoc | null
+export async function operationDoctrine(operationId: string, pageId?: string | null) {
+    let doc = pageId
+        ? await Db.doctrines.findOne({ level: 'mission', operationId, pageId, deletedAt: null }) as DoctrineDoc | null
+        : null
+    if (!doc) {
+        doc = await Db.doctrines.findOne({ level: 'mission', operationId, pageId: null, deletedAt: null }) as DoctrineDoc | null
+        if (doc && pageId) {
+            await Db.doctrines.updateOne({ _id: doc._id, pageId: null }, { $set: { pageId } })
+            doc = { ...doc, pageId }
+        }
+    }
     if (!doc) return null
     const op = ObjectId.isValid(operationId) ? await Db.operations.findOne({ _id: new ObjectId(operationId) }, { projection: { date: 1 } }) : null
     const date = op?.date ? new Date(op.date) : null

@@ -243,7 +243,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                     </div>
                 ) : activePageMeta?.pageType === 'doctrine' && operationId ? (
                     <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
-                        <DoctrinePage operationId={operationId} themeColor={themeColor} />
+                        <DoctrinePage key={activePageMeta.id} operationId={operationId} pageId={activePageMeta.id} themeColor={themeColor} />
                     </div>
                 ) : activePageMeta?.pageType === 'intel_report' && operationId ? (
                     <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
@@ -330,7 +330,7 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                     </div>
                 ) : activePageMeta?.pageType === 'doctrine' && operationId ? (
                     <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
-                        <DoctrinePage operationId={operationId} themeColor={themeColor} />
+                        <DoctrinePage key={activePageMeta.id} operationId={operationId} pageId={activePageMeta.id} themeColor={themeColor} />
                     </div>
                 ) : activePageMeta?.pageType === 'intel_report' && operationId ? (
                     <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>

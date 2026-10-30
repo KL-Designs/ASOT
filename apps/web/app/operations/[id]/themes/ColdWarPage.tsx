@@ -195,7 +195,7 @@ export default function ColdWarPage({
                         /* Staff instruments, not orders — they keep the dark chrome
                            they wear everywhere else and sit on the bare desk. */
                         <div className={s.panel}>
-                            {isDoctrine && <DoctrinePage operationId={id} themeColor={operation.themeColor || '#db001d'} />}
+                            {isDoctrine && <DoctrinePage key={activeDocument} operationId={id} pageId={activeDocument} themeColor={operation.themeColor || '#db001d'} />}
                             {isIntelReport && (isLoggedIn ? <IntelReport operationId={id} themeColor={operation.themeColor || '#db001d'} /> : <IntelReportSignIn />)}
                             {activeDocument === OCAP && hasOcap && (
                                 <>

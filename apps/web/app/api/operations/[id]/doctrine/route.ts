@@ -14,16 +14,22 @@ import { doctrineStanding } from '@/app/api/doctrines/gate'
  * Campaign → Mission and, once the operation has happened, pinned to the
  * versions that were live on the night. Without one yet, the faction list
  * to start from.
- * POST `{ factionId }`: set it up. Inside a campaign this reuses (or makes)
+ * POST `{ factionId, pageId }`: set it up. `pageId` is the document page:
+ * an operation can have one doctrine per Enemy Doctrine page. Inside a campaign this reuses (or makes)
  * the campaign's doctrine for that faction, so every mission in the campaign
  * inherits the same campaign changes.
  */
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+function cleanPageId(v: unknown): string | null {
+    return typeof v === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(v) ? v : null
+}
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const { id } = await params
+    const pageId = cleanPageId(req.nextUrl.searchParams.get('pageId'))
     const me = await client.fetchMe().catch(() => null)
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const found = await operationDoctrine(id)
+    const found = await operationDoctrine(id, pageId)
     const standing = await doctrineStanding(me, found?.doc ?? ({ level: 'mission', operationId: id } as Doctrine))
     if (!standing.canView) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
 
@@ -49,9 +55,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const standing = await doctrineStanding(me, { level: 'mission', operationId: id } as Doctrine)
     if (!standing.canEdit) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
-    if (await operationDoctrine(id)) return NextResponse.json({ error: 'This operation already has a doctrine' }, { status: 409 })
-
     const body = await req.json().catch(() => null)
+    const pageId = cleanPageId(body?.pageId)
+    if (await operationDoctrine(id, pageId)) return NextResponse.json({ error: 'This page already has a doctrine' }, { status: 409 })
+
     const factionId = typeof body?.factionId === 'string' && ObjectId.isValid(body.factionId) ? new ObjectId(body.factionId) : null
     const faction = factionId ? await Db.doctrines.findOne({ _id: factionId, level: 'faction', deletedAt: null }) : null
     if (!faction) return NextResponse.json({ error: 'Pick a faction doctrine' }, { status: 400 })
@@ -75,7 +82,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
         parentId = campaignDoc._id!
     }
-    const mission: Doctrine = { ...base, level: 'mission', name: `${faction.name} — ${op.title}`, parentId, campaignId, operationId: id }
+    const mission: Doctrine = { ...base, level: 'mission', name: `${faction.name} — ${op.title}`, parentId, campaignId, operationId: id, ...(pageId ? { pageId } : {}) }
     const res = await Db.doctrines.insertOne(mission)
     await logDoctrine('create', { ...mission, _id: res.insertedId }, by)
     return NextResponse.json({ ok: true, id: String(res.insertedId) })
