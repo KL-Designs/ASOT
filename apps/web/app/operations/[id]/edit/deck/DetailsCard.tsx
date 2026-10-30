@@ -1,6 +1,6 @@
 'use client'
 
-import type { CSSProperties, ReactNode } from 'react'
+import { useState, type CSSProperties, type ReactNode } from 'react'
 import type { Dayjs } from 'dayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
@@ -81,6 +81,42 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /**
+ * Choosing a new owner, on its own full-width line under the Owner row.
+ *
+ * It used to sit inside the row's right-hand cell, which is capped narrow, so
+ * the member list was squeezed out of sight and only Cancel showed. The choice
+ * is also confirmed with Set rather than applied the moment the list changes.
+ */
+function OwnerPicker({ ownedBy, j2Members, onSelect, onCancel }: {
+    ownedBy?: string
+    j2Members: { id: string; displayName: string }[]
+    onSelect: (id: string, displayName: string) => void
+    onCancel: () => void
+}) {
+    const [choice, setChoice] = useState(ownedBy ?? '')
+    const chosen = j2Members.find(m => m.id === choice)
+    const canSet = !!chosen && chosen.id !== ownedBy
+    return (
+        <div style={{ ...rowStyle, gap: 8 }}>
+            <select
+                value={choice}
+                onChange={e => setChoice(e.target.value)}
+                style={{ ...controlStyle, textAlign: 'left', maxWidth: 'none', flex: 1, minWidth: 0 }}
+            >
+                <option value="">— Select member —</option>
+                {j2Members.map(m => <option key={m.id} value={m.id}>{m.displayName}</option>)}
+            </select>
+            <button type="button" disabled={!canSet} onClick={() => chosen && onSelect(chosen.id, chosen.displayName)}
+                style={{ background: 'none', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', color: canSet ? 'var(--acc)' : 'var(--ink-3)', fontSize: 9.5, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '4px 9px', cursor: canSet ? 'pointer' : 'default', whiteSpace: 'nowrap' }}
+            >Set</button>
+            <button type="button" onClick={onCancel}
+                style={{ background: 'none', border: 'none', color: 'var(--ink-3)', fontSize: 10, cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}
+            >Cancel</button>
+        </div>
+    )
+}
+
+/**
  * Replaces the old "Operation Details" panel's metadata fields (Task 11).
  * Owns the same scheduleSave/fetch call sites page.tsx already had — this
  * card is presentation only, every handler is passed down from page.tsx so
@@ -124,36 +160,20 @@ export default function DetailsCard({
 
             <div style={{ marginTop: 4 }}>
                 <Row label="Owner">
-                    {ownerPickerOpen && canPickOwner ? (
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <select
-                                defaultValue={ownedBy}
-                                onChange={e => {
-                                    const sel = j2Members.find(m => m.id === e.target.value)
-                                    if (sel) onSelectOwner(sel.id, sel.displayName)
-                                }}
-                                style={{ ...controlStyle, textAlign: 'left' }}
-                            >
-                                <option value="">— Select member —</option>
-                                {j2Members.map(m => <option key={m.id} value={m.id}>{m.displayName}</option>)}
-                            </select>
-                            <button type="button" onClick={onCloseOwnerPicker}
-                                style={{ background: 'none', border: 'none', color: 'var(--ink-3)', fontSize: 10, cursor: 'pointer', padding: 0 }}
-                            >Cancel</button>
-                        </div>
-                    ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontStyle: ownedByName ? 'normal' : 'italic', color: ownedByName ? 'var(--ink)' : 'var(--ink-3)' }}>
-                                {ownedByName || 'Unassigned'}
-                            </span>
-                            {canPickOwner && (
-                                <button type="button" onClick={onOpenOwnerPicker}
-                                    style={{ background: 'none', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', color: 'var(--acc)', fontSize: 9.5, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '2px 7px', cursor: 'pointer' }}
-                                >Change</button>
-                            )}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontStyle: ownedByName ? 'normal' : 'italic', color: ownedByName ? 'var(--ink)' : 'var(--ink-3)' }}>
+                            {ownedByName || 'Unassigned'}
                         </span>
-                    )}
+                        {canPickOwner && !ownerPickerOpen && (
+                            <button type="button" onClick={onOpenOwnerPicker}
+                                style={{ background: 'none', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', color: 'var(--acc)', fontSize: 9.5, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '2px 7px', cursor: 'pointer' }}
+                            >Change</button>
+                        )}
+                    </span>
                 </Row>
+                {ownerPickerOpen && canPickOwner && (
+                    <OwnerPicker ownedBy={ownedBy} j2Members={j2Members} onSelect={onSelectOwner} onCancel={onCloseOwnerPicker} />
+                )}
 
                 {canSeeBilletPoints && (
                     <Row label="Billet Points">

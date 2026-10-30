@@ -29,7 +29,6 @@
  * Dry-run by default. Pass --apply to write.
  */
 
-import { MongoClient } from 'mongodb'
 import { readdirSync, statSync, existsSync } from 'fs'
 import { join, resolve } from 'path'
 import { createRequire } from 'module'
@@ -54,10 +53,17 @@ if (!MONGO_URI || !MONGO_DB) {
    a fixture directory — and resolving sharp the same way would look for it
    inside that fixture and never find it. This script always sits at
    <repo>/scripts/, so apps/web is always its sibling. */
+const webRequire = createRequire(new URL('../apps/web/package.json', import.meta.url))
+
+/* mongodb comes from apps/web for the same reason. The root only has a copy
+   when the root workspaces are installed too (apps/bot pulls it in); CI
+   installs apps/web alone, and a bare `import 'mongodb'` from here then fails
+   to resolve. Unlike sharp this one is not optional. */
+const { MongoClient } = webRequire('mongodb')
+
 let sharp = null
 try {
-    const require = createRequire(new URL('../apps/web/package.json', import.meta.url))
-    sharp = require('sharp')
+    sharp = webRequire('sharp')
 } catch {
     console.warn('sharp not resolvable from apps/web — indexing without dimensions.')
 }

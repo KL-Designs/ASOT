@@ -4,6 +4,7 @@ import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 import { sendMeetingDM } from '@/lib/discord/bot'
 import { verifyCronSecret } from '@/lib/cron-auth'
+import { unitDateTime } from '@/lib/unit-time'
 
 /**
  * GET /api/cron/meeting-reminders
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest) {
                             { projection: { attendees: 1, title: 1, date: 1, department: 1 } }
                         )
                         const attendee = (meeting?.attendees ?? []).find((a: MeetingAttendee) => a.userId === userId)
-                        const dateLabel = meeting?.date ? new Date(meeting.date).toLocaleString('en-AU', { dateStyle: 'long', timeStyle: 'short' }) : ''
+                        const dateLabel = meeting?.date ? unitDateTime(meeting.date, 'long') : ''
                         if (attendee?.status === 'attending' || attendee?.status === 'confirmed_attended') {
                             body = `Reminder: "${meeting?.title}" is scheduled for ${dateLabel}. You are marked as attending.`
                         } else if (attendee?.status === 'not_attending' || attendee?.status === 'confirmed_absent') {

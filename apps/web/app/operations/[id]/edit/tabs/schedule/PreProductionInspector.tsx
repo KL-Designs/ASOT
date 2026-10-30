@@ -122,19 +122,16 @@ export default function PreProductionInspector({
     return (
         <>
             <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                    <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Development gates</span>
-                    <span style={chip(gates.every(g => g.state === 'done') ? 'good' : undefined)}>
-                        {gates.filter(g => g.state === 'done').length} of {gates.length} complete
-                    </span>
-                    {gates.some(g => g.state === 'overdue') && (
-                        <span style={chip('warn')}>{gates.filter(g => g.state === 'overdue').length} overdue</span>
-                    )}
-                    {saving && <span style={{ fontSize: '0.72rem', color: 'var(--acc)', fontWeight: 700 }}>Saving…</span>}
-                    {!isJ2Lead && (
-                        <span style={{ marginLeft: 'auto', ...label, fontStyle: 'italic' }}>J2 leads sign off gates</span>
-                    )}
-                </div>
+                {/* The panel's own heading already counts the gates and the
+                    overdue ones; this only says what the panel heading can't. */}
+                {(saving || !isJ2Lead) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                        {saving && <span style={{ fontSize: '0.72rem', color: 'var(--acc)', fontWeight: 700 }}>Saving…</span>}
+                        {!isJ2Lead && (
+                            <span style={{ marginLeft: 'auto', ...label, fontStyle: 'italic' }}>J2 leads sign off gates</span>
+                        )}
+                    </div>
+                )}
 
                 {gates.map(g => {
                     const items = devCheckItems(isCampaignOp, g.id)
@@ -177,9 +174,9 @@ export default function PreProductionInspector({
                                 )}
 
                                 {!g.completion && items.length > 0 && (
-                                    <div style={{ marginTop: 7, display: 'flex', flexWrap: 'wrap', gap: '5px 14px' }}>
+                                    <div style={{ marginTop: 7, display: 'flex', flexDirection: 'column', gap: 5 }}>
                                         {items.map((item, i) => (
-                                            <span key={i} style={{ fontSize: 12, color: 'var(--ink-2)', display: 'inline-flex', gap: 7 }}>
+                                            <span key={i} style={{ fontSize: 12, color: 'var(--ink-2)', display: 'flex', alignItems: 'baseline', gap: 7 }}>
                                                 <span style={{ color: 'var(--ink-3)', fontFamily: 'var(--mono)', fontSize: 11 }}>◻</span>
                                                 {item}
                                             </span>
@@ -271,6 +268,7 @@ export default function PreProductionInspector({
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--s1)', border: '1px solid var(--line)', borderRadius: 'var(--r)' }}>
                                         <span style={{ ...label, flexShrink: 0 }}>Remind me:</span>
                                         <DateTimePicker
+                                            format="DD/MM/YYYY HH:mm"
                                             value={ordersCheckReminderAt}
                                             onChange={v => setOrdersCheckReminderAt(v)}
                                             slotProps={{ textField: { size: 'small', sx: pickerSx }, popper: { sx: { zIndex: 19999 } } }}
@@ -392,6 +390,7 @@ export default function PreProductionInspector({
                                 <div>
                                     <div style={{ ...label, marginBottom: 8 }}>Preferred date &amp; time</div>
                                     <DateTimePicker
+                                        format="DD/MM/YYYY HH:mm"
                                         value={ordersCheckPreferredAt}
                                         onChange={v => setOrdersCheckPreferredAt(v)}
                                         slotProps={{ textField: { size: 'small', fullWidth: true, sx: pickerSx }, popper: { sx: { zIndex: 19999 } } }}

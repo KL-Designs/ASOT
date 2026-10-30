@@ -2,6 +2,7 @@ import Db from '@/lib/mongo'
 import { connection } from 'next/server'
 import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
+import PERMISSIONS from '@/lib/permissions'
 import { canEach } from '@/lib/operations/permissions'
 import { aarOpen } from '@/lib/operations/aar'
 import ClassicPage from './themes/ClassicPage'
@@ -59,9 +60,22 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         ? !!(await Db.orbatPositions.findOne({ userId: me.id, isSenior: true }))
         : false
 
-    const showAcknowledgeCard = isAllStaff && operation?.status === 'Upcoming'
+    // The banner is a reminder to sign, so it goes once this viewer has signed
+    // the main orders. DocAcknowledgeCard refreshes the page after signing so
+    // this is re-read without a reload.
+    const ackedMain = me && isAllStaff && operation?.status === 'Upcoming'
+        ? !!(await Db.operationDocAcks.findOne({ operationId: id, pageId: 'main', userId: me.id }, { projection: { _id: 1 } }))
+        : false
+    const showAcknowledgeCard = isAllStaff && operation?.status === 'Upcoming' && !ackedMain
 
-    if (!operation) return (
+    // A mission still in development is not out yet: the same rule as
+    // GET /api/operations, which this page used to skip — a trooper with the
+    // link could read orders nobody had released. Anyone who may open its
+    // orders in the editor, and its owner, may still see it.
+    const hiddenInDevelopment = operation?.status === 'In Development'
+        && !(me && (isHQ || client.hasRoles(me, PERMISSIONS.operations.viewInDevelopment) || (operation as { ownedBy?: string }).ownedBy === me.id))
+
+    if (!operation || hiddenInDevelopment) return (
         <div className='flex items-center justify-center h-full' style={{ color: 'rgba(237,237,237,0.3)', fontSize: '0.85rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Operation not found
         </div>
@@ -111,16 +125,18 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     const Themed = OWN_PAGE[pageTheme as keyof typeof OWN_PAGE]
     /*
      * The comment thread sits under whichever theme rendered the orders, once,
-     * here — not inside each theme. It is the same thread whatever the orders
-     * look like, and four copies of the mount would be four places to forget.
+     * here — not inside each theme's own code. It is the same thread whatever
+     * the orders look like, and four copies of the mount would be four places
+     * to forget. Each theme draws it at the end of its page (`afterOrders`):
+     * placed after the theme instead, it ran under the site footer.
      * Signed-in only: the thread is for members, and the component would only
      * spend a request finding that out for a visitor.
      */
     const comments = isLoggedIn ? <OrdersComments operationId={id} /> : null
 
-    if (!Themed) return <><ClassicPage {...shared} />{comments}</>
+    if (!Themed) return <ClassicPage {...shared} afterOrders={comments} />
 
-    return <><Themed {...shared} attendance={attendance} lineage={lineage} />{comments}</>
+    return <Themed {...shared} attendance={attendance} lineage={lineage} afterOrders={comments} />
 }
 
 /**

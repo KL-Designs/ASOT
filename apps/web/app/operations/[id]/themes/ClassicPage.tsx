@@ -47,7 +47,7 @@ function hexToRgb(hex: string) {
  */
 export default function ClassicPage({
     id, operation, me, isLoggedIn, isHQ, isAllStaff, canManageAttendance, access, canOcapManage,
-    canZeus, isSectionLeader, showAcknowledgeCard, activePageParam, fromJ2,
+    canZeus, isSectionLeader, showAcknowledgeCard, activePageParam, fromJ2, afterOrders,
 }: ThemePageProps) {
     const { r, g, b } = hexToRgb(operation.themeColor || '#db001d')
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
@@ -907,6 +907,8 @@ export default function ClassicPage({
                 as one switch between reading and writing rather than two
                 shortcuts that happen to point at each other.
             */}
+            {afterOrders}
+
             {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} />}
 
         </div>

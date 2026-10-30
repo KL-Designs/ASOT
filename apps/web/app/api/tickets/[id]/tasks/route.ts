@@ -7,6 +7,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { logAction } from '@/lib/logAction'
 import { createNotification } from '@/lib/notifications'
 import { sendTaskAssignedDM } from '@/lib/discord/bot'
+import { unitDateTime } from '@/lib/unit-time'
 
 type User = Awaited<ReturnType<typeof client.fetchMe>>
 
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // Fire assignment notifications if someone was assigned
     if (task.assignedToUserId || task.assignedToRole) {
         const actionUrl = `/tickets/${id}`
-        const fmtDate = (d: Date) => new Date(d).toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        const fmtDate = (d: Date) => unitDateTime(d)
         const notifTitle = `Task Assigned: "${task.title}"`
         const notifLines = [
             `You have been assigned a new task on ticket: "${ticket.title}"`,

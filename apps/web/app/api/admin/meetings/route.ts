@@ -5,6 +5,7 @@ import Db from '@/lib/mongo'
 import { notifyMeetingUser, notifyMeetingRole } from '@/lib/notifications/meeting'
 import { initMeetingAttendance } from '@/lib/attendance/meeting-init'
 import { logAction } from '@/lib/logAction'
+import { unitDateTime } from '@/lib/unit-time'
 
 const DEPT_NAMES: Record<string, string> = {
     j1: 'J1 Recruitment', j2: 'J2 Mission Making', j3: 'J3 Training',
@@ -86,7 +87,7 @@ export async function POST(request: NextRequest) {
     const meetingId = result.insertedId.toString()
     const meetingTitle = title.trim()
     const deptName = DEPT_NAMES[department] ?? department.toUpperCase()
-    const dateLabel = new Date(date).toLocaleString('en-AU', { dateStyle: 'long', timeStyle: 'short' })
+    const dateLabel = unitDateTime(date, 'long')
     const actionUrl = `/dashboard/meeting/${meetingId}`
 
     const creationBody = `${displayName} scheduled a new meeting: "${meetingTitle}"\nDepartment: ${deptName} · ${dateLabel}\n\nPlease mark your expected attendance.`

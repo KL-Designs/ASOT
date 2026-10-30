@@ -6,7 +6,7 @@ import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from
 import type { Editor } from '@tiptap/react'
 import Placeholder from '@tiptap/extension-placeholder'
 import { ContentFlowchart, ContentImage, contentExtensions, FontSize } from './content-extensions'
-import FlowchartNodeView from './FlowchartNodeView'
+import FlowchartNodeView, { stopFlowchartEvent } from './FlowchartNodeView'
 import { starterFlowchart } from '@/lib/operations/flowchart'
 import { DEV_TOOLS_ENABLED } from '@/lib/dev-tools'
 import GlobalDragHandle from 'tiptap-extension-global-drag-handle'
@@ -385,11 +385,11 @@ const ResizableImage = ContentImage.extend({
     },
 })
 
-/* The flowchart's form, and nothing else — its attributes are schema and live
+/* The flowchart's canvas, and nothing else — its attributes are schema and live
  * in `content-extensions.ts`, exactly as the image's do. */
 const EditableFlowchart = ContentFlowchart.extend({
     addNodeView() {
-        return ReactNodeViewRenderer(FlowchartNodeView)
+        return ReactNodeViewRenderer(FlowchartNodeView, { stopEvent: stopFlowchartEvent })
     },
 })
 

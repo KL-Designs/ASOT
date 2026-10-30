@@ -4,6 +4,7 @@ import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 import { sendTaskReminderDM, sendTaskOverdueDM, sendTaskEscalationDM } from '@/lib/discord/bot'
 import { verifyCronSecret } from '@/lib/cron-auth'
+import { unitDateTime } from '@/lib/unit-time'
 
 /**
  * GET /api/cron/task-reminders
@@ -51,7 +52,7 @@ export async function GET(request: NextRequest) {
         const taskId = task._id!.toString()
         const url = `/dashboard/tasks?taskId=${taskId}`
         const dueDateStr = task.dueDate
-            ? new Date(task.dueDate).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+            ? unitDateTime(task.dueDate)
             : 'No due date set'
 
         const recipientIds = await resolveTaskRecipients(task)
@@ -108,7 +109,7 @@ export async function GET(request: NextRequest) {
         const taskAny = task as any
         if (!taskAny.assignedBy) continue
         const checkTimeStr = taskAny.ordersCheckAt
-            ? new Date(taskAny.ordersCheckAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+            ? unitDateTime(taskAny.ordersCheckAt)
             : 'the scheduled time'
         try {
             await createNotification({
@@ -150,7 +151,7 @@ export async function GET(request: NextRequest) {
         const taskId = task._id!.toString()
         const url = `/dashboard/tasks?taskId=${taskId}`
         const dueDateStr = task.dueDate
-            ? new Date(task.dueDate).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+            ? unitDateTime(task.dueDate)
             : 'Unknown'
 
         const recipientIds = await resolveTaskRecipients(task)

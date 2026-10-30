@@ -4,6 +4,7 @@ import { createNotification } from '@/lib/notifications'
 import { sendTrainingApprovedDM } from '@/lib/discord/bot'
 import { logAction } from '@/lib/logAction'
 import { scheduleTrainingReminders } from '@/lib/training/scheduleReminders'
+import { unitDateTime } from '@/lib/unit-time'
 
 /**
  * Approve a pending training event: put it on the J3 calendar (which the Unit
@@ -54,7 +55,7 @@ export async function approveTrainingEvent(
 
     // The trainer approving their own session needs no message about it.
     if (event.trainerId !== approver.id) {
-        const scheduledStr = event.scheduledAt.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+        const scheduledStr = unitDateTime(event.scheduledAt)
         await Promise.all([
             createNotification({
                 userId: event.trainerId,

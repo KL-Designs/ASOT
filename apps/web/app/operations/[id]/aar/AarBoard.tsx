@@ -358,7 +358,7 @@ function SectionCard({ operationId, section, onSaved }: {
         ])),
     )
     const [openFor, setOpenFor] = useState<string | null>(null)
-    // Late joiners picked in this sitting and not yet submitted.
+    // Late joiners picked in this sitting, shown until the save of them lands.
     const [added, setAdded] = useState<{ userId: string; name: string }[]>([])
     const [menuOpen, setMenuOpen] = useState(false)
     const [searching, setSearching] = useState(false)
@@ -413,6 +413,20 @@ function SectionCard({ operationId, section, onSaved }: {
                         setAdded(v => [...v, picked])
                         // They are being added because they turned up.
                         setStatuses(v => ({ ...v, [picked.userId]: 'ATTENDED' }))
+                        // Recorded straight away, not held until the section's roll
+                        // call is submitted: a late joiner who vanished because the
+                        // 1IC moved on before submitting read as a lost entry. Only
+                        // their own status goes up; the rest of the section is
+                        // untouched until Submit.
+                        save(
+                            `/api/operations/${operationId}/aar/attendance`,
+                            { sectionTitle: section.title, statuses: { [picked.userId]: 'ATTENDED' }, lateJoiners: [picked.userId] },
+                            'POST',
+                        ).then(ok => {
+                            if (!ok) return
+                            setAdded(v => v.filter(x => x.userId !== picked.userId))
+                            onSaved()
+                        })
                     }}
                     onClose={() => setSearching(false)}
                 />

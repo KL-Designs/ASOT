@@ -6,6 +6,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { logAction } from '@/lib/logs'
 import { sendMeetingDM } from '@/lib/discord/bot'
 import { createNotification } from '@/lib/notifications'
+import { getGrantedUserIds } from '@/lib/permissions/tree'
 
 /**
  * Tell the J2 leads a mission has gone to the recycle bin.
@@ -24,8 +25,13 @@ async function notifyMissionDeleted(title: string, deletedById: string, deletedB
 It has been moved to the Recycle Bin on the J2 Operations tab and can be restored from there within 30 days.`
     const actionUrl = '/dashboard/j2'
 
+    // Through the permissions resolver, not `guild.roles`: departmentLeads.j2 is
+    // granted by department and ORBAT roles now, so a query on the Discord role
+    // names PERMISSIONS.departmentLeads.j2 still lists misses every lead granted
+    // that way.
+    const leadIds = await getGrantedUserIds('departmentLeads.j2')
     const leads = await Db.users
-        .find({ 'guild.roles': { $in: PERMISSIONS.departmentLeads.j2 }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
+        .find({ id: { $in: leadIds }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
         .project<{ _id: string; id: string }>({ _id: 1, id: 1 })
         .toArray()
     const recipients = leads.filter(u => u.id !== deletedById)

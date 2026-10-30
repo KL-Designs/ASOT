@@ -76,6 +76,17 @@ const TYPE_COLORS: Record<string, string> = {
     system:                        'var(--txt-3)',
 }
 
+/**
+ * A notification body with its **bold** shown as bold. The same text goes to
+ * Discord as a DM, where that markdown renders; here it used to show as
+ * literal asterisks. Only bold is handled — nothing else is written into
+ * bodies — and it is built as React text, never as HTML.
+ */
+function richBody(body: string) {
+    return body.split(/\*\*(.+?)\*\*/g).map((part, i) =>
+        i % 2 ? <strong key={i} style={{ fontWeight: 700, color: 'rgba(237,237,237,0.75)' }}>{part}</strong> : part)
+}
+
 function timeAgo(iso: string) {
     const diff = Date.now() - new Date(iso).getTime()
     const mins  = Math.floor(diff / 60_000)
@@ -299,7 +310,7 @@ export default function NotificationBell() {
                                                     {n.title}
                                                 </div>
                                                 <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.45)', lineHeight: 1.5 }}>
-                                                    {n.body}
+                                                    {richBody(n.body)}
                                                 </div>
                                             </div>
                                         ) : (
@@ -316,7 +327,7 @@ export default function NotificationBell() {
                                                     {n.title}
                                                 </div>
                                                 <div style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.35)', lineHeight: 1.4 }}>
-                                                    {n.body}
+                                                    {richBody(n.body)}
                                                 </div>
                                             </div>
                                         )}
@@ -402,7 +413,7 @@ export default function NotificationBell() {
                                     {t.title}
                                 </div>
                                 <div style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.4 }}>
-                                    {t.body}
+                                    {richBody(t.body)}
                                 </div>
                             </div>
                             <button

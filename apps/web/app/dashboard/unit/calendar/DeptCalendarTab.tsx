@@ -354,6 +354,7 @@ export default function DeptCalendarTab({ department, userId, isJ4, isJ2Lead }: 
                     onClose={() => setJ2Modal(null)}
                     onSaved={fetchEvents}
                     mode={j2Modal}
+                    isJ2Lead={isJ2Lead}
                 />
             )}
         </div>

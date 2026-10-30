@@ -17,6 +17,7 @@ import IntelImagesTab from '@/app/dashboard/j2/tabs/IntelImagesTab'
 import EraOptionsTab from '@/app/dashboard/j2/tabs/EraOptionsTab'
 import MissionBibleTab from './tabs/MissionBibleTab'
 import DoctrineTab from './tabs/DoctrineTab'
+import TemplatesTab from './tabs/TemplatesTab'
 import ObjectiveSuggestions from '@/components/j2/ObjectiveSuggestions'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
@@ -44,6 +45,7 @@ export default function J2Panel({
         { key: 'tickets',      label: 'Tickets',      render: () => <DeptTicketsTab department='j2' canManage={isLead} isJ4={isJ4} /> },
         { key: 'intel-images', label: 'Intel Images', render: () => <IntelImagesTab /> },
         { key: 'era-options',  label: 'ERA Options',  visible: canManageMembers, render: () => <EraOptionsTab /> },
+        { key: 'templates',    label: 'Templates',    render: () => <TemplatesTab /> },
     ]
 
     const tabSx = {

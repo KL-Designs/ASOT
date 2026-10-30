@@ -26,8 +26,10 @@ export async function GET(request: NextRequest) {
         defaultDate.setMinutes(0, 0, 0) // round to the hour
 
         // Starts from the J2 default template when one is set; otherwise from
-        // the two system pages alone, as it always has.
-        const template = await Db.operationTemplates.findOne({ isDefault: true })
+        // the two system pages alone, as it always has. `?kind=campaign` is a
+        // campaign's mission slot, which has a default of its own.
+        const kind = searchParams.get('kind') === 'campaign' ? 'campaign' : 'single'
+        const template = await Db.operationTemplates.findOne(kind === 'campaign' ? { isCampaignDefault: true } : { isDefault: true })
         const content = newMissionContent(template, () => new ObjectId().toHexString())
 
         const meUser = await Db.users.findOne({ _id: me.id as any }, { projection: { displayName: 1 } })
@@ -43,6 +45,9 @@ export async function GET(request: NextRequest) {
             ownedBy: me.id,
             ownedByName: ownerName,
             ...content,
+            // The template's document itself, so the mission opens with its
+            // content; see OperationTemplate.yjsState.
+            ...(template?.yjsState ? { yjsState: template.yjsState } : {}),
         })
 
         logAction({

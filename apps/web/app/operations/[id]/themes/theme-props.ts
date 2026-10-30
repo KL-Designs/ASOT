@@ -7,11 +7,19 @@
  * permission check drifting apart is a bug nobody notices until somebody sees
  * something they shouldn't.
  */
+import type { ReactNode } from 'react'
 import type { TabAccess } from '../tabs'
 import type { AttendanceStage } from '@/lib/operations/stage'
 
 export interface ThemePageProps {
     id: string
+    /**
+     * Drawn at the end of the theme's own page, after the orders: the comment
+     * thread. Inside the theme rather than after it, because each theme fills
+     * the route's fixed-height wrapper and anything placed after it ran under
+     * the site footer.
+     */
+    afterOrders?: ReactNode
     operation: Operation
     me: User | null
     isLoggedIn: boolean

@@ -10,6 +10,7 @@ import UnitTheme from '@/themes/unit'
 import Navbar from './navbar'
 import Footer from "./footer"
 import CustomCursor from '@/components/cursor'
+import StrayTextGuard from '@/components/StrayTextGuard'
 
 
 const montserrat = Montserrat({ subsets: ["latin"] })
@@ -59,6 +60,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 
 			<body className={`${montserrat.className}  antialiased h-full`}>
 				<CustomCursor />
+				<StrayTextGuard />
 				<ThemeProvider theme={UnitTheme}>
 					<div className="h-full flex flex-col">
 

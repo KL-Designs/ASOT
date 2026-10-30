@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 
 interface AckEntry {
     userId: string
@@ -30,6 +31,7 @@ interface Props {
  * on an ancestor - see `.sheet` in `themes/coldwar.module.css`.
  */
 export default function DocAcknowledgeCard({ operationId, pageId = 'main' }: Props) {
+    const router = useRouter()
     const [acknowledged, setAcknowledged] = useState<boolean | null>(null)
     const [acks, setAcks] = useState<AckEntry[]>([])
     const [notAcknowledged, setNotAcknowledged] = useState<EligibleEntry[]>([])
@@ -123,7 +125,11 @@ export default function DocAcknowledgeCard({ operationId, pageId = 'main' }: Pro
                                             headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ pageId }),
                                         })
-                                        if (res.ok) await refresh()
+                                        if (res.ok) {
+                                            await refresh()
+                                            // The "needs your acknowledgement" banner at the top is server-rendered.
+                                            router.refresh()
+                                        }
                                     } finally {
                                         setSaving(false)
                                     }

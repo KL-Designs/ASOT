@@ -327,6 +327,19 @@ declare global {
         /** The template every new mission starts from. At most one template
          *  carries it; set by a J2 lead. See lib/operations/default-template.ts. */
         isDefault?: boolean
+        /** The template every new campaign mission starts from (a campaign's
+         *  Saturday/Sunday slots), kept apart from `isDefault` so single
+         *  missions and campaigns can start differently. At most one. */
+        isCampaignDefault?: boolean
+        /** The mission the template was saved from, so the Templates tab can
+         *  open it for editing and refresh the template from it. Absent on
+         *  templates saved before this was kept. */
+        sourceOperationId?: string
+        /** The source mission's collaborative document state (the editor's
+         *  Yjs doc), so a mission made from the template opens with its
+         *  content and not only its layout. Absent on templates saved before
+         *  this was kept; those still give just the outline. */
+        yjsState?: unknown
     }
 
 }

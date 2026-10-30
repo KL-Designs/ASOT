@@ -127,7 +127,7 @@ const CONSOLE_CHROME: Record<string, string> = {
  */
 export default function SciFiPage({
     id, operation, isLoggedIn, isHQ, canZeus, canOcapManage, access, showAcknowledgeCard,
-    activePageParam, fromJ2, attendance, lineage,
+    activePageParam, fromJ2, attendance, lineage, afterOrders,
 }: ModernPageProps) {
     /*
      * Zeus Notes pages are ordinary documents — same sections, same schema,
@@ -391,6 +391,8 @@ export default function SciFiPage({
                     </div>
                 </div>
             </div>
+
+            {afterOrders}
 
             {/* Same repaint as the bar — otherwise it is one red chip on a green screen. */}
             {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} palette={CONSOLE_CHROME} />}

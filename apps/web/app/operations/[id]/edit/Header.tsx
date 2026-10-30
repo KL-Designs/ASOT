@@ -12,6 +12,7 @@ export type SaveStatus = 'saved' | 'saving' | 'unsaved'
 interface HeaderProps {
     operationId: string
     fromJ2: boolean
+    fromTemplates?: boolean
     title: string
     /** The operation's own lifecycle status — Upcoming / Active / Completed / In Development. */
     status: string
@@ -44,6 +45,8 @@ interface HeaderProps {
     onPublishClick: () => void
     onPublishConfirm: () => void
     onPublishCancel: () => void
+    /** Take an Upcoming operation back to In Development; shares the confirm strip with Publish. */
+    onUnpublishConfirm: () => void
     /** The operation's four views, rendered inline in this same row (spec §3)
      * rather than in a separate bar underneath. The strip itself is
      * `../OperationTabs`, shared with the public orders bar so a reader and an
@@ -87,9 +90,9 @@ const menuItemStyle: CSSProperties = {
 }
 
 export default function Header({
-    operationId, fromJ2, title, status, saveStatus, isHQ, canSchedule, canAttendance, canAar,
+    operationId, fromJ2, fromTemplates, title, status, saveStatus, isHQ, canSchedule, canAttendance, canAar,
     onDelete, activityOpen, onToggleActivity,
-    publishConfirmOpen, publishSaving, onPublishClick, onPublishConfirm, onPublishCancel,
+    publishConfirmOpen, publishSaving, onPublishClick, onPublishConfirm, onPublishCancel, onUnpublishConfirm,
     tab, onTabChange, editing = false,
 }: HeaderProps) {
     // Supplementary real data (not fabricated) for the status pill's countdown —
@@ -110,7 +113,10 @@ export default function Header({
 
     const statusColor = STATUS_COLOR[status] ?? 'var(--ink-3)'
     const save = SAVE_COPY[saveStatus]
-    const showPublish = isHQ && status === 'In Development'
+    const showPublish = isHQ && (status === 'In Development' || status === 'Upcoming')
+    // Published and not yet running: the same button takes it back.
+    const unpublish = status === 'Upcoming'
+    const tone = unpublish ? 'var(--warn)' : 'var(--good)'
 
     // Tab visibility and the active fallback live in ../tabs.ts now, applied by
     // OperationTabs below and by EditorShell's own `active` — one rule, read by
@@ -127,10 +133,10 @@ export default function Header({
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 1 }}>
                 <Link
-                    href={fromJ2 ? '/dashboard/j2' : '/operations'}
+                    href={fromTemplates ? '/dashboard/j2?view=settings&admin=templates' : fromJ2 ? '/dashboard/j2' : '/operations'}
                     style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-3)', textDecoration: 'none', flexShrink: 0 }}
                 >
-                    {fromJ2 ? '← J2 Operations' : '← Back'}
+                    {fromTemplates ? '← J2 Templates' : fromJ2 ? '← J2 Operations' : '← Back'}
                 </Link>
                 <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
                 <span style={{
@@ -185,24 +191,29 @@ export default function Header({
 
                 {showPublish && (
                     publishConfirmOpen ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', background: 'color-mix(in srgb, var(--good) 10%, transparent)', border: '1px solid var(--good)', borderRadius: 'var(--r)' }}>
-                            <span style={{ fontSize: '0.6rem', color: 'var(--good)', fontWeight: 700, letterSpacing: '0.1em' }}>Publish "{title || 'this op'}"?</span>
-                            <button type='button' disabled={publishSaving} onClick={onPublishConfirm}
-                                style={{ padding: '4px 10px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', background: 'color-mix(in srgb, var(--good) 22%, transparent)', border: '1px solid var(--good)', color: 'var(--good)', cursor: 'pointer', borderRadius: 'var(--r)' }}
-                            >{publishSaving ? 'Publishing…' : '✓ Confirm'}</button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 10px', background: `color-mix(in srgb, ${tone} 10%, transparent)`, border: `1px solid ${tone}`, borderRadius: 'var(--r)' }}>
+                            <span style={{ fontSize: '0.6rem', color: tone, fontWeight: 700, letterSpacing: '0.1em' }}>
+                                {unpublish
+                                    ? `Unpublish "${title || 'this op'}"? It goes back to In Development and sign-ups close.`
+                                    : `Publish "${title || 'this op'}"?`}
+                            </span>
+                            <button type='button' disabled={publishSaving} onClick={unpublish ? onUnpublishConfirm : onPublishConfirm}
+                                style={{ padding: '4px 10px', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', background: `color-mix(in srgb, ${tone} 22%, transparent)`, border: `1px solid ${tone}`, color: tone, cursor: 'pointer', borderRadius: 'var(--r)' }}
+                            >{publishSaving ? (unpublish ? 'Unpublishing…' : 'Publishing…') : '✓ Confirm'}</button>
                             <button type='button' onClick={onPublishCancel}
                                 style={{ padding: '4px 8px', fontSize: '0.6rem', fontWeight: 700, background: 'none', border: '1px solid var(--line-2)', color: 'var(--ink-3)', cursor: 'pointer', borderRadius: 'var(--r)' }}
                             >Cancel</button>
                         </div>
                     ) : (
                         <button type='button' onClick={onPublishClick}
+                            title={unpublish ? 'Take these orders back into development' : undefined}
                             style={{
-                                padding: '6px 14px', background: 'color-mix(in srgb, var(--good) 8%, transparent)',
-                                border: '1px solid var(--good)', color: 'var(--good)',
+                                padding: '6px 14px', background: `color-mix(in srgb, ${tone} 8%, transparent)`,
+                                border: `1px solid ${tone}`, color: tone,
                                 fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
                                 cursor: 'pointer', borderRadius: 'var(--r)',
                             }}
-                        >↑ Publish</button>
+                        >{unpublish ? '↓ Unpublish' : '↑ Publish'}</button>
                     )
                 )}
 
