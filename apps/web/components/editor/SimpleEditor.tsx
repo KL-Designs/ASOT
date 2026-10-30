@@ -238,6 +238,13 @@ export default function SimpleEditor({ initialContent = '', onChange, readOnly =
             return body
         })(),
         editable: !readOnly,
+        // Let plugins that tidy a document (prosemirror-tables' fixTables, for
+        // one) do it now, quietly. Left alone they do it on the first click,
+        // and that tidy-up arrived as an edit: a document read as "Unsaved
+        // changes" the moment it was opened.
+        onCreate: ({ editor }) => {
+            editor.view.dispatch(editor.state.tr.setMeta('preventUpdate', true))
+        },
         onUpdate: ({ editor }) => {
             setInTable(editor.isActive('table'))
             onChange?.(
@@ -381,7 +388,17 @@ export default function SimpleEditor({ initialContent = '', onChange, readOnly =
                 </div>
             )}
 
-            <div className='thin-scroll' style={{ minHeight, padding: readOnly ? 0 : '16px 20px', background: readOnly ? 'transparent' : 'rgba(255,255,255,0.015)', overflowX: 'auto' }}>
+            {/* The whole box is the writing area, not just the lines already in
+                it: a press on the empty space below puts the cursor at the end. */}
+            <div
+                className='thin-scroll'
+                style={{ minHeight, padding: readOnly ? 0 : '16px 20px', background: readOnly ? 'transparent' : 'rgba(255,255,255,0.015)', overflowX: 'auto', cursor: readOnly ? undefined : 'text' }}
+                onMouseDown={e => {
+                    if (readOnly || (e.target as HTMLElement).closest('.ProseMirror')) return
+                    e.preventDefault()
+                    editor.commands.focus('end')
+                }}
+            >
                 <EditorContent editor={editor} />
             </div>
         </div>

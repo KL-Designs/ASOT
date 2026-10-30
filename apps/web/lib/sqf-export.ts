@@ -1,30 +1,49 @@
 import type { MapAnnotation, MapLayer } from '@/components/operations/map/types'
+import { metisCreateSqf, readMetis } from '@/lib/operations/metis'
+
+/**
+ * A plan drawn on the operation map, as SQF that redraws it in game.
+ *
+ * Three kinds of annotation have an in-game equivalent and are exported:
+ * vanilla icon markers, polylines, and Metis markers. The rest (polygons,
+ * rectangles, circles, plain markers, text) are planning aids on the site
+ * only.
+ *
+ * Only what is on a **visible** layer is exported, so turning layers off is
+ * how a mission maker chooses which part of the plan goes into the game.
+ *
+ * The Metis markers are written as one `mts_markers_fnc_createMarker` call
+ * each, built by `lib/operations/metis.ts` from the mod's own parameter
+ * format. They used to be exported from hand-written lists that did not match
+ * the mod, with the HQ and task-force flags in the slot the mod reads as
+ * reinforced and reduced — so a plan arrived in game as different units.
+ *
+ * Running the script again replaces what the last run drew: it keeps the names
+ * of what it created in `gtd_map_allMarkers` / `gtd_map_allMetisMarkers` and
+ * deletes those first.
+ */
 
 // Arma 3 uses [x, y] = [lng, lat] in CRS.Simple
 function toArma(lat: number, lng: number): [number, number] {
     return [parseFloat(lng.toFixed(2)), parseFloat(lat.toFixed(2))]
 }
 
-let _idCounter = 1
-
-function nextId() {
-    return String(_idCounter++)
-}
+/** A string literal SQF cannot be broken out of: quotes are doubled. */
+const sqfString = (value: string) => `"${value.replace(/"/g, '""').replace(/[\r\n]+/g, ' ')}"`
 
 export function buildSqf(annotations: MapAnnotation[], layers: MapLayer[]): string {
-    _idCounter = 1
-
     const layerById = new Map(layers.map(l => [l.id, l]))
 
     const icons: string[] = []
     const poly: string[] = []
     const metis: string[] = []
+    let counter = 0
 
     for (const ann of annotations) {
         const layer = layerById.get(ann.layerId)
         if (layer && !layer.visible) continue
 
-        const id = nextId()
+        const id = String(++counter)
 
         if (ann.type === 'a3icon') {
             const [lat, lng] = ann.geometry[0]
@@ -32,47 +51,31 @@ export function buildSqf(annotations: MapAnnotation[], layers: MapLayer[]): stri
             const markerType = ann.properties.a3MarkerType ?? 'hd_dot'
             const color = ann.properties.a3MarkerColor ?? 'ColorBlack'
             const text = ann.properties.label ?? ''
-            const dir = ann.properties.a3MarkerDir ?? 0
-            const scale = ann.properties.a3MarkerScale ?? 1
-            icons.push(`["${id}",${x},${y},"${markerType}","${color}","${text}",${dir},${scale}]`)
+            const dir = Number(ann.properties.a3MarkerDir ?? 0) || 0
+            const scale = Number(ann.properties.a3MarkerScale ?? 1) || 1
+            icons.push(`["${id}",${x},${y},${sqfString(markerType)},${sqfString(color)},${sqfString(text)},${dir},${scale}]`)
 
         } else if (ann.type === 'a3metis') {
             const [lat, lng] = ann.geometry[0]
             const [x, y] = toArma(lat, lng)
-            const side = ann.properties.a3SideId ?? 'blu'
-            const dashed = ann.properties.a3Dashed ? 'true' : 'false'
-            const icon = ann.properties.a3Icon ?? 0
-            const mod1 = ann.properties.a3Mod1 ?? 0
-            const mod2 = ann.properties.a3Mod2 ?? 0
-            const size = ann.properties.a3Size ?? 0
-            // hqTf: 1,2 → HQ; 3,4 → TF; 5,6 → HQ+TF; 7 → feint only
-            const hqTf = ann.properties.a3HqTf ?? 0
-            const isHQ = [1, 2, 5, 6].includes(hqTf) ? 'true' : 'false'
-            const isTF = [3, 4, 5, 6].includes(hqTf) ? 'true' : 'false'
-            const designation = ann.properties.a3Designation ?? ''
-            const scale = ann.properties.a3MetisScale ?? 1
-            metis.push(`["${id}",${x},${y},"${side}",${dashed},${icon},${mod1},${mod2},${size},${isHQ},${isTF},"${designation}",${scale}]`)
+            // A marker placed before the Metis rebuild is translated by
+            // `readMetis`, so it exports as the unit it was drawn as.
+            metis.push(`gtd_map_allMetisMarkers pushBack (${metisCreateSqf(readMetis(ann.properties), x, y)});`)
 
         } else if (ann.type === 'polyline') {
             // Flatten to [x1,y1,x2,y2,...] for SQF polyline format
-            const flat = ann.geometry.flatMap(([lat, lng]) => {
-                const [x, y] = toArma(lat, lng)
-                return [x, y]
-            })
-            const layer = layerById.get(ann.layerId)
+            const flat = ann.geometry.flatMap(([lat, lng]) => toArma(lat, lng))
             const color = a3ColorFromHex(layer?.color ?? ann.properties.color)
             poly.push(`["${id}",[${flat.join(',')}],"${color}"]`)
         }
-        // Other annotation types (polygon, rectangle, circle, marker, text) are planning tools only — not exported
     }
 
     const iconsArr = icons.length ? `[${icons.join(',\n    ')}]` : '[]'
     const polyArr = poly.length ? `[${poly.join(',\n    ')}]` : '[]'
-    const metisArr = metis.length ? `[${metis.join(',\n    ')}]` : '[]'
 
-    return `private _data = [${iconsArr},${polyArr},${metisArr}];
+    return `private _data = [${iconsArr},${polyArr}];
 
-_data params ['_icons', '_poly', '_metis'];
+_data params ['_icons', '_poly'];
 
 if (!isNil 'gtd_map_allMarkers') then {
   { deleteMarker _x; } forEach gtd_map_allMarkers;
@@ -105,11 +108,8 @@ gtd_map_allMetisMarkers = [];
   gtd_map_allMarkers pushBack _m;
 } forEach _poly;
 
-{
-  _x params ['_id', '_mx', '_my', '_sideid', '_dashed', '_icon', '_mod1', '_mod2', '_size', '_isHQ', '_isTF', '_designation', ['_scale', 1]];
-  private _m = [[_mx,_my], 0, true, [[_sideid, _dashed], [_icon, _mod1, _mod2], [_size, _isHQ, _isTF], [], _designation], _scale * 1.3] call mts_markers_fnc_createMarker;
-  gtd_map_allMetisMarkers pushBack _m;
-} forEach _metis;
+// Metis markers (Metis Marker mod, mts_markers_fnc_createMarker)
+${metis.join('\n')}
 
 publicVariable 'gtd_map_allMarkers';
 publicVariable 'gtd_map_allMetisMarkers';

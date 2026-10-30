@@ -3,7 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 
 import Button from '@/components/ui/Button'
-import { CrateIcon, DiscordIcon, SteamIcon, YouTubeIcon, MailIcon } from '@/components/ui/icons'
+import { HeartIcon, DiscordIcon, SteamIcon, YouTubeIcon, MailIcon } from '@/components/ui/icons'
 import Signature from '@/components/signature'
 import CreditsModal from '@/components/credits-modal'
 
@@ -135,7 +135,7 @@ export default async function Footer() {
                             <b>{roster ?? '—'}</b>
                         </div>
                         <Button variant='amber' size='sm' href='/donate' block>
-                            <CrateIcon /> Support the unit
+                            <HeartIcon /> Support the unit
                         </Button>
                     </div>
 

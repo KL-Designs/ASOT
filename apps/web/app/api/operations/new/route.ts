@@ -4,6 +4,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { logAction } from '@/lib/logs'
+import { newMissionContent } from '@/lib/operations/default-template'
 
 
 export async function GET(request: NextRequest) {
@@ -24,8 +25,12 @@ export async function GET(request: NextRequest) {
         defaultDate.setDate(defaultDate.getDate() + 7)
         defaultDate.setMinutes(0, 0, 0) // round to the hour
 
-        const zeusPageId = new ObjectId().toHexString()
-        const ocapPageId = new ObjectId().toHexString()
+        // Starts from the J2 default template when one is set; otherwise from
+        // the two system pages alone, as it always has. `?kind=campaign` is a
+        // campaign's mission slot, which has a default of its own.
+        const kind = searchParams.get('kind') === 'campaign' ? 'campaign' : 'single'
+        const template = await Db.operationTemplates.findOne(kind === 'campaign' ? { isCampaignDefault: true } : { isDefault: true })
+        const content = newMissionContent(template, () => new ObjectId().toHexString())
 
         const meUser = await Db.users.findOne({ _id: me.id as any }, { projection: { displayName: 1 } })
         const ownerName: string = (meUser as any)?.displayName ?? me.username ?? 'Unknown'
@@ -39,10 +44,10 @@ export async function GET(request: NextRequest) {
             status: 'In Development' as const,
             ownedBy: me.id,
             ownedByName: ownerName,
-            pages: [
-                { id: zeusPageId, title: 'Zeus Notes', isMain: false, pageType: 'zeus', pageColor: '' },
-                { id: ocapPageId, title: 'OCAP', isMain: false, pageType: 'ocap', pageColor: '#10b981' },
-            ],
+            ...content,
+            // The template's document itself, so the mission opens with its
+            // content; see OperationTemplate.yjsState.
+            ...(template?.yjsState ? { yjsState: template.yjsState } : {}),
         })
 
         logAction({
@@ -51,7 +56,7 @@ export async function GET(request: NextRequest) {
             performedBy: me.id,
             performedByName: ownerName,
             target: `New Mission ${formatted}`,
-            details: { operationId: newOp.insertedId.toString() },
+            details: { operationId: newOp.insertedId.toString(), ...(template ? { fromDefaultTemplate: template.name } : {}) },
         })
 
         return NextResponse.json({ success: true, id: newOp.insertedId }, { status: 200 })

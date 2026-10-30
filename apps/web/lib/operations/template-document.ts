@@ -29,6 +29,7 @@ import * as Y from 'yjs'
 import { getSchema } from '@tiptap/core'
 import { prosemirrorJSONToYXmlFragment } from '@tiptap/y-tiptap'
 import { contentExtensions } from '@/components/editor/content-extensions'
+import { starterFlowchart } from '@/lib/operations/flowchart'
 
 /** ProseMirror JSON, loosely typed — the schema is what actually validates it. */
 export interface TemplateNode {
@@ -101,6 +102,8 @@ const pre = (text: string): TemplateNode => ({
     content: [t(text)],
 })
 const rule: TemplateNode = { type: 'horizontalRule' }
+// The starter chart, so a generated document shows what a flowchart looks like.
+const flowchart: TemplateNode = { type: 'flowchart', attrs: { chart: JSON.stringify(starterFlowchart()), title: 'Example flow' } }
 const br: TemplateNode = { type: 'hardBreak' }
 
 const doc = (...content: TemplateNode[]): TemplateNode => ({ type: 'doc', content })
@@ -152,6 +155,7 @@ export function buildTemplateDocument(): TemplatePage[] {
                     content: doc(
                         pAlign('center', t('India Company will seize the Zaros quarry NLT 2100L to deny the enemy observation over the valley road.', bold)),
                         rule,
+                        flowchart,
                         p(t('Repeat: ', underline), 'seize the Zaros quarry NLT 2100L.'),
                     ),
                 },

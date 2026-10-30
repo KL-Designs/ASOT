@@ -49,15 +49,112 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - Baselines are answered before anything else, deliberately: `hasPermission` goes to Mongo twice, and a page asking eight questions of a member who passes them all on the baseline should not make sixteen round trips to find out.
 - `permissions.test.ts` pins the table itself — every capability names a key that exists in `PERMISSION_KEYS`, every legacy key exists, **every gated capability has a legacy arm**, no legacy role array is empty (a mistyped `PERMISSIONS.x.y` would otherwise look like a fallback while being none), and the splits hold in both directions.
 
+### lib/operations/flowchart.ts
+- Flowcharts in operation documents. A chart is **data** — `{ nodes: [{id,label,kind,x?,y?}], edges: [{from,to,label?}] }`. `x`/`y` are a box's centre once dragged; boxes without them are placed by dagre in `layoutFlowchart`, and arrows are always routed by `routeEdge` (right-angled, label on the middle run). The layout carries `minX`/`minY` because boxes can be dragged left of or above zero. `flowchartSvg(chart, id, layout?)` returns an SVG string with every label escaped (it reaches the page through `innerHTML`). Editing helpers: `pinPositions`/`unpinPositions`, `descendants`, `moveBranch` (a box and everything beneath it), `addChild`, `reparent` (drop one box on another; refuses its own branch). `parseFlowchart` sanitises whatever the attribute holds (bad ids, half positions, arrows to nowhere, limits in `FLOW_LIMITS`) instead of throwing. Pure; `flowchart.test.ts`.
+- Schema: `ContentFlowchart` in `components/editor/content-extensions.ts` (atom block, attrs `chart` JSON + `title`, renders a placeholder `div[data-flowchart]`). Editor: `components/editor/FlowchartNodeView.tsx` (drag-and-drop canvas laid over the same SVG: drag a box and its branch, drop on a box to hang it beneath, double-click to rename/reshape, + on a selected box's corner adds a child, + on an arrow labels it; `stopFlowchartEvent` keeps ProseMirror off the canvas; toolbar button *Insert Flowchart* in `CollabEditor.tsx`). Read view: `app/operations/[id]/doc-body.tsx` draws each placeholder into a collapsible `<details>`.
+
+### lib/attendance/discord-post.ts + discord-post-sync.ts + roster-image.tsx + rsvp.ts
+- **The Discord attendance post.** `discord-post.ts` is its content, pure and tested: `postKindFor` (weekend = main, otherwise mid-week, in the unit's timezone), `DEFAULT_TIMINGS` / `resolveDetails` (an operation's own `postDetails` over the env defaults over the usual timings), `summariseRoster` + `rosterFingerprint` + `refreshDue` (what the picture shows and when it counts as changed), `packColumns` (the picture's layout as numbers), and `buildPostMessage` (the embed with `<t:…>` timestamps, the `attendance.<opId>.<yes|no>` buttons, the image attachment).
+- `roster-image.tsx` — `renderRosterPng(title, summary)` with `next/og`, which carries its own font (an SVG rasterised on the server draws empty boxes where the container has none).
+- `discord-post-sync.ts` — `syncAttendancePost(operationId)` does at most one of post / refresh / close and never throws; `syncAllAttendancePosts` is called from `cron/operations` after the RSVP open and close passes. **Off until a channel is set** (`DISCORD_ATTENDANCE_CHANNEL_ID`, `DISCORD_ATTENDANCE_MIDWEEK_CHANNEL_ID`). State lives on `OperationAttendance.discordPost`. Sends through `upsertChannelPost` in `lib/discord/bot.ts` (multipart; honours Discord developer mode).
+- `rsvp.ts` — `applyRsvp(operationId, userId, status)`, the one implementation of a member's answer, used by the site's RSVP route and by `POST /api/bot/attendance/rsvp` (the Discord buttons, `BOT_API_SECRET`).
+- Per-operation settings: `GET/PUT /api/operations/[id]/attendance/post` (`attendance.manage`) and `app/operations/[id]/edit/tabs/DiscordPostCard.tsx` on the Attendance tab.
+
 ### lib/operations/aar.ts
 - `aarOpen(stage)` — the AAR opens at `confirmations_open`, which *is* "the operation has finished": it is the stage the cron moves to when the night ends and the one that sets the status to Completed. Using it avoids a second notion of finished that could disagree with the first. Stays open at `completed` — an AAR that closed with the paperwork would lose everyone who writes theirs up the next morning.
 - **`sectionLead(roster, sectionTitle)`** — the 1IC: the occupant of the section's lowest-`order` **filled** slot. **Deliberately not the ORBAT's `isSenior`**, which is who leads on paper. The two disagree on exactly the nights this matters — a stand-in commander is an ordinary Saturday, and asking the absent paper leader to write up a section they did not lead is the wrong question. **This is the one piece of authority in the operations area that is positional rather than granted**, which is why it is a query and not a permission check.
-- `sectionsOf` / `ledSections` / `canWriteSection(roster, userId, section, canManageAll)` — the sections on the night, the ones a member led, and the two ways in: positional (led it) or granted (`aar.manage`, so somebody can close an operation out when a 1IC never does).
+- `sectionsOf` / `ledSections` / `platoonSections` / `writableSections(roster, userId, canManageAll)` / `canWriteSection(roster, userId, section, canManageAll)` — the sections on the night, the ones a member led, the ones they answer for as **platoon headquarters** (anybody who played in an HQ section, matched by `isHeadquartersSection`, gets every section of that same `category` and no other platoon's), and the three ways in: led it, was in its PHQ, or granted (`aar.manage`, so somebody can close an operation out when a 1IC never does).
 - `didAttend(record, heldAPosition)` — gates feedback. Confirmation is definitive but arrives late, so an unconfirmed member who said yes *and* held a position counts until somebody says otherwise; an explicit non-attending status always wins. Without that, nobody could leave feedback until their 1IC did paperwork.
+- `SELECTABLE_STATUSES` — the five a roll call offers (Attended, Not Attending, Resolved, No Notice, LOA). **Confirm is discontinued**: `selectable: false` and `present: false`, kept in the list only so past records still read. Resolved is an accepted absence — in `NON_ATTENDING`, no billet point, and not a No Notice. (The "repeated No Notice raises a warning" rule has no threshold agreed and is not implemented.)
 - `ATTENDANCE_STATUSES` — the eight (ATTENDED / NOT ATTENDING / RESOLVED / NO NOTICE / LOA / CONFIRM / N/A / ADDED TO UNIT), **moved here** from a private constant in `components/operations/AttendancePanel.tsx`. Two copies of "what states can a member be in" is how the board and the write-up end up disagreeing about a night that already happened. Each carries `present`, which is what drives confirmation and the billet rollup.
 - `RATING_SCALE` / `RATING_ASPECTS` — **why it is not stars.** The question is "how did this compare to a normal night", which makes the middle *neutral*, not mediocre. Stars cannot say that: 5 reads as the goal and 3 as a disappointment, so a run of perfectly good ordinary operations would score 3/5 and look like a problem. Stored 1–5, drawn as a diverging bar centred on "As usual" with `offset` from -2 to +2.
 - `validRating` / `averageRating` — the latter rounds to one decimal, because an average of "compared to usual" carries about that much signal and quoting 3.47 implies otherwise.
 - `aar.test.ts` — 42 tests, including every fallback case for `sectionLead` and every branch of `didAttend`.
+
+### lib/dashboard/layout.ts
+- Pure model of the dashboard home page's member-arranged layout: `PANEL_IDS`/`PANEL_TITLES`, `DEFAULT_LAYOUT`, `normaliseLayout(saved, available)` (every available panel exactly once), `sanitiseLayout` (what gets stored), `movePanel`. Unit-tested. Used by `/api/preferences` and `app/dashboard/DashboardOverview.tsx`.
+
+### lib/teamspeak/nickname.ts
+- Pure `nicknameCore()` / `nicknamesMatch()` — matches a member to their TeamSpeak client on the name alone (bracketed groups and a leading rank abbreviation stripped from both sides). Unit-tested. Used by `/api/me/teamspeak` `init`.
+
+### lib/military/reinstate.ts (+ reinstate-items.ts)
+- `restoreFromSnapshot(discordId, items)` — restores chosen parts (`qualifications`/`awards`/`trainings`/`operations`) of a member's milpac from their latest discharge snapshot; `restoreOperations` is the pure, tested `$set` builder. `reinstate-items.ts` holds the import-free names (`RESTORE_ITEMS`, `RESTORE_LABEL`, `sanitiseRestoreItems`) for client components. Used by J4's reinstate (`PATCH /api/admin/members/discharged`) and by J1 recruit sign-off: a recruiter's `J1Application.restoreItems` proposal for a returning member is applied, and `discharged` cleared, when the lead accepts (`PATCH /api/admin/j1/applications/[id]`).
+
+### lib/j1/rejoin.ts and lib/j1/returning-check.ts
+- `rejoin.ts` (pure, tested): `dischargeLevel(type, rejoinStatus)` maps a discharge to HD (welcome back) / GD (to be reviewed) / DD (not welcome), reading both the site's `honorable|general|dishonorable` and the master sheet's `HD|GD|DD`; a J4-set `discharged.rejoinStatus` wins. Also `defaultRejoinStatus`, `worseLevel`, labels.
+- `returning-check.ts`: `runReturningMemberCheck(discordId)` — the most cautious verdict across rejected applications, the site discharge, leaving history and denied applications. Used by `PATCH /api/admin/j1/applications/[id]` and `GET /api/admin/j1/check-returning` (which now returns `level`/`details`; its POST pings J4 in the J1 recruitment channel).
+
+### lib/military/bio-approval.ts
+- Pure `bioApproversFor(memberId, positions)` — who approves a MILPAC biography change: the member's platoon HQ, else company HQ, else J4 (`isHeadquartersSection`, `BIO_LEVEL_LABEL`, `BIO_MAX_LENGTH`). Unit-tested. `POST /api/me { content }` stores the edit as `User.bioPending` (with the resolved approvers) instead of publishing; `/api/milpac/bio-approvals` approves or sends it back (`User.bioRejected`).
+
+### lib/j2/bible-diff.ts
+- What changed between two versions of the Mission Making Bible. `htmlToBlocks(html)` reads the editor's HTML into blocks (heading / paragraph / list item / cell), `diffBlocks(before, after)` is an LCS over blocks that pairs a removal with the addition after it into one `changed` block (word-level `diffWords`) when they are at least half alike, `changesOnly` keeps just the changes plus the heading each sits under, `summariseDiff` counts them. Pure, `bible-diff.test.ts`.
+- Storage: `Db.missionBibleVersions` (`MissionBibleVersion`, immutable, numbered) and `Db.missionBibleDraft` (one `_id: 'draft'` document). Route: `/api/j2/mission-bible` — GET (latest + change log + draft for leads; `?version=n` and `?recent=1` return a comparison), PUT (save draft), POST (publish with a required summary; notifies J2). Read: J2 or J4. Edit: `departmentLeads.j2` or J4. HTML is sanitised with `sanitizeDocHtml`.
+- UI: `app/dashboard/j2/tabs/MissionBibleTab.tsx`, the J2 dashboard's *Mission Bible* tab (explicit tab value 7).
+
+### lib/j2/objective-suggestions.ts + objective-access.ts
+- Objective suggestions (`Db.objectiveSuggestions`, type `ObjectiveSuggestion`): the pool of confirmed objective ideas. `objective-suggestions.ts` is pure and tested — the five fields (`OBJECTIVE_FIELDS`: type/name, overview/concept, objective intelligence, linked intelligence, other comments), `sanitiseObjective` (with a `partial` mode), `objectiveFromTicket`, `matchesObjectiveSearch`. `objective-access.ts` — read: J2 + staff (`pages.admin`) + J4; edit: J2; confirm from a ticket / remove: `departmentLeads.j2`.
+- Submitting: community-ticket subtype **`objective`** (the third option under Mission / Campaign Ideas; category `mission`, routed to J2; fields `objectiveIntel`, `objectiveLinkedIntel`, `objectiveComments`, with the name as `title` and the overview as `description`). `app/tickets/[id]/ConfirmObjectiveIdea.tsx` is the lead's *Confirm and add* button.
+- Routes: `GET/POST /api/j2/objective-suggestions` (`?ticketId=` answers confirmed / canConfirm without exposing the pool; a POST with `sourceTicketId` builds the entry from the ticket server-side), `PATCH/DELETE /api/j2/objective-suggestions/[id]`.
+- UI: `components/j2/ObjectiveSuggestions.tsx`, mounted editable as the J2 dashboard's *Objective Suggestions* tab (explicit value 8) and with `mirror` (read-only, re-read every 15s) as the fourth tab of `app/dashboard/personnel/all-staff/AllStaffPanel.tsx`.
+
+### lib/mods/mod-database.ts + access.ts
+- The Mod Database (`Db.modDatabase`, type `ModEntry`): one entry per mod — name, Workshop link, status (approved / testing / known issues / rejected), notes, who tested it and when. `mod-database.ts` is pure and tested (`sanitiseMod` with a `partial` mode for edits, `cleanModUrl`, `normaliseModUrl` for spotting a mod already listed, `matchesModSearch`). `access.ts` — `canEditMods(me)` (J2 or J7) and `toModView`.
+- Routes: `GET/POST /api/mods` (`?ticketId=` answers "is there an entry from this ticket, may I make one"), `PATCH/DELETE /api/mods/[id]`. Read: dashboard access. Write: J2 / J7.
+- UI: `app/dashboard/unit/mods/` (sidebar *Mod Database*, searchable list + editor form) and `app/tickets/[id]/SendToModDatabase.tsx` (the button on a mod-request ticket).
+
+### lib/teamspeak/milpac-groups.ts
+- The TeamSpeak groups a member is owed for their MILPAC: rank, awards, campaign medals, certifications. `buildResolver(serverGroups, links)` resolves each to a group id — a `ts_group_links` row first (`Db.tsGroupLinks`, type `TsGroupLink`), else the name table in `tags.ts` looked up in the live group list — and `milpacBundles(subject, resolver, held)` returns bundles in the `grant-bundles.ts` shape. **Only rank groups are ever removed**; awards, campaigns and certifications are grant-only. A member already wearing a variant of their rank (the `(V)` twins) keeps it. Pure, `milpac-groups.test.ts`.
+- Consumed by `lib/orbat/member-sync.ts`: `computeMemberSyncReport` (the ORBAT Member Sync tab now shows and fixes these too) and **`syncMemberTeamspeak(userId)`** / `queueMemberTeamspeakSync` — the one-member, TeamSpeak-only sync fired after a MILPAC save (`PUT /api/members/[username]`), a Mastersheet rank edit, an approved promotion or award ticket, and a training event's qualifications. Rank groups are only "managed" for a member whose own rank resolves, so a blank rank never strips anybody.
+
+### lib/gallery/callsign.ts + review-scope.ts
+- `callsign.ts` (pure, `callsign.test.ts`) — `callsignOf(positions, userId)` (the section a member may file under: only their own), `staffedCallsigns` / `callsignStaff` (section staff = `isSenior` positions), and the `ReviewScope` checks `canReviewAnything` / `canReviewCallsign`.
+- `review-scope.ts` — the ORBAT reads behind them: `reviewScope(me)`, `memberCallsign(userId)`, `staffOfCallsign(callsign)`. Every gallery route that reviews or previews a pending item asks here.
+
+### lib/gallery/focal.ts
+- Pure `clampFocal()` / `focalPosition(sotm)` — the Screenshot of the Month's focal point (`focalX`/`focalY` percentages on the `screenshotOfMonth` siteSettings doc) as a CSS `object-position`. Used by `PATCH /api/gallery/sotm`, the home hero, the gallery banner, the join masthead (via `Masthead`'s `backgroundPosition`) and the J5 `FocalPicker`. Unit-tested.
+
+### lib/attendance/roster.ts — `onCrew`
+- `onCrew(position, crew)` — whether an ORBAT slot is on an operation using a given support-platoon crew. Support (1-3) slots carry `OrbatPosition.night` (`saturday`/`sunday`, absent = both; set by cycling the SAT/SUN chip in the ORBAT manager, `PATCH /api/admin/orbat/[positionId] { night }`), and an operation stores `OperationAttendance.supportCrew` (chosen in the editor's Attendance tab when 1-3 is ticked). Applied when the roster is cut (`lib/attendance/snapshot.ts`) and in the legacy position read in `GET /api/operations/[id]/attendance`. Tested in `crew.test.ts`.
+
+### lib/training/bct-availability.ts
+- `clearBctAvailabilityIfDone(discordId)` — once a member holds both `BCT 1` and `BCT 2` (`hasCompletedBct`, pure + tested), deletes their upcoming `isBCTAvailability` calendar events (`applicantId` = their Discord id). Never throws. Called from `award-qualifications` and from `j3-qualification` ticket approval. Collections: `Db.users`, `Db.calendarEvents`.
+
+### lib/training/nco-assessment.ts + nco-actor.ts
+- NCO assessments (`Db.ncoAssessments`, type `NcoAssessment`). `nco-assessment.ts` is the pure rules, tested: `farEnoughAhead` (a week's notice), `holdsNight` (a night is taken once an assessment on it has an assessor), `canDo(action, actor, assessment)` for the eight steps (assign / confirm / requestShadow / decideShadow / sheet / recording / complete / cancel) and `canSee`. Roles are positional: section staff = `isSenior` in the candidate's section, CHQ = a `companyHQ` position, J3 lead = `training.manage`.
+- `nco-actor.ts` — the ORBAT reads (`ncoActor`, `sectionOf`, `staffOfSection`) and `toNcoView`, which sends each assessment with `can` already computed, so the page offers exactly what the route will accept.
+- UI: `app/dashboard/unit/training-docs/AssessmentsTab.tsx` (the *NCO Assessments* tab of the training hub; `?tab=assessments` opens it) and `components/operations/board/AssessmentMarker.tsx` (the banner on the attendance board for CHQ and those involved).
+
+### lib/training/pre-learning.ts + pre-learning-sync.ts
+- Pre-learning: material on a `TrainingType` (`preLearning`) locked until the member has a place. `pre-learning.ts` is pure and tested: `unlockedMemberIds(records)` (confirmed trainees + the first `WAITLIST_UNLOCKED` = 2 of the waitlist), `waitlistOrder` (priority first, then first come — the one definition of "who is next", used by both the unlock rule and the sign-up route's promotion sort), `grantIsLive` / `grantExpiresAt` (two weeks from unlock), `preLearningState` (locked / open / done / expired), `hasSeatPriority` (finished it, missed that session, signing up to another inside the window), `sanitisePreLearning`.
+- `pre-learning-sync.ts` — `syncPreLearning(event)`: after any seat change, upserts a `Db.trainingPreLearning` grant (`TrainingPreLearning`, one per member per type; an expired one is reset, clearing `completedAt`) for whoever is newly entitled and notifies them (`training_prelearning_unlocked`). Only ever opens access. Never throws.
+
+### lib/training/prerequisites.ts
+- Pure `missingPrerequisites(required, held)` / `listNames()` — which of a training type's named prerequisites a member still lacks (a milpac qualification of that name, or attendance at a completed session of it, satisfies one). Unit-tested. Used by `POST /api/training/events/[id]/attendance` to block a trainee sign-up; waived per member per session via `TrainingEvent.prerequisiteWaivers` (PATCH on the same route).
+
+### lib/maps-preview.ts
+- `previewAvailable(worldDir)` / `ensurePreview(worldDir)` — a world's `preview.jpg`, built on first request as a 1280x720 mosaic of its GRAD Meh satellite tiles (`sat/{col}/{row}.jpg`) with sharp, written atomically and never over an existing file; one build per world at a time. Used by `lib/maps.ts` (`hasPreview`) and `/api/maps/assets/[...path]`. Unit-tested.
+
+### lib/operations/metis.ts
+- **Metis Marker as the mod defines it** (1.9.0, read from `addons/mts_markers`): `METIS_ICONS` (56), `METIS_MOD1` (13, top), `METIS_MOD2` (9, bottom), `METIS_ECHELONS`, `METIS_DIRECTIONS`, `METIS_CONDITIONS`, identities. **An entry's index is its id in game — never reorder or insert.** `MetisMarker` + `normaliseMetis`, `metisText` (the mod's six-character texts), `metisLayers` (the texture family in the mod's order), `metisConfigSqf` / `metisCreateSqf` (the `createMarker` parameter format), and `readMetis` / `writeMetis` for annotation properties: `a3MetisV: 2` means the mod's ids, anything older is translated by the picture it was drawn as. `metis.test.ts` pins ids, checks every texture the lists can ask for exists under `public/markers/metis`, and round-trips the mod's own example.
+
+### lib/operations/map-layers.ts
+- Overlays and the layers inside them: `layerTree` (one level deep; orphans surface rather than vanish), `withDescendants`, `resolveVisibility(layers, choices)` (a layer shows only if it and its overlay are on — the list the map draws and Export SQF writes), `chosenVisible`, `pruneChoices`, and `copyOverlay` (a copy under new ids, original untouched). Visibility is **per viewer** (`LayerChoices`, kept in `localStorage` by `MapSection`), not a shared flag. Pure, `map-layers.test.ts`.
+
+### lib/operations/map-grid-view.ts
+- Pure grid-view maths for the map's grid canvas: `viewFor` (affine world→canvas for a centre+zoom), `lerpView`, `visibleWorld`, `zoomEase` + `ZOOM_ANIMATION_MS` (Leaflet's zoom transition). Lets `OperationMap` redraw the grid every frame of an animated zoom instead of snapping at `zoomend`. Unit-tested.
+
+### lib/operations/default-template.ts
+- Pure `newMissionContent(template, newId)` — the sections/pages a brand-new mission starts with: the J2 default template's content when one is set (`OperationTemplate.isDefault` for single missions, `isCampaignDefault` for a campaign's slots via `?kind=campaign`), with its `yjsState` copied by the route, always with a Zeus Notes and an OCAP page added back if missing. Unit-tested. Used by `/api/operations/new`.
+
+### lib/operations/comments.ts
+- Server helpers for the orders comment thread: `commentViewer()` (who may read/write/moderate), `readOperationComments(operationId)` (thread with deleted shells + callsign colours), `toView()`. Collections: `Db.operationComments`. Used by `/api/operations/[id]/comments*`.
+
+### lib/comments/thread.ts
+- Pure, import-free `buildThread(comments, collapsed)` — flat `parentId` comments into reading order with `depth` (capped at `MAX_DEPTH`) and `descendants`; orphans become top-level, cycles are tolerated. Unit-tested (`thread.test.ts`). Used by the ticket page and `OrdersComments`.
+
+### lib/orbat/unit-colour.ts
+- `unitColoursFor(userIds)` — Discord id → callsign colour (section colour, then platoon's, from `Db.orbatSectionMeta` via `Db.orbatPositions`), run through `ensureVisible`. Members with no colour are absent from the map. Used to edge comments in ticket and orders threads.
 
 ### lib/operations/console-palette.ts
 - `consolePalette(themeColor): ConsolePalette` — the Sci-Fi orders theme's entire screen, derived from one hue. Glass (three depths plus the near-black that sits *on* a filled block), two brightnesses of tube, three inks, and the alarm.
@@ -172,7 +269,7 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `getQuizQuestion(quiz, questionId)` — flat lookup across all sections.
 
 ### lib/sqf-export.ts
-- `buildSqf(annotations: MapAnnotation[], layers: MapLayer[]): string` — converts operation-map annotations (a3icon/a3metis/polyline types; other types are planning-only and skipped) into an Arma 3 SQF script string that recreates markers via `createMarker`/`mts_markers_fnc_createMarker`.
+- `buildSqf(annotations: MapAnnotation[], layers: MapLayer[]): string` — converts operation-map annotations on **visible** layers (a3icon / a3metis / polyline; the other types are planning-only) into an Arma 3 SQF script. Metis markers are one `mts_markers_fnc_createMarker` call each, built by `metisCreateSqf` in the mod's own parameter format; strings are quote-doubled so a label cannot break out. `sqf-export.test.ts` pins the format against the mod's documented example.
 - `a3ColorFromHex(hex)` (internal) — nearest-neighbor match to named Arma 3 marker colors.
 - `downloadSqf(content, filename='init.sqf')` — client-side Blob download trigger.
 
@@ -476,6 +573,9 @@ Client-safe (no sharp), so upload controls can quote the limit they enforce.
 ### lib/orbat/grant-bundles.ts
 - `grantBundlesFor(user, catalog: GrantCatalog): GrantBundle[]` — the expected-grant rules for one member: which Discord roles and TeamSpeak groups they are owed, and what owes each. Pure and dependency-free (takes already-loaded catalogs, never touches `Db`), extracted from `member-sync.ts` so the rules are unit-testable without booting Discord and TeamSpeak first. Arms: each department base role they belong to; each held sub-role scoped to a department they are actually in; **the Members role, for anyone holding any ORBAT position** (source label `Members: everyone in the ORBAT`); their ORBAT position's Role; and the category/section metadata grants. A grant appearing in more than one bundle is normal — `mergeBundles` upstream keeps every contributing source.
 - Interfaces: `GrantBundle`, `GrantCatalog`.
+
+### lib/orbat/discharge-cleanup.ts
+- `stripDischargedMember(discordId)` — run when a `j4-discharge` ticket is approved (`PATCH /api/admin/tickets/[id]`): removes every site-managed Discord role the member holds (department roles incl. the Members base role, ORBAT roles, section/platoon roles, legacy dept member/lead roles), every TeamSpeak server group, and empties `departments`/`departmentRoleIds`. Never throws; returns counts + previous departments for the audit log (`member.discharge.cleanup`) and the discharge snapshot. Exists because the member sync skips discharged users, so nothing else cleans up.
 
 ### lib/orbat/member-sync.ts
 - `computeMemberSyncReport(): Promise<MemberSyncReport>` — builds the live Discord/TeamSpeak grant-drift report backing `GET /api/admin/orbat/member-sync` and the Member Sync tab; see that route's entry in `a-admin-api.md` for the full computation. Probes TS connectivity once via `getConnection()` and skips TS diffing (reporting `tsAvailable: false`) rather than false-positive drift if it's down.
@@ -993,6 +1093,9 @@ choreography stays in that surface's own module.
 - Default export `Pulse({tone})` — the live dot. `live` / `amber` / `idle` (dim, animation off, for
   "known not live" as distinct from "unknown").
 
+#### components/ui/PhotoBand.tsx
+- One to three photographs across the content width, placed between two sections of a text page (About: Rules, Values, FAQ; Support). Decorative: empty alt unless the caller passes one. Styles are `.band*` in `styles/shell.module.css`; below 760px only the first photograph shows.
+
 #### components/ui/SectionHead.tsx
 - Default export `SectionHead({kicker, title, more, children})`, plus named `Kicker` and `Lede`.
   The standard section opener; using it everywhere is most of what makes a long page read as one
@@ -1113,13 +1216,16 @@ the mobile sheet share one source of truth. Layout and interaction live in
 ### components/operations/map/*
 
 #### components/operations/map/types.ts
-- Shared map types/constants (no React): `AnnotationType`, `DrawingTool`, `A3MarkerColor` + `A3_MARKER_COLORS`, `A3SideId`, `A3_ICON_TYPES` (Arma marker catalogue), `METIS_ICONS`/`METIS_SIDE_KEY`/`METIS_ECHELONS`/`METIS_HQTF`/`METIS_MOB` (full METIS/MIL-STD-2525 symbology tables), `MapLayer`, `AnnotationProperties`, `MapAnnotation`, `MapMode`, `MapWorld`, `A3ToolProps` + `DEFAULT_A3_PROPS`, `MapPresenceUser`, `MapMarkerPreset`.
+- Shared map types/constants (no React): `AnnotationType`, `DrawingTool`, `A3MarkerColor` + `A3_MARKER_COLORS`, `A3SideId`, `A3_ICON_TYPES` (Arma marker catalogue), `MapLayer` (now with `parentId` for a layer inside an overlay), `AnnotationProperties`, `MapAnnotation`, `A3ToolProps` (the Metis half is one `metis: MetisMarker`), `DEFAULT_A3_PROPS`, `toolPropsFromPreset` (translates presets saved with the old flat Metis fields). **The Metis catalogue is no longer here** — see `lib/operations/metis.ts`.
 
 #### components/operations/map/useMapYjs.ts
 - `useMapYjs(operationId, canEdit): [MapYjsState, MapYjsActions]` — Y.js/Hocuspocus-backed collaborative state hook for the operation map (separate Yjs doc from the main briefing editor, connects to `{operationId}-map` Hocuspocus document via `/api/me/token`). 
   - State: `layers`, `annotations`, `peers` (live cursor presence), `connected`.
-  - Actions: `addLayer`, `updateLayer`, `removeLayer` (cascades annotation deletion), `addAnnotation`, `updateAnnotation`, `removeAnnotation`, `broadcastCursor`, `undo`/`redo` (via `Y.UndoManager`).
+  - Actions: `addLayer(name, color?, parentId?)`, `updateLayer`, `removeLayer` (takes sub-layers and their annotations with it), `duplicateLayer(id, name)` (copies an overlay, its sub-layers and everything drawn on them in one transaction), `addAnnotation`, `updateAnnotation`, `removeAnnotation`, `broadcastCursor`, `undo`/`redo` (via `Y.UndoManager`).
   - All mutating actions are no-ops when `canEdit` is false.
+
+#### components/operations/map/Metis.tsx
+- The only place a Metis marker becomes pixels or controls: `MetisFilterDefs` (the tint filters), `MetisSymbol` (React), `metisDivHtml` (the same symbol as an escaped HTML string for a Leaflet `divIcon`, with its texts placed where the mod puts them) and `MetisForm` (every option the mod has, in the mod's order; `wide` for the annotation editor's bar). Used by `LayersPanel`, `AnnotationEditor` and `OperationMap` — there were three hand-rolled copies before.
 
 #### components/operations/map/AnnotationEditor.tsx
 - Default export `AnnotationEditor({annotation, actions, onClose})` — floating bottom-docked property editor for a selected map annotation; branches UI entirely on `annotation.type`: full METIS symbol builder (side/type/echelon/HQ-TF/modifiers/text/scale) for `a3metis`, A3 icon picker (grouped by Generic/Shape/BLUFOR/OPFOR/IND/CIV) + color + direction/scale for `a3icon`, simple color/label/weight/fontSize controls for line/polygon/rectangle/circle/marker/text. Internal `MetisMarker`/`MetisIconPreview`/`MetisFilterDefs` (SVG `feColorMatrix` faction-color tinting, reused pattern also in `LayersPanel.tsx`).
@@ -1180,6 +1286,9 @@ the mobile sheet share one source of truth. Layout and interaction live in
 
 ### components/loadout/tag-chips.tsx
 - `<TagChips tags: KitTag[]>` — a kit's tags as chips, `KIT_TAG_LABELS`-rendered. No client boundary (renders text only). Renders nothing for an untagged kit rather than an empty row, so a card without tags keeps its height. Shared by the shelf card and the kit panel.
+
+### components/comments/OrdersComments.tsx (+ comments.module.css)
+- Client component: the threaded comment section under an operation's orders (reply, fold, edit, delete, "Notify the mission maker" toggle). Talks to `/api/operations/[id]/comments`; renders nothing on 401/404. Mounted once from `app/operations/[id]/page.tsx` beneath whichever theme rendered, for signed-in viewers only. Self-contained dark palette because it sits under four differently-themed pages.
 
 ---
 

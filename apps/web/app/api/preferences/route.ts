@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { NOTIFICATION_TYPES } from '@/lib/notifications/types'
+import { sanitiseLayout } from '@/lib/dashboard/layout'
 
 // GET /api/preferences — get current user's preferences
 export async function GET() {
@@ -23,6 +24,8 @@ export async function GET() {
         cursorCustom: prefs?.cursorCustom ?? true,
         notifications: merged,
         policy: Object.fromEntries(policy.map(p => [p.type, p])),
+        // Null until the member has rearranged their dashboard.
+        dashboardLayout: prefs?.dashboardLayout ?? null,
     })
 }
 
@@ -53,9 +56,17 @@ export async function PUT(req: NextRequest) {
         update.notifications = sanitised
     }
 
+    // `null` is "reset to the default arrangement" — the field is removed
+    // rather than stored as the default, so a later change to the default
+    // reaches everybody who never customised.
+    const resetLayout = body.dashboardLayout === null
+    if (body.dashboardLayout && typeof body.dashboardLayout === 'object') {
+        update.dashboardLayout = sanitiseLayout(body.dashboardLayout)
+    }
+
     await Db.userPreferences.updateOne(
         { userId: me.id },
-        { $set: { ...update, userId: me.id } },
+        { $set: { ...update, userId: me.id }, ...(resetLayout ? { $unset: { dashboardLayout: '' } } : {}) },
         { upsert: true }
     )
 

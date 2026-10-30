@@ -39,6 +39,7 @@ function routeTicket(subtype: string, responsibleDept?: string): { department: s
             return { department: 'j4', departments: ['j4'] }
         case 'mission':
         case 'campaign':
+        case 'objective':
             return { department: 'j2', departments: ['j2'] }
         default:
             return { department: 'j4', departments: ['j4'] }
@@ -205,6 +206,9 @@ export async function POST(request: NextRequest) {
         ...(rest.missionMechanics && { missionMechanics: rest.missionMechanics.trim() }),
         ...(rest.missionAdditionalNotes && { missionAdditionalNotes: rest.missionAdditionalNotes.trim() }),
         ...(rest.campaignPhases && { campaignPhases: rest.campaignPhases }),
+        ...(subtype === 'objective' && typeof rest.objectiveIntel === 'string' && rest.objectiveIntel.trim() && { objectiveIntel: rest.objectiveIntel.trim().slice(0, 2000) }),
+        ...(subtype === 'objective' && typeof rest.objectiveLinkedIntel === 'string' && rest.objectiveLinkedIntel.trim() && { objectiveLinkedIntel: rest.objectiveLinkedIntel.trim().slice(0, 2000) }),
+        ...(subtype === 'objective' && typeof rest.objectiveComments === 'string' && rest.objectiveComments.trim() && { objectiveComments: rest.objectiveComments.trim().slice(0, 2000) }),
         ...(rest.feedbackCategories && { feedbackCategories: rest.feedbackCategories }),
         ...(rest.feedbackCategoryOther && { feedbackCategoryOther: rest.feedbackCategoryOther }),
         ...(rest.feedbackType   && { feedbackType: rest.feedbackType }),

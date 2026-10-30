@@ -136,6 +136,14 @@ export default function FacetRail({ photos, filters, tags, onToggle }: {
     }
     const tagOptions: Option[] = tags.map(t => ({ value: t.slug, label: t.label, count: tagCounts.get(t.slug) ?? 0 }))
 
+    /* Sections that have a gallery of their own. Listed only once at least one
+       photograph has been filed under one — until then the block is absent,
+       like Mission without an operation. */
+    const callsignCounts = countBy('callsign', p => p.callsign)
+    const callsigns: Option[] = [...new Set(photos.map(p => p.callsign).filter((c): c is string => !!c))]
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+        .map(c => ({ value: c, label: c, count: callsignCounts.get(c) ?? 0 }))
+
     const authorCounts = countBy('author', p => p.authorName)
     const authors: Option[] = [...new Set(photos.map(p => p.authorName).filter((a): a is string => !!a))]
         .sort((a, b) => a.localeCompare(b))
@@ -146,6 +154,7 @@ export default function FacetRail({ photos, filters, tags, onToggle }: {
             <FacetBlock facet='year' title='Year' options={years} selected={filters.year} onToggle={onToggle} defaultOpen />
             <FacetBlock facet='operation' title='Operation' options={operations} selected={filters.operation} onToggle={onToggle} defaultOpen />
             <FacetBlock facet='mission' title='Mission' options={missions} selected={filters.mission} onToggle={onToggle} defaultOpen />
+            <FacetBlock facet='callsign' title='By callsign' options={callsigns} selected={filters.callsign} onToggle={onToggle} defaultOpen={filters.callsign.size > 0} />
             <FacetBlock facet='tag' title='Tags' options={tagOptions} selected={filters.tag} onToggle={onToggle} defaultOpen={false} />
             <FacetBlock facet='author' title='Author' options={authors} selected={filters.author} onToggle={onToggle} defaultOpen={false} />
         </aside>

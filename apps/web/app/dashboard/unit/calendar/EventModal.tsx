@@ -603,7 +603,9 @@ export default function EventModal({ open, onClose, onSaved, defaultDepartment, 
                                 />
                             </div>
                         ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            // One per row once there is no room for two: at half this
+                            // dialog's width a datetime field cut off its own value.
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
                                 <TextField
                                     label='Start'
                                     size='small'

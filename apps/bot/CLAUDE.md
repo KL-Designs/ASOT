@@ -77,6 +77,10 @@ Two config values matter and are easy to confuse:
 
 Dispatch is by **custom ID convention**, not per-component registration: `customId` is split on `.`, the first segment is looked up in a flat handler map (e.g. `app/interactions/buttons/index.ts`), and the remaining segments are passed to the handler as a `string[]` of args. When adding a new button/modal/menu, pick a unique first segment and add it to that type's index map — there's no central registry beyond these four files.
 
+### Attendance sign-up buttons (`app/interactions/buttons/attendance/`)
+
+The Discord attendance post — embed, roster picture, when it is posted and refreshed — is made entirely by `apps/web` (`lib/attendance/discord-post-sync.ts`), over the REST API with the same bot token. The bot's only part is the buttons on it: `attendance.<operationId>.<yes|no>` posts the member's Discord id and answer to web's `/api/bot/attendance/rsvp` with `BOT_API_SECRET`, and shows them web's reply ephemerally. **Do not apply the answer here.** Who may sign up, whether sign-ups are open, and what declining does to a held position are web's rules (`applyRsvp`); a copy in the bot is how the two would come to disagree.
+
 ### Config and environment (`lib/config.ts`, `config/`)
 
 `lib/config.ts` builds a single `Config` object (typed via ambient `config.d.ts`) from `process.env`, throwing via `required()` if a var used across both apps (Mongo, bot token/guild) is missing. `config/` holds static, non-secret feature config committed to the repo (e.g. `recruiting.ts` channel IDs, `ranks.json`) — distinct from `lib/config.ts`'s env-derived runtime config.

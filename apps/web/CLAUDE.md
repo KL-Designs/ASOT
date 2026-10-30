@@ -259,6 +259,10 @@ All global types live in `types/*.d.ts` and are declared in `global` scope — n
 | `CRON_SECRET` | Bearer token for authenticating internal cron requests |
 | `OVERRIDE` | Comma-separated Discord user IDs with unconditional admin bypass |
 | `NEXT_PUBLIC_DEV_TOOLS` | `true` keeps the developer tools on a *built* site (see `lib/dev-tools.ts`). `NODE_ENV` cannot do this — Next bakes it into the client bundle at build time, so the controls are compiled out, and `server.mjs` derives its own `dev` flag from it, so starting the build with `NODE_ENV=development` runs the dev compiler instead. Must be set for **both** build and start. Unset in production. |
+| `DISCORD_ATTENDANCE_CHANNEL_ID` / `DISCORD_ATTENDANCE_MIDWEEK_CHANNEL_ID` | Where the Discord attendance post goes for main missions and for mid-weeks. Empty means nothing is posted for that kind; both empty turns the feature off. See `lib/attendance/discord-post-sync.ts`. |
+| `ATTENDANCE_POST_REFRESH_MINS` | At most how often a post's roster picture is redrawn after a change (default 5). |
+| `ARMA_SERVER_ADDRESS` / `ARMA_SERVER_PORT` / `ARMA_SERVER_PASSWORD` / `ARMA_MODLIST_URL` | Server details and modlist shown on every attendance post, unless an operation sets its own on its Attendance tab. |
+| `BOT_API_SECRET` | Shared secret for the routes the bot calls on web (`/api/bot/**`): the MILPAC renders and the attendance post's sign-up buttons. Unset closes them. |
 | `NEXT_PUBLIC_TS_ADDRESS` | Public TeamSpeak hostname |
 | `TS_HOST` / `TS_QUERY_PORT` / `TS_SERVER_PORT` / `TS_SERVERADMIN_PASSWORD` | TeamSpeak ServerQuery credentials |
 | `OCAP_API_URL` / `OCAP_VIEWER_URL` | OCAP after-action recording integration |

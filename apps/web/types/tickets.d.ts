@@ -35,8 +35,11 @@ interface Ticket {
     requiredApproverUserId?: string
     requiredApproverName?: string
     // Discharge fields (undefined on other types)
-    dischargeType?: 'honorable' | 'dishonorable'
+    dischargeType?: 'honorable' | 'general' | 'dishonorable'
     dischargeReason?: string
+    /** J4's call on whether the member is welcome back; copied onto
+     *  `user.discharged` when the ticket is approved. */
+    rejoinStatus?: 'welcome' | 'review' | 'not_welcome'
     // Discipline fields (undefined on other types)
     disciplineReason?: string
     actionedPointsDeducted?: number

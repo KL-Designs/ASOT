@@ -4,6 +4,7 @@ import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import type { MapMode, MapWorld } from '@/components/operations/map/types'
+import { DEFAULT_A3_PROPS } from '@/components/operations/map/types'
 import FullscreenPage from '@/components/FullscreenPage'
 
 const OperationMap = dynamic(() => import('@/components/operations/map/OperationMap'), { ssr: false })
@@ -98,7 +99,7 @@ export default function MapViewer({ world }: { world: MapWorld }) {
                     activeColor="#db001d"
                     canEdit={false}
                     selectedAnnotationId={null}
-                    activeA3Props={{ markerType: 'hd_dot', markerColor: 'ColorBlack', markerDir: 0, markerScale: 1, sideId: 'blu', dashed: false, icon: 0, mod1: 0, mod2: 0, size: 0, hqTf: 0, designation: '', metisScale: 1, assumedFriend: false, reinforced: false, reduced: false, higherFormation: '', additionalInfo: '' }}
+                    activeA3Props={DEFAULT_A3_PROPS}
                     onAnnotationAdd={() => ''}
                     onAnnotationUpdate={() => {}}
                     onAnnotationRemove={() => {}}

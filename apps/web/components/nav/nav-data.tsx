@@ -51,6 +51,7 @@ export const NAV_ITEMS: NavItem[] = [
             { name: 'Contact', href: '/about/contact', icon: <ContactMail />, description: 'Get in touch with us' },
             { name: 'Rules', href: '/about/rules', icon: <Gavel />, description: 'Unit rules and regulations' },
             { name: 'Principles & Values', href: '/about/values', icon: <AutoAwesome />, description: 'What we stand for' },
+            { name: 'Awards & Citations', href: '/about/awards', icon: <EmojiEvents />, description: 'What members can earn, and how' },
             { name: 'FAQ', href: '/about/faq', icon: <HelpOutline />, description: 'Frequently asked questions' },
         ],
     },

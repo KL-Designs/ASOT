@@ -103,7 +103,7 @@ const PAPER_CHROME: Record<string, string> = {
  */
 export default function ColdWarPage({
     id, operation, isLoggedIn, isHQ, canZeus, canOcapManage, access, showAcknowledgeCard,
-    activePageParam, fromJ2, attendance, lineage,
+    activePageParam, fromJ2, attendance, lineage, afterOrders,
 }: ModernPageProps) {
     /*
      * Zeus Notes pages are ordinary documents — same sections, same schema, same
@@ -281,7 +281,7 @@ export default function ColdWarPage({
                                                             <span className={s.slipKey}>Detailed to</span>
                                                             <span className={s.slipVal}>{postingLine(attendance)}</span>
                                                         </span>
-                                                        <span className={s.slipBtn}>Sign Up</span>
+                                                        <span className={s.slipBtn}>{attendanceAction(attendance)}</span>
                                                     </Link>
                                                 )}
                                             </div>
@@ -365,6 +365,8 @@ export default function ColdWarPage({
               </div>
             </div>
 
+            {afterOrders}
+
             {/* Same repaint as the bar — otherwise it is one dark chip on a buff desk. */}
             {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} palette={PAPER_CHROME} />}
         </div>
@@ -385,6 +387,16 @@ function Redacted() {
 }
 
 /** What the routing slip says you are down for. */
+/**
+ * What the attendance link is called. The themed line beside it is flavour;
+ * this is the part that has to say plainly where the link goes, so it is
+ * "Sign Up" only while there is something to sign up to and "Attendance"
+ * otherwise — never the theme's own word for the roster.
+ */
+function attendanceAction(attendance: ModernPageProps['attendance']): string {
+    return attendance.rsvpOpen && !attendance.myRsvp ? 'Sign Up' : 'Attendance'
+}
+
 function postingLine(attendance: ModernPageProps['attendance']): string {
     if (attendance.myRsvp === 'not_attending') return 'Excused — not attending'
     if (attendance.myPosition) return attendance.myPosition

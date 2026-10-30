@@ -6,7 +6,7 @@ import { test, expect } from '@playwright/test'
  * this checks that the resolution is actually wired to the rendered rail.
  *
  * The masthead assertion is here for a different reason: the rail was the one
- * part of the shell still working when every one of the six pages rendered
+ * part of the shell still working when every one of the pages rendered
  * `/about`'s masthead, because the rail reads `usePathname()` on the client
  * while the masthead was fed a server-side path that did not exist. Only an
  * assertion on the <h1> catches that.
@@ -22,6 +22,7 @@ const ROUTES: [string, string, string][] = [
     ['/about/contact', 'Contact Us', 'CONTACT US'],
     ['/about/rules', 'Rules & Expectations', 'RULES & EXPECTATIONS'],
     ['/about/values', 'Principles & Values', 'PRINCIPLES & VALUES'],
+    ['/about/awards', 'Awards & Citations', 'AWARDS & CITATIONS'],
     ['/about/faq', 'FAQ', 'FAQ'],
 ]
 
@@ -50,6 +51,6 @@ test.describe('About section rail', () => {
     test('every cell links to a page that exists', async ({ page }) => {
         await page.goto('/about')
         const links = page.getByRole('navigation', { name: 'Section' }).getByRole('link')
-        await expect(links).toHaveCount(6)
+        await expect(links).toHaveCount(7)
     })
 })

@@ -3,6 +3,8 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
+import { createNotification } from '@/lib/notifications'
+import { BIO_MAX_LENGTH, bioApproversFor } from '@/lib/military/bio-approval'
 
 
 /*
@@ -49,12 +51,63 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: true }, { status: 200 })
     }
 
-    const update: Record<string, any> = {}
-    for (const [key, value] of Object.entries(body)) {
-        update[`bio.${key}`] = value
+    /*
+       Biography. The only other thing this endpoint writes.
+
+       This used to copy every key of the body under `bio.` — any key, any
+       value — so the request decided the shape of the member's own record. It
+       takes `content`, a string, and nothing else now.
+
+       And it no longer publishes. A biography is public, so an edit is held as
+       `bioPending` until somebody up the member's chain of command approves it
+       (lib/military/bio-approval.ts decides who; /api/milpac/bio-approvals is
+       where they do it). What is live stays live until then.
+    */
+    if (typeof body.content !== 'string') {
+        return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+    }
+    const content = body.content.trim().slice(0, BIO_MAX_LENGTH)
+    const live = (me.bio?.content ?? '').trim()
+
+    // Back to what is already live: there is nothing to approve, so any
+    // request still waiting is withdrawn.
+    if (content === live) {
+        await Db.users.updateOne({ _id: me._id }, { $unset: { bioPending: '', bioRejected: '' } })
+        return NextResponse.json({ success: true, pending: false }, { status: 200 })
     }
 
-    await Db.users.updateOne({ _id: me._id }, { $set: update }, { upsert: true })
+    const positions = await Db.orbatPositions
+        .find({}, { projection: { userId: 1, category: 1, sectionTitle: 1 } })
+        .toArray()
+    const { level, approverIds } = bioApproversFor(me.id, positions)
 
-    return NextResponse.json({ success: true }, { status: 200 })
+    const existing = await Db.users.findOne({ _id: me._id }, { projection: { bioPending: 1 } })
+    const alreadyWaiting = !!existing?.bioPending
+
+    await Db.users.updateOne(
+        { _id: me._id },
+        { $set: { bioPending: { content, submittedAt: new Date(), level, approverIds } }, $unset: { bioRejected: '' } },
+    )
+
+    // One notification per request, not per keystroke-then-save: a member
+    // tidying their wording while it waits should not page their PHQ again.
+    if (!alreadyWaiting) {
+        const memberName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
+        const recipients = level === 'j4'
+            ? (await Db.users
+                .find({ 'guild.roles': { $in: PERMISSIONS.departments.j4 }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
+                .project<{ id: string }>({ id: 1 })
+                .toArray()).map(u => u.id).filter(id => id !== me.id)
+            : approverIds
+
+        await Promise.all(recipients.map(userId => createNotification({
+            userId,
+            type: 'system',
+            title: `Biography change to approve: ${memberName}`,
+            body: `${memberName} has changed their MILPAC biography. It will not go live until it is approved.`,
+            actionUrl: `/milpacs/${me.username}`,
+        }).catch(() => {})))
+    }
+
+    return NextResponse.json({ success: true, pending: true, level }, { status: 200 })
 }

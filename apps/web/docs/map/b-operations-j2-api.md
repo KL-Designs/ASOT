@@ -20,7 +20,7 @@ Scope: 43 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 - **POST** — sets `content` field (ProseMirror JSON) on an operation by `id`. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`.
 
 #### /api/operations/delete
-- **GET** — soft-deletes an operation (`?id=`), sets `deletedAt`/`deletedBy`/`deletedByName`; logs action. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`. Side effects: `logAction('operation.delete')`.
+- **GET** — soft-deletes an operation (`?id=`), sets `deletedAt`/`deletedBy`/`deletedByName`; logs action. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`. Side effects: `logAction('operation.delete')`; notifies the J2 leads (`PERMISSIONS.departmentLeads.j2`, minus the deleter) by site notification + `sendMeetingDM`, not awaited into the response.
 
 #### /api/operations/duplicate
 - **GET** — duplicates an operation (`?id=`) into a new doc titled "X (Copy)". Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`.
@@ -63,6 +63,8 @@ Scope: 43 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 #### /api/operations/templates
 - **GET** — lists all operation templates, newest first. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationTemplates`.
 - **POST** — creates a template snapshot (sections/pages/extraPageSections) from an existing operation (`sourceOperationId`). Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationTemplates`, `Db.operations` (read source).
+- **PATCH** — `{ id, kind?: 'single' | 'campaign', isDefault }` sets or clears the one template new single missions (`isDefault`) or a campaign's mission slots (`isCampaignDefault`) start from (clears all others first). GET also returns `canSetDefault`. Gate: `PERMISSIONS.operations.write` AND `PERMISSIONS.departmentLeads.j2`. Collections: `Db.operationTemplates`. Side effects: `logAction('operation.template.setDefault' | 'clearDefault')`.
+- **PUT** — `{ id }` refreshes a template's sections, pages and `yjsState` from its `sourceOperationId` (recorded by POST since 2026-10-30; older templates get 409). Gate: `PERMISSIONS.operations.write`. Side effects: `logAction('operation.template.refresh')`. UI: J2 → Templates tab (`app/dashboard/j2/tabs/TemplatesTab.tsx`), whose Open link edits the source mission with `?from=j2-templates`.
 - **DELETE** — deletes a template by `?id=`. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationTemplates`.
 
 #### /api/operations/templates/apply
@@ -85,6 +87,9 @@ Scope: 43 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 #### /api/operations/campaigns/[id]/normalise
 - **POST** — auto-groups unlinked ops in a campaign by Roman-numeral + day-slot (Sat/Sun) suffix parsed from titles, creates missing `CampaignMission` docs, and stamps `campaignMissionId`/`daySlot` on each op. Idempotent (skips already-linked ops). Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`, `Db.operationCampaigns`, `Db.campaignMissions`.
 - The pass itself lives in `lib/operations/normalise-campaign-run.ts` (grouping in `lib/operations/normalise-campaign.ts`) so `normalise-all` below can run exactly the same one — a route file may not export a helper under `typedRoutes`. Response shape unchanged.
+
+#### /api/operations/campaigns/[id]/shift
+- **GET** `?opId=&deltaMs=` — preview of moving the rest of a campaign after mission `opId`'s date moved by `deltaMs`: the campaign's current and new start/end (shifted by whole days) and every non-deleted mission's current and new date. Completed/Archived missions and the edited mission itself don't move. **POST** `{ opId, deltaMs }` — applies it: each other mission's `date`, its `rsvpOpenAt` (from `rsvpOpenOffsetMins`, as `/api/operations/update` does) and the `date` in its collab doc's `meta` map; then the campaign's `startDate`/`endDate`. Asked by `CampaignShiftDialog` in the editor. Logs `campaign.shift`. Gate: `can(me, 'orders.details')`. Collections: `Db.operationCampaigns`, `Db.operations`, `Db.operationAttendance`.
 
 #### /api/operations/campaigns/normalise-all
 - **POST** — runs the per-campaign normalise pass over every non-deleted campaign, sequentially. Same gate and same `runCampaignNormalise` as `[id]/normalise`, so the two cannot disagree about what a title means. Returns `{ ok, totals, campaigns[] }`: per campaign the name, `created`, `linked` and the **titles of every op it could not group** (no Roman numeral suffix), plus an `error` string for any campaign whose pass threw — one failure is reported and the rest still run, mirroring `app/api/gallery/admin/bulk`. `maxDuration = 300`. Logs `operation.campaign.normaliseAll` via `logAction`. Gate: `PERMISSIONS.operations.write`. Collections: `Db.operationCampaigns`, `Db.operations`, `Db.campaignMissions`, `Db.actionLogs`.
@@ -129,6 +134,15 @@ Scope: 43 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 - **GET** — returns whether current user acknowledged a doc page (`?pageId=`, default "main"), full ack list, eligible users (`PERMISSIONS.attendance.confirm` roles), and not-yet-acknowledged list. Gate: public view allowed (me optional) but requires op to exist. Collections: `Db.operations` (existence check), `Db.operationDocAcks`, `Db.users` (eligible list).
 - **POST** — records current user's read-receipt acknowledgement for a page (idempotent — returns `alreadyAcknowledged` if repeat). Gate: `PERMISSIONS.attendance.confirm`. Collections: `Db.operationDocAcks`, `Db.operations` (existence check).
 
+#### /api/operations/[id]/comments
+The comment thread under an operation's orders (rendered by `components/comments/OrdersComments.tsx`). Shared logic in `lib/operations/comments.ts`.
+- **GET** — the thread (live comments plus deleted "shells" that still have a visible reply, stripped server-side), each with the author's callsign colour, plus `myId`, `canModerate`, `missionMakerName` (null when the op has no `ownedBy` or the reader is the owner). Gate: `commentViewer()` = signed in + `hasDashboardAccess`. Collections: `Db.operationComments`, `Db.operations`, `Db.orbatPositions`, `Db.orbatSectionMeta`.
+- **POST** — adds a comment (`content`, optional `parentId`, optional `notifyMissionMaker`). Gate: same. Collections: `Db.operationComments` (insert). Side effects: `createNotification` + `sendMeetingDM` to `operation.ownedBy` when notify is ticked; `createNotification` to the parent comment's author on a reply.
+
+#### /api/operations/[id]/comments/[commentId]
+- **PATCH** — edits own comment; sets `isEdited`. Gate: author only. Collections: `Db.operationComments`.
+- **DELETE** — soft-deletes. Gate: author OR `PERMISSIONS.operations.write`. Collections: `Db.operationComments`.
+
 #### /api/operations/[id]/live-status
 - **GET** — lightweight poll endpoint for the operation viewer status bar: returns op `status`/`date` + attendance `rsvpOpen`/`rsvpOpenAt`/`rsvpCloseOffsetMins`/`confirmationOpen`/`confirmationOpenedAt`/`stage`. Gate: none (public). Collections: `Db.operations`, `Db.operationAttendance` (projections only).
 
@@ -143,7 +157,8 @@ Scope: 43 files under `app/api/operations/**`, 10 files under `app/api/j2/**`. A
 - **PATCH** — J2 lead `confirm`s or `propose`s an alternate time on a pending check; any J2 member can `set_reminder` (personal reminder timestamp). Gate: `PERMISSIONS.departments.j2` for `set_reminder`; `await hasPermission(me, 'departmentLeads.j2')` for `confirm`/`propose`. Collections: `Db.tasks`. Side effects: `createNotification` to requester on confirm/propose.
 
 #### /api/operations/[id]/publish
-- **POST** — transitions operation status `In Development` → `Upcoming` (409 if not currently In Development). Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`, `Db.users` (performer display name). Side effects: `createNotificationForRole('All Staff')` + `createNotificationForRole(j2Lead)`; `logAction('operation.publish')`.
+- **POST** — transitions operation status `In Development` → `Upcoming` (409 if not currently In Development). Gate: `PERMISSIONS.operations.write`. Collections: `Db.operations`, `Db.users` (performer display name). Side effects: `createNotificationForRole('All Staff')` + J2 leads via `getGrantedUserIds('departmentLeads.j2')`; `logAction('operation.publish')`.
+- **DELETE** — unpublish: `Upcoming` → `In Development` (409 otherwise, or once the attendance stage has reached `op_running`). If sign-ups were open or closed the stage goes back to `preparing`; RSVPs already given are kept. Notifies All Staff (withdrawn) and J2 leads; `logAction('operation.unpublish')`. Gate: `can(me, 'orders.write')`. Button: the editor header's Publish button reads ↓ Unpublish while the op is Upcoming.
 
 #### /api/operations/[id]/remind
 - **POST** — notifies all "All Staff" users who haven't yet acknowledged orders for this op. Gate: `PERMISSIONS.operations.write` OR `await hasPermission(me, 'departmentLeads.j2')`. Collections: `Db.operations` (read title+acknowledgements), `Db.users` (All Staff list). Side effects: `createNotification` per unacknowledged user.

@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
             sections: template.sections,
             pages: template.pages,
             extraPageSections: template.extraPageSections,
+            ...(template.yjsState ? { yjsState: template.yjsState } : {}),
         })
 
         return NextResponse.json({ id: newOp.insertedId })

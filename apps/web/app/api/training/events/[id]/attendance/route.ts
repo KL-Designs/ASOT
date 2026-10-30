@@ -6,6 +6,9 @@ import PERMISSIONS from '@/lib/permissions'
 import { createNotification } from '@/lib/notifications'
 import { logAction } from '@/lib/logAction'
 import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
+import { listNames, missingPrerequisites } from '@/lib/training/prerequisites'
+import { hasSeatPriority } from '@/lib/training/pre-learning'
+import { syncPreLearning } from '@/lib/training/pre-learning-sync'
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -25,7 +28,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         .sort({ slotType: 1, rsvpStatus: 1, memberName: 1 })
         .toArray()
 
-    return NextResponse.json({ records })
+    return NextResponse.json({ records, waivers: event.prerequisiteWaivers ?? [] })
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -61,7 +64,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         if (wasAttendingTrainee) {
             const first = await Db.trainingAttendance.findOne(
                 { eventId, slotType: { $in: ['trainee', null] as any }, rsvpStatus: 'waitlist' },
-                { sort: { createdAt: 1 } }
+                { sort: { priority: -1, createdAt: 1 } }
             )
             if (first) {
                 await Db.trainingAttendance.updateOne(
@@ -80,6 +83,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }
 
         await Db.calendarReminders.deleteOne({ userId: me.id, relatedId: eventId } as unknown as CalendarReminder)
+
+        // Somebody has moved up: a new seat, or a new place in the first two
+        // of the queue, may have just opened the pre-learning for them.
+        await syncPreLearning(event)
 
         logAction({
             action: 'training.rsvp.cancel',
@@ -108,6 +115,46 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: 'Only J3 trainers can fill trainer slots' }, { status: 403 })
     }
 
+    /*
+       Prerequisites — for a trainee seat only. A trainer is there to teach it
+       and a sit-in is only watching, so neither is held to them.
+
+       Blocked rather than warned: a member who turns up without the earlier
+       course costs the session time for everybody else in it. The message
+       names exactly what is missing, and a J3 lead or the session's trainer
+       can waive it for one member on one session (PATCH below).
+    */
+    if (slotType === 'trainee' && !(event.prerequisiteWaivers ?? []).some(w => w.memberId === me.id)) {
+        const type = ObjectId.isValid(event.trainingTypeId)
+            ? await Db.trainingTypes.findOne({ _id: new ObjectId(event.trainingTypeId) }, { projection: { prerequisites: 1 } })
+            : null
+
+        if (type?.prerequisites?.length) {
+            const [user, attended] = await Promise.all([
+                Db.users.findOne({ id: me.id }, { projection: { 'milpac.qualifications': 1 } }),
+                Db.trainingAttendance.find({ memberId: me.id, attended: true }, { projection: { eventId: 1 } }).toArray(),
+            ])
+            const sessionIds = attended.map(a => a.eventId).filter(id => ObjectId.isValid(id)).map(id => new ObjectId(id))
+            const sessions = sessionIds.length
+                ? await Db.trainingEvents
+                    .find({ _id: { $in: sessionIds }, status: 'Completed', deletedAt: { $exists: false } }, { projection: { trainingTypeName: 1 } })
+                    .toArray()
+                : []
+
+            const missing = missingPrerequisites(type.prerequisites, {
+                qualifications: (user?.milpac?.qualifications ?? []).map(q => q.qualification),
+                attendedTrainings: sessions.map(s => s.trainingTypeName),
+            })
+
+            if (missing.length) {
+                return NextResponse.json({
+                    error: `You need ${listNames(missing)} before you can attend this training. If you have done ${missing.length === 1 ? 'it' : 'them'} and it is not showing, ask a J3 trainer to check your record.`,
+                    missingPrerequisites: missing,
+                }, { status: 403 })
+            }
+        }
+    }
+
     // Check if user already has an RSVP on this event
     const existing = await Db.trainingAttendance.findOne({ eventId, memberId: me.id })
     if (existing && existing.rsvpStatus !== 'not_attending' && existing.slotType !== slotType) {
@@ -116,7 +163,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         if (wasAttendingTrainee) {
             const first = await Db.trainingAttendance.findOne(
                 { eventId, slotType: { $in: ['trainee', null] as any }, rsvpStatus: 'waitlist', memberId: { $ne: me.id } },
-                { sort: { createdAt: 1 } }
+                { sort: { priority: -1, createdAt: 1 } }
             )
             if (first) {
                 await Db.trainingAttendance.updateOne({ _id: first._id }, { $set: { rsvpStatus: 'attending', updatedAt: now } })
@@ -134,6 +181,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     // Determine actual RSVP status based on capacity
     let actualStatus: 'attending' | 'waitlist' = 'attending'
+    // Front of the queue, for somebody who finished the pre-learning and then
+    // missed the session it was for. Only matters if they end up waiting.
+    let priority = false
 
     if (slotType === 'trainer') {
         const currentTrainers = await Db.trainingAttendance.countDocuments({
@@ -149,6 +199,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         })
         if (event.maxTraineeSlots && currentTrainees >= event.maxTraineeSlots) {
             actualStatus = 'waitlist'
+            const grant = await Db.trainingPreLearning.findOne({ trainingTypeId: event.trainingTypeId, memberId: me.id })
+            priority = hasSeatPriority(grant, { eventId, scheduledAt: event.scheduledAt }, now)
         }
     } else if (slotType === 'sit-in') {
         const currentSitIns = await Db.trainingAttendance.countDocuments({
@@ -162,11 +214,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await Db.trainingAttendance.updateOne(
         { eventId, memberId: me.id },
         {
-            $set: { eventId, memberId: me.id, memberName, slotType, rsvpStatus: actualStatus, updatedAt: now },
+            $set: { eventId, memberId: me.id, memberName, slotType, rsvpStatus: actualStatus, priority, updatedAt: now },
             $setOnInsert: { createdAt: now },
         },
         { upsert: true }
     )
+
+    // A seat, or a place in the first two of the queue, opens the pre-learning.
+    await syncPreLearning(event)
 
     // Reminder for confirmed trainee/sit-in attending
     if (actualStatus === 'attending' && slotType !== 'trainer') {
@@ -223,6 +278,39 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!isJ3Lead && event.trainerId !== me.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await req.json().catch(() => ({}))
+
+    // `{ waiver: { memberId, memberName, allow } }` — let one member sign up to
+    // this session without the prerequisites, or take that back. Same gate as
+    // marking attendance: a J3 lead or the session's own trainer.
+    if (body.waiver && typeof body.waiver.memberId === 'string') {
+        const { memberId, memberName, allow } = body.waiver as { memberId: string; memberName?: string; allow?: boolean }
+        const byName = me.guild?.displayName ?? me.username
+
+        if (allow === false) {
+            await Db.trainingEvents.updateOne({ _id: event._id }, { $pull: { prerequisiteWaivers: { memberId } } })
+        } else if (!(event.prerequisiteWaivers ?? []).some(w => w.memberId === memberId)) {
+            await Db.trainingEvents.updateOne(
+                { _id: event._id },
+                { $push: { prerequisiteWaivers: { memberId, memberName: String(memberName ?? memberId).slice(0, 80), byId: me.id, byName, at: new Date() } } },
+            )
+        }
+
+        logAction({
+            action: allow === false ? 'training.prerequisites.unwaive' : 'training.prerequisites.waive',
+            category: 'training',
+            performedBy: me.id,
+            performedByName: byName,
+            department: 'j3',
+            entityType: 'training_event',
+            entityId: eventId,
+            target: event.title,
+            details: { memberId, memberName },
+        }).catch(console.error)
+
+        const fresh = await Db.trainingEvents.findOne({ _id: event._id }, { projection: { prerequisiteWaivers: 1 } })
+        return NextResponse.json({ ok: true, waivers: fresh?.prerequisiteWaivers ?? [] })
+    }
+
     const updates = body.updates as Array<{ memberId: string; attended: boolean }> | undefined
     if (!Array.isArray(updates)) return NextResponse.json({ error: 'updates array required' }, { status: 400 })
 

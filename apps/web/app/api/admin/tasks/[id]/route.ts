@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
+import { unitDateTime } from '@/lib/unit-time'
 import {
     sendTaskExtensionRequestDM,
     sendTaskExtensionApprovedDM,
@@ -86,7 +87,7 @@ export async function PATCH(
         )
 
         if (task.assignedTo && task.assignedTo !== me.id) {
-            const dateStr = newDue.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+            const dateStr = unitDateTime(newDue)
             await createNotification({
                 userId: task.assignedTo,
                 type: 'task_extended',
@@ -115,7 +116,7 @@ export async function PATCH(
         }
 
         const requesterName = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id
-        const formattedDate = newDue.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+        const formattedDate = unitDateTime(newDue)
 
         await Db.tasks.updateOne(
             { _id: new ObjectId(id) },
@@ -505,7 +506,7 @@ async function handleExtensionDecision(
 
     if (action === 'approve_extension') {
         const approvedDate = extReq.requestedDate instanceof Date ? extReq.requestedDate : new Date(extReq.requestedDate)
-        const dateStr = approvedDate.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+        const dateStr = unitDateTime(approvedDate)
 
         await Db.tasks.updateOne(
             { _id: taskObjId },
@@ -556,7 +557,7 @@ async function handleExtensionDecision(
         if (isNaN(altDate.getTime())) {
             return NextResponse.json({ error: 'Invalid alternativeDate' }, { status: 400 })
         }
-        const altDateStr = altDate.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+        const altDateStr = unitDateTime(altDate)
         const altReminder = alternativeReminderDate ? new Date(alternativeReminderDate) : undefined
 
         await Db.tasks.updateOne(

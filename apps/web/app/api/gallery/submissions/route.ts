@@ -11,6 +11,8 @@ import { checkFile, checkItemCount, kindForMime } from '@/lib/gallery/limits'
 import { parseEmbedUrl } from '@/lib/gallery/embeds'
 import { galleryDeps } from '@/lib/gallery/deps'
 import { operationFacets } from '@/lib/gallery/operation-facets'
+import { memberCallsign, staffOfCallsign } from '@/lib/gallery/review-scope'
+import { createNotification } from '@/lib/notifications'
 
 /**
  * One submitted item per request.
@@ -95,7 +97,15 @@ export async function POST(request: NextRequest) {
         field('operationId'),
     )
 
+    /* Filed under the member's callsign when they asked for that. The request
+       only says yes or no: WHICH callsign is read from the ORBAT, so nobody
+       can post into another section's gallery by naming it. A member with no
+       section simply files without one. */
+    const wantsCallsign = isEmbed ? !!body?.callsign : field('callsign') === '1'
+    const callsign = wantsCallsign ? await memberCallsign(me.id) : null
+
     const common = {
+        ...(callsign ? { callsign } : {}),
         // `$unset` is dropped: there is nothing to clear on a document that
         // does not exist yet, so those fields are simply absent.
         ...(facets?.$set ?? {}),
@@ -111,6 +121,24 @@ export async function POST(request: NextRequest) {
         up: 0,
         down: 0,
         createdAt: new Date(),
+    }
+
+    /* Section staff can review what is filed under their callsign, so they are
+       told it is waiting — once per visit to the submit page, on its first
+       item, not once per photograph. Never awaited into the response path's
+       failure: a notification that does not send must not lose an upload. */
+    if (callsign && existingInBatch === 0) {
+        const author = common.authorName
+        staffOfCallsign(callsign)
+            .then(staff => Promise.all(staff.filter(id => id !== me.id).map(userId => createNotification({
+                userId,
+                type: 'gallery_callsign_submission',
+                title: `New gallery submission for ${callsign}`,
+                body: `${author} filed media under ${callsign}. It needs approval before it goes live.`,
+                actionUrl: '/gallery/review',
+                relatedId: batchId,
+            }))))
+            .catch(() => { })
     }
 
     // ── An embed: nothing to upload, nothing to transcode ────────────────────

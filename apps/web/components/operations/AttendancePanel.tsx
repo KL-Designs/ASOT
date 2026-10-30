@@ -977,7 +977,9 @@ export default function AttendancePanel({
                 PaperProps={{ sx: { background: 'rgba(22,22,26,0.98)', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.6)' } }}
             >
                 <Box sx={{ p: 0.75, display: 'flex', flexDirection: 'column', gap: 0.25, minWidth: 148 }}>
-                    {ATTENDANCE_TYPES.map(t => (
+                    {/* Confirm is discontinued: still drawn on a record that
+                        carries it, no longer offered. */}
+                    {ATTENDANCE_TYPES.filter(t => t.value !== 'CONFIRM').map(t => (
                         <Button
                             key={t.value}
                             size='small'

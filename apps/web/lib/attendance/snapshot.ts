@@ -1,8 +1,8 @@
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import {
-    buildRoster, orderPositions, snapshotCategories,
-    type OrbatSnapshotPosition, type RosterSlot,
+    buildRoster, onCrew, orderPositions, snapshotCategories,
+    type OrbatSnapshotPosition, type RosterSlot, type SupportCrew,
 } from './roster'
 
 /**
@@ -22,9 +22,12 @@ import {
  * it. Shared by the automatic cut at RSVP open and the deliberate re-take, so
  * the two can never disagree about what a roster is made of.
  */
-export async function buildRosterForOperation(assignedPlatoons: string[]): Promise<RosterSlot[]> {
+export async function buildRosterForOperation(assignedPlatoons: string[], supportCrew?: SupportCrew): Promise<RosterSlot[]> {
     const categories = snapshotCategories(assignedPlatoons)
-    const positions = await Db.orbatPositions.find({ category: { $in: categories } }).toArray()
+    // Support slots tagged for the other night are left out here, at the cut,
+    // so the board never has to know crews exist.
+    const positions = (await Db.orbatPositions.find({ category: { $in: categories } }).toArray())
+        .filter(p => onCrew(p, supportCrew))
 
     // `roleId` is an ObjectId on the position and a string on the slot: the
     // roster is JSON that goes over the wire to the board, so it cannot hold
@@ -61,11 +64,11 @@ export async function buildRosterForOperation(assignedPlatoons: string[]): Promi
 export async function ensureRosterSnapshot(operationId: ObjectId): Promise<RosterSlot[] | null> {
     const existing = await Db.operationAttendance.findOne(
         { operationId },
-        { projection: { roster: 1, assignedPlatoons: 1 } },
+        { projection: { roster: 1, assignedPlatoons: 1, supportCrew: 1 } },
     )
     if (existing?.roster?.length) return null
 
-    const roster = await buildRosterForOperation(existing?.assignedPlatoons ?? [])
+    const roster = await buildRosterForOperation(existing?.assignedPlatoons ?? [], existing?.supportCrew)
 
     const result = await Db.operationAttendance.updateOne(
         { operationId, $or: [{ roster: { $exists: false } }, { roster: { $size: 0 } }] },

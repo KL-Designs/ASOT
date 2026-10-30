@@ -6,6 +6,10 @@ import Db from '@/lib/mongo'
 import { RANKS_FLAT } from '@/lib/military/ranks'
 import { applyOrbatMove } from '@/lib/orbat/move'
 import { generateMilpacForUser, archiveMilpacImages } from '@/lib/milpac-gen/generate-for-user'
+import { stripDischargedMember } from '@/lib/orbat/discharge-cleanup'
+import { clearBctAvailabilityIfDone } from '@/lib/training/bct-availability'
+import { logAction } from '@/lib/logAction'
+import { queueMemberTeamspeakSync } from '@/lib/orbat/member-sync'
 
 // PATCH /api/admin/tickets/[id] — approve or reject a ticket
 /**
@@ -126,6 +130,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         })
         // Qualifications drive the training badges on the uniform.
         await regenerateMilpac(ticket.targetUserId)
+        // A recruit who now holds both BCT courses no longer needs their
+        // availability on the J3 calendar.
+        if (ticket.action === 'add') await clearBctAvailabilityIfDone(ticket.targetUserId!)
     } else if (ticket.type === 'j4-award') {
         const member = await Db.users.findOne({ id: ticket.targetUserId })
         if (!member) {
@@ -149,6 +156,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             })
             // Awards drive the ribbon block and the medal box.
             await regenerateMilpac(ticket.targetUserId)
+            // And the award's TeamSpeak group, where it has one.
+            queueMemberTeamspeakSync(ticket.targetUserId)
         }
     } else if (ticket.type === 'j3-promotion') {
         const member = await Db.users.findOne({ id: ticket.targetUserId })
@@ -171,6 +180,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                 } as any,
             },
         })
+        // The old rank's TeamSpeak group comes off and the new one goes on.
+        queueMemberTeamspeakSync(ticket.targetUserId)
         // Rank drives the insignia, and generals get a different corps badge.
         await regenerateMilpac(ticket.targetUserId)
     } else if (ticket.type === 'j4-discharge') {
@@ -198,6 +209,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         const dischargedData = {
             date: dischargeDate,
             type: ticket.dischargeType!,
+            ...(ticket.rejoinStatus ? { rejoinStatus: ticket.rejoinStatus } : {}),
             reason: ticket.dischargeReason!,
             dischargedById: ticket.issuedById,
             dischargedByName: ticket.issuedByName,
@@ -208,6 +220,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // Mark user as discharged
         await Db.users.updateOne({ id: ticket.targetUserId }, {
             $set: { discharged: dischargedData }
+        })
+
+        // Take away what membership granted: managed Discord roles, every
+        // TeamSpeak group, and department membership. Never throws — see
+        // lib/orbat/discharge-cleanup.ts — so an unreachable Discord cannot
+        // leave a discharge half applied; the outcome goes in the audit log.
+        const cleanup = await stripDischargedMember(ticket.targetUserId!)
+        logAction({
+            action: 'member.discharge.cleanup',
+            category: 'member',
+            performedBy: me.id,
+            performedByName: approverDisplayName,
+            target: member.guild?.nickname || member.guild?.displayName || member.globalName || member.username || member.id,
+            details: { targetUserId: ticket.targetUserId, discord: cleanup.discord, teamspeak: cleanup.teamspeak, departments: cleanup.previousDepartments },
         })
 
         // Save immutable discharge snapshot
@@ -225,6 +251,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             enlistedDate:     member.milpac?.enlistedDate ?? '',
             pointsAtDischarge: member.milpac?.promotionPoints ?? 0,
             milpac:           (member.milpac ?? {}) as NonNullable<User['milpac']>,
+            departmentsAtDischarge:       cleanup.previousDepartments,
+            departmentRoleIdsAtDischarge: cleanup.previousDepartmentRoleIds,
             archivedUniformPath: uniformPath,
             archivedMedalPath:   medalPath,
             createdAt:        now,

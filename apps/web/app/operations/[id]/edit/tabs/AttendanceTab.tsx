@@ -7,6 +7,7 @@ import AttendanceBoard from '@/components/operations/board/AttendanceBoard'
 import ConfirmDialog from '@/components/confirm-dialog'
 import type { TurnoutKey } from '@/lib/attendance/simulate'
 import { DEV_TOOLS_ENABLED } from '@/lib/dev-tools'
+import DiscordPostCard from './DiscordPostCard'
 
 interface AckEntry { userId: string; userName: string; acknowledgedAt: string }
 
@@ -14,9 +15,14 @@ interface Props {
     opID: string
     status: string
 
-    platoons: { id: string; label: string }[]
+    /** `color` is the platoon's own colour; a ticked chip is drawn in it. */
+    platoons: { id: string; label: string; color?: string }[]
     selected: string[]
     onToggle: (id: string) => void
+    /** Which support-platoon crew is on this operation; asked only while the
+     *  support platoon is ticked. */
+    supportCrew: 'saturday' | 'sunday' | 'both'
+    onChangeSupportCrew: (crew: 'saturday' | 'sunday' | 'both') => void
 
     customUnits: { id: string; name: string; color?: string }[]
     onAddCustomUnit: (name: string, color?: string) => void
@@ -60,11 +66,20 @@ const labelStyle: CSSProperties = {
     color: 'var(--ink-3)', marginBottom: 8,
 }
 
-function chipStyle(selected: boolean): CSSProperties {
+/**
+ * A unit chip. Ticked, a platoon is drawn in its own colour — border, wash and
+ * all — so which platoons are on an operation reads from across the panel
+ * rather than from four chips that all light up the same accent. `tint` is
+ * that colour; without one (a custom unit) it falls back to the accent.
+ */
+function chipStyle(selected: boolean, tint?: string): CSSProperties {
+    const on = selected && tint
     return {
         display: 'inline-flex', alignItems: 'center', gap: 7,
-        border: `1px solid ${selected ? 'rgba(var(--acc-rgb), 0.42)' : 'var(--line-2)'}`,
-        background: 'var(--s2)', borderRadius: 'var(--r)', padding: '6px 10px',
+        border: `1px solid ${on ? tint : selected ? 'rgba(var(--acc-rgb), 0.42)' : 'var(--line-2)'}`,
+        // color-mix keeps the wash faint whatever alpha the colour came with.
+        background: on ? `color-mix(in srgb, ${tint} 22%, var(--s2))` : 'var(--s2)',
+        borderRadius: 'var(--r)', padding: '6px 10px',
         fontFamily: 'var(--mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase',
         color: selected ? 'var(--ink)' : 'var(--ink-2)', cursor: 'pointer',
     }
@@ -90,7 +105,7 @@ function dotStyle(background: string): CSSProperties {
  */
 export default function AttendanceTab({
     opID, status,
-    platoons, selected, onToggle,
+    platoons, selected, onToggle, supportCrew, onChangeSupportCrew,
     customUnits, onAddCustomUnit, onRemoveCustomUnit, customUnitsSaving,
     discordPingEnabled, onTogglePing, discordPingRoles, onChangeDiscordPingRoles,
     ackCount, ackList,
@@ -223,8 +238,8 @@ export default function AttendanceTab({
                         {platoons.map(p => {
                             const isSel = selected.includes(p.id)
                             return (
-                                <button key={p.id} type='button' onClick={() => onToggle(p.id)} style={chipStyle(isSel)}>
-                                    <i style={dotStyle(isSel ? 'var(--acc)' : 'var(--ink-3)')} />
+                                <button key={p.id} type='button' onClick={() => onToggle(p.id)} aria-pressed={isSel} style={chipStyle(isSel, p.color)}>
+                                    <i style={dotStyle(isSel ? (p.color ?? 'var(--acc)') : 'var(--ink-3)')} />
                                     {p.label}
                                 </button>
                             )
@@ -246,6 +261,34 @@ export default function AttendanceTab({
                             + Custom Unit
                         </button>
                     </div>
+
+                    {/* 1-3 is split across the two nights. Ticking it asks which
+                        crew this operation is for; only the 1-3 slots tagged for
+                        that night (in the ORBAT) are cut into the board. */}
+                    {selected.includes('support') && (
+                        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                            <span style={{ fontFamily: 'var(--mono)', fontSize: 9.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>
+                                1-3 crew
+                            </span>
+                            <div role='radiogroup' aria-label='Support platoon crew' style={{ display: 'flex', gap: 4 }}>
+                                {([['saturday', 'Saturday crew'], ['sunday', 'Sunday crew'], ['both', 'Both']] as const).map(([value, text]) => (
+                                    <button
+                                        key={value}
+                                        type='button'
+                                        role='radio'
+                                        aria-checked={supportCrew === value}
+                                        onClick={() => onChangeSupportCrew(value)}
+                                        style={chipStyle(supportCrew === value, platoons.find(p => p.id === 'support')?.color)}
+                                    >
+                                        {text}
+                                    </button>
+                                ))}
+                            </div>
+                            <span style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                                Changes which 1-3 slots are on the board the next time the roster is taken, or when you rebuild it below.
+                            </span>
+                        </div>
+                    )}
 
                     {canManageAttendance && (
                         <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--line)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -367,6 +410,10 @@ Sign-up answers themselves are kept.`}
                         )}
                     </div>
                 </div>
+            </TabPanel>
+
+            <TabPanel title='Discord attendance post'>
+                <DiscordPostCard opID={opID} />
             </TabPanel>
 
             {status === 'Upcoming' && (

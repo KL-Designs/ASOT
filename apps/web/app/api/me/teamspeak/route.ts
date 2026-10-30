@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { TeamSpeak, QueryProtocol } from 'ts3-nodejs-library'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
+import { nicknamesMatch } from '@/lib/teamspeak/nickname'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,7 +49,6 @@ export async function POST(req: NextRequest) {
     if (action === 'init') {
         const code = generateCode()
         const target = expectedNickname(me)
-        const targetStripped = stripRank(target).toLowerCase()
 
         let ts: TeamSpeak | undefined
         try {
@@ -56,13 +56,9 @@ export async function POST(req: NextRequest) {
             const online = await ts.clientList()
             const humans = online.filter(c => c.type === 0)
 
-            // Try to find a name match
-            const match = humans.find(c => {
-                const stripped = stripRank(c.nickname).toLowerCase()
-                return stripped === targetStripped ||
-                    stripped.includes(targetStripped) ||
-                    targetStripped.includes(stripped)
-            })
+            // Try to find a name match — on the name alone, so it works whether
+            // or not their TeamSpeak nickname carries the bracketed rank.
+            const match = humans.find(c => nicknamesMatch(target, c.nickname))
 
             // Store code regardless — poke is sent only after user confirms
             await Db.users.updateOne(

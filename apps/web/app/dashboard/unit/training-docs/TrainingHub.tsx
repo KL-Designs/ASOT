@@ -9,12 +9,13 @@ import type { DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import EventsTab from './EventsTab'
+import AssessmentsTab from './AssessmentsTab'
 import RequestsTab from './RequestsTab'
 import TrainingVideosTab from './TrainingVideosTab'
 import { calculateSessionDates, SESSION_DEFS } from '@/lib/training/session-dates'
 
 const RED = '#db001d'
-type Tab = 'courses' | 'events' | 'requests' | 'guides' | 'videos'
+type Tab = 'courses' | 'events' | 'requests' | 'assessments' | 'guides' | 'videos'
 
 const CATEGORY_ORDER = ['Selection', 'Reinforcement Cycle', 'BCT', 'Medical', 'CQB', 'Fires', 'Aviation', 'Communications', 'Leadership', 'Special', 'Armoured', 'Proficiency']
 
@@ -50,6 +51,7 @@ type TType = {
     infoDocUrl?: string
     coverImageUrl?: string
     linkedMedia?: { type: 'video' | 'file' | 'url'; label: string; url: string }[]
+    preLearning?: { type: 'video' | 'file' | 'url'; label: string; url: string }[]
     sortOrder?: number
     courseType?: string
 }
@@ -113,6 +115,8 @@ type ModalState = {
     infoDocUrl: string
     coverImageUrl: string
     linkedMedia: MediaEntry[]
+    /** Locked material: opens for a member once they have a place on a session. */
+    preLearning: MediaEntry[]
 }
 
 const inputStyle: React.CSSProperties = {
@@ -301,6 +305,11 @@ function SortableTypeCard(props: {
 export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, isJ3Context = false, canApproveGuides = false }: { isJ3Lead: boolean; isTrainer: boolean; isJ3Trainer: boolean; myId: string; isJ3Context?: boolean; canApproveGuides?: boolean }) {
     const router = useRouter()
     const [tab, setTab] = useState<Tab>('courses')
+    // Notifications link straight to a tab (`?tab=assessments`).
+    useEffect(() => {
+        const wanted = new URLSearchParams(window.location.search).get('tab')
+        if (wanted === 'assessments' || wanted === 'events' || wanted === 'requests') setTab(wanted)
+    }, [])
     const [types, setTypes] = useState<TType[]>([])
     const [loading, setLoading] = useState(true)
     const [showInactive, setShowInactive] = useState(false)
@@ -402,6 +411,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                 infoDocUrl: modal.infoDocUrl.trim() || undefined,
                 coverImageUrl: modal.coverImageUrl.trim() || undefined,
                 linkedMedia: modal.linkedMedia.filter(m => m.label.trim() && m.url.trim()),
+                preLearning: modal.preLearning.filter(m => m.label.trim() && m.url.trim()),
             }
             if (modal.mode === 'create') {
                 const res = await fetch('/api/training/types', {
@@ -847,7 +857,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
     }
 
     function openCreate() {
-        setModal({ mode: 'create', name: '', category: CATEGORY_ORDER[0], billetField: 'j3Bct12', billetPoints: 1, description: '', status: 'active', durationMinutes: '', server: '', requiredModsRaw: '', prerequisiteNames: [], minTrainers: '', minTrainees: '', trainerDocUrl: '', infoDocUrl: '', coverImageUrl: '', linkedMedia: [] })
+        setModal({ mode: 'create', name: '', category: CATEGORY_ORDER[0], billetField: 'j3Bct12', billetPoints: 1, description: '', status: 'active', durationMinutes: '', server: '', requiredModsRaw: '', prerequisiteNames: [], minTrainers: '', minTrainees: '', trainerDocUrl: '', infoDocUrl: '', coverImageUrl: '', linkedMedia: [], preLearning: [] })
     }
 
     function openEdit(t: TType) {
@@ -866,6 +876,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             infoDocUrl: t.infoDocUrl ?? '',
             coverImageUrl: t.coverImageUrl ?? '',
             linkedMedia: t.linkedMedia ?? [],
+            preLearning: t.preLearning ?? [],
         })
     }
 
@@ -1313,10 +1324,10 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
 
                 {/* Tab navigation */}
                 <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                    {(['courses', 'events', 'requests'] as Tab[]).map(t => (
+                    {(['courses', 'events', 'requests', 'assessments'] as Tab[]).map(t => (
                         <button key={t} type='button' onClick={() => setTab(t)}
                             style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === t ? RED : 'transparent'}`, color: tab === t ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: -1, transition: 'color 0.15s, border-color 0.15s' }}>
-                            {t === 'courses' ? 'Courses' : t === 'events' ? 'Events' : 'Requests'}
+                            {t === 'courses' ? 'Courses' : t === 'events' ? 'Events' : t === 'requests' ? 'Requests' : 'NCO Assessments'}
                         </button>
                     ))}
                     {isJ3Context && (
@@ -1528,6 +1539,9 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {/* Tab: Events */}
             {tab === 'events' && <EventsTab isJ3Lead={isJ3Lead} isTrainer={isTrainer} isJ3Trainer={isJ3Trainer} />}
 
+            {/* Tab: NCO assessments */}
+            {tab === 'assessments' && <AssessmentsTab />}
+
             {/* Tab: Requests */}
             {tab === 'requests' && <RequestsTab isJ3Lead={isJ3Lead} myId={myId} />}
 
@@ -1718,6 +1732,56 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                             <button type='button' onClick={addMediaRow}
                                 style={{ display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.3)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
                                 <Add style={{ fontSize: 11 }} /> Add Media
+                            </button>
+                        </div>
+
+                        {/* ── Pre-learning ── */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <SectionLabel>Pre-learning</SectionLabel>
+                            <div style={{ fontSize: '0.68rem', lineHeight: 1.5, color: 'rgba(237,237,237,0.4)' }}>
+                                Locked until a member has a seat on a session of this training, or is in the first two on its waitlist.
+                                It stays open for two weeks from then.
+                            </div>
+                            {modal.preLearning.map((m, i) => (
+                                <div key={i} style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr auto', gap: 6, alignItems: 'end' }}>
+                                    <select
+                                        value={m.type}
+                                        aria-label='Pre-learning type'
+                                        onChange={e => setModal(x => x ? { ...x, preLearning: x.preLearning.map((p, idx) => idx === i ? { ...p, type: e.target.value as MediaEntry['type'] } : p) } : x)}
+                                        style={{ ...inputStyle, width: 'auto', fontSize: '0.72rem', padding: '7px 8px', cursor: 'pointer' }}
+                                    >
+                                        <option value='video'>Video</option>
+                                        <option value='file'>Document</option>
+                                        <option value='url'>Link</option>
+                                    </select>
+                                    <input
+                                        value={m.label}
+                                        aria-label='Pre-learning label'
+                                        onChange={e => setModal(x => x ? { ...x, preLearning: x.preLearning.map((p, idx) => idx === i ? { ...p, label: e.target.value } : p) } : x)}
+                                        placeholder='Label' style={{ ...inputStyle, fontSize: '0.78rem', padding: '7px 8px' }}
+                                    />
+                                    <input
+                                        value={m.url}
+                                        aria-label='Pre-learning link'
+                                        onChange={e => setModal(x => x ? { ...x, preLearning: x.preLearning.map((p, idx) => idx === i ? { ...p, url: e.target.value } : p) } : x)}
+                                        placeholder='https://…' style={{ ...inputStyle, fontSize: '0.78rem', padding: '7px 8px' }}
+                                    />
+                                    <button
+                                        type='button'
+                                        aria-label='Remove pre-learning item'
+                                        onClick={() => setModal(x => x ? { ...x, preLearning: x.preLearning.filter((_, idx) => idx !== i) } : x)}
+                                        style={{ padding: '7px 8px', background: 'transparent', border: '1px solid rgba(219,0,29,0.2)', color: 'rgba(219,0,29,0.5)', cursor: 'pointer', flexShrink: 0 }}
+                                    >
+                                        <Delete style={{ fontSize: 13 }} />
+                                    </button>
+                                </div>
+                            ))}
+                            <button
+                                type='button'
+                                onClick={() => setModal(x => x ? { ...x, preLearning: [...x.preLearning, { type: 'video', label: '', url: '' }] } : x)}
+                                style={{ display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: '4px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}
+                            >
+                                <Add style={{ fontSize: 11 }} /> Add pre-learning
                             </button>
                         </div>
 

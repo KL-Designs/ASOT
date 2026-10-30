@@ -4,12 +4,15 @@ import { useState, useEffect } from 'react'
 import {
     Dialog, DialogTitle, DialogContent, DialogActions,
     Button, TextField, MenuItem, CircularProgress, Alert, Typography,
+    FormControlLabel, Checkbox,
 } from '@mui/material'
 import { Block, AssignmentLate } from '@mui/icons-material'
 
 interface OperationOption {
     id: string
     title: string
+    /** What the list shows; adds the owner when a lead is looking at everyone's. */
+    label: string
 }
 
 interface J2EventModalProps {
@@ -17,6 +20,9 @@ interface J2EventModalProps {
     onClose: () => void
     onSaved: () => void
     mode: 'unavailability' | 'mission_check'
+    /** J2 leads book checks on anybody's mission, so they see every one that
+     *  could need checking, with a filter down to their own. */
+    isJ2Lead?: boolean
 }
 
 function toLocalDatetimeValue(d: Date) {
@@ -24,7 +30,7 @@ function toLocalDatetimeValue(d: Date) {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventModalProps) {
+export default function J2EventModal({ open, onClose, onSaved, mode, isJ2Lead = false }: J2EventModalProps) {
     const now = new Date()
     const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000)
 
@@ -37,6 +43,7 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
     const [opsLoading, setOpsLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
+    const [onlyMine, setOnlyMine] = useState(!isJ2Lead)
 
     // Reset state when modal opens
     useEffect(() => {
@@ -54,18 +61,29 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
     useEffect(() => {
         if (!open || mode !== 'mission_check') return
         setOpsLoading(true)
-        fetch('/api/operations?status=In Development,Upcoming&limit=100')
+        // Every mission the reader made, whatever its status — a check can be
+        // booked for one still in development, one about to run, or one being
+        // revisited. This used to ask for two statuses and then read
+        // `d.operations`, a key the endpoint has never returned (it is
+        // `missions`), so the list was empty for everybody.
+        //
+        // A J2 lead sees every mission still to run (In Development or
+        // Upcoming), whoever owns it, unless they narrow it to their own.
+        const url = onlyMine ? '/api/operations?authorId=me' : '/api/operations?status=In%20Development,Upcoming'
+        fetch(url)
             .then(r => r.json())
             .then(d => {
-                const ops: OperationOption[] = (d.operations ?? []).map((o: { _id: string; title: string }) => ({
-                    id: o._id,
-                    title: o.title,
-                }))
+                const ops: OperationOption[] = (d.missions ?? []).map((o: { _id: string; title: string; status?: string; ownedByName?: string }) => {
+                    const title = o.status ? `${o.title} (${o.status})` : o.title
+                    return { id: o._id, title, label: !onlyMine && o.ownedByName ? `${title} — ${o.ownedByName}` : title }
+                })
                 setOperations(ops)
+                // A filter change can drop the chosen mission out of the list.
+                setSelectedOpId(id => ops.some(o => o.id === id) ? id : '')
             })
             .catch(() => setOperations([]))
             .finally(() => setOpsLoading(false))
-    }, [open, mode])
+    }, [open, mode, onlyMine])
 
     async function handleSave() {
         setError('')
@@ -159,6 +177,14 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
             <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
                 {error && <Alert severity='error' sx={{ borderRadius: 0, fontSize: '0.75rem' }}>{error}</Alert>}
 
+                {!isUnavailability && isJ2Lead && (
+                    <FormControlLabel
+                        control={<Checkbox size='small' checked={onlyMine} onChange={e => setOnlyMine(e.target.checked)} />}
+                        label={<span style={{ fontSize: '0.78rem' }}>Only my missions</span>}
+                        sx={{ mt: -1, mb: -1 }}
+                    />
+                )}
+
                 {/* Operation selector — mission check only */}
                 {!isUnavailability && (
                     <TextField
@@ -179,24 +205,32 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
                     >
                         {operations.map(op => (
                             <MenuItem key={op.id} value={op.id} sx={{ fontSize: '0.82rem' }}>
-                                {op.title}
+                                {op.label}
                             </MenuItem>
                         ))}
                         {!opsLoading && operations.length === 0 && (
-                            <MenuItem disabled sx={{ fontSize: '0.82rem' }}>No active operations found</MenuItem>
+                            <MenuItem disabled sx={{ fontSize: '0.82rem' }}>{onlyMine ? 'You have no missions yet. Only missions you own are listed.' : 'No missions are in development or upcoming.'}</MenuItem>
                         )}
                     </TextField>
                 )}
 
-                {/* Date/time range */}
-                <div style={{ display: 'flex', gap: 12 }}>
+                {/* Date/time range. Wraps rather than sharing a row: side by side
+                    in this dialog each datetime field was too narrow for its own
+                    value, and the end of the date and time was cut off. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                     <TextField
                         label='Start'
                         type='datetime-local'
                         value={startVal}
-                        onChange={e => setStartVal(e.target.value)}
+                        onChange={e => {
+                            setStartVal(e.target.value)
+                            // A mission check is booked at a moment, so the end follows the
+                            // start; it can still be changed afterwards.
+                            if (!isUnavailability) setEndVal(e.target.value)
+                        }}
                         size='small'
                         fullWidth
+                        sx={{ flex: '1 1 300px' }}
                         InputLabelProps={{ shrink: true, style: { fontSize: '0.8rem' } }}
                         InputProps={{ style: { borderRadius: 0, fontSize: '0.82rem' } }}
                     />
@@ -207,6 +241,7 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
                         onChange={e => setEndVal(e.target.value)}
                         size='small'
                         fullWidth
+                        sx={{ flex: '1 1 300px' }}
                         InputLabelProps={{ shrink: true, style: { fontSize: '0.8rem' } }}
                         InputProps={{ style: { borderRadius: 0, fontSize: '0.82rem' } }}
                     />

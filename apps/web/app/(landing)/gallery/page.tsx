@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import GalleryBanner from './_components/GalleryBanner'
 import FeaturedRail from './_components/FeaturedRail'
@@ -49,17 +49,25 @@ import s from '@/styles/gallery.module.css'
 const PAGE_SIZE: Record<GridView, number> = { masonry: 48, uniform: 48, grouped: 8 }
 
 export default function Page() {
-    const { items, featured, sotm, tags, canSubmit, applyVote, toLightboxItem } = useGalleryData()
+    const { items, featured, sotm, tags, canSubmit, canReviewCallsign, applyVote, toLightboxItem } = useGalleryData()
 
     const [filters, setFilters] = useState<Filters>(emptyFilters)
+
+    /* `/gallery?callsign=1-1 Alpha` opens on that section's gallery — it is how
+       the ORBAT links to one. Read once, from the address bar, after mount: a
+       link is an opening state, not something that fights the rail afterwards. */
+    useEffect(() => {
+        const wanted = new URLSearchParams(window.location.search).getAll('callsign').filter(Boolean)
+        if (wanted.length) setFilters(prev => ({ ...prev, callsign: new Set(wanted) }))
+    }, [])
     const [sort, setSort] = useState<SortKey>('new')
-    /* Grouped by default: the archive is ~4,781 photographs across five years,
-       and a flat grid opens on whichever 48 happen to sort first with nothing
-       saying what they are. The grouped view opens on operations, which is how
-       the unit actually refers to its own photographs — a visitor looking for
-       one night's screenshots starts from its name, not from a wall. */
-    const [view, setView] = useState<GridView>('grouped')
-    const [shown, setShown] = useState(PAGE_SIZE.grouped)
+    /* The collage by default. Grouped was the default for a while, on the
+       reasoning that the unit refers to its photographs by operation — but a
+       visitor opening the gallery wants to see pictures, and the grouped view
+       opens on eight headings with a strip under each. By operation is one
+       click away in the toolbar for anybody looking for a particular night. */
+    const [view, setView] = useState<GridView>('masonry')
+    const [shown, setShown] = useState(PAGE_SIZE.masonry)
 
     const [lightbox, setLightbox] = useState<{ list: Photo[], index: number } | null>(null)
     const [singleImage, setSingleImage] = useState<LightboxItem | null>(null)
@@ -81,6 +89,7 @@ export default function Page() {
                 year: new Set(prev.year),
                 operation: new Set(prev.operation),
                 mission: new Set(prev.mission),
+                callsign: new Set(prev.callsign),
                 tag: new Set(prev.tag),
                 author: new Set(prev.author),
                 media: prev.media,
@@ -259,6 +268,7 @@ export default function Page() {
                 onClear={clearAll}
                 labelFor={labelFor}
                 canSubmit={canSubmit}
+                canReviewCallsign={canReviewCallsign}
             />
 
             <div className={s.shell}>

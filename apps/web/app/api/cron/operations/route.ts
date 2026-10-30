@@ -5,6 +5,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { getSectionLeaders } from '@/lib/orbat'
 import { createNotification } from '@/lib/notifications'
 import { ensureRosterSnapshot } from '@/lib/attendance/snapshot'
+import { syncAllAttendancePosts } from '@/lib/attendance/discord-post-sync'
 
 /**
  * GET /api/cron/operations
@@ -95,6 +96,17 @@ export async function GET(request: NextRequest) {
                 console.error('[cron/operations] Allocation reminder failed:', e)
             }
         }
+    }
+
+    // ── 1a. Discord attendance posts ─────────────────────────────────────────
+    //
+    // After the open and close passes above, so a post is made in the same
+    // tick sign-ups open and closed in the same tick they shut. Does nothing
+    // until a channel is configured, and never throws — see
+    // lib/attendance/discord-post-sync.ts.
+    const posts = await syncAllAttendancePosts(now)
+    if (posts.posted || posts.refreshed || posts.closed) {
+        console.log(`[cron/operations] attendance posts — posted=${posts.posted} refreshed=${posts.refreshed} closed=${posts.closed}`)
     }
 
     // ── 1b. CHQ allocation reminder — 1 hour before op start ─────────────────

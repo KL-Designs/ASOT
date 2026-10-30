@@ -4,6 +4,7 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { logAction } from '@/lib/logAction'
+import { sanitisePreLearning } from '@/lib/training/pre-learning'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -46,6 +47,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.infoDocUrl !== undefined) updates.infoDocUrl = body.infoDocUrl?.trim() || undefined
     if (body.coverImageUrl !== undefined) updates.coverImageUrl = body.coverImageUrl?.trim() || undefined
     if (body.linkedMedia !== undefined) updates.linkedMedia = Array.isArray(body.linkedMedia) ? body.linkedMedia as TrainingMedia[] : undefined
+    if (body.preLearning !== undefined) updates.preLearning = sanitisePreLearning(body.preLearning)
     if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder !== '' ? Number(body.sortOrder) || undefined : undefined
 
     await Db.trainingTypes.updateOne({ _id: new ObjectId(id) }, { $set: updates })

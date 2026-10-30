@@ -4,8 +4,6 @@ import {
     getFeaturedOp, getOperationsLog, getPlatoonStats,
     getRosterCount, getGalleryTiles, getScreenshotOfMonth,
 } from '@/lib/landing'
-import client from '@/lib/discord'
-import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 
 import Hero from './_components/Hero'
 import NextOpCard from './_components/NextOpCard'
@@ -35,37 +33,23 @@ import s from '@/styles/landing.module.css'
 export const dynamic = 'force-dynamic'
 
 export default async function Page() {
-    const [sotm, featured, log, platoons, roster, tiles, me] = await Promise.all([
+    const [sotm, featured, log, platoons, roster, tiles] = await Promise.all([
         getScreenshotOfMonth(),
         getFeaturedOp(),
         getOperationsLog(6),
         getPlatoonStats(),
         getRosterCount(),
         getGalleryTiles(6),
-        // No token, a discharged account or a cold Discord cache all mean the
-        // same thing to this page: render it as a visitor sees it.
-        client.fetchMe().catch(() => null),
     ])
 
-    const isMember = me ? await hasDashboardAccess(me).catch(() => false) : false
-
     /*
-       Where the board sits depends on who is reading and whether there is
-       anything to read.
+       The board always sits at the bottom, directly above the enlist band.
 
-       A visitor is being sold the unit, and the operations log is evidence for
-       that pitch rather than something to act on — it belongs late, after the
-       case has been made. A signed-in member with an operation coming up is
-       here for exactly one thing, so the board comes to them.
-
-       Both halves of that have to hold. With no featured operation the board
-       has no large panel to lead with, only the log, and promoting a bare list
-       above the pitch would serve nobody — so it stays at the bottom no matter
-       who is looking.
+       It used to be promoted to the top for a signed-in member with an
+       operation coming up. The hero already carries the next operation's card,
+       so the promoted board said the same thing twice and moved the rest of the
+       page around depending on who was looking.
     */
-    const board = <IntelBoard featured={featured} log={log} />
-    const promoted = isMember && !!featured
-
     return (
         <div className={s.page}>
             <Hero
@@ -74,14 +58,7 @@ export default async function Page() {
                 opCard={featured ? <NextOpCard op={featured} /> : null}
             />
 
-            {/* The readout stays welded to the hero even when the board is
-                promoted — it is the base of the hero's composition, a thin band
-                of figures rather than a section of its own, and slotting
-                anything between the two leaves the hero ending on nothing.
-                Promoted, the board becomes the first real section instead. */}
             <StatReadout roster={roster} />
-
-            {promoted && board}
 
             {/* The pitch first, then the proof, then the standing record. The
                 enlist band stays last — it is the page's closing move, and the
@@ -90,7 +67,7 @@ export default async function Page() {
             <WhySection roster={roster} />
             <Platoons stats={platoons} />
             <GalleryStrip tiles={tiles} />
-            {!promoted && board}
+            <IntelBoard featured={featured} log={log} />
             <EnlistBand />
         </div>
     )

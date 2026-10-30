@@ -256,7 +256,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 // into the pool, and ORBAT holders are pencilled into their own
                 // positions again — which is the state the board would have had
                 // if RSVP had opened now.
-                roster = await buildRosterForOperation(att.assignedPlatoons ?? [])
+                roster = await buildRosterForOperation(att.assignedPlatoons ?? [], att.supportCrew)
                 if (roster.length === 0) {
                     return NextResponse.json(
                         { error: 'No ORBAT positions for the assigned units — nothing to snapshot.' },

@@ -9,11 +9,12 @@ import ImgContact from '@/public/images/home/Mike1440.png'
 import ImgRules from '@/public/images/home/ADFField1.png'
 import ImgFAQ from '@/public/images/home/SPEAR_OVERCAST_Final.png'
 import ImgValues from '@/public/images/home/1122.png'
+import ImgAwards from '@/public/images/home/VicPose2.png'
 
 import { StaticImageData } from 'next/image'
 
 /**
- * The About family: six pages sharing one masthead and one section rail.
+ * The About family: seven pages sharing one masthead and one section rail.
  *
  * A server component, and each page names itself. This used to be a layout
  * that derived the page from an `x-pathname` header — a header nothing sets,
@@ -24,7 +25,7 @@ import { StaticImageData } from 'next/image'
  * redesign rather than derived — "About the unit" cannot be produced from the
  * segment "about". The subtitles are unchanged from the previous revision.
  */
-export type AboutPageKey = 'index' | 'callsigns' | 'contact' | 'rules' | 'values' | 'faq'
+export type AboutPageKey = 'index' | 'callsigns' | 'contact' | 'rules' | 'values' | 'awards' | 'faq'
 
 type AboutPage = RailItem & {
     key: AboutPageKey
@@ -71,6 +72,14 @@ const ABOUT_PAGES: AboutPage[] = [
         label: 'Principles & Values',
         kicker: 'What we stand for',
         background: ImgValues,
+    },
+    {
+        key: 'awards',
+        href: '/about/awards',
+        label: 'Awards & Citations',
+        kicker: 'Recognition',
+        subtitle: 'Every award and citation a member can earn, who is eligible for each, and what it is awarded for.',
+        background: ImgAwards,
     },
     {
         key: 'faq',

@@ -5,7 +5,9 @@ import { createPortal } from 'react-dom'
 import { useEditor, EditorContent, NodeViewWrapper, ReactNodeViewRenderer } from '@tiptap/react'
 import type { Editor } from '@tiptap/react'
 import Placeholder from '@tiptap/extension-placeholder'
-import { ContentImage, contentExtensions, FontSize } from './content-extensions'
+import { ContentFlowchart, ContentImage, contentExtensions, FontSize } from './content-extensions'
+import FlowchartNodeView, { stopFlowchartEvent } from './FlowchartNodeView'
+import { starterFlowchart } from '@/lib/operations/flowchart'
 import { DEV_TOOLS_ENABLED } from '@/lib/dev-tools'
 import GlobalDragHandle from 'tiptap-extension-global-drag-handle'
 import Collaboration from '@tiptap/extension-collaboration'
@@ -378,6 +380,14 @@ function ResizableImageView({ node, selected, updateAttributes }: {
 const ResizableImage = ContentImage.extend({
     addNodeView() {
         return ReactNodeViewRenderer(ResizableImageView)
+    },
+})
+
+/* The flowchart's canvas, and nothing else — its attributes are schema and live
+ * in `content-extensions.ts`, exactly as the image's do. */
+const EditableFlowchart = ContentFlowchart.extend({
+    addNodeView() {
+        return ReactNodeViewRenderer(FlowchartNodeView, { stopEvent: stopFlowchartEvent })
     },
 })
 
@@ -986,6 +996,16 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
             <>
                 <TIconBtn title='Quote' disabled={disabled} active={!!editor?.isActive('blockquote')} onClick={() => editor?.chain().focus().toggleBlockquote().run()}><IconQuote /></TIconBtn>
                 <TIconBtn title='Section Divider' disabled={disabled} onClick={() => editor?.chain().focus().setHorizontalRule().run()}><IconRule /></TIconBtn>
+                <TIconBtn
+                    title='Insert Flowchart'
+                    disabled={disabled}
+                    onClick={() => editor?.chain().focus().insertContent({
+                        type: 'flowchart',
+                        attrs: { chart: JSON.stringify(starterFlowchart()), title: '' },
+                    }).run()}
+                >
+                    <IconFlow />
+                </TIconBtn>
             </>
         ) },
         { key: 'insert', node: (
@@ -1518,6 +1538,7 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
             ...contentExtensions(),
             Placeholder.configure({ placeholder: 'Begin writing this section…' }),
             ResizableImage,
+            EditableFlowchart,
             GlobalDragHandle.configure({ dragHandleWidth: 20 }),
             Collaboration.configure({ document: ydoc, field: contentKey }),
             buildCursorExtension(provider, user),
@@ -1823,6 +1844,7 @@ const IconListBullet = () => <Svg><circle cx='4.5' cy='6' r='1' fill='currentCol
 const IconListNumber = () => <Svg><path d='M4.5 5.5h1v3' /><path d='M4.5 14.3c0-.8.7-1.3 1.4-1.3.8 0 1.4.4 1.4 1.1 0 .5-.4.8-.9 1.3l-1.9 1.8h2.8' /><line x1='11' y1='6' x2='20' y2='6' /><line x1='11' y1='12' x2='20' y2='12' /><line x1='11' y1='18' x2='20' y2='18' /></Svg>
 const IconQuote = () => <Svg><path d='M7 8a3 3 0 0 0-3 3v2a2 2 0 0 0 2 2h1v3l-3 2' /><path d='M17 8a3 3 0 0 0-3 3v2a2 2 0 0 0 2 2h1v3l-3 2' /></Svg>
 const IconRule = () => <Svg><line x1='4' y1='12' x2='20' y2='12' /></Svg>
+const IconFlow = () => <Svg><rect x='8' y='3' width='8' height='5' rx='1' /><rect x='2.5' y='16' width='8' height='5' rx='1' /><rect x='13.5' y='16' width='8' height='5' rx='1' /><path d='M12 8v4M6.5 16v-4h11v4' /></Svg>
 const IconImage = () => <Svg><rect x='3.5' y='4.5' width='17' height='15' rx='1.5' /><circle cx='9' cy='10' r='1.6' /><path d='m5 17 5-5 3.5 3.5L18 11l1.5 1.5' /></Svg>
 const IconLink = () => <Svg><path d='M10 14a4.5 4.5 0 0 1 0-6.36l2-2a4.5 4.5 0 1 1 6.36 6.36l-1.1 1.1' /><path d='M14 10a4.5 4.5 0 0 1 0 6.36l-2 2a4.5 4.5 0 1 1-6.36-6.36l1.1-1.1' /></Svg>
 const IconUnlink = () => <Svg><path d='M9.5 14.5a4.5 4.5 0 0 1-1.15-4.4' /><path d='M14.5 9.5a4.5 4.5 0 0 1 1.15 4.4' /><path d='m12.35 6.85 1.65-1.65a4.5 4.5 0 1 1 6.36 6.36l-1.65 1.65' /><path d='m11.65 17.15-1.65 1.65a4.5 4.5 0 1 1-6.36-6.36l1.65-1.65' /><line x1='4' y1='4' x2='20' y2='20' /></Svg>

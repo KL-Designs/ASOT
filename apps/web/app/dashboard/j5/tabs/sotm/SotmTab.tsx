@@ -5,6 +5,7 @@ import { Typography, LinearProgress } from '@mui/material'
 
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import { Field } from '@/app/dashboard/j5/controls/Field'
+import FocalPicker from './FocalPicker'
 import mc from '@/styles/media-console.module.css'
 import s from '@/styles/j5-console.module.css'
 import c from '@/styles/j5-controls.module.css'
@@ -209,6 +210,26 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                     </div>
                 )}
             </section>
+
+            {/* Focal point — keyed on when the pick was set, so choosing a
+                different screenshot starts the picker from that one's state. */}
+            {canManage && sotm && (
+                <section className={s.zone}>
+                    <div className={s.zoneHead}>
+                        <Typography className={s.zoneTitle}>Focal Point</Typography>
+                    </div>
+                    <FocalPicker
+                        key={sotm.setAt}
+                        initialX={sotm.focalX}
+                        initialY={sotm.focalY}
+                        onSaved={focal => {
+                            setSotm(prev => (prev ? { ...prev, focalX: focal.focalX, focalY: focal.focalY } : prev))
+                            showFeedback('success', focal.focalX === undefined ? 'Focal point cleared. Crops are centred again.' : 'Focal point saved.')
+                        }}
+                        onError={msg => showFeedback('error', msg)}
+                    />
+                </section>
+            )}
 
             {/* Replace from library */}
             {canManage && pickerOpen && (

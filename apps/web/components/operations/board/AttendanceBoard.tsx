@@ -14,6 +14,7 @@ import PoolRail from './PoolRail'
 import MemberBar from './MemberBar'
 import Legend from './Legend'
 import BoardSkeleton from './BoardSkeleton'
+import AssessmentMarker from './AssessmentMarker'
 import type { PickableRole } from './AddRole'
 import { Avatar } from './parts'
 import s from './board.module.css'
@@ -471,6 +472,8 @@ function AttendanceBoard({
         <MotionConfig reducedMotion={reduced ? 'always' : 'never'}>
         <LayoutGroup>
             <div className={`${s.root} ${s.enter}`}>
+                {/* Renders only for the people who need to know — see the component. */}
+                <AssessmentMarker operationId={operationId} />
                 {/* Header */}
                 <div className={s.top}>
                     <div className={s.opName}>

@@ -118,6 +118,9 @@ roster, next-op countdown — then four `.channel` cards (Discord, TeamSpeak, Em
 same three figures. Replaced the embedded Discord widget iframe, which published members' display
 names to anyone loading the page. Public.
 
+#### app/(landing)/about/awards/page.tsx (+ awards-data.ts, awards.module.css)
+`/about/awards` — every award and citation by category with its ribbon/medallion artwork (ribbons resolved through `AWARD_TO_CITATION` in `@asot/lib`, the same table the milpac renderer uses), eligibility, a campaign-clasp ladder, removal rules, and buttons into the ticket form (`/tickets/new?type=award-nomination` / `award-creation`). Content is LTCOL Thomas's Citations and Awards document, held as data in `awards-data.ts`. In the About rail, the nav menu and the sitemap. Public.
+
 #### app/(landing)/about/contact/next-op-figure.tsx
 Client component: the countdown tile's figure. Takes the server-rendered string as `initial` so the
 first client render matches the server HTML, then re-derives via `formatUntil` every 30s.
@@ -260,6 +263,7 @@ by `GET/PUT /api/preferences`. Requires an authenticated user implicitly (fetch 
 upstream if not logged in — no explicit guard visible in this file, relies on `/api/preferences`).
 
 #### app/(landing)/support/page.tsx
+On the shared shell vocabulary now (`SectionHead`, `Card`/`CardGrid`, `List`, `PhotoBand`) instead of its own section header and `InfoCard`; wording unchanged. The About pages Rules, Values and FAQ each carry a `PhotoBand` between sections.
 Static mental-health/crisis-support resource page (Lifeline, Beyond Blue, etc.) with `SupportCard`.
 Public.
 
@@ -312,6 +316,17 @@ tick this"; `sortPhotos`, `groupByOperation`, `archiveStats`.
   lazy `<img>` rather than `next/image` (thousands of files, and the ratio is needed).
 - `Lightbox.tsx` — generic over archive photo / featured shot / SOTM. Download + copy link.
 - `icons.tsx` — the line icon set, kept off MUI so the toolbar reads as one kit.
+
+#### Callsign galleries
+A member can file a submission under their own section ("1-1 Alpha") — a checkbox on the submit page,
+shown only to somebody who holds a position in a section. The request says yes or no; **which**
+callsign is read from the ORBAT server-side. It is stored as `GalleryMedia.callsign` and becomes a
+public **By callsign** facet in the rail once live (`/gallery?callsign=1-1%20Alpha` opens filtered, and
+the public ORBAT's section header links there once the section has live media).
+Review is J5 (`gallery.review`) **or that section's staff** (holders of an `isSenior` position in it):
+`app/(landing)/gallery/review/page.tsx` mounts the J5 `SubmissionsTab` for them, the toolbar shows
+*Review submissions* to section staff, and they are notified (`gallery_callsign_submission`) once per
+batch. Rules in `lib/gallery/callsign.ts` (pure, tested), ORBAT reads in `lib/gallery/review-scope.ts`.
 
 #### app/(landing)/gallery/submit/
 Gated on `gallery.submit` (`page.tsx`: login first, then the key — no Discord-role arm, so it is
@@ -792,6 +807,16 @@ slot on the night, resolved by `sectionLead()`. `aar.manage` is the separate, gr
 staff closing an operation out. Each card saves on its own request: a member who fills in feedback
 and closes the tab has saved their feedback.
 
+A member of a **platoon's headquarters** on the night has the same positional authority over every
+section of that platoon (`platoonSections()`), and nobody else's. The roll call offers five statuses
+— Confirm is discontinued and only ever shown on a record that already carries it — and leaves a
+member who gave no RSVP on "Choose…" rather than defaulting them.
+
+**Late joiners**: each section card's three-dot menu has *Add a late joiner*, a name search backed by
+`GET /aar/members?q=` (only for somebody with a section to confirm; excludes anyone already on the
+night). The pick is submitted in `lateJoiners` with the roll call and stored as a record carrying
+`lateJoinSection`, after which they are part of that section's roll call and may have an AAR written.
+
 `POST /aar/attendance` is the roll call, and it **replaces the ORBAT-`isSenior` scoping** the old
 confirm route used. It also only counts a member into `billetCounts` on the transition into present —
 the route it supersedes incremented on every submission, so a 1IC correcting one status handed the
@@ -817,6 +842,8 @@ socket and force the Y.Doc to reconnect. **Orders is the exception and navigates
 leaves the editor for the operation's own page, and the socket goes with it. `onSwitch` returns
 whether it handled the change, which is how one strip serves both cases; the tabs are links rather
 than buttons so that middle-click and open-in-new-tab work, which the buttons had quietly removed.
+
+**`back-link.tsx`** is the orders page's client-side back link, shared by `OperationBar` and `ClassicPage`: it goes to the editor when the page was opened with `?from=editor` (the editor's Preview button adds it), to `/dashboard/j2` when `fromJ2`, otherwise to `/operations`.
 
 **`OperationBar.tsx`** is the slim bar over the public orders page: back link, title, status pill
 and the same strip. It *replaces* the site navbar rather than sitting under it — `<HideSiteNav/>`
@@ -1109,14 +1136,18 @@ acknowledgement summary. **The operation's lifecycle lives in the Schedule tab**
 (`edit/tabs/schedule/`), rebuilt as one horizontal *phase ribbon* covering the whole life of the
 operation — pre-production → lead-up → RSVP window → final hour → op & confirmation:
 
-- `ScheduleTab.tsx` — composes the ribbon panel and `LifecycleOverride`; owns the
-  selected-phase state and its own coarse 30s clock.
+- `ScheduleTab.tsx` — three panels and no phase selection: **Pre-production checks** (the making of
+  the mission: `PreProductionInspector`, always on screen), **Schedule** (the running of it:
+  `AnchorBar`, the ribbon as a picture, `RsvpWindowInspector`, and one line on whether automation is
+  live and what fires next) and `LifecycleOverride`. It used to select one of five phases to
+  inspect, from two controls that did the same thing; owns its own coarse 30s clock.
 - `AnchorBar.tsx` — the operation date, permanently visible above the ribbon and now its **only**
   control (it was previously duplicated in the deck's Details card). Carries the
   `schedule-op-date-input` testid the E2E date-edit spec selects.
 - `PhaseRibbon.tsx` + `ribbon.module.css` — the ribbon: boundaries (transitions) above, milestones
-  below, a `now` line, and an inverted-phase hatch for an out-of-order schedule.
-- `PhaseStrip.tsx` — the five-phase selector under the ribbon.
+  below, a `now` line, and an inverted-phase hatch for an out-of-order schedule. Display only — its
+  segments are no longer buttons — and it leaves the development gates off, since those belong to
+  the pre-production panel.
 - `PreProductionInspector.tsx` — development gates with their checklists visible inline, the
   completion modal, and the Orders Check request/cancel/reminder block.
 - `RsvpWindowInspector.tsx` — both ends of the RSVP window edited together as one object, and both expressed the same way: minutes before the op date, preset select + `Custom…` picker. There is no Manual/Scheduled toggle — an unset open offset simply means no automatic open, and the lifecycle panel's Advance is the by-hand path.

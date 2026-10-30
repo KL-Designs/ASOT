@@ -18,6 +18,7 @@ import { resolveMemberAccent } from '@/lib/military/accent'
 import Wordmark from '@/public/ASOT.svg'
 import Banner from '@/public/images/home/PHQ2.png'
 import s from '@/styles/landing.module.css'
+import { focalPosition } from '@/lib/gallery/focal'
 
 /**
  * The hero — variant A, "overlay".
@@ -97,7 +98,7 @@ export default function Hero({ sotm, roster, opCard }: {
         <section className={s.hero} ref={ref} tabIndex={0} onKeyDown={handleKeyDown}>
             <div className={s.heroBg}>
                 {sotm
-                    ? <img src='/api/gallery/sotm/image' alt={`Screenshot of the Month — ${sotm.credit}`} />
+                    ? <img src='/api/gallery/sotm/image' alt={`Screenshot of the Month — ${sotm.credit}`} style={{ objectPosition: focalPosition(sotm) }} />
                     : <Image src={Banner} alt='' fill style={{ objectFit: 'cover' }} priority />}
             </div>
 

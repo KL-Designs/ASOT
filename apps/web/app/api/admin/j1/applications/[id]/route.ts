@@ -8,86 +8,9 @@ import { addGuildRole, removeGuildRole, setGuildNickname, sendTaskAssignedDM, se
 import { buildNickname } from '@/lib/buildNickname'
 import { calculatePromotionPoints } from '@/lib/military/points'
 import { hasPermission } from '@/lib/orbat/hasPermission'
-
-// ── Returning-member check ────────────────────────────────────────────────────
-
-type ReturningStatus = 'CLEAR' | 'HD' | 'GD' | 'DD'
-
-async function runReturningMemberCheck(
-    discordId: string,
-): Promise<{ status: ReturningStatus; details: string }> {
-    const PRIORITY: Record<ReturningStatus, number> = { CLEAR: 0, HD: 1, GD: 2, DD: 3 }
-    let worst: ReturningStatus = 'CLEAR'
-    const reasons: string[] = []
-
-    function elevate(s: ReturningStatus) {
-        if (PRIORITY[s] > PRIORITY[worst]) worst = s
-    }
-
-    // Previous rejected application → treat as GD-equivalent
-    const prevRejection = await Db.j1Applications.findOne({ discordId, status: 'rejected' })
-    if (prevRejection) {
-        const when = prevRejection.submittedAt
-            ? new Date(prevRejection.submittedAt).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
-            : 'unknown date'
-        reasons.push(`Previously rejected application (${when})`)
-        elevate('GD')
-    }
-
-    // Previously discharged member — read discharge type
-    const dischargedUser = await Db.users.findOne({ id: discordId, discharged: { $exists: true } })
-    if (dischargedUser) {
-        const discharge = dischargedUser.discharged as any
-        const reason = discharge?.reason ?? 'no reason on record'
-        const type = (discharge?.type as string ?? '').trim().toUpperCase()
-        if (type === 'DD') {
-            reasons.push(`Dishonourably discharged — ${reason}`)
-            elevate('DD')
-        } else if (type === 'HD') {
-            reasons.push(`Honourably discharged — ${reason}`)
-            elevate('HD')
-        } else {
-            reasons.push(`Previously discharged (GD) — ${reason}`)
-            elevate('GD')
-        }
-    }
-
-    // J4 Master Sheet — Leaving History
-    const leavingRecord = discordId ? await Db.leavingHistory.findOne({ discordId }) : null
-    if (leavingRecord) {
-        const ret  = leavingRecord.return?.trim().toUpperCase()
-        const type = (leavingRecord.type ?? '').trim().toUpperCase()
-        const reason  = leavingRecord.reason ?? ''
-        const dateStr = leavingRecord.leavingDate ?? 'unknown date'
-        if (ret === 'NO') {
-            reasons.push(`Master Sheet: DO NOT RETURN — ${reason}`)
-            elevate('DD')
-        } else if (type === 'DD') {
-            reasons.push(`Master Sheet: DD discharge (${dateStr}) — ${reason}`)
-            elevate('DD')
-        } else if (type === 'HD') {
-            reasons.push(`Master Sheet: HD discharge (${dateStr}) — ${reason}`)
-            elevate('HD')
-        } else if (type === 'GD' || ret === 'REVIEW' || ret === 'INDEFINITE') {
-            reasons.push(`Master Sheet: GD discharge (${dateStr}) — ${reason}`)
-            elevate('GD')
-        }
-    }
-
-    // J4 Master Sheet — Denied Applications HQ → GD-equivalent
-    if (discordId) {
-        const deniedRecord = await Db.deniedApplicationsHQ.findOne({ discordId })
-        if (deniedRecord) {
-            reasons.push(`Master Sheet: previously denied application (${deniedRecord.date}) — ${deniedRecord.reason}`)
-            elevate('GD')
-        }
-    }
-
-    return {
-        status: worst,
-        details: worst === 'CLEAR' ? 'No prior record found' : reasons.join('; '),
-    }
-}
+import { runReturningMemberCheck } from '@/lib/j1/returning-check'
+import { restoreFromSnapshot, sanitiseRestoreItems } from '@/lib/military/reinstate'
+import { logAction } from '@/lib/logAction'
 
 // ── Award billet points to recruiter ─────────────────────────────────────────
 
@@ -663,6 +586,32 @@ export async function PATCH(
                     timestamp: new Date().toISOString(),
                 }],
             }, 'raw').catch(() => null)
+        }
+    }
+
+    /*
+       A returning member's record, restored on sign-off.
+
+       The recruiter proposed what to bring back from the discharge snapshot;
+       nothing was applied then. It is applied here, when the J1 lead or J4
+       accepts the recruit — that acceptance is the sign-off — and the member
+       stops being marked discharged. Awaited, because the onboarding below
+       sets their rank and position and must not race the restore.
+    */
+    if (isFinalDecision && status === 'accepted' && app.discordId && app.restoreItems?.length) {
+        try {
+            const restored = await restoreFromSnapshot(app.discordId, sanitiseRestoreItems(app.restoreItems))
+            await Db.users.updateOne({ id: app.discordId }, { $unset: { discharged: '' } })
+            logAction({
+                action: 'member.reinstate',
+                category: 'member',
+                performedBy: me.id,
+                performedByName: displayName,
+                target: applicantName,
+                details: { targetUserId: app.discordId, proposed: app.restoreItems, restored, via: 'j1-recruit', applicationId: id },
+            })
+        } catch (err) {
+            console.error('[j1/applications] Restoring a returning member failed:', err)
         }
     }
 

@@ -542,7 +542,10 @@ function NewMissionModal({
     onCreatedCampaign: (campaign: OperationCampaign, missions: CampaignMission[]) => void
 }) {
     const [step, setStep] = useState<'type' | 'campaign'>('type')
-    const [campaignMode, setCampaignMode] = useState<'existing' | 'new'>('existing')
+    // New campaign first: a "Campaign Mission" from New Mission is most often a
+    // new campaign being planned out, and opening on the list of every past
+    // campaign read as if that were the only choice.
+    const [campaignMode, setCampaignMode] = useState<'existing' | 'new'>('new')
     const [selectedCampaignId, setSelectedCampaignId] = useState('')
     const [newCampaignName, setNewCampaignName] = useState('')
     const [plannedCount, setPlannedCount] = useState(3)
@@ -663,7 +666,7 @@ function NewMissionModal({
 
                         {/* Mode selector */}
                         <div style={{ display: 'flex', gap: 0, border: '1px solid rgba(255,255,255,0.1)' }}>
-                            {(['existing', 'new'] as const).map(m => (
+                            {(['new', 'existing'] as const).map(m => (
                                 <button key={m} onClick={() => setCampaignMode(m)} style={{
                                     flex: 1, padding: '7px', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
                                     background: campaignMode === m ? 'rgba(100,150,237,0.12)' : 'transparent',
@@ -716,19 +719,27 @@ function NewMissionModal({
                                     onBlur={e => (e.currentTarget.style.borderColor = error ? 'rgba(219,0,29,0.5)' : 'rgba(100,150,237,0.2)')}
                                 />
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)', whiteSpace: 'nowrap' }}>Planned missions:</span>
-                                        <input
-                                            type='number' min={3} max={10} value={plannedCount}
-                                            onChange={e => setPlannedCount(Math.max(3, Math.min(10, parseInt(e.target.value) || 3)))}
-                                            style={{
-                                                width: 60, background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(100,150,237,0.2)',
-                                                color: '#ededed', fontSize: '0.82rem', padding: '4px 8px', outline: 'none', fontFamily: 'inherit', textAlign: 'center',
-                                            }}
-                                        />
+                                    <span style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.4)' }}>Weeks — one mission each:</span>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        {Array.from({ length: plannedCount }, (_, i) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '5px 10px', border: '1px solid rgba(100,150,237,0.15)', background: 'rgba(100,150,237,0.04)' }}>
+                                                <span style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', width: 56 }}>Week {i + 1}</span>
+                                                <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.75)' }}>{(newCampaignName.trim() || 'Campaign')} {toRoman(i + 1)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <button type='button' onClick={() => setPlannedCount(c => Math.min(10, c + 1))} disabled={plannedCount >= 10}
+                                            style={{ all: 'unset', cursor: plannedCount >= 10 ? 'not-allowed' : 'pointer', opacity: plannedCount >= 10 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(100,150,237,0.9)', padding: '4px 8px', border: '1px solid rgba(100,150,237,0.3)' }}>
+                                            <Add style={{ fontSize: 13 }} /> Add week
+                                        </button>
+                                        <button type='button' onClick={() => setPlannedCount(c => Math.max(3, c - 1))} disabled={plannedCount <= 3}
+                                            style={{ all: 'unset', cursor: plannedCount <= 3 ? 'not-allowed' : 'pointer', opacity: plannedCount <= 3 ? 0.4 : 1, display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.55)', padding: '4px 8px', border: '1px solid rgba(255,255,255,0.15)' }}>
+                                            Remove week
+                                        </button>
                                     </div>
                                     <span style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>
-                                        Campaigns must contain a minimum of three missions.
+                                        Campaigns must contain between three and ten missions.
                                     </span>
                                 </div>
                             </div>
@@ -788,8 +799,8 @@ function AddDaySlotModal({
             let newOpId: string
 
             if (mode === 'blank' || !hasSaturdayOp) {
-                // Create blank operation
-                const res = await fetch('/api/operations/new')
+                // Create blank operation (from the campaign default template, if set)
+                const res = await fetch('/api/operations/new?kind=campaign')
                 const data = await res.json()
                 if (!data.id) { setError('Failed to create operation'); setCreating(false); return }
                 newOpId = data.id.toString()
@@ -813,7 +824,7 @@ function AddDaySlotModal({
                 }
             } else {
                 // Partial duplicate — first create blank, then copy sections
-                const res = await fetch('/api/operations/new')
+                const res = await fetch('/api/operations/new?kind=campaign')
                 const data = await res.json()
                 if (!data.id) { setError('Failed to create operation'); setCreating(false); return }
                 newOpId = data.id.toString()
@@ -2439,64 +2450,6 @@ function AutoOrganiseModal({
 
 // ── Templates management section ──────────────────────────────────────────────
 
-function TemplatesSection({ refreshKey }: { refreshKey: number }) {
-    const [open, setOpen] = useState(true)
-    const [templates, setTemplates] = useState<OperationTemplate[]>([])
-    const [loading, setLoading] = useState(false)
-    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
-
-    useEffect(() => {
-        if (!open) return
-        setLoading(true)
-        fetch('/api/operations/templates')
-            .then(r => r.json())
-            .then(data => setTemplates(data.templates ?? []))
-            .finally(() => setLoading(false))
-    }, [open, refreshKey])
-
-    async function deleteTemplate(id: string) {
-        await fetch(`/api/operations/templates?id=${id}`, { method: 'DELETE' })
-        setTemplates(ts => ts.filter(t => t._id.toString() !== id))
-    }
-
-    return (
-        <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', marginTop: 16 }}>
-            <button onClick={() => setOpen(o => !o)} style={{ all: 'unset', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderBottom: open ? '1px solid rgba(219,0,29,0.12)' : 'none' }}>
-                <span style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>Manage Templates</span>
-                <span style={{ color: 'rgba(237,237,237,0.3)', display: 'flex' }}>{open ? <ExpandLess style={{ fontSize: 16 }} /> : <ExpandMore style={{ fontSize: 16 }} />}</span>
-            </button>
-            {open && (
-                <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {loading && <Typography style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.3)' }}>Loading…</Typography>}
-                    {!loading && templates.length === 0 && <Typography style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.25)', fontStyle: 'italic' }}>No templates yet — use the bookmark icon on any mission row to save one.</Typography>}
-                    {templates.map(t => {
-                        const tid = t._id.toString()
-                        return (
-                            <div key={tid} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.015)' }}>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.name}</div>
-                                    <div style={{ fontSize: '0.62rem', color: 'rgba(237,237,237,0.3)', marginTop: 2 }}>
-                                        {t.sections?.length ?? 0} section{(t.sections?.length ?? 0) !== 1 ? 's' : ''} · {new Date(t.createdAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
-                                    </div>
-                                </div>
-                                <button onClick={() => setConfirmDeleteId(tid)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'rgba(219,0,29,0.22)', display: 'flex', transition: 'color 0.15s' }} onMouseEnter={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.85)')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(219,0,29,0.22)')}>
-                                    <Delete style={{ fontSize: 15 }} />
-                                </button>
-                            </div>
-                        )
-                    })}
-                    {confirmDeleteId && (
-                        <ConfirmDialog open title='Delete Template' message={`Delete template "${templates.find(t => t._id.toString() === confirmDeleteId)?.name}"?`}
-                            onConfirm={() => { deleteTemplate(confirmDeleteId); setConfirmDeleteId(null) }}
-                            onCancel={() => setConfirmDeleteId(null)} />
-                    )}
-                </div>
-            )}
-        </div>
-    )
-}
-
-
 // ── Main tab ───────────────────────────────────────────────────────────────────
 
 export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
@@ -2510,7 +2463,6 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
     const [creating, setCreating] = useState(false)
     const [newMissionModalOpen, setNewMissionModalOpen] = useState(false)
     const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
-    const [templateRefreshKey, setTemplateRefreshKey] = useState(0)
     const [campaigns, setCampaigns] = useState<OperationCampaign[]>([])
     const [campaignsLoaded, setCampaignsLoaded] = useState(false)
     const [campaignMissionsMap, setCampaignMissionsMap] = useState<Record<string, CampaignMission[]>>({})
@@ -2803,7 +2755,8 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
         onDelete: handleDelete,
         onDuplicate: handleDuplicate,
         onNotesSaved: handleNotesSaved,
-        onTemplateSaved: () => setTemplateRefreshKey(k => k + 1),
+        // Templates live on their own tab now, which loads its list when opened.
+        onTemplateSaved: () => {},
         onAssigned: handleAssigned,
         onRemoved: handleRemoved,
         onConvertToCampaign: (op: Operation) => setConvertOp(op),
@@ -3055,7 +3008,6 @@ export default function J2OperationsTab({ isJ4 = false }: { isJ4?: boolean }) {
                         </div>
                     )}
 
-                    <TemplatesSection refreshKey={templateRefreshKey} />
                 </>
             )}
 

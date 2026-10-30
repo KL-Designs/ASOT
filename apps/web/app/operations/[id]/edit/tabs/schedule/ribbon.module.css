@@ -86,6 +86,9 @@
     color: inherit;
     font: inherit;
 }
+/* The ribbon is a diagram now: its segments are not clickable. */
+.segment.static { cursor: default; }
+
 .segment:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; z-index: 4; }
 
 .segName {

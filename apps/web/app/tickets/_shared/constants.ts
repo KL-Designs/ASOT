@@ -85,6 +85,7 @@ export const SUBTYPE_LABELS: Record<string, string> = {
     'bug-other':            'Bug — Other',
     'mission':              'Mission Idea',
     'campaign':             'Campaign Idea',
+    'objective':            'Objective Idea',
     'unit-feedback':        'Unit Feedback',
     'complaint-individual': 'Complaint — Individual',
     'complaint-group':      'Complaint — Group',

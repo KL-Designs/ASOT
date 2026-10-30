@@ -18,6 +18,8 @@ export type PendingItem = {
     embedKind: EmbedKind | null
     embedUrl: string | null
     caption: string
+    /** The section gallery it was filed under, if any. */
+    callsign: string | null
     tags: string[]
     operationId: string | null
     opLabel: string | null

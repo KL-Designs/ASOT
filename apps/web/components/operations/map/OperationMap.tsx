@@ -2,7 +2,10 @@
 
 import { useEffect, useRef } from 'react'
 import type { MapLayer, MapAnnotation, MapPresenceUser, DrawingTool, AnnotationProperties, MapWorld, MapMode, A3ToolProps } from './types'
-import { A3_MARKER_COLORS, METIS_ICONS, METIS_SIDE_KEY } from './types'
+import { A3_MARKER_COLORS } from './types'
+import { metisDivHtml } from './Metis'
+import { readMetis, writeMetis } from '@/lib/operations/metis'
+import { lerpView, viewFor, visibleWorld, zoomEase, ZOOM_ANIMATION_MS, type GridView } from '@/lib/operations/map-grid-view'
 
 // ── GeoJSON layer definitions (rendered in order, back → front) ──────────────
 // detail:true layers only appear at DETAIL_MIN_ZOOM or closer to avoid rendering
@@ -51,8 +54,14 @@ function outsideBg(rgba?: [number, number, number, number]): string {
     return `rgb(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)})`
 }
 
-function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, mode: MapMode): void {
-    const size = map.getSize() as { x: number; y: number }
+/**
+ * Draws the grid through `view` rather than by asking the map where things are.
+ *
+ * The map's own answers are stale for the length of a zoom animation (see
+ * lib/operations/map-grid-view.ts), so the caller passes the view it wants drawn — the map's
+ * current one normally, an interpolated one while a zoom is in flight.
+ */
+function drawGridCanvas(canvas: HTMLCanvasElement, size: { x: number; y: number }, view: GridView, worldSize: number, mode: MapMode): void {
     if (canvas.width !== size.x || canvas.height !== size.y) {
         canvas.width  = size.x
         canvas.height = size.y
@@ -61,12 +70,10 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
     if (!ctx) return
     ctx.clearRect(0, 0, size.x, size.y)
 
-    const zoom   = map.getZoom() as number
-    const bounds = map.getBounds()
-    const minX   = bounds.getWest()  as number
-    const maxX   = bounds.getEast()  as number
-    const minY   = bounds.getSouth() as number
-    const maxY   = bounds.getNorth() as number
+    const zoom = view.zoom
+    const { minX, maxX, minY, maxY } = visibleWorld(view, size)
+    const toX = (easting: number) => view.ax * easting + view.bx
+    const toY = (northing: number) => view.ay * northing + view.by
 
     const isSat     = mode === 'sat'
     const lineColor = isSat ? '#ffffff' : '#444444'
@@ -83,12 +90,12 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
         ctx.beginPath()
         for (let x = Math.floor(minX / interval) * interval; x <= maxX + interval; x += interval) {
             if (skip > 0 && x % skip === 0) continue
-            const px = (map.latLngToContainerPoint([0, x]) as { x: number }).x
+            const px = toX(x)
             ctx.moveTo(px, 0); ctx.lineTo(px, size.y)
         }
         for (let y = Math.floor(minY / interval) * interval; y <= maxY + interval; y += interval) {
             if (skip > 0 && y % skip === 0) continue
-            const py = (map.latLngToContainerPoint([y, 0]) as { y: number }).y
+            const py = toY(y)
             ctx.moveTo(0, py); ctx.lineTo(size.x, py)
         }
         ctx.stroke()
@@ -101,8 +108,8 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
 
     // ── Map border ─────────────────────────────────────────────────────────────
     {
-        const sw = map.latLngToContainerPoint([0, 0])                 as { x: number; y: number }
-        const ne = map.latLngToContainerPoint([worldSize, worldSize]) as { x: number; y: number }
+        const sw = { x: toX(0), y: toY(0) }
+        const ne = { x: toX(worldSize), y: toY(worldSize) }
         ctx.save()
         ctx.strokeStyle = isSat ? 'rgba(255,255,255,0.9)' : 'rgba(50,50,50,0.9)'
         ctx.lineWidth   = 2.5
@@ -143,7 +150,7 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
         // X axis labels — top + bottom edges
         ctx.textAlign = 'center'
         for (let x = Math.floor(minX / li) * li; x <= maxX + li; x += li) {
-            const px = (map.latLngToContainerPoint([0, x]) as { x: number }).x
+            const px = toX(x)
             if (px < LW || px > size.x - LW) continue
             drawLabel(fmt(x), px, LH)
             drawLabel(fmt(x), px, size.y - LH)
@@ -151,7 +158,7 @@ function drawGridCanvas(canvas: HTMLCanvasElement, map: any, worldSize: number, 
 
         // Y axis labels — left + right edges
         for (let y = Math.floor(minY / li) * li; y <= maxY + li; y += li) {
-            const py = (map.latLngToContainerPoint([y, 0]) as { y: number }).y
+            const py = toY(y)
             if (py < LH || py > size.y - LH) continue
             drawLabel(fmt(y), LW, py)
             drawLabel(fmt(y), size.x - LW, py)
@@ -178,55 +185,17 @@ function makeA3IconDivIcon(L: any, ann: MapAnnotation, selected = false): any {
     return L.divIcon({ className: '', html, iconSize: [48, 48], iconAnchor: [24, 24] })
 }
 
+/**
+ * A Metis marker on the map. The symbol itself is `metisDivHtml`, the same
+ * layers the editor's preview and the SQF export are built from.
+ *
+ * 37px wide at scale 1: the mod's default scale is 1.3, and that is the size a
+ * default marker has always been drawn at here (48px).
+ */
 function makeA3MetisDivIcon(L: any, ann: MapAnnotation, selected = false): any {
-    const p = ann.properties
-    const sk = METIS_SIDE_KEY[p.a3SideId ?? 'blu'] ?? 'blu'
-    const frame = p.a3Dashed ? `frame/${sk}_dash` : `frame/${sk}`
-    const icon = METIS_ICONS.find(i => i.index === (p.a3Icon ?? 0))
-    const mods = icon?.mods ?? []
-    const size = p.a3Size ?? 0
-    const isHq = (p.a3HqTf ?? 0) > 0
-    const reinforced = p.a3Reinforced ?? false
-    const reduced = p.a3Reduced ?? false
-    const designation = p.a3Designation ?? ''
-    const scale = p.a3MetisScale ?? 1
-
-    const BASE_W = 48
-    const BASE_H = 59
-    const w = Math.round(BASE_W * scale)
-    const h = Math.round(BASE_H * scale)
-
-    const base = '/markers/metis'
-    const img = (path: string) =>
-        `<img src="${base}/${path}.png" style="position:absolute;inset:0;width:100%;height:100%;" />`
-
-    const ring = selected
-        ? `<div style="position:absolute;inset:-5px;border:2px solid #fff;border-radius:3px;box-shadow:0 0 0 1px rgba(255,255,255,0.25),0 0 10px rgba(255,255,255,0.6);pointer-events:none;z-index:1;"></div>`
-        : ''
-
-    const sizeOverlay = size > 0 ? img(`size/${sk}_${size}`) : ''
-    const hqOverlay   = isHq ? img(`frame/${sk}_hq`) : ''
-    const reinOverlay = (reinforced && reduced) ? img('com/reinforced_reduced')
-                      : reinforced              ? img('com/reinforced')
-                      : reduced                 ? img('com/reduced')
-                      : ''
-
-    const markerBlock = `<div style="position:relative;display:inline-block;">
-        ${ring}
-        <div style="position:relative;width:${w}px;height:${h}px;filter:url(#metis-tint-${sk});">
-            ${img(frame)}
-            ${mods.map(m => img(`mod/${sk}_${m}`)).join('')}
-            ${sizeOverlay}
-            ${hqOverlay}
-            ${reinOverlay}
-        </div>
-    </div>`
-
-    const html = `<div style="position:relative;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-        ${markerBlock}
-        ${designation ? `<span style="font-size:9px;color:#fff;text-shadow:0 1px 2px #000;white-space:nowrap;margin-top:1px;">${designation}</span>` : ''}
-    </div>`
-    return L.divIcon({ className: '', html, iconSize: [w, h], iconAnchor: [Math.round(w / 2), Math.round(h / 2)] })
+    const marker = readMetis(ann.properties)
+    const { html, width, height } = metisDivHtml(marker, Math.round(37 * marker.scale), selected)
+    return L.divIcon({ className: '', html, iconSize: [width, height], iconAnchor: [Math.round(width / 2), Math.round(height / 2)] })
 }
 
 interface Props {
@@ -412,10 +381,57 @@ export default function OperationMap({
                     c.getContext('2d')?.clearRect(0, 0, c.width, c.height)
                     return
                 }
-                drawGridCanvas(c, m, w.worldSize, mapModeRef.current)
+                const size = m.getSize() as { x: number; y: number }
+                drawGridCanvas(c, size, currentView(), w.worldSize, mapModeRef.current)
             }
+
+            const project = (lat: number, lng: number, zoom: number) => map.project([lat, lng], zoom) as { x: number; y: number }
+            const currentView = () => viewFor(project, map.getCenter(), map.getZoom(), map.getSize())
+
+            /*
+               Keeping the grid on the terrain during an animated zoom.
+
+               Leaflet announces an animated zoom with `zoomanim`, carrying the
+               centre and zoom it is heading for, then CSS-transitions its panes
+               there and only updates its own state at `zoomend`. The grid canvas
+               is not one of those panes, so without this it stood still for the
+               whole transition and snapped into place at the end.
+
+               So for that quarter of a second the grid is drawn every frame
+               through a view interpolated between where the map was and where
+               it is going, on Leaflet's own easing curve. `zoomend` cancels the
+               loop and `redrawGrid` draws the settled state as before.
+            */
+            let zoomFrame = 0
+            function stopGridZoom() {
+                if (zoomFrame) cancelAnimationFrame(zoomFrame)
+                zoomFrame = 0
+            }
+            function animateGridZoom(e: { center: { lat: number; lng: number }; zoom: number }) {
+                stopGridZoom()
+                const c = gridCanvasRef.current
+                const w = worldRef.current
+                if (!c || !w) return
+                const size = map.getSize() as { x: number; y: number }
+                const from = currentView()
+                const to = viewFor(project, e.center, e.zoom, size)
+                const started = performance.now()
+                const frame = (now: number) => {
+                    const t = (now - started) / ZOOM_ANIMATION_MS
+                    drawGridCanvas(c, size, lerpView(from, to, zoomEase(t)), w.worldSize, mapModeRef.current)
+                    zoomFrame = t < 1 ? requestAnimationFrame(frame) : 0
+                }
+                zoomFrame = requestAnimationFrame(frame)
+            }
+
             syncGridRef.current = redrawGrid
-            map.on('move zoomend resize', redrawGrid)
+            map.on('zoomanim', animateGridZoom)
+            map.on('zoomend', stopGridZoom)
+            // A `move` that arrives mid-animation is Leaflet reporting its
+            // pre-zoom state; drawing it would yank the grid back for a frame.
+            map.on('move resize', () => { if (!zoomFrame) redrawGrid() })
+            map.on('zoomend', redrawGrid)
+            map.on('unload', stopGridZoom)
 
             // ── Map cursor canvas ─────────────────────────────────────────────
             function drawCursor(
@@ -984,20 +1000,7 @@ export default function OperationMap({
             } else if (!ds.tool) {
                 const a3 = activeA3PropsRef.current
                 const newId = onAnnotationAddRef.current('a3metis', [[e.latlng.lat, e.latlng.lng]], {
-                    a3SideId: a3.sideId,
-                    a3Dashed: a3.dashed,
-                    a3Icon: a3.icon,
-                    a3Mod1: a3.mod1,
-                    a3Mod2: a3.mod2,
-                    a3Size: a3.size,
-                    a3HqTf: a3.hqTf,
-                    a3Designation: a3.designation,
-                    a3MetisScale: a3.metisScale,
-                    a3AssumedFriend: a3.assumedFriend,
-                    a3Reinforced: a3.reinforced,
-                    a3Reduced: a3.reduced,
-                    a3HigherFormation: a3.higherFormation,
-                    a3AdditionalInfo: a3.additionalInfo,
+                    ...writeMetis(a3.metis),
                 })
                 if (newId) onAnnotationSelectRef.current(newId)
             }
@@ -1084,13 +1087,23 @@ export default function OperationMap({
         // a3icon/a3metis use drag-to-place — don't disable map dragging for them
         const isDrawingMode = activeTool && activeTool !== 'a3icon' && activeTool !== 'a3metis'
         if (mapRef.current) {
-            if (isDrawingMode) {
-                mapRef.current.dragging.disable()
-                mapRef.current.doubleClickZoom.disable()
-            } else {
-                mapRef.current.dragging.enable()
-                if (!canEdit) mapRef.current.doubleClickZoom.enable()
-            }
+            if (isDrawingMode) mapRef.current.dragging.disable()
+            else mapRef.current.dragging.enable()
+
+            /*
+             * For anybody who can edit, a double-click places a marker or
+             * finishes a line — it must never also zoom the map.
+             *
+             * This used to be switched off once, when the map was created, and
+             * only if `canEdit` was already true at that moment. The map is
+             * built after an asynchronous import, and for some members the
+             * permission resolves after it — for them nothing ever turned the
+             * zoom off, so a double-click zoomed (moving the spot they clicked)
+             * instead of cleanly placing anything. Deciding it here, every time
+             * `canEdit` or the tool changes, covers both orders.
+             */
+            if (canEdit) mapRef.current.doubleClickZoom.disable()
+            else mapRef.current.doubleClickZoom.enable()
         }
     }, [activeTool, canEdit])
 
@@ -1124,20 +1137,7 @@ export default function OperationMap({
         } else {
             onAnnotationAddRef.current('a3metis', [[latlng.lat, latlng.lng]], {
                 color,
-                a3SideId: a3.sideId,
-                a3Dashed: a3.dashed,
-                a3Icon: a3.icon,
-                a3Mod1: a3.mod1,
-                a3Mod2: a3.mod2,
-                a3Size: a3.size,
-                a3HqTf: a3.hqTf,
-                a3Designation: a3.designation,
-                a3MetisScale: a3.metisScale,
-                a3AssumedFriend: a3.assumedFriend,
-                a3Reinforced: a3.reinforced,
-                a3Reduced: a3.reduced,
-                a3HigherFormation: a3.higherFormation,
-                a3AdditionalInfo: a3.additionalInfo,
+                ...writeMetis(a3.metis),
             })
         }
     }

@@ -1,71 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { MapLayer, DrawingTool, A3ToolProps, A3SideId } from './types'
-import { A3_ICON_TYPES, METIS_ICONS, METIS_ECHELONS, METIS_HQTF, METIS_MOB, METIS_SIDE_KEY, A3_MARKER_COLORS } from './types'
+import type { MapLayer, DrawingTool, A3ToolProps } from './types'
+import { A3_ICON_TYPES, A3_MARKER_COLORS, toolPropsFromPreset } from './types'
+import { MetisFilterDefs, MetisForm, MetisSymbol } from './Metis'
+import { DEFAULT_METIS } from '@/lib/operations/metis'
+import { chosenVisible, layerTree, type LayerChoices } from '@/lib/operations/map-layers'
 import type { MapYjsActions } from './useMapYjs'
-
-const METIS_MOD2 = [
-    { index: 0, label: 'None'     },
-    { index: 1, label: 'Airborne' },
-    { index: 2, label: 'Mountain' },
-    { index: 3, label: 'Arctic'   },
-]
-
-const BASE = '/markers/metis'
-const layerStyle: React.CSSProperties = { position: 'absolute', inset: 0, width: '100%', height: '100%' }
-
-// Images are 180x225px — use this ratio for containers so compositing is undistorted
-const METIS_W = 214
-const METIS_H = 264
-
-// SVG feColorMatrix tints: maps black → faction color, white stays white
-// Each filter ID is metis-tint-{sideKey}
-function MetisFilterDefs() {
-    return (
-        <svg width={0} height={0} style={{ position: 'absolute', overflow: 'hidden' }}>
-            <defs>
-                <filter id="metis-tint-blu"><feColorMatrix type="matrix" values="0.502 0 0 0 0  0.878 0 0 0 0  1.000 0 0 0 0  0 0 0 1 0" /></filter>
-                <filter id="metis-tint-red"><feColorMatrix type="matrix" values="1.000 0 0 0 0  0.502 0 0 0 0  0.502 0 0 0 0  0 0 0 1 0" /></filter>
-                <filter id="metis-tint-neu"><feColorMatrix type="matrix" values="0.667 0 0 0 0  1.000 0 0 0 0  0.667 0 0 0 0  0 0 0 1 0" /></filter>
-                <filter id="metis-tint-unk"><feColorMatrix type="matrix" values="1.000 0 0 0 0  1.000 0 0 0 0  0.502 0 0 0 0  0 0 0 1 0" /></filter>
-            </defs>
-        </svg>
-    )
-}
-
-function MetisPreview({ props, size = 48 }: { props: A3ToolProps; size?: number }) {
-    const sk = METIS_SIDE_KEY[props.sideId] ?? 'blu'
-    const frame = props.dashed ? `frame/${sk}_dash` : `frame/${sk}`
-    const icon = METIS_ICONS.find(i => i.index === props.icon)
-    const mods = icon?.mods ?? []
-    const isHq = props.hqTf > 0
-    const h = Math.round(size * METIS_H / METIS_W)
-    return (
-        <div style={{ position: 'relative', width: size, height: h, flexShrink: 0, filter: `url(#metis-tint-${sk})` }}>
-            <img src={`${BASE}/${frame}.png`} style={layerStyle} />
-            {mods.map(m => <img key={m} src={`${BASE}/mod/${sk}_${m}.png`} style={layerStyle} />)}
-            {props.size > 0 && <img src={`${BASE}/size/${sk}_${props.size}.png`} style={layerStyle} />}
-            {isHq && <img src={`${BASE}/frame/${sk}_hq.png`} style={layerStyle} />}
-            {props.reinforced && props.reduced && <img src={`${BASE}/com/reinforced_reduced.png`} style={layerStyle} />}
-            {props.reinforced && !props.reduced && <img src={`${BASE}/com/reinforced.png`} style={layerStyle} />}
-            {!props.reinforced && props.reduced && <img src={`${BASE}/com/reduced.png`} style={layerStyle} />}
-        </div>
-    )
-}
-
-function MetisIconCell({ iconIndex, sideId, size = 38 }: { iconIndex: number; sideId: string; size?: number }) {
-    const sk = METIS_SIDE_KEY[sideId] ?? 'blu'
-    const icon = METIS_ICONS.find(i => i.index === iconIndex)
-    const mods = icon?.mods ?? []
-    const h = Math.round(size * METIS_H / METIS_W)
-    return (
-        <div style={{ position: 'relative', width: size, height: h, flexShrink: 0, filter: `url(#metis-tint-${sk})` }}>
-            <img src={`${BASE}/frame/${sk}.png`} style={layerStyle} />
-            {mods.map(m => <img key={m} src={`${BASE}/mod/${sk}_${m}.png`} style={layerStyle} />)}
-        </div>
-    )
-}
 
 interface Props {
     layers: MapLayer[]
@@ -76,6 +17,9 @@ interface Props {
     canEdit: boolean
     actions: MapYjsActions
     onLayerSelect: (id: string) => void
+    /** This viewer's own on/off choices, and the switch for one layer. */
+    choices: LayerChoices
+    onToggleVisible: (id: string) => void
     onToolChange: (tool: DrawingTool) => void
     onColorChange: (color: string) => void
     onA3PropsChange: (patch: Partial<A3ToolProps>) => void
@@ -96,13 +40,6 @@ const PRESET_COLORS = ['#db001d', '#e67e22', '#f1c40f', '#2ecc71', '#3498db', '#
 
 const ICON_GROUPS = ['Generic', 'Shape', 'BLUFOR', 'OPFOR', 'IND', 'CIV'] as const
 
-const SIDES: { id: string; label: string; color: string }[] = [
-    { id: 'blu', label: 'BLUFOR', color: '#0055aa' },
-    { id: 'red', label: 'OPFOR',  color: '#aa0000' },
-    { id: 'grn', label: 'IND',    color: '#007700' },
-    { id: 'unk', label: 'UNK',    color: '#888800' },
-]
-
 const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }
 const label: React.CSSProperties = { fontSize: 10, color: 'rgba(255,255,255,0.45)', width: 52, flexShrink: 0 }
 const numInput: React.CSSProperties = {
@@ -120,6 +57,8 @@ export default function LayersPanel({
     canEdit,
     actions,
     onLayerSelect,
+    choices,
+    onToggleVisible,
     onToolChange,
     onColorChange,
     onA3PropsChange,
@@ -127,6 +66,8 @@ export default function LayersPanel({
     const [newLayerName, setNewLayerName] = useState('')
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editingName, setEditingName] = useState('')
+    // Delete asks twice, in place: the first press arms it, the second deletes.
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
     const [iconGroup, setIconGroup] = useState<typeof ICON_GROUPS[number]>('Generic')
     const [activeTab, setActiveTab] = useState<'layers' | 'presets'>('layers')
     const [presets, setPresets] = useState<import('./types').MapMarkerPreset[]>([])
@@ -245,8 +186,7 @@ export default function LayersPanel({
                                     onDragStart={e => {
                                         e.dataTransfer.setData('map-marker-type', preset.type)
                                         e.dataTransfer.setData('map-preset-id', preset._id)
-                                        const p = preset.a3Props as Partial<A3ToolProps>
-                                        onA3PropsChange(p)
+                                        onA3PropsChange(toolPropsFromPreset(preset))
                                         const img = e.currentTarget.querySelector('img')
                                         if (img) e.dataTransfer.setDragImage(img, 14, 14)
                                     }}
@@ -259,7 +199,7 @@ export default function LayersPanel({
                                 >
                                     <div style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderRadius: 3 }}>
                                         {preset.type === 'a3metis'
-                                            ? <MetisPreview props={{ ...({ markerType: 'hd_dot', markerColor: 'ColorBlack', markerDir: 0, markerScale: 1, sideId: 'blu', dashed: false, icon: 0, mod1: 0, mod2: 0, size: 0, hqTf: 0, designation: '', metisScale: 1, assumedFriend: false, reinforced: false, reduced: false, higherFormation: '', additionalInfo: '' }), ...(preset.a3Props as Partial<A3ToolProps>) } as A3ToolProps} size={32} />
+                                            ? <MetisSymbol marker={toolPropsFromPreset(preset).metis ?? DEFAULT_METIS} size={26} />
                                             : <img src={`/markers/icons/${(preset.a3Props as any).markerType ?? 'hd_dot'}.png`} width={20} height={20} style={{ imageRendering: 'pixelated' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
                                         }
                                     </div>
@@ -461,17 +401,6 @@ export default function LayersPanel({
                     {activeTool === 'a3metis' && (() => {
 
                         const divider = <div style={{ height: 1, background: 'rgba(255,255,255,0.07)', margin: '8px 0' }} />
-                        const frow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }
-                        const flabel: React.CSSProperties = { fontSize: 10, color: 'rgba(255,255,255,0.4)', width: 76, flexShrink: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }
-                        const fsel: React.CSSProperties = {
-                            flex: 1, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)',
-                            color: '#ddd', borderRadius: 3, padding: '3px 4px', fontSize: 11, cursor: 'pointer',
-                        }
-                        const finp: React.CSSProperties = {
-                            flex: 1, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)',
-                            color: '#ddd', borderRadius: 3, padding: '3px 5px', fontSize: 11,
-                        }
-                        const chk: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.6)' }
 
                         return (
                             <div style={{ marginTop: 6 }}>
@@ -493,194 +422,11 @@ export default function LayersPanel({
                                         border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4,
                                         cursor: 'grab',
                                     }}>
-                                    <MetisPreview props={activeA3Props} size={120} />
+                                    <MetisSymbol marker={activeA3Props.metis} size={110} />
                                 </div>
 
-                                {/* Identity */}
-                                <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.35)', marginBottom: 5 }}>Identity</div>
-                                <div style={{ display: 'flex', gap: 3, marginBottom: 6 }}>
-                                    {SIDES.map(s => {
-                                        const sk = METIS_SIDE_KEY[s.id] ?? 'blu'
-                                        const sel = activeA3Props.sideId === s.id
-                                        const imgW = 52
-                                        const imgH = Math.round(imgW * METIS_H / METIS_W)
-                                        return (
-                                            <button
-                                                key={s.id}
-                                                onClick={() => onA3PropsChange({ sideId: s.id as A3SideId })}
-                                                title={s.label}
-                                                style={{
-                                                    flex: 1, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    padding: 0, borderRadius: 3, cursor: 'pointer',
-                                                    background: sel ? `${s.color}28` : 'rgba(255,255,255,0.03)',
-                                                    border: `2px solid ${sel ? s.color : 'rgba(255,255,255,0.10)'}`,
-                                                }}
-                                            >
-                                                <img src={`${BASE}/frame/${sk}.png`} width={imgW} height={imgH}
-                                                    style={{ pointerEvents: 'none', filter: `url(#metis-tint-${sk})` }} />
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                                <label style={{ ...chk, marginBottom: 8 }}>
-                                    <input type="checkbox" checked={activeA3Props.assumedFriend} onChange={e => onA3PropsChange({ assumedFriend: e.target.checked })} />
-                                    Assumed Friend
-                                </label>
-
-                                {/* Icon grid */}
-                                <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.35)', marginBottom: 5 }}>Unit Type</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3, marginBottom: 6 }}>
-                                    {METIS_ICONS.map(ic => {
-                                        const sel = activeA3Props.icon === ic.index
-                                        return (
-                                            <button
-                                                key={ic.index}
-                                                onClick={() => onA3PropsChange({ icon: ic.index })}
-                                                title={ic.label}
-                                                style={{
-                                                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                                                    justifyContent: 'center', gap: 2, padding: '5px 2px',
-                                                    background: sel ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.03)',
-                                                    border: `1px solid ${sel ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                                                    borderRadius: 3, cursor: 'pointer',
-                                                }}
-                                            >
-                                                <MetisIconCell iconIndex={ic.index} sideId={activeA3Props.sideId} size={36} />
-                                                <span style={{ fontSize: 7, color: sel ? '#fff' : 'rgba(255,255,255,0.5)', lineHeight: 1, textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {ic.label}
-                                                </span>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-
-                                {divider}
-
-                                {/* Echelon */}
-                                <div style={{ fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.35)', marginBottom: 5 }}>Echelon</div>
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 3, marginBottom: 6 }}>
-                                    {METIS_ECHELONS.map(e => {
-                                        const sel = activeA3Props.size === e.size
-                                        return (
-                                            <button
-                                                key={e.size}
-                                                onClick={() => onA3PropsChange({ size: e.size })}
-                                                title={e.label}
-                                                style={{
-                                                    display: 'flex', flexDirection: 'column', alignItems: 'center',
-                                                    justifyContent: 'center', gap: 2, padding: '5px 2px',
-                                                    background: sel ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.03)',
-                                                    border: `1px solid ${sel ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                                                    borderRadius: 3, cursor: 'pointer',
-                                                }}
-                                            >
-                                                <span style={{ fontSize: 12, fontFamily: 'monospace', color: sel ? '#fff' : 'rgba(255,255,255,0.65)', lineHeight: 1 }}>
-                                                    {e.nato}
-                                                </span>
-                                                <span style={{ fontSize: 7, color: sel ? '#fff' : 'rgba(255,255,255,0.45)', lineHeight: 1 }}>
-                                                    {e.label.slice(0, 5)}
-                                                </span>
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                                <div style={{ display: 'flex', gap: 14, marginBottom: 4 }}>
-                                    <label style={chk}>
-                                        <input type="checkbox" checked={activeA3Props.reinforced} onChange={e => onA3PropsChange({ reinforced: e.target.checked })} />
-                                        Reinforced
-                                    </label>
-                                    <label style={chk}>
-                                        <input type="checkbox" checked={activeA3Props.reduced} onChange={e => onA3PropsChange({ reduced: e.target.checked })} />
-                                        Reduced
-                                    </label>
-                                </div>
-
-                                {divider}
-
-                                {/* Modifier 1 */}
-                                <div style={frow}>
-                                    <span style={flabel}>Modifier 1</span>
-                                    <select value={activeA3Props.mod1} onChange={e => onA3PropsChange({ mod1: Number(e.target.value) })} style={fsel}>
-                                        {METIS_MOB.map(m => <option key={m.index} value={m.index}>{m.label}</option>)}
-                                    </select>
-                                </div>
-
-                                {/* Modifier 2 */}
-                                <div style={frow}>
-                                    <span style={flabel}>Modifier 2</span>
-                                    <select value={activeA3Props.mod2} onChange={e => onA3PropsChange({ mod2: Number(e.target.value) })} style={fsel}>
-                                        {METIS_MOD2.map(m => <option key={m.index} value={m.index}>{m.label}</option>)}
-                                    </select>
-                                </div>
-
-                                {divider}
-
-                                {/* HQ / TF */}
-                                <div style={frow}>
-                                    <span style={flabel}>HQ / TF</span>
-                                    <select value={activeA3Props.hqTf} onChange={e => onA3PropsChange({ hqTf: Number(e.target.value) })} style={fsel}>
-                                        {METIS_HQTF.map(h => <option key={h.index} value={h.index}>{h.label}</option>)}
-                                    </select>
-                                </div>
-                                <div style={{ display: 'flex', gap: 14, marginBottom: 4 }}>
-                                    <label style={chk}>
-                                        <input
-                                            type="checkbox"
-                                            checked={[1, 2, 5, 6].includes(activeA3Props.hqTf)}
-                                            onChange={e => {
-                                                const isHQ = e.target.checked
-                                                const isTF = [3, 4, 5, 6].includes(activeA3Props.hqTf)
-                                                onA3PropsChange({ hqTf: isHQ && isTF ? 5 : isHQ ? 1 : isTF ? 3 : 0 })
-                                            }}
-                                        />
-                                        Headquarters
-                                    </label>
-                                    <label style={chk}>
-                                        <input type="checkbox" checked={activeA3Props.dashed} onChange={e => onA3PropsChange({ dashed: e.target.checked })} />
-                                        Anticipated
-                                    </label>
-                                </div>
-
-                                {divider}
-
-                                {/* Text fields */}
-                                <div style={frow}>
-                                    <span style={flabel}>Designation</span>
-                                    <input type="text" style={finp}
-                                        value={activeA3Props.designation}
-                                        placeholder="1, ALPHA…"
-                                        onChange={e => onA3PropsChange({ designation: e.target.value })} />
-                                </div>
-                                <div style={frow}>
-                                    <span style={flabel}>Higher Form.</span>
-                                    <input type="text" style={finp}
-                                        value={activeA3Props.higherFormation}
-                                        placeholder="Parent unit…"
-                                        onChange={e => onA3PropsChange({ higherFormation: e.target.value })} />
-                                </div>
-                                <div style={frow}>
-                                    <span style={flabel}>Add. Info</span>
-                                    <input type="text" style={finp}
-                                        value={activeA3Props.additionalInfo}
-                                        placeholder="Additional info…"
-                                        onChange={e => onA3PropsChange({ additionalInfo: e.target.value })} />
-                                </div>
-
-                                {divider}
-
-                                {/* Scale */}
-                                <div style={{ ...frow, gap: 6 }}>
-                                    <span style={flabel}>Scale</span>
-                                    <input
-                                        type="range" min={0.5} max={3} step={0.1}
-                                        value={activeA3Props.metisScale}
-                                        onChange={e => onA3PropsChange({ metisScale: Number(e.target.value) })}
-                                        style={{ flex: 1 }}
-                                    />
-                                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', minWidth: 26, textAlign: 'right' }}>
-                                        {activeA3Props.metisScale.toFixed(1)}
-                                    </span>
-                                </div>
+                                {/* Every option is the mod's own, in the mod's order. */}
+                                <MetisForm value={activeA3Props.metis} onChange={metis => onA3PropsChange({ metis })} />
 
                                 {divider}
 
@@ -715,23 +461,28 @@ export default function LayersPanel({
                         No layers yet
                     </div>
                 )}
-                {[...layers].sort((a, b) => a.order - b.order).map(layer => (
+                {/* Overlays, each with the layers inside it indented beneath. */}
+                {layerTree(layers).flatMap(node => [
+                    { layer: node.layer, depth: 0, dimmed: false },
+                    ...node.children.map(child => ({ layer: child, depth: 1, dimmed: !chosenVisible(node.layer, choices) })),
+                ]).map(({ layer, depth, dimmed }) => (
                     <div
                         key={layer.id}
                         onClick={() => canEdit && onLayerSelect(layer.id)}
                         style={{
-                            display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px',
+                            display: 'flex', alignItems: 'center', gap: 6, padding: `5px 10px 5px ${10 + depth * 16}px`,
+                            opacity: dimmed ? 0.45 : 1,
                             background: activeLayerId === layer.id ? 'rgba(255,255,255,0.06)' : 'transparent',
                             cursor: canEdit ? 'pointer' : 'default',
                             borderLeft: activeLayerId === layer.id ? `2px solid ${layer.color}` : '2px solid transparent',
                         }}
                     >
                         <button
-                            onClick={e => { e.stopPropagation(); canEdit && actions.updateLayer(layer.id, { visible: !layer.visible }) }}
-                            style={{ background: 'none', border: 'none', color: layer.visible ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', cursor: canEdit ? 'pointer' : 'default', padding: 0, fontSize: 14, lineHeight: 1, flexShrink: 0 }}
-                            title={layer.visible ? 'Hide layer' : 'Show layer'}
+                            onClick={e => { e.stopPropagation(); onToggleVisible(layer.id) }}
+                            style={{ background: 'none', border: 'none', color: chosenVisible(layer, choices) ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.2)', cursor: 'pointer', padding: 0, fontSize: 14, lineHeight: 1, flexShrink: 0 }}
+                            title={chosenVisible(layer, choices) ? 'Hide for me' : 'Show for me'}
                         >
-                            {layer.visible ? '●' : '○'}
+                            {chosenVisible(layer, choices) ? '●' : '○'}
                         </button>
                         <div style={{ width: 10, height: 10, borderRadius: 2, background: layer.color, flexShrink: 0 }} />
                         {editingId === layer.id ? (
@@ -753,15 +504,54 @@ export default function LayersPanel({
                                 {layer.name}
                             </span>
                         )}
+                        {canEdit && depth === 0 && (
+                            <button
+                                onClick={e => {
+                                    e.stopPropagation()
+                                    // Made with a placeholder name and opened for renaming in
+                                    // place, rather than asked for in a browser prompt.
+                                    const id = actions.addLayer('New layer', layer.color, layer.id)
+                                    if (id) { onLayerSelect(id); setEditingId(id); setEditingName('New layer') }
+                                }}
+                                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1, flexShrink: 0 }}
+                                title="Add a layer inside this one"
+                            >
+                                +
+                            </button>
+                        )}
                         {canEdit && (
                             <button
-                                onClick={e => { e.stopPropagation(); actions.removeLayer(layer.id) }}
+                                onClick={e => {
+                                    e.stopPropagation()
+                                    // Named "… copy" and opened for renaming (your callsign, say).
+                                    const copyId = actions.duplicateLayer(layer.id, `${layer.name} copy`)
+                                    if (copyId) { onLayerSelect(copyId); setEditingId(copyId); setEditingName(`${layer.name} copy`) }
+                                }}
+                                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1, flexShrink: 0 }}
+                                title="Copy this layer and everything on it"
+                            >
+                                ⧉
+                            </button>
+                        )}
+                        {canEdit && (confirmDeleteId === layer.id ? (
+                            <button
+                                onClick={e => { e.stopPropagation(); actions.removeLayer(layer.id); setConfirmDeleteId(null) }}
+                                onBlur={() => setConfirmDeleteId(null)}
+                                autoFocus
+                                style={{ background: 'rgba(219,0,29,0.18)', border: '1px solid rgba(219,0,29,0.6)', color: '#ff8a80', cursor: 'pointer', padding: '1px 5px', fontSize: 10, borderRadius: 3, lineHeight: 1.3, flexShrink: 0 }}
+                                title="Press again to delete this layer and everything drawn on it"
+                            >
+                                Delete?
+                            </button>
+                        ) : (
+                            <button
+                                onClick={e => { e.stopPropagation(); setConfirmDeleteId(layer.id) }}
                                 style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1, flexShrink: 0 }}
                                 title="Delete layer"
                             >
                                 ×
                             </button>
-                        )}
+                        ))}
                     </div>
                 ))}
             </div>

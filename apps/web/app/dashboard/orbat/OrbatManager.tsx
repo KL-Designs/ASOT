@@ -482,6 +482,21 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
         })
     }
 
+    /**
+     * Which night a support-platoon slot plays: both → Saturday → Sunday → both.
+     * One button that cycles rather than a menu, because there are three states
+     * and a section's worth of slots to set in a row.
+     */
+    async function cycleNight(pos: OrbatPositionWithUser) {
+        const next = !pos.night ? 'saturday' : pos.night === 'saturday' ? 'sunday' : null
+        applyPatch(pos._id.toString(), { night: next })
+        await fetch(`/api/admin/orbat/${pos._id.toString()}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ night: next }),
+        })
+    }
+
     async function deletePosition(positionId: string) {
         applyRemove(positionId)
         setConfirmDeletePos(null)
@@ -700,6 +715,29 @@ export default function OrbatManager({ initialUsers, canManageStructure, canMana
                                     }}>
                                         {roleTag}
                                     </span>
+                                )}
+                                {/* Night tag — support platoon only. The slot's
+                                    night decides which crew it is cut into on an
+                                    operation's attendance board. */}
+                                {pos.category === 'support' && (canManageStructure || pos.night) && (
+                                    <Tooltip title={canManageStructure
+                                        ? 'Which night this slot plays. Click to change: both, Saturday, Sunday.'
+                                        : `This slot plays ${pos.night === 'saturday' ? 'Saturday' : 'Sunday'} night.`}>
+                                        <button
+                                            type='button'
+                                            disabled={!canManageStructure || opts.isDragOverlay}
+                                            onClick={e => { e.stopPropagation(); cycleNight(pos) }}
+                                            style={{
+                                                flexShrink: 0, fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.06em', padding: '1px 6px', borderRadius: 999,
+                                                cursor: canManageStructure ? 'pointer' : 'default',
+                                                background: pos.night ? 'rgba(42,95,185,0.18)' : 'transparent',
+                                                color: pos.night ? 'rgba(140,180,255,0.95)' : 'rgba(237,237,237,0.3)',
+                                                border: `1px solid ${pos.night ? 'rgba(42,95,185,0.6)' : 'rgba(255,255,255,0.12)'}`,
+                                            }}
+                                        >
+                                            {pos.night === 'saturday' ? 'SAT' : pos.night === 'sunday' ? 'SUN' : 'SAT+SUN'}
+                                        </button>
+                                    </Tooltip>
                                 )}
                                 {!pos.roleId || !validRoleIds.has(String(pos.roleId)) ? (
                                     <Tooltip title="This position isn't linked to a Role in the catalog — the name above is just display text, so no Discord roles, TeamSpeak groups, or permissions from a Role are actually granted to whoever holds it. Fix it by re-picking a Role for this position.">

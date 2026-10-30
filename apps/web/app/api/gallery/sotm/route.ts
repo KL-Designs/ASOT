@@ -6,6 +6,7 @@ import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 import db from '@/lib/mongo'
+import { clampFocal } from '@/lib/gallery/focal'
 
 const SOTM_DIR = path.resolve('../../storage/gallery/sotm')
 const SETTING_ID = 'screenshotOfMonth'
@@ -203,7 +204,10 @@ export async function PUT(request: NextRequest) {
         setAt: now.toISOString(),
         setBy: me?.id ?? 'unknown',
     }
-    const clear: Record<string, ''> = {}
+    // A focal point belongs to the photograph it was marked on. Carried over
+    // to a new pick it would anchor every crop on a spot chosen for a
+    // different image.
+    const clear: Record<string, ''> = { focalX: '', focalY: '' }
 
     /* $unset rather than simply not $setting: this is an upsert onto the
        outgoing pick's own document, so a field the new pick has no value for
@@ -247,6 +251,33 @@ export async function PUT(request: NextRequest) {
     )
 
     return NextResponse.json({ success: true })
+}
+
+/**
+ * PATCH — set or clear the current pick's focal point: `{ focalX, focalY }`
+ * as percentages of the image's width and height, or `{ focalX: null }` to go
+ * back to centring. Same gate as every other write here.
+ */
+export async function PATCH(request: NextRequest) {
+    if (!await checkAuth()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const existing = await db.siteSettings.findOne({ _id: SETTING_ID })
+    if (!existing) return NextResponse.json({ error: 'No screenshot of the month is set.' }, { status: 404 })
+
+    const body = await request.json().catch(() => null)
+    if (body?.focalX === null || body?.focalY === null) {
+        await db.siteSettings.updateOne({ _id: SETTING_ID }, { $unset: { focalX: '', focalY: '' } })
+        return NextResponse.json({ success: true, focalX: null, focalY: null })
+    }
+
+    const focalX = clampFocal(body?.focalX)
+    const focalY = clampFocal(body?.focalY)
+    if (focalX === null || focalY === null) {
+        return NextResponse.json({ error: 'focalX and focalY must both be numbers between 0 and 100.' }, { status: 400 })
+    }
+
+    await db.siteSettings.updateOne({ _id: SETTING_ID }, { $set: { focalX, focalY } })
+    return NextResponse.json({ success: true, focalX, focalY })
 }
 
 /** DELETE — clear the current SOTM. */

@@ -73,7 +73,10 @@ declare global {
 
         discharged?: {
             date: string
-            type: 'honorable' | 'dishonorable'
+            type: 'honorable' | 'general' | 'dishonorable'
+            /** Whether they are welcome back, when J4 set it outright at
+             *  discharge. Absent = follows `type`. See apps/web lib/j1/rejoin.ts. */
+            rejoinStatus?: 'welcome' | 'review' | 'not_welcome'
             reason: string
             dischargedById: string
             dischargedByName: string
@@ -108,6 +111,25 @@ declare global {
 
         bio?: {
             content: string
+        }
+        /**
+         * A biography edit waiting on approval. `bio.content` stays what is
+         * live until one of `approverIds` (or J4) approves this; they are
+         * resolved from the ORBAT when the edit is submitted. See apps/web's
+         * lib/military/bio-approval.ts.
+         */
+        bioPending?: {
+            content: string
+            submittedAt: Date
+            level: 'phq' | 'chq' | 'j4'
+            approverIds: string[]
+        }
+        /** Why the last biography edit was sent back. Cleared by the next edit
+         *  or approval. */
+        bioRejected?: {
+            reason: string
+            byName: string
+            at: Date
         }
 
         milpac?: {

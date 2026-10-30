@@ -95,7 +95,7 @@ export default function MemberBar({ me, mySlot, sections, roles, rsvpOpen, busy,
 
             <span className={s.memberStatus}>
                 {rsvp === 'not_attending'
-                    ? <>You are not down for this operation.</>
+                    ? <>You are not attending this operation.</>
                     : mySlot
                         ? <>You are in <b>{mySlot.sectionTitle} · {mySlot.role}</b></>
                         : preferredSection || preferredRole

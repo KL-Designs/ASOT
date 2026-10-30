@@ -1,12 +1,10 @@
 'use client'
 
-import { fmtDuration, phaseOffsets, type PhaseId, type Ribbon } from '@/lib/operations/phases'
+import { fmtDuration, phaseOffsets, type Ribbon } from '@/lib/operations/phases'
 import s from './ribbon.module.css'
 
 interface Props {
     ribbon: Ribbon
-    selected: PhaseId
-    onSelect: (id: PhaseId) => void
     /** Same clock `buildRibbon` was given, so the flag and the line agree. */
     now: Date
 }
@@ -34,8 +32,20 @@ interface Props {
  * This component owns no schedule logic at all. Every number it renders comes
  * from `buildRibbon`, so the ordering rules are tested without a browser.
  */
-export default function PhaseRibbon({ ribbon, selected, onSelect, now }: Props) {
-    const { phases, boundaries, milestones, nowPct } = ribbon
+export default function PhaseRibbon({ ribbon, now }: Props) {
+    const { phases, boundaries, nowPct } = ribbon
+    /*
+     * A picture, not a control. The segments used to be buttons that selected
+     * a phase, while a strip of five more buttons underneath selected the same
+     * phase — two controls for one thing. Nothing is selected any more: the
+     * tab shows the checks and the schedule under their own headings.
+     *
+     * The development gates are left off it for the same separation. They are
+     * the making of the mission and are listed, with their dates, in the
+     * pre-production panel; what belongs on the schedule's ribbon is what
+     * happens to the mission once it is made.
+     */
+    const milestones = ribbon.milestones.filter(m => m.phaseId !== 'pre_production')
     const offsets = phaseOffsets(phases)
 
     const fmtBoundary = (at: Date | null) =>
@@ -75,22 +85,18 @@ export default function PhaseRibbon({ ribbon, selected, onSelect, now }: Props) 
                     p.invalid ? s.invalid : '',
                     p.state === 'spent' ? s.spent : '',
                     p.state === 'current' ? s.current : '',
-                    p.id === selected ? s.selected : '',
                 ].filter(Boolean).join(' ')
                 return (
-                    <button
+                    <div
                         key={p.id}
-                        type="button"
-                        className={`${s.segment} ${tone}`}
+                        className={`${s.segment} ${s.static} ${tone}`}
                         style={{ left: `${offsets[i]}%`, width: `${p.widthPct}%` }}
-                        aria-pressed={p.id === selected}
-                        onClick={() => onSelect(p.id)}
                     >
                         <span className={s.segName}>{p.invalid ? '✕ Inverted' : p.label}</span>
                         <span className={s.segDur}>
                             {p.durationMs === null && p.id === 'rsvp_window' ? 'manual' : fmtDuration(p.durationMs)}
                         </span>
-                    </button>
+                    </div>
                 )
             })}
 

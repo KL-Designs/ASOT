@@ -19,6 +19,7 @@ export default function Masthead({
     lede,
     background,
     backgroundUrl,
+    backgroundPosition,
     bannerHeight,
     aside,
     actions,
@@ -28,6 +29,9 @@ export default function Masthead({
     lede?: string
     background?: StaticImageData
     backgroundUrl?: string
+    /** `object-position` for `backgroundUrl` — where its crop is anchored.
+     *  Omit to centre. */
+    backgroundPosition?: string
     bannerHeight?: BannerHeight
     aside?: React.ReactNode
     /**
@@ -48,7 +52,7 @@ export default function Masthead({
         >
             <div className={s.bandImg}>
                 {backgroundUrl
-                    ? <img src={backgroundUrl} alt='' aria-hidden='true' />
+                    ? <img src={backgroundUrl} alt='' aria-hidden='true' style={backgroundPosition ? { objectPosition: backgroundPosition } : undefined} />
                     : background
                         ? <Image src={background} alt='' fill priority placeholder='blur' style={{ objectFit: 'cover' }} />
                         : null}

@@ -87,10 +87,15 @@ export default function Archive({ data, paging, onLoadMore }: Props) {
 function Campaign({ group }: { group: BoardGroup & { kind: 'campaign' } }) {
     const nights = group.missions.reduce(
         (n, m) => n + (m.saturday ? 1 : 0) + (m.sunday ? 1 : 0) + m.other.length, 0)
+    // The campaign's banner is its first mission's, which is the one that
+    // opened it. A campaign with no art anywhere simply has no banner.
+    const cover = group.missions
+        .flatMap(m => [m.saturday, m.sunday, ...m.other])
+        .find(n => n?.coverImage)?.coverImage
 
     return (
         <div>
-            <div className={s.campHead}>
+            <div className={`${s.campHead} ${cover ? s.banner : ''}`} style={coverVar(cover)}>
                 <span className={`${s.badge} ${s.bCamp}`}>Campaign</span>
                 <b>{group.name}</b>
                 <span className={s.label}>
@@ -108,8 +113,10 @@ function Mission({ mission }: { mission: BoardMission }) {
     const nights = [mission.saturday, mission.sunday, ...mission.other].filter(Boolean) as BoardOperation[]
     const wasOn = nights.filter(n => n.mine?.confirmed).length
 
+    const cover = nights.find(n => n.coverImage)?.coverImage
+
     return (
-        <div className={s.mission}>
+        <div className={`${s.mission} ${cover ? s.banner : ''}`} style={coverVar(cover)}>
             <span className={s.seq}>{mission.label}</span>
             <span className={s.missionName} title={mission.name}>{mission.name}</span>
 
@@ -140,30 +147,54 @@ function Slot({ op, day }: { op: BoardOperation | null; day: 'Sat' | 'Sun' }) {
             </span>
         )
     }
+    // A wrapper with two links in it, not one link: the replay goes somewhere
+    // else, and an anchor cannot contain another.
     return (
-        <Link href={`/operations/${op.id}`} className={s.slot}>
-            <b>{weekday(op.date)} {dayMonth(op.date)}</b>
-            <span className={`${s.turn} ${op.mine?.confirmed ? s.wasThere : ''}`}>{op.turnout || '—'}</span>
-        </Link>
+        <span className={s.slot}>
+            <Link href={`/operations/${op.id}`} className={s.slotMain}>
+                <b>{weekday(op.date)} {dayMonth(op.date)}</b>
+                <span className={`${s.turn} ${op.mine?.confirmed ? s.wasThere : ''}`}>{op.turnout || '—'}</span>
+            </Link>
+            <Replay url={op.replayUrl} />
+        </span>
     )
 }
 
-function Solo({ op }: { op: BoardOperation }) {
+/** The OCAP recording of a night, when one has been linked to it. */
+function Replay({ url }: { url?: string }) {
+    if (!url) return null
     return (
-        <Link href={`/operations/${op.id}`} className={s.solo}>
+        <a className={s.replay} href={url} target='_blank' rel='noopener noreferrer' title='Watch the OCAP replay of this mission'>
+            ▶ Replay
+        </a>
+    )
+}
+
+/** A banner image handed to CSS, which paints it faintly behind the row. */
+function coverVar(src?: string): React.CSSProperties | undefined {
+    return src ? { ['--cover' as string]: `url(${JSON.stringify(src)})` } : undefined
+}
+
+function Solo({ op }: { op: BoardOperation }) {
+    // The whole row is still the link to the orders: the title's link is
+    // stretched over it in CSS. It is a div with two links rather than one
+    // link so the replay can sit inside it.
+    return (
+        <div className={`${s.solo} ${op.coverImage ? s.banner : ''}`} style={coverVar(op.coverImage)}>
             <span className={`${s.badge} ${op.mine?.confirmed ? s.bGood : s.bDone}`}>
                 {op.mine?.confirmed ? 'You were there' : 'Complete'}
             </span>
-            <b>{op.title}</b>
+            <Link href={`/operations/${op.id}`} className={s.soloLink}><b>{op.title}</b></Link>
             <span className={s.when}>
                 {weekday(op.date)} {dayMonth(op.date)}
                 {op.terrain ? ` · ${op.terrain}` : ''}
                 {op.turnout ? ` · ${op.turnout} turned out` : ''}
             </span>
             <span className={s.right}>
+                <Replay url={op.replayUrl} />
                 {op.units.map(u => <span key={u} className={s.unit}>{platoonShortLabel(u)}</span>)}
             </span>
-        </Link>
+        </div>
     )
 }
 

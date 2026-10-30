@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { readFile } from 'fs/promises'
 import { existsSync } from 'fs'
-import { join, resolve } from 'path'
+import { dirname, join, resolve } from 'path'
+import { ensurePreview } from '@/lib/maps-preview'
 
 const MAPS_DIR = join(process.cwd(), '..', '..', 'storage', 'maps')
 
@@ -23,6 +24,13 @@ export async function GET(
     // Prevent path traversal
     if (!filePath.startsWith(MAPS_DIR)) {
         return new NextResponse('Forbidden', { status: 403 })
+    }
+
+    // A world's preview is built from its satellite tiles the first time it is
+    // asked for, then served from disk like any other asset. Only for the one
+    // well-known name directly inside a world's folder.
+    if (!existsSync(filePath) && path.length === 2 && path[1] === 'preview.jpg') {
+        await ensurePreview(dirname(filePath))
     }
 
     if (!existsSync(filePath)) {

@@ -20,6 +20,7 @@ import AIAdminTab from './tabs/AIAdminTab'
 import RolesManagerPanel from '@/app/dashboard/orbat/RolesManagerPanel'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 import { Badge, SectionLabel, Switch, ToolCard, ToolGrid } from '@/components/dashboard'
+import { defaultRejoinStatus, REJOIN_LABEL, REJOIN_STATUSES, type RejoinStatus } from '@/lib/j1/rejoin'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -60,6 +61,8 @@ function DischargeModal({ open, onClose }: { open: boolean; onClose: () => void 
 
     const [selectedMember, setSelectedMember] = useState<MemberOption | null>(null)
     const [dischargeType, setDischargeType] = useState<'honorable' | 'general' | 'dishonorable' | ''>('')
+    // Whether they are welcome back. Follows the discharge type until changed.
+    const [rejoinStatus, setRejoinStatus] = useState<RejoinStatus>('review')
     const [dischargeReason, setDischargeReason] = useState('')
     const [notes, setNotes] = useState('')
 
@@ -106,6 +109,7 @@ function DischargeModal({ open, onClose }: { open: boolean; onClose: () => void 
                     targetUserId: selectedMember.id,
                     targetUserName: selectedMember.displayName,
                     dischargeType,
+                    rejoinStatus,
                     dischargeReason: dischargeReason.trim(),
                     notes: notes.trim() || undefined,
                 }),
@@ -184,12 +188,30 @@ function DischargeModal({ open, onClose }: { open: boolean; onClose: () => void 
                         <Select
                             value={dischargeType}
                             label='Discharge Type *'
-                            onChange={e => setDischargeType(e.target.value as 'honorable' | 'general' | 'dishonorable')}
+                            onChange={e => {
+                                const type = e.target.value as 'honorable' | 'general' | 'dishonorable'
+                                setDischargeType(type)
+                                // The usual answer for this type; change it below if it is not the right one.
+                                setRejoinStatus(defaultRejoinStatus(type))
+                            }}
                             MenuProps={{ PaperProps: { style: { background: '#1a1a1a', color: '#ededed' } } }}
                         >
                             <MenuItem value='honorable'>Honorable Discharge</MenuItem>
                             <MenuItem value='general'>General Discharge</MenuItem>
                             <MenuItem value='dishonorable'>Dishonorable Discharge</MenuItem>
+                        </Select>
+                    </FormControl>
+
+                    {/* What J1 is told if this person ever applies again. */}
+                    <FormControl fullWidth sx={inputSx}>
+                        <InputLabel>If they apply to rejoin</InputLabel>
+                        <Select
+                            value={rejoinStatus}
+                            label='If they apply to rejoin'
+                            onChange={e => setRejoinStatus(e.target.value as RejoinStatus)}
+                            MenuProps={{ PaperProps: { style: { background: '#1a1a1a', color: '#ededed' } } }}
+                        >
+                            {REJOIN_STATUSES.map(status => <MenuItem key={status} value={status}>{REJOIN_LABEL[status]}</MenuItem>)}
                         </Select>
                     </FormControl>
 

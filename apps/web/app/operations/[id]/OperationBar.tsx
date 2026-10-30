@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { rgbTriplet } from '@/lib/colour'
 import OperationTabs from './OperationTabs'
+import BackLink from './back-link'
 import type { OperationTab, TabAccess } from './tabs'
 
 interface Props {
@@ -89,16 +89,15 @@ export default function OperationBar({
             }}
         >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 1 }}>
-                <Link
-                    href={fromJ2 ? '/dashboard/j2' : '/operations'}
+                <BackLink
+                    operationId={operationId}
+                    fromJ2={fromJ2}
                     style={{
                         fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em',
                         textTransform: 'uppercase', color: 'var(--ink-3)',
                         textDecoration: 'none', flexShrink: 0,
                     }}
-                >
-                    {fromJ2 ? '← J2 Operations' : '← Back'}
-                </Link>
+                />
 
                 <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
 

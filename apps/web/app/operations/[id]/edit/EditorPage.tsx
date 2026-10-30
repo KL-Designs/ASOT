@@ -22,6 +22,7 @@ import DetailsCard from './deck/DetailsCard'
 import BriefTab from './tabs/BriefTab'
 import MapTab from './tabs/MapTab'
 import ScheduleTab from './tabs/schedule/ScheduleTab'
+import CampaignShiftDialog from './tabs/schedule/CampaignShiftDialog'
 import AttendanceTab from './tabs/AttendanceTab'
 import type { MapWorld } from '@/components/operations/map/types'
 
@@ -40,6 +41,8 @@ export default function EditorPage() {
     const { id: routeId } = useParams<{ id: string }>()
     const editSearchParams = useSearchParams()
     const fromJ2 = editSearchParams?.get('from') === 'j2'
+    // Opened from J2 → Templates to edit a template's mission; Back returns there.
+    const fromTemplates = editSearchParams?.get('from') === 'j2-templates'
 
     const [opID, setOpID] = useState(routeId || '')
     const [title, setTitle] = useState('')
@@ -109,6 +112,12 @@ export default function EditorPage() {
     const [missionDev, setMissionDev] = useState<MissionDevelopment | null>(null)
     const [isCampaignOp, setIsCampaignOp] = useState(false)
     const [campaignStartDate, setCampaignStartDate] = useState<string | null>(null)
+    const [campaignId, setCampaignId] = useState<string | null>(null)
+    // The date the campaign was last in line with, and the pending question of
+    // whether to move the rest of it after this mission's date changed.
+    const campaignDateBaseline = useRef<Dayjs | null>(null)
+    const campaignShiftTimer = useRef<ReturnType<typeof setTimeout>>()
+    const [campaignShiftMs, setCampaignShiftMs] = useState<number | null>(null)
 
     // Publish flow
     const [publishSaving, setPublishSaving] = useState(false)
@@ -133,6 +142,8 @@ export default function EditorPage() {
     const [ordersCheckTask, setOrdersCheckTask]             = useState<null | { _id?: string; status: string; ordersCheckAt?: string; ordersCheckStatus?: string; ordersCheckProposedAt?: string; ordersCheckProposedBy?: string }>(null)
 
     const [assignedPlatoons, setAssignedPlatoons] = useState<string[]>([])
+    // Which support-platoon crew the operation uses. 'both' until chosen.
+    const [supportCrew, setSupportCrew] = useState<'saturday' | 'sunday' | 'both'>('both')
     const [discordPingEnabled, setDiscordPingEnabled] = useState(false)
     const [discordPingRoles, setDiscordPingRoles] = useState<string[]>([])
     const [rsvpOpen, setRsvpOpen] = useState(false)
@@ -325,6 +336,7 @@ export default function EditorPage() {
                 setTitle(op.title || '')
                 const opDate = op.date ? dayjs(op.date) : null
                 setDate(opDate)
+                campaignDateBaseline.current = opDate
                 const loreDateStr = op.loreDate instanceof Date ? op.loreDate.toISOString() : (op.loreDate ?? '')
                 setLoreDate(loreDateStr)
                 const parsed = loreDateStr ? dayjs(loreDateStr) : null
@@ -344,6 +356,7 @@ export default function EditorPage() {
                 setIsCampaignOp(hasCampaign)
                 setMissionDev((op as any).missionDevelopment ?? null)
                 if (hasCampaign) {
+                    setCampaignId(String((op as any).campaignId))
                     fetch(`/api/operations/campaigns`)
                         .then(r => r.json())
                         .then(data => {
@@ -382,6 +395,7 @@ export default function EditorPage() {
             .then(json => {
                 if (json.error) return
                 setAssignedPlatoons(json.assignedPlatoons ?? [])
+                setSupportCrew(json.supportCrew ?? 'both')
                 setDiscordPingEnabled(json.discordPingEnabled ?? false)
                 setDiscordPingRoles(json.discordPingRoles ?? [])
                 setRsvpOpen(json.rsvpOpen ?? false)
@@ -462,8 +476,26 @@ export default function EditorPage() {
         }
     }
 
+    async function confirmUnpublish() {
+        setPublishSaving(true)
+        try {
+            const res = await fetch(`/api/operations/${opID}/publish`, { method: 'DELETE' })
+            if (res.ok) {
+                setStatus('In Development')
+                setPublishConfirmOpen(false)
+                refresh()
+            } else {
+                const d = await res.json().catch(() => ({}))
+                alert(d.error ?? 'Unpublish failed')
+            }
+        } finally {
+            setPublishSaving(false)
+        }
+    }
+
     async function saveAttendanceSettings(updates: {
         assignedPlatoons?: string[]
+        supportCrew?: 'saturday' | 'sunday' | 'both'
         discordPingEnabled?: boolean
         discordPingRoles?: string[]
         rsvpOpen?: boolean
@@ -479,6 +511,7 @@ export default function EditorPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     assignedPlatoons: updates.assignedPlatoons ?? assignedPlatoons,
+                    supportCrew: updates.supportCrew ?? supportCrew,
                     discordPingEnabled: updates.discordPingEnabled ?? discordPingEnabled,
                     discordPingRoles: updates.discordPingRoles ?? discordPingRoles,
                     reservistAssignments: [],
@@ -600,6 +633,11 @@ export default function EditorPage() {
         saveAttendanceSettings({ assignedPlatoons: updated })
     }
 
+    function handleChangeSupportCrew(crew: 'saturday' | 'sunday' | 'both') {
+        setSupportCrew(crew)
+        saveAttendanceSettings({ supportCrew: crew })
+    }
+
     function handleTogglePing() {
         const next = !discordPingEnabled
         setDiscordPingEnabled(next)
@@ -667,6 +705,19 @@ export default function EditorPage() {
         metaHandleRef.current?.set('date', iso)
         setDate(v)
         scheduleSave({ date: iso })
+
+        // Part of a campaign: once the picker settles, ask whether the rest of
+        // the campaign moves with it. The picker fires once per section edited,
+        // so this waits rather than asking mid-edit.
+        if (campaignId) {
+            clearTimeout(campaignShiftTimer.current)
+            campaignShiftTimer.current = setTimeout(() => {
+                const from = campaignDateBaseline.current
+                const delta = from ? v.valueOf() - from.valueOf() : 0
+                if (delta !== 0) setCampaignShiftMs(delta)
+                else campaignDateBaseline.current = v
+            }, 1500)
+        }
     }
 
     // The open end, as a lead time in minutes before the op date. null clears
@@ -861,6 +912,19 @@ export default function EditorPage() {
                 crumb replaces the site nav. */}
             <FullscreenPage />
 
+            {campaignShiftMs !== null && campaignId && opID && (
+                <CampaignShiftDialog
+                    opID={opID}
+                    campaignId={campaignId}
+                    deltaMs={campaignShiftMs}
+                    onClose={applied => {
+                        if (applied?.newStartDate) setCampaignStartDate(applied.newStartDate)
+                        campaignDateBaseline.current = date
+                        setCampaignShiftMs(null)
+                    }}
+                />
+            )}
+
             <ConfirmDialog
                 open={confirmDelete}
                 title='Delete Mission'
@@ -898,6 +962,7 @@ export default function EditorPage() {
                     <Header
                         operationId={opID}
                         fromJ2={fromJ2}
+                        fromTemplates={fromTemplates}
                         title={title}
                         status={status}
                         saveStatus={saveStatus}
@@ -913,6 +978,7 @@ export default function EditorPage() {
                         onPublishClick={() => setPublishConfirmOpen(true)}
                         onPublishConfirm={confirmPublish}
                         onPublishCancel={() => setPublishConfirmOpen(false)}
+                        onUnpublishConfirm={confirmUnpublish}
                         tab={tab}
                         onTabChange={setTab}
                         // Orders is only ever the active tab inside the shell
@@ -1041,6 +1107,8 @@ export default function EditorPage() {
                             platoons={PLATOON_OPTS}
                             selected={assignedPlatoons}
                             onToggle={handleTogglePlatoon}
+                            supportCrew={supportCrew}
+                            onChangeSupportCrew={handleChangeSupportCrew}
                             customUnits={customUnits}
                             onAddCustomUnit={addCustomUnit}
                             onRemoveCustomUnit={removeCustomUnit}

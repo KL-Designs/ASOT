@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 import type { MapLayer, MapAnnotation, MapPresenceUser, AnnotationType, AnnotationProperties } from './types'
+import { copyOverlay, withDescendants } from '@/lib/operations/map-layers'
 
 function uid() {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
@@ -20,7 +21,10 @@ export interface MapYjsState {
 }
 
 export interface MapYjsActions {
-    addLayer: (name: string, color?: string) => string
+    /** `parentId` makes it a layer inside that overlay. */
+    addLayer: (name: string, color?: string, parentId?: string | null) => string
+    /** Copy an overlay, its sub-layers and everything drawn on them. Returns the new overlay's id. */
+    duplicateLayer: (id: string, name: string) => string
     updateLayer: (id: string, patch: Partial<Omit<MapLayer, 'id'>>) => void
     removeLayer: (id: string) => void
     addAnnotation: (layerId: string, type: AnnotationType, geometry: number[][], properties: Partial<AnnotationProperties>) => string
@@ -45,6 +49,7 @@ function readLayers(ydoc: Y.Doc): MapLayer[] {
             color: (entry.get('color') as string) || '#3498db',
             visible: entry.get('visible') !== false,
             order: i,
+            parentId: (entry.get('parentId') as string | undefined) || null,
         })
     }
     return layers
@@ -169,7 +174,7 @@ export function useMapYjs(operationId: string, canEdit: boolean): [MapYjsState, 
     // ── Actions ────────────────────────────────────────────────────────────────
 
     const actions: MapYjsActions = {
-        addLayer(name, color = '#3498db') {
+        addLayer(name, color = '#3498db', parentId = null) {
             if (!canEdit) return ''
             const id = uid()
             const layerMap = ydoc.getMap<Y.Map<unknown>>('mapLayers')
@@ -179,10 +184,43 @@ export function useMapYjs(operationId: string, canEdit: boolean): [MapYjsState, 
                 entry.set('name', name)
                 entry.set('color', color)
                 entry.set('visible', true)
+                if (parentId) entry.set('parentId', parentId)
                 layerMap.set(id, entry)
                 layerOrder.push([id])
             })
             return id
+        },
+
+        duplicateLayer(id, name) {
+            if (!canEdit) return ''
+            // The copy itself is worked out as plain data (lib/operations/
+            // map-layers.ts); this only writes it, in one transaction so it
+            // arrives for everybody — and undoes — as one step.
+            const copy = copyOverlay(readLayers(ydoc), readAnnotations(ydoc), id, name, uid)
+            if (!copy) return ''
+            const layerMap = ydoc.getMap<Y.Map<unknown>>('mapLayers')
+            const layerOrder = ydoc.getArray<string>('mapLayerOrder')
+            const annMap = ydoc.getMap<Y.Map<unknown>>('mapAnnotations')
+            ydoc.transact(() => {
+                for (const layer of copy.layers) {
+                    const entry = new Y.Map<unknown>()
+                    entry.set('name', layer.name)
+                    entry.set('color', layer.color)
+                    entry.set('visible', true)
+                    if (layer.parentId) entry.set('parentId', layer.parentId)
+                    layerMap.set(layer.id, entry)
+                    layerOrder.push([layer.id])
+                }
+                for (const ann of copy.annotations) {
+                    const entry = new Y.Map<unknown>()
+                    entry.set('layerId', ann.layerId)
+                    entry.set('type', ann.type)
+                    entry.set('geometry', JSON.stringify(ann.geometry))
+                    entry.set('properties', JSON.stringify(ann.properties))
+                    annMap.set(ann.id, entry)
+                }
+            })
+            return copy.layers[0].id
         },
 
         updateLayer(id, patch) {
@@ -196,16 +234,21 @@ export function useMapYjs(operationId: string, canEdit: boolean): [MapYjsState, 
 
         removeLayer(id) {
             if (!canEdit) return
+            // An overlay takes its sub-layers with it: left behind, they would
+            // sit in the list with nothing to belong to.
+            const doomed = new Set(withDescendants(readLayers(ydoc), id))
             ydoc.transact(() => {
-                ydoc.getMap('mapLayers').delete(id)
                 const order = ydoc.getArray<string>('mapLayerOrder')
-                const idx = order.toArray().indexOf(id)
-                if (idx >= 0) order.delete(idx, 1)
-                // Remove all annotations on this layer
+                for (const layerId of doomed) {
+                    ydoc.getMap('mapLayers').delete(layerId)
+                    const idx = order.toArray().indexOf(layerId)
+                    if (idx >= 0) order.delete(idx, 1)
+                }
+                // Remove all annotations on these layers
                 const annMap = ydoc.getMap<Y.Map<unknown>>('mapAnnotations')
                 const toDelete: string[] = []
                 annMap.forEach((entry, annId) => {
-                    if (entry.get('layerId') === id) toDelete.push(annId)
+                    if (doomed.has(entry.get('layerId') as string)) toDelete.push(annId)
                 })
                 toDelete.forEach(annId => annMap.delete(annId))
             })

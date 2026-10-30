@@ -1570,3 +1570,111 @@ textarea.inp {
         transform: none;
     }
 }
+
+/* ---------- arrangeable dashboard panels ----------------------------------
+   The home page's panels can be dragged between two columns and folded away.
+   See DashPanel in app/dashboard/DashboardOverview.tsx. */
+
+.dashPanel {
+    position: relative;
+    min-width: 0;
+}
+
+.dashPanelDragging {
+    opacity: .55;
+    z-index: 20;
+}
+
+.dashPanelBar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    margin-bottom: 8px;
+    border: 1px dashed var(--line-2);
+    background: var(--ink-1, rgba(255, 255, 255, .02));
+}
+
+/* A folded panel has nothing under its bar, so the bar should not leave a gap
+   for content that is not there. */
+.dashPanelBar:last-child {
+    margin-bottom: 0;
+}
+
+.dashPanelHandle {
+    cursor: grab;
+    background: none;
+    border: 0;
+    padding: 0 2px;
+    font-size: 15px;
+    line-height: 1;
+    color: var(--txt-3);
+    touch-action: none;
+}
+
+.dashPanelHandle:active {
+    cursor: grabbing;
+}
+
+.dashPanelFold {
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--line-2);
+    padding: 2px 9px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--txt-3);
+    cursor: pointer;
+}
+
+.dashPanelFold:hover,
+.dashPanelFold:focus-visible {
+    color: var(--txt-1);
+    border-color: var(--txt-3);
+}
+
+/* Out of sight until the pointer is on the panel — it sits over the corner of
+   whatever the panel draws there, so it should not be there uninvited. */
+.dashPanelFoldFloating {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    z-index: 5;
+    width: 20px;
+    height: 20px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line-2);
+    border-radius: 50%;
+    background: var(--ink-0, #0b0c0e);
+    color: var(--txt-3);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .14s;
+}
+
+.dashPanel:hover > .dashPanelFoldFloating,
+.dashPanelFoldFloating:focus-visible {
+    opacity: 1;
+}
+
+/* No hover on a touch screen, so there it is simply always faintly present. */
+@media (hover: none) {
+    .dashPanelFoldFloating {
+        opacity: .55;
+    }
+}
+
+.dashColArranging {
+    min-height: 80px;
+    outline: 1px dashed transparent;
+    outline-offset: 6px;
+}
+
+.dashColOver {
+    outline-color: var(--line-2);
+}

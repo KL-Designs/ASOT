@@ -165,6 +165,7 @@ Two-mode log viewer: error logs (`type=error`) and the shared `ActivityLogTab` c
 API calls: `GET /api/admin/logs?type=error&page=&limit=50`, `GET /api/admin/logs?...` (general).
 
 #### app/dashboard/j4/tabs/TeamspeakTab.tsx
+A third sub-view, **Group links** (`TeamspeakLinks.tsx`): one table per kind (campaigns, awards, ranks, certifications) showing the TeamSpeak group each resolves to and whether that is a saved link, a name match or unmatched (unmatched sort first); picking a group saves a link via `PUT /api/admin/teamspeak/links`.
 TeamSpeak admin console: online/offline client browser with server-group management per client, TS snapshot list with create/restore/delete.
 API calls: `GET/POST /api/teamspeak/snapshots`, `DELETE /api/teamspeak/snapshots/:id`, `POST /api/teamspeak/snapshots/:id/restore`, `GET /api/teamspeak/clients?type=online|offline`, `GET /api/teamspeak/clients/:cldbid/groups`, `POST/DELETE /api/teamspeak/clients/:cldbid/groups?sgid=`.
 

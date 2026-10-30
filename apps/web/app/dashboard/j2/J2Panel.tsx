@@ -15,6 +15,9 @@ import MembersWorkspaceTab from '@/app/dashboard/j2/tabs/MembersWorkspaceTab'
 import MissionChecksTab from '@/app/dashboard/j2/tabs/MissionChecksTab'
 import IntelImagesTab from '@/app/dashboard/j2/tabs/IntelImagesTab'
 import EraOptionsTab from '@/app/dashboard/j2/tabs/EraOptionsTab'
+import MissionBibleTab from './tabs/MissionBibleTab'
+import TemplatesTab from './tabs/TemplatesTab'
+import ObjectiveSuggestions from '@/components/j2/ObjectiveSuggestions'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
 export default function J2Panel({
@@ -118,6 +121,13 @@ export default function J2Panel({
                             {canManageMembers && (
                                 <Tab label={<PinTabLabel label='ERA Options' pinLabel='J2 — ERA Options' href='/dashboard/j2' tabIndex={6} />} sx={tabSx} />
                             )}
+                            {/* An explicit value: ERA Options above is only there for
+                                leads, so position alone would give this tab a
+                                different index for a lead than for a member, and a
+                                pinned link to it would open the wrong tab. */}
+                            <Tab value={7} label={<PinTabLabel label='Mission Bible' pinLabel='J2 — Mission Bible' href='/dashboard/j2' tabIndex={7} />} sx={tabSx} />
+                            <Tab value={8} label={<PinTabLabel label='Objective Suggestions' pinLabel='J2 — Objectives' href='/dashboard/j2' tabIndex={8} />} sx={tabSx} />
+                            <Tab value={9} label={<PinTabLabel label='Templates' pinLabel='J2 — Templates' href='/dashboard/j2' tabIndex={9} />} sx={tabSx} />
                         </Tabs>
                     </div>
 
@@ -129,6 +139,9 @@ export default function J2Panel({
                         {tab === 4 && <MissionChecksTab userId={userId} isJ2Lead={canManageMembers || isJ4} />}
                         {tab === 5 && <IntelImagesTab />}
                         {tab === 6 && canManageMembers && <EraOptionsTab />}
+                        {tab === 7 && <MissionBibleTab />}
+                        {tab === 8 && <ObjectiveSuggestions />}
+                        {tab === 9 && <TemplatesTab />}
                     </div>
                 </>
             )}

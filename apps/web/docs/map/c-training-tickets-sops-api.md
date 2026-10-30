@@ -76,6 +76,16 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 #### /api/training/tickets/[id]/amend
 - **POST** — requests amendments on a pending ticket (requires `amendmentNotes`), sets status `amendments_requested`. Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTickets`. Side effects: `createNotification` to trainer, `logAction('training.ticket.amend')`.
 
+#### /api/nco-assessments
+- **GET** — the assessments the caller may see, each with `can` (the steps they may take), plus upcoming mission nights (`tooSoon` / `taken` / `mine`) and, for a J3 lead, the J3 members who can be assigned. `?operationId=` returns that night's booked assessments only (the attendance board's marker). **POST** `{ operationId, notes }` — the candidate's request; refused inside a week, on a taken night, or twice. Notifies J3 leads.
+- **PATCH `/api/nco-assessments/[id]`** `{ action, ... }` — one step, allowed by `canDo` and nothing else: `assign` (`assessorId`, re-checks the night is free), `confirm`, `requestShadow` (notifies the section's staff), `decideShadow` (`approve`), `sheet` (`sheetUrl`, `assessorNotes`, `outcome`), `recording` (`recordingUrl`), `complete`, `cancel`. Gate: dashboard access + `canDo`.
+
+#### /api/training/events/clashes
+- **GET** `?at=&duration=&exclude=` — what a training booked then would overlap: missions (taken as three hours; one still in development is reported without its name), other scheduled trainings, and non-private J2 / unit calendar events. A warning for the booking form (`ClashWarning` in `EventsTab.tsx`), never a refusal — the booking routes do not call it. Gate: `training.create`. Rule in `lib/training/clashes.ts` (pure, tested).
+
+#### /api/training/pre-learning
+- **GET** — the caller's pre-learning per training type: `state` (locked / open / done / expired), `count`, `expiresAt`, `completedAt`, and `material` **only while it is open to them** — this route is the lock. **POST** `{ trainingTypeId }` marks open pre-learning as done. Gate: dashboard access. `GET /api/training/types` strips `preLearning` for anyone who is not a J3 lead or trainer; `POST /api/training/events/[id]/attendance` calls `syncPreLearning` after every sign-up and cancellation, and sets `priority` on a waitlisted trainee who has earned it (promotion sorts `priority` first).
+
 #### /api/training/types
 - **GET** — lists training types (auto-seeds `TRAINING_TYPE_DEFAULTS` if collection empty); visibility scoped by role (J3 leads: all, trainers: active+wip, members: active only). Gate: `hasPermission(user, 'pages.member')`. Collections: `Db.trainingTypes`.
 - **POST** — creates a new training type (name/category/billetField/points/description/status/etc). Gate: `PERMISSIONS.training.manage`. Collections: `Db.trainingTypes` (insert). Side effects: `logAction('training.type.create')`.
@@ -126,13 +136,13 @@ Note: `app/api/tickets/**` is the **community feedback/tickets system**, not the
 - **POST** — creates a new ticket; routes to department(s) via `routeTicket(subtype, responsibleDept)` (mod-request→j4+j7, bug-website/milpac/teamspeak→j7, bug-arma/discord/other→j4, mission/campaign→j2, feature-request→responsibleDept+j4, default→j4); private categories (`unit-feedback`, `complaint`, `award`) forced to `visibility: 'private'`; de-dupes `mod-request` by normalized `modLink` regex match (409 `DUPLICATE_MOD`). Gate: `client.fetchMe()` only. Collections: `Db.communityTickets` (insert). Side effects: `logAction('ticket.create')`, `notifyTicketDeptLeads()` per routed department.
 
 #### /api/tickets/[id]
-- **GET** — fetches a ticket with its comments joined in; enforces private-visibility gate (J4 or dept lead for the ticket's departments only); includes `myVote`. Gate: `client.fetchMe()` + visibility check. Collections: `Db.communityTickets`, `Db.communityTicketComments`.
+- **GET** — fetches a ticket with its comments joined in (each with `authorColor` from `unitColoursFor`; non-J4 readers also get deleted comments that still have a visible reply, as stripped shells, so threads keep their shape); enforces private-visibility gate (J4 or dept lead for the ticket's departments only); includes `myVote`. Gate: `client.fetchMe()` + visibility check. Collections: `Db.communityTickets`, `Db.communityTicketComments`.
 - **PATCH** — multi-purpose updater gated per-field: status change (J4/dept-lead) syncs legacy `status` + `statuses[]`; department reassign (J4 only); multi-dept set (J4 only); tags (J4 only); title/description edit (author or J4); restore from soft-delete (J4 only); `ticketTags` and `memberVisible` (J4/dept-lead); full `statuses[]` replace (J4/dept-lead); `reopen` flag removes `closed` from statuses. Gate: varies per field, computed via `getLeadDepts()` helper checking `PERMISSIONS.departmentLeads`. Collections: `Db.communityTickets`. Side effects: `logAction('ticket.status_change'|'ticket.restore'|'ticket.reassign')`, `createNotification` + `sendFeedbackStatusDM` on status change, `notifyTicketDeptLeads` + `createNotification` on reopen.
 - **DELETE** — soft-deletes (`isDeleted: true`, `deletedAt`/`deletedById`); author or J4 only. Gate: author OR `PERMISSIONS.communityTickets.manage`. Collections: `Db.communityTickets`. Side effects: `logAction('ticket.delete')`.
 
 #### /api/tickets/[id]/comments
 - **GET** — lists non-deleted comments for a ticket; respects ticket visibility (private → J4 only). Gate: `client.fetchMe()` + visibility check. Collections: `Db.communityTicketComments`, `Db.communityTickets` (read visibility).
-- **POST** — adds a comment; increments `commentCount`, pushes `activityLog` entry. Gate: same visibility check. Collections: `Db.communityTicketComments` (insert), `Db.communityTickets` (update). Side effects: `createNotification` + `sendFeedbackCommentDM` to ticket author (unless anonymous ticket or self-comment).
+- **POST** — adds a comment, optionally as a reply (`parentId`, validated against a live comment on the same ticket); increments `commentCount`, pushes `activityLog` entry; a reply also notifies the parent comment's author. Gate: same visibility check. Collections: `Db.communityTicketComments` (insert), `Db.communityTickets` (update). Side effects: `createNotification` + `sendFeedbackCommentDM` to ticket author (unless anonymous ticket or self-comment).
 
 #### /api/tickets/[id]/comments/[commentId]
 - **PATCH** — edits own comment content; sets `isEdited`. Gate: comment author only. Collections: `Db.communityTicketComments`, `Db.communityTickets` (push activityLog).

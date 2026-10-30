@@ -2,11 +2,15 @@ import { Metadata } from "next"
 import Link from 'next/link'
 import Image, { StaticImageData } from 'next/image'
 
-import { Typography } from '@mui/material'
 import { Favorite, Groups, SupportAgent, HelpOutline, Accessible, Phone, OpenInNew } from '@mui/icons-material'
 
 import Container from "@/components/container"
-import InfoCard from '@/components/info-card'
+import SectionHead from '@/components/ui/SectionHead'
+import Card, { CardGrid } from '@/components/ui/Card'
+import List from '@/components/ui/List'
+import PhotoBand from '@/components/ui/PhotoBand'
+
+import ImgTogether from '@/public/images/home/support.jpg'
 
 import Banner from '@/public/images/home/mikeretreat2.png'
 import ImgEmergency from '@/public/images/support/tripleZero.jpg'
@@ -24,22 +28,6 @@ import ImgYouthline from '@/public/images/support/youthline.png'
 export const metadata: Metadata = {
 	title: "Support | Australian Special Operations Taskforce",
 	description: "Submit a support request or get help from the Australian Special Operations Taskforce staff team.",
-}
-
-
-function SectionHeader({ label, title }: { label: string, title: string }) {
-	return (
-		<div className='flex flex-col gap-4'>
-			<div className='flex items-center gap-4'>
-				<div style={{ width: 3, alignSelf: 'stretch', background: 'var(--red)', flexShrink: 0 }} />
-				<div>
-					<div style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.18em', color: 'rgba(219,0,29,0.8)', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
-					<h2 style={{ fontSize: '1.6rem', fontWeight: 700, letterSpacing: '0.08em', margin: 0 }}>{title.toUpperCase()}</h2>
-				</div>
-			</div>
-			<div style={{ height: 1, background: 'rgba(219,0,29,0.2)' }} />
-		</div>
-	)
 }
 
 
@@ -97,7 +85,7 @@ function SupportCard({ name, phone, link, available, location, image, children }
 					)}
 				</div>
 
-				<div className='flex flex-col gap-3'>
+				<div className='flex flex-col gap-3 [&>p]:m-0' style={{ color: 'var(--txt-2)', fontSize: 13.4, lineHeight: 1.6 }}>
 					{children}
 				</div>
 			</div>
@@ -109,99 +97,101 @@ function SupportCard({ name, phone, link, available, location, image, children }
 
 export default function Page() {
 	return (
-		<Container title="ASOT SUPPORT" kicker="Wellbeing" background={Banner} sx={{ bannerHeight: 'md', maxWidth: 'max-w-md', gap: 'gap-12' }}>
+		<Container title="ASOT SUPPORT" kicker="Wellbeing" background={Banner} sx={{ bannerHeight: 'md', maxWidth: 'max-w-lg' }}>
 
-			<div className='flex flex-col gap-4'>
-				<SectionHeader label="Mental Health" title="You're Not Alone" />
-				<div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-					<InfoCard title="We Understand" icon={<Favorite />}>
-						<Typography>ASOT and its members understand that everyone, no matter your lifestyle, history or current situation, goes through hard times in life. Mental and physical health is extremely important and we can often find ourselves struggling from time to time — and that is completely fine.</Typography>
-					</InfoCard>
-					<InfoCard title="ASOT Community" icon={<Groups />}>
-						<Typography>We aim to provide a community where everyone is welcome, comfortable and feels accepted — persons from all walks of life, across multiple countries, all sorts of sexualities, genders and religious beliefs. The community we've built is the first step in providing a safe and enjoyable environment for all.</Typography>
-					</InfoCard>
-					<InfoCard title="ASOT Chaplains" icon={<SupportAgent />}>
-						<Typography>ASOT proudly had the first dedicated chaplain roles of any Australian ARMA 3 milsim unit. Bound to strict confidentiality, our chaplains offer all current and ex-ASOT members an ear to talk to, a shoulder to cry on, or simply an outlet to vent to.</Typography>
-						<Typography>Find our chaplains on the <Link href='/orbat' target='_blank' className='underline'>ASOT ORBAT</Link> — available any time, any day.</Typography>
-					</InfoCard>
-				</div>
-			</div>
+			<section>
+				<SectionHead kicker='Mental Health' title="You're Not Alone" />
+				<CardGrid columns={6}>
+					<Card title='We Understand' icon={<Favorite />} span={2}>
+						<p>ASOT and its members understand that everyone, no matter your lifestyle, history or current situation, goes through hard times in life. Mental and physical health is extremely important and we can often find ourselves struggling from time to time — and that is completely fine.</p>
+					</Card>
+					<Card title='ASOT Community' icon={<Groups />} span={2}>
+						<p>We aim to provide a community where everyone is welcome, comfortable and feels accepted — persons from all walks of life, across multiple countries, all sorts of sexualities, genders and religious beliefs. The community we've built is the first step in providing a safe and enjoyable environment for all.</p>
+					</Card>
+					<Card title='ASOT Chaplains' icon={<SupportAgent />} span={2}>
+						<p>ASOT proudly had the first dedicated chaplain roles of any Australian ARMA 3 milsim unit. Bound to strict confidentiality, our chaplains offer all current and ex-ASOT members an ear to talk to, a shoulder to cry on, or simply an outlet to vent to.</p>
+						<p>Find our chaplains on the <Link href='/orbat' target='_blank' className='underline'>ASOT ORBAT</Link> — available any time, any day.</p>
+					</Card>
+				</CardGrid>
+			</section>
 
-			<div className='flex flex-col gap-4'>
-				<SectionHeader label="Guidance" title="What Do I Do?" />
-				<Typography style={{ color: 'rgba(237,237,237,0.65)' }}>
+			<PhotoBand images={[ImgTogether]} />
+
+			<section>
+				<SectionHead kicker='Guidance' title='What Do I Do?' />
+				<p style={{ color: 'var(--txt-2)', maxWidth: 860, lineHeight: 1.65, margin: '0 0 26px' }}>
 					Self harm and suicide can be a difficult topic to talk about and can be even more difficult when you or someone close to you experiences difficulties. If someone confides in you about considering self-harm or suicide, here are some things you can do to help.
-				</Typography>
-				<div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-					<InfoCard title="If You Are Comfortable Discussing It" icon={<HelpOutline />}>
-						<div className='flex flex-col gap-2'>
-							<Typography>- Listen to them without judgement and encourage them to talk about their situation.</Typography>
-							<Typography>- Show empathy for their situation and take them seriously.</Typography>
-							<Typography>- Although hard to do online, do not leave them alone until someone can be with them in person or until they have contacted a health professional.</Typography>
-							<Typography>- Discuss the ways that you can get them help and if they agree, follow it up regularly.</Typography>
-						</div>
-					</InfoCard>
-					<InfoCard title="If You Are Not Comfortable Discussing It" icon={<Accessible />}>
-						<div className='flex flex-col gap-2'>
-							<Typography>- Tell them you are willing and wanting to assist but are unable to provide the required level of assistance they may require.</Typography>
-							<Typography>- If able and with the person's permission, contact someone who may be able to assist or provide details on the next step.</Typography>
-							<Typography>- Attempt to have the person contact a health professional so they may take over the situation and provide the assistance required.</Typography>
-						</div>
-					</InfoCard>
-				</div>
-			</div>
+				</p>
+				<CardGrid columns={6}>
+					<Card title='If You Are Comfortable Discussing It' icon={<HelpOutline />} span={3}>
+						<List items={[
+							"Listen to them without judgement and encourage them to talk about their situation.",
+							"Show empathy for their situation and take them seriously.",
+							"Although hard to do online, do not leave them alone until someone can be with them in person or until they have contacted a health professional.",
+							"Discuss the ways that you can get them help and if they agree, follow it up regularly.",
+						]} />
+					</Card>
+					<Card title='If You Are Not Comfortable Discussing It' icon={<Accessible />} span={3}>
+						<List items={[
+							"Tell them you are willing and wanting to assist but are unable to provide the required level of assistance they may require.",
+							"If able and with the person's permission, contact someone who may be able to assist or provide details on the next step.",
+							"Attempt to have the person contact a health professional so they may take over the situation and provide the assistance required.",
+						]} />
+					</Card>
+				</CardGrid>
+			</section>
 
-			<div className='flex flex-col gap-6'>
-				<SectionHeader label="Resources" title="Who Can Help?" />
-				<Typography style={{ color: 'rgba(237,237,237,0.65)' }}>
+			<section>
+				<SectionHead kicker='Resources' title='Who Can Help?' />
+				<p style={{ color: 'var(--txt-2)', maxWidth: 860, lineHeight: 1.65, margin: '0 0 26px' }}>
 					There are a large number of resources, hotlines and programs who can provide immediate guidance and help for a multitude of circumstances. If you are struggling personally, or you are in contact with someone who may be struggling, the resources below may be able to assist.
-				</Typography>
+				</p>
 				<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4'>
 
 					<SupportCard name="000" phone="112 (If you have no reception)" available="24/7" image={ImgEmergency}>
-						<Typography>If at any time you require immediate, emergency assistance, we recommend calling triple zero. Even without ambulance cover, it's free to have an ambulance or police come out to your location to provide care on site.</Typography>
+						<p>If at any time you require immediate, emergency assistance, we recommend calling triple zero. Even without ambulance cover, it's free to have an ambulance or police come out to your location to provide care on site.</p>
 					</SupportCard>
 
 					<SupportCard name="Lifeline Australia" phone="13 11 14" link="https://www.lifeline.org.au" available="24/7" image={ImgLifeline}>
-						<Typography>A national charity providing all Australians experiencing emotional distress with access to 24 hour crisis support and suicide prevention services. They exist so that no person in Australia has to face their darkest moments alone.</Typography>
+						<p>A national charity providing all Australians experiencing emotional distress with access to 24 hour crisis support and suicide prevention services. They exist so that no person in Australia has to face their darkest moments alone.</p>
 					</SupportCard>
 
 					<SupportCard name="Beyond Blue" phone="1300 224 636" link="https://www.beyondblue.org.au" available="24/7" image={ImgBeyondBlue}>
-						<Typography>Your mental health is important. Some days are better than others and we all need a helping hand from time to time. Wherever you are in your mental health journey, Beyond Blue will be here to help.</Typography>
+						<p>Your mental health is important. Some days are better than others and we all need a helping hand from time to time. Wherever you are in your mental health journey, Beyond Blue will be here to help.</p>
 					</SupportCard>
 
 					<SupportCard name="SuicideLine" phone="1300 651 251" link="https://suicideline.org.au" available="24/7" image={ImgSLV}>
-						<Typography>Discovering that someone you care about has tried to end their life can be a devastating experience. SuicideLine provides support and guidance on what to say to someone who has attempted or is considering suicide.</Typography>
+						<p>Discovering that someone you care about has tried to end their life can be a devastating experience. SuicideLine provides support and guidance on what to say to someone who has attempted or is considering suicide.</p>
 					</SupportCard>
 
 					<SupportCard name="Mental Health and Wellbeing Hubs" phone="1300 375 330" link="https://www.betterhealth.vic.gov.au" available="9am–10pm weekdays | 9am–5pm weekends" image={ImgMHWH}>
-						<Typography>Mental Health & Wellbeing Hubs can help with a range of issues including lowered mood, anxiety, substance use or addiction, and life stressors such as homelessness, financial difficulties and social isolation.</Typography>
+						<p>Mental Health & Wellbeing Hubs can help with a range of issues including lowered mood, anxiety, substance use or addiction, and life stressors such as homelessness, financial difficulties and social isolation.</p>
 					</SupportCard>
 
 					<SupportCard name="NURSE-ON-CALL" phone="1300 60 60 24" link="https://www.health.vic.gov.au" available="24/7" location="Victoria" image={ImgNOC}>
-						<Typography>NURSE-ON-CALL puts you directly in touch with a registered nurse for caring, professional health advice around the clock. If your situation is an emergency, always call 000 or go to an emergency department.</Typography>
+						<p>NURSE-ON-CALL puts you directly in touch with a registered nurse for caring, professional health advice around the clock. If your situation is an emergency, always call 000 or go to an emergency department.</p>
 					</SupportCard>
 
 					<SupportCard name="13 Health" phone="13 43 25 84" link="https://www.qld.gov.au/health" available="24/7" location="Queensland" image={Img13Health}>
-						<Typography>13 HEALTH is a confidential phone service that provides health advice to Queenslanders. You can phone and talk to a registered nurse 24 hours a day, 7 days a week for the cost of a local call.</Typography>
+						<p>13 HEALTH is a confidential phone service that provides health advice to Queenslanders. You can phone and talk to a registered nurse 24 hours a day, 7 days a week for the cost of a local call.</p>
 					</SupportCard>
 
 					<SupportCard name="Healthline" phone="0800 611 116" link="https://www.healthy.org.nz" available="24/7" location="New Zealand" image={ImgHealthline}>
-						<Typography>Trusted health advice available 24/7. Nurses, paramedics, advisors and doctors can help with treatment information and prescriptions. Māori clinician available 8am–8pm. Interpreter services and NZ Relay support available.</Typography>
+						<p>Trusted health advice available 24/7. Nurses, paramedics, advisors and doctors can help with treatment information and prescriptions. Māori clinician available 8am–8pm. Interpreter services and NZ Relay support available.</p>
 					</SupportCard>
 
 					<SupportCard name="Lifeline" phone="0508 828 865" link="https://www.lifeline.org.nz" available="24/7" location="New Zealand" image={ImgLifeline2}>
-						<Typography>TAUTOKO is operated by trained and experienced social service practitioners who have undergone suicide prevention training. If you think you or someone you know may be thinking about suicide, call for support.</Typography>
+						<p>TAUTOKO is operated by trained and experienced social service practitioners who have undergone suicide prevention training. If you think you or someone you know may be thinking about suicide, call for support.</p>
 					</SupportCard>
 
 					<div className='hidden xl:block' />
 
 					<SupportCard name="Youthline" phone="0800 376 633" link="https://www.youthline.co.nz" available="24/7" location="New Zealand" image={ImgYouthline}>
-						<Typography>Youthline supports young people throughout Aotearoa New Zealand — those struggling with mental health as well as those who want to learn, grow and give back. Offers free helpline services, face-to-face counselling, and youth mentoring programmes.</Typography>
+						<p>Youthline supports young people throughout Aotearoa New Zealand — those struggling with mental health as well as those who want to learn, grow and give back. Offers free helpline services, face-to-face counselling, and youth mentoring programmes.</p>
 					</SupportCard>
 
 				</div>
-			</div>
+			</section>
 
 		</Container>
 	)

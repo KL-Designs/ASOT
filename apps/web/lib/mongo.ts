@@ -30,6 +30,7 @@ const DbInterface = {
     orbatRoles: db.collection('orbat_roles') as MongoCollection<OrbatRole>,
     orbatRoleGroups: db.collection('orbat_role_groups') as MongoCollection<OrbatRoleGroup>,
     departmentRoles: db.collection('department_roles') as MongoCollection<DepartmentRole>,
+    tsGroupLinks: db.collection('ts_group_links') as MongoCollection<TsGroupLink>,
     boardColumns: db.collection('board_columns') as MongoCollection<BoardColumn>,
     boardCards: db.collection('board_cards') as MongoCollection<BoardCard>,
     departmentLinks: db.collection('department_links') as MongoCollection<DepartmentLink>,
@@ -41,6 +42,8 @@ const DbInterface = {
      *  they answer to different people — the section's commander, and the
      *  mission maker. */
     operationFeedback: db.collection('operation_feedback') as MongoCollection<OperationFeedback>,
+    /** The comment thread under an operation's orders. See lib/operations/comments.ts. */
+    operationComments: db.collection('operation_comments') as MongoCollection<OperationComment>,
 
     // ── Gallery ───────────────────────────────────────────────────────────────
     /** Every piece of gallery media, legacy and submitted alike. The gallery
@@ -75,6 +78,10 @@ const DbInterface = {
     retiredMembers: db.collection('retired_members') as MongoCollection<RetiredMember>,
     quizAttempts: db.collection('quiz_attempts') as MongoCollection<QuizAttempt>,
     communityTickets: db.collection('feedback') as MongoCollection<CommunityTicket>,
+    modDatabase: db.collection('mod_database') as MongoCollection<ModEntry>,
+    missionBibleVersions: db.collection('mission_bible_versions') as MongoCollection<MissionBibleVersion>,
+    missionBibleDraft: db.collection('mission_bible_draft') as MongoCollection<MissionBibleDraft>,
+    objectiveSuggestions: db.collection('objective_suggestions') as MongoCollection<ObjectiveSuggestion>,
     communityTicketComments: db.collection('feedback_comments') as MongoCollection<CommunityTicketComment>,
     meetingNotifQueue: db.collection('meeting_notif_queue') as MongoCollection<MeetingNotifQueueRecord>,
     userPreferences: db.collection('user_preferences') as MongoCollection<UserPreferences>,
@@ -98,6 +105,8 @@ const DbInterface = {
     trainingTypes: db.collection('training_types') as MongoCollection<TrainingType>,
     trainingEvents: db.collection('training_events') as MongoCollection<TrainingEvent>,
     trainingAttendance: db.collection('training_attendance') as MongoCollection<TrainingAttendance>,
+    trainingPreLearning: db.collection('training_pre_learning') as MongoCollection<TrainingPreLearning>,
+    ncoAssessments: db.collection('nco_assessments') as MongoCollection<NcoAssessment>,
     trainingTypeDocs: db.collection('training_type_docs') as MongoCollection<TrainingDocument>,
     trainingRequests: db.collection('training_requests') as MongoCollection<TrainingRequest>,
     trainingTickets: db.collection('training_tickets') as MongoCollection<TrainingTicket>,

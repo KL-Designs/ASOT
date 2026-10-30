@@ -11,6 +11,10 @@ declare global {
         cursorCustom: boolean
         /** Per-notification-type toggle. Key = NotificationType string. */
         notifications: Partial<Record<NotificationType, UserNotifPref>>
+        /** How the member has arranged the dashboard home page: panel ids per
+         *  column, and which are folded away. Absent until they change it.
+         *  Shape and validation live in lib/dashboard/layout.ts. */
+        dashboardLayout?: { left: string[]; right: string[]; collapsed: string[] }
         updatedAt: Date
     }
 

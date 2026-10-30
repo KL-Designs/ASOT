@@ -50,6 +50,8 @@ type NotificationType =
     | 'training_event_rejected'     // Trainer: your event was rejected
     | 'training_event_cancelled'    // Attending members: event was cancelled
     | 'training_event_completed'    // Trainer: your event was marked complete (billet points awarded)
+    | 'nco_assessment'                // Anyone in an NCO assessment: requested, assigned, confirmed, shadow asked/decided, completed, cancelled
+    | 'training_prelearning_unlocked' // Member: a seat (or a top-two waitlist place) opened a training's pre-learning
     | 'training_rsvp_promoted'      // Waitlisted member auto-promoted to attending
     | 'training_doc_submitted'          // J3 leads: trainer submitted a document for review
     | 'training_doc_approved'           // Trainer: your submitted document was approved
@@ -73,6 +75,7 @@ type NotificationType =
     | 'mission_check_requested'         // J2 leads: mission maker has submitted a check request
     | 'mission_check_confirmed'         // Mission maker: J2 confirmed the check will be handled
     | 'board_card_assigned'             // Member: a board card was assigned to you
+    | 'gallery_callsign_submission'     // Section staff: something was filed under your callsign and awaits review
     | 'gallery_submission_accepted'     // Submitter: your gallery submission was published
     | 'gallery_submission_rejected'     // Submitter: your gallery submission was rejected, with a reason
     | 'system'

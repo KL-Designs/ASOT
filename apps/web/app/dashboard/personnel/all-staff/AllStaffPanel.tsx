@@ -5,6 +5,7 @@ import { Typography, Tabs, Tab } from '@mui/material'
 import MoveRequestsTab from './tabs/MoveRequestsTab'
 import DisciplineTab from './tabs/DisciplineTab'
 import PerformanceReportTab from './tabs/PerformanceReportTab'
+import ObjectiveSuggestions from '@/components/j2/ObjectiveSuggestions'
 
 export default function AllStaffPanel({ userId, displayName }: { userId: string; displayName: string }) {
     const [tab, setTab] = useState(0)
@@ -53,6 +54,7 @@ export default function AllStaffPanel({ userId, displayName }: { userId: string;
                     <Tab label='Move Requests' />
                     <Tab label='Discipline' />
                     <Tab label='Performance Reports' />
+                    <Tab label='Objective Suggestions' />
                 </Tabs>
             </div>
 
@@ -60,6 +62,8 @@ export default function AllStaffPanel({ userId, displayName }: { userId: string;
                 {tab === 0 && <MoveRequestsTab userId={userId} displayName={displayName} />}
                 {tab === 1 && <DisciplineTab userId={userId} />}
                 {tab === 2 && <PerformanceReportTab userId={userId} />}
+                {/* A read-only, live view of the J2 list. */}
+                {tab === 3 && <ObjectiveSuggestions mirror />}
             </div>
         </div>
     )

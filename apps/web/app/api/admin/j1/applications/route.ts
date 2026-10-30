@@ -3,6 +3,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { createNotificationForRole } from '@/lib/notifications'
+import { sanitiseRestoreItems } from '@/lib/military/reinstate-items'
 
 // GET /api/admin/j1/applications — fetch all applications
 export async function GET() {
@@ -53,6 +54,15 @@ export async function POST(request: NextRequest) {
         additionalRoles, departmentInterest, ageExemptionNote,
     } = body as Record<string, string | string[] | boolean>
 
+    // A restore proposal only means anything for somebody with a discharge on
+    // record; for anybody else it is dropped rather than stored and later
+    // "applied" to a member with no snapshot.
+    const proposed = sanitiseRestoreItems((body as Record<string, unknown>).restoreItems)
+    const isReturning = proposed.length > 0 && !!(await Db.users.findOne(
+        { id: discordId?.toString().trim(), discharged: { $exists: true } },
+        { projection: { _id: 1 } },
+    ))
+
     if (!discordUsername?.toString().trim()) return NextResponse.json({ error: 'Discord username is required.' }, { status: 400 })
     if (!discordId?.toString().trim()) return NextResponse.json({ error: 'Discord ID is required.' }, { status: 400 })
     if (!joiningName?.toString().trim()) return NextResponse.json({ error: 'Joining name is required.' }, { status: 400 })
@@ -95,6 +105,7 @@ export async function POST(request: NextRequest) {
         additionalRoles: Array.isArray(additionalRoles) ? additionalRoles : undefined,
         departmentInterest: Array.isArray(departmentInterest) ? departmentInterest : undefined,
         ageExemptionNote: ageExemptionNote?.toString().trim() || undefined,
+        ...(isReturning ? { restoreItems: proposed } : {}),
     })
 
     // Notify J1 leads to sign off on the new recruit

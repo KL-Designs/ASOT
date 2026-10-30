@@ -3,7 +3,12 @@ import { Metadata } from 'next'
 import SectionHead from '@/components/ui/SectionHead'
 import Card, { CardGrid } from '@/components/ui/Card'
 import List from '@/components/ui/List'
+import PhotoBand from '@/components/ui/PhotoBand'
 import AboutShell from '../shell'
+
+import ImgPhq from '@/public/images/home/PHQ2.png'
+import ImgDrone from '@/public/images/home/Droneteam7.png'
+import ImgSnow from '@/public/images/home/snowwalk1.png'
 
 export const metadata: Metadata = {
 	title: "Rules | Australian Special Operations Taskforce",
@@ -37,6 +42,15 @@ export default function Tab() {
 					]} />
 				</Card>
 
+			</CardGrid>
+		</section>
+
+		<PhotoBand images={[ImgPhq, ImgDrone, ImgSnow]} />
+
+		<section>
+			<SectionHead kicker='In game and online' title='On the server and in Discord' />
+
+			<CardGrid columns={6}>
 				<Card title='TeamSpeak' kicker='Section 3' ghost='03' span={2}>
 					<List items={[
 						'Uphold a high level of seriousness and sensibility.',

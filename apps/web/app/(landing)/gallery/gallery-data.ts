@@ -18,13 +18,18 @@ export type Photo = GalleryItemAPI
 
 /* ---------- filtering ----------------------------------------------------- */
 
-export type Facet = 'year' | 'operation' | 'mission' | 'tag' | 'author'
+export type Facet = 'year' | 'operation' | 'mission' | 'callsign' | 'tag' | 'author'
+
+/** Every facet, in the order the rail and the filter pills list them. */
+export const FACETS = ['year', 'operation', 'mission', 'callsign', 'tag', 'author'] as const
 
 export type Filters = {
     q: string
     year: Set<string>
     operation: Set<string>
     mission: Set<string>
+    /** A section's own gallery — see lib/gallery/callsign.ts. */
+    callsign: Set<string>
     tag: Set<string>
     author: Set<string>
     /** Not a facet — a segmented control in the toolbar. */
@@ -33,7 +38,7 @@ export type Filters = {
 
 export const emptyFilters = (): Filters => ({
     q: '', year: new Set(), operation: new Set(), mission: new Set(),
-    tag: new Set(), author: new Set(), media: 'all',
+    callsign: new Set(), tag: new Set(), author: new Set(), media: 'all',
 })
 
 /** The value a facet filters on, for an item that may not have it. Items
@@ -44,6 +49,7 @@ function facetValues(p: Photo, facet: Facet): string[] {
     if (facet === 'operation') return p.operation ? [p.operation] : []
     if (facet === 'mission') return p.mission ? [p.mission] : []
     if (facet === 'author') return p.authorName ? [p.authorName] : []
+    if (facet === 'callsign') return p.callsign ? [p.callsign] : []
     return p.tags
 }
 
@@ -59,12 +65,12 @@ export function matches(p: Photo, f: Filters, skip?: Facet): boolean {
     if (f.media !== 'all' && p.kind !== f.media) return false
 
     if (f.q) {
-        const haystack = [p.opLabel, p.mission, p.year, p.caption, p.authorName, ...p.tags]
+        const haystack = [p.opLabel, p.mission, p.year, p.caption, p.authorName, p.callsign, ...p.tags]
             .filter(Boolean).join(' ').toLowerCase()
         if (!haystack.includes(f.q.toLowerCase())) return false
     }
 
-    for (const facet of ['year', 'operation', 'mission', 'tag', 'author'] as const) {
+    for (const facet of FACETS) {
         if (skip === facet) continue
         const selected = f[facet]
         if (!selected.size) continue

@@ -34,6 +34,7 @@ function parseId(positionId: string): ObjectId | null {
 // Body: { userId: string | null, skipAutoMove?: boolean }  — assign/unassign user
 //       { role: string }                                   — rename role
 //       { positionOrder: number }                          — reorder within section
+//       { night: 'saturday' | 'sunday' | null }            — which night the slot plays (support platoon)
 
 export async function PATCH(
     request: NextRequest,
@@ -184,6 +185,13 @@ export async function PATCH(
         }
     }
     if (typeof body.positionOrder === 'number') updates.positionOrder = body.positionOrder
+    // null clears the tag, which means "both nights".
+    if ('night' in body) {
+        if (body.night !== null && body.night !== 'saturday' && body.night !== 'sunday') {
+            return NextResponse.json({ error: 'night must be saturday, sunday or null' }, { status: 400 })
+        }
+        updates.night = body.night
+    }
     if (Object.keys(updates).length === 0) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
 
     await Db.orbatPositions.updateOne({ _id: objectId }, { $set: updates })
@@ -196,6 +204,17 @@ export async function PATCH(
             swapRoleDiscordRoles(position.userId, position.roleId, updates.roleId),
             swapRoleTsGroups(position.userId, position.roleId, updates.roleId),
         ]).catch(err => console.error('[orbat] Role-level Discord/TeamSpeak sync failed:', err))
+    }
+
+    if ('night' in body) {
+        logAction({
+            action: 'orbat.set_night',
+            category: 'orbat',
+            performedBy: me.id,
+            performedByName,
+            target: `${position.sectionTitle}: "${position.role}" plays ${body.night ?? 'both nights'}`,
+            details: { positionId, category: position.category, sectionTitle: position.sectionTitle, role: position.role, night: body.night },
+        })
     }
 
     if ('roleId' in body) {

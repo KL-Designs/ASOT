@@ -36,7 +36,13 @@ function getSupportIcon(title: string): React.ReactNode {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function SectionHeader({ children, color, patchUrl }: { children: React.ReactNode; color?: string; patchUrl?: string }) {
+function SectionHeader({ children, color, patchUrl, galleryHref }: {
+	children: React.ReactNode
+	color?: string
+	patchUrl?: string
+	/** Set when the section has photographs filed under its callsign. */
+	galleryHref?: string
+}) {
 	const bgStyle = color
 		? { background: color }
 		: { background: 'linear-gradient(90deg, rgba(219,0,29,0.9) 0%, rgba(160,0,20,0.85) 100%)' }
@@ -55,6 +61,14 @@ function SectionHeader({ children, color, patchUrl }: { children: React.ReactNod
 		}}>
 			{patchUrl && <img src={patchUrl} alt='' style={{ width: 16, height: 16, objectFit: 'contain', flexShrink: 0 }} />}
 			{children}
+			{galleryHref && (
+				<a
+					href={galleryHref}
+					style={{ marginLeft: 'auto', color: '#fff', opacity: 0.85, fontSize: '0.6rem', textDecoration: 'underline', textUnderlineOffset: 2 }}
+				>
+					Gallery
+				</a>
+			)}
 		</div>
 	)
 }
@@ -111,14 +125,14 @@ const iconStrip = (icon: React.ReactNode) => (
 	</div>
 )
 
-function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: string; patchUrl?: string } }) {
+function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: string; patchUrl?: string; galleryHref?: string } }) {
 	const patchUrl = meta?.patchUrl
 	const borderColor = meta?.color ? `${meta.color}33` : 'rgba(219,0,29,0.15)'
 	return (
 		<div style={{ border: `1px solid ${borderColor}`, overflow: 'hidden', marginBottom: 6 }}>
 			{patchUrl ? (
 				<>
-					<SectionHeader color={meta?.color}>{section.title}</SectionHeader>
+					<SectionHeader color={meta?.color} galleryHref={meta?.galleryHref}>{section.title}</SectionHeader>
 					<div className='flex items-stretch'>
 						<div style={{
 							width: 64,
@@ -143,7 +157,7 @@ function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: st
 				<div className='flex items-stretch'>
 					{iconStrip(section.icon)}
 					<div className='flex-1 min-w-0'>
-						<SectionHeader color={meta?.color}>{section.title}</SectionHeader>
+						<SectionHeader color={meta?.color} galleryHref={meta?.galleryHref}>{section.title}</SectionHeader>
 						{section.members.map((m, i) => (
 							<MemberRow key={i} role={m.role} name={m.name} rankAbbr={m.rankAbbr} username={m.username} index={i} />
 						))}
@@ -151,7 +165,7 @@ function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: st
 				</div>
 			) : (
 				<>
-					<SectionHeader color={meta?.color}>{section.title}</SectionHeader>
+					<SectionHeader color={meta?.color} galleryHref={meta?.galleryHref}>{section.title}</SectionHeader>
 					{section.members.map((m, i) => (
 						<MemberRow key={i} role={m.role} name={m.name} rankAbbr={m.rankAbbr} username={m.username} index={i} />
 					))}
@@ -161,12 +175,14 @@ function UnitCard({ section, meta }: { section: UnitSection; meta?: { color?: st
 	)
 }
 
-function PlatoonColumn({ name, icon, sections, category, metaMap }: {
+function PlatoonColumn({ name, icon, sections, category, metaMap, galleryCallsigns }: {
 	name: string
 	icon: React.ReactNode
 	sections: UnitSection[]
 	category: string
 	metaMap: Map<string, OrbatSectionMeta>
+	/** Sections with live photographs filed under their callsign. */
+	galleryCallsigns: Set<string>
 }) {
 	const catMeta = metaMap.get(`${category}:`)
 	const catColor = catMeta?.color ?? 'var(--red)'
@@ -204,7 +220,12 @@ function PlatoonColumn({ name, icon, sections, category, metaMap }: {
 				const patchUrl = secMeta?.patch
 					? `/api/orbat/patch?category=${category}&section=${encodeURIComponent(s.title)}`
 					: undefined
-				return <UnitCard key={i} section={s} meta={{ color: secMeta?.color, patchUrl }} />
+				// Linked only once the section has something in it — a link
+				// to an empty gallery is a dead end.
+				const galleryHref = galleryCallsigns.has(s.title)
+					? `/gallery?callsign=${encodeURIComponent(s.title)}`
+					: undefined
+				return <UnitCard key={i} section={s} meta={{ color: secMeta?.color, patchUrl, galleryHref }} />
 			})}
 		</div>
 	)
@@ -331,11 +352,14 @@ function GamemastersCard({ members, meta }: { members: Member[]; meta?: { color?
 
 export default async function Page() {
 	await connection()
-	const [orbat, me, metaDocs] = await Promise.all([
+	const [orbat, me, metaDocs, callsignList] = await Promise.all([
 		fetchORBAT(),
 		client.fetchMe().catch(() => null),
 		Db.orbatSectionMeta.find({}).toArray(),
+		// Which sections have a callsign gallery to link to.
+		Db.galleryMedia.distinct('callsign', { status: 'live', callsign: { $exists: true } }),
 	])
+	const galleryCallsigns = new Set(callsignList.filter((c): c is string => typeof c === 'string'))
 	const canManageOrbat = !!me && client.hasRoles(me, PERMISSIONS.admin.manageOrbat)
 	const support: UnitSection[] = orbat.support.map(s => ({ ...s, icon: getSupportIcon(s.title) }))
 
@@ -525,9 +549,9 @@ export default async function Page() {
 
 			{/* Main 4-column layout */}
 			<div className='grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start'>
-				<PlatoonColumn name='1-1 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon11} category='platoon11' metaMap={metaMap} />
-				<PlatoonColumn name='1-2 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon12} category='platoon12' metaMap={metaMap} />
-				<PlatoonColumn name='1-3 Support Platoon'  icon={<MilitaryTech sx={{ fontSize: 20 }} />} sections={support} category='support' metaMap={metaMap} />
+				<PlatoonColumn name='1-1 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon11} category='platoon11' metaMap={metaMap} galleryCallsigns={galleryCallsigns} />
+				<PlatoonColumn name='1-2 Infantry Platoon' icon={<Shield sx={{ fontSize: 20 }} />} sections={orbat.platoon12} category='platoon12' metaMap={metaMap} galleryCallsigns={galleryCallsigns} />
+				<PlatoonColumn name='1-3 Support Platoon'  icon={<MilitaryTech sx={{ fontSize: 20 }} />} sections={support} category='support' metaMap={metaMap} galleryCallsigns={galleryCallsigns} />
 				<div>
 					{(() => {
 						const gmMeta  = metaMap.get('gamemaster:')

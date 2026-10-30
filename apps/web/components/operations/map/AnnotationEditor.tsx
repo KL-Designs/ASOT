@@ -1,84 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import type { MapAnnotation, A3SideId, AnnotationProperties } from './types'
-import { A3_ICON_TYPES, METIS_ICONS, METIS_ECHELONS, METIS_HQTF, METIS_MOB, METIS_SIDE_KEY, A3_MARKER_COLORS } from './types'
+import type { MapAnnotation, AnnotationProperties } from './types'
+import { A3_ICON_TYPES, A3_MARKER_COLORS } from './types'
+import { MetisFilterDefs, MetisForm, MetisSymbol } from './Metis'
+import { readMetis, writeMetis } from '@/lib/operations/metis'
 import type { MapYjsActions } from './useMapYjs'
 
 // ── Shared constants ──────────────────────────────────────────────────────────
 
 const ICON_GROUPS = ['Generic', 'Shape', 'BLUFOR', 'OPFOR', 'IND', 'CIV'] as const
-const SIDES = [
-    { id: 'blu', label: 'BLUFOR', color: '#0055aa' },
-    { id: 'red', label: 'OPFOR',  color: '#aa0000' },
-    { id: 'grn', label: 'IND',    color: '#007700' },
-    { id: 'unk', label: 'UNK',    color: '#888800' },
-] as const
 const PRESET_COLORS = ['#db001d', '#e67e22', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6', '#1abc9c', '#ffffff']
-const METIS_MOD2 = [
-    { index: 0, label: 'None'     },
-    { index: 1, label: 'Airborne' },
-    { index: 2, label: 'Mountain' },
-    { index: 3, label: 'Arctic'   },
-]
-
-// ── METIS image helpers ───────────────────────────────────────────────────────
-
-const BASE = '/markers/metis'
-const METIS_W = 214
-const METIS_H = 264
-const ls: React.CSSProperties = { position: 'absolute', inset: 0, width: '100%', height: '100%' }
-
-function MetisFilterDefs() {
-    return (
-        <svg width={0} height={0} style={{ position: 'absolute', overflow: 'hidden' }}>
-            <defs>
-                <filter id="metis-tint-blu"><feColorMatrix type="matrix" values="0.502 0 0 0 0  0.878 0 0 0 0  1.000 0 0 0 0  0 0 0 1 0" /></filter>
-                <filter id="metis-tint-red"><feColorMatrix type="matrix" values="1.000 0 0 0 0  0.502 0 0 0 0  0.502 0 0 0 0  0 0 0 1 0" /></filter>
-                <filter id="metis-tint-neu"><feColorMatrix type="matrix" values="0.667 0 0 0 0  1.000 0 0 0 0  0.667 0 0 0 0  0 0 0 1 0" /></filter>
-                <filter id="metis-tint-unk"><feColorMatrix type="matrix" values="1.000 0 0 0 0  1.000 0 0 0 0  0.502 0 0 0 0  0 0 0 1 0" /></filter>
-            </defs>
-        </svg>
-    )
-}
-
-function MetisMarker({ ann, size = 48 }: { ann: MapAnnotation; size?: number }) {
-    const p = ann.properties
-    const sk = METIS_SIDE_KEY[p.a3SideId ?? 'blu'] ?? 'blu'
-    const frame = p.a3Dashed ? `frame/${sk}_dash` : `frame/${sk}`
-    const icon = METIS_ICONS.find(i => i.index === (p.a3Icon ?? 0))
-    const mods = icon?.mods ?? []
-    const echelon = p.a3Size ?? 0
-    const isHq = (p.a3HqTf ?? 0) > 0
-    const reinforced = p.a3Reinforced ?? false
-    const reduced = p.a3Reduced ?? false
-    const h = Math.round(size * METIS_H / METIS_W)
-    return (
-        <div style={{ position: 'relative', width: size, height: h, flexShrink: 0, filter: `url(#metis-tint-${sk})` }}>
-            <img src={`${BASE}/${frame}.png`} style={ls} />
-            {mods.map(m => <img key={m} src={`${BASE}/mod/${sk}_${m}.png`} style={ls} />)}
-            {echelon > 0 && <img src={`${BASE}/size/${sk}_${echelon}.png`} style={ls} />}
-            {isHq && <img src={`${BASE}/frame/${sk}_hq.png`} style={ls} />}
-            {reinforced && reduced && <img src={`${BASE}/com/reinforced_reduced.png`} style={ls} />}
-            {reinforced && !reduced && <img src={`${BASE}/com/reinforced.png`} style={ls} />}
-            {!reinforced && reduced && <img src={`${BASE}/com/reduced.png`} style={ls} />}
-        </div>
-    )
-}
-
-function MetisIconPreview({ iconIndex, sideId, size = 38 }: { iconIndex: number; sideId: string; size?: number }) {
-    const sk = METIS_SIDE_KEY[sideId] ?? 'blu'
-    const icon = METIS_ICONS.find(i => i.index === iconIndex)
-    const mods = icon?.mods ?? []
-    const h = Math.round(size * METIS_H / METIS_W)
-    return (
-        <div style={{ position: 'relative', width: size, height: h, flexShrink: 0, filter: `url(#metis-tint-${sk})` }}>
-            <img src={`${BASE}/frame/${sk}.png`} style={ls} />
-            {mods.map(m => <img key={m} src={`${BASE}/mod/${sk}_${m}.png`} style={ls} />)}
-        </div>
-    )
-}
-
 // ── Shared style shortcuts ────────────────────────────────────────────────────
 
 const sectionLabel: React.CSSProperties = {
@@ -88,7 +20,6 @@ const sectionLabel: React.CSSProperties = {
 const divider: React.CSSProperties = {
     width: 1, background: 'rgba(255,255,255,0.07)', alignSelf: 'stretch', flexShrink: 0, margin: '0 2px',
 }
-const chk: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 5, cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }
 const inp: React.CSSProperties = {
     width: '100%', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.14)',
     color: '#ddd', borderRadius: 3, padding: '3px 5px', fontSize: 11, boxSizing: 'border-box',
@@ -149,165 +80,18 @@ export default function AnnotationEditor({ annotation: ann, actions, onClose }: 
 
                 {/* ── A3 METIS ───────────────────────────────────────────────── */}
                 {ann.type === 'a3metis' && <><MetisFilterDefs />
-
-                    {/* Preview + Identity */}
-                    <div style={{ padding: '0 10px', minWidth: 140, flexShrink: 0 }}>
-                        <div style={sectionLabel}>Identity</div>
-                        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, padding: 6 }}>
-                            <MetisMarker ann={ann} size={64} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 3, marginBottom: 6 }}>
-                            {SIDES.map(s => (
-                                <button key={s.id} onClick={() => upd({ a3SideId: s.id as A3SideId })} title={s.label}
-                                    style={{
-                                        flex: 1, padding: '3px 0', borderRadius: 3, cursor: 'pointer', fontSize: 8, fontWeight: 700,
-                                        letterSpacing: '0.04em', textTransform: 'uppercase',
-                                        background: ann.properties.a3SideId === s.id ? `${s.color}28` : 'rgba(255,255,255,0.03)',
-                                        border: `1px solid ${ann.properties.a3SideId === s.id ? s.color : 'rgba(255,255,255,0.1)'}`,
-                                        color: ann.properties.a3SideId === s.id ? '#fff' : 'rgba(255,255,255,0.45)',
-                                    }}>
-                                    {s.id.toUpperCase()}
-                                </button>
-                            ))}
-                        </div>
-                        <label style={chk}>
-                            <input type="checkbox" checked={ann.properties.a3AssumedFriend ?? false}
-                                onChange={e => upd({ a3AssumedFriend: e.target.checked })} />
-                            Assumed Friend
-                        </label>
-                        <label style={chk}>
-                            <input type="checkbox" checked={ann.properties.a3Dashed ?? false}
-                                onChange={e => upd({ a3Dashed: e.target.checked })} />
-                            Anticipated
-                        </label>
+                    <div style={{ padding: '0 10px', flexShrink: 0 }}>
+                        <div style={sectionLabel}>Preview</div>
+                        <MetisSymbol marker={readMetis(ann.properties)} size={64} />
                     </div>
 
                     <div style={divider} />
 
-                    {/* Unit Type grid */}
-                    <div style={{ padding: '0 10px', minWidth: 180, flexShrink: 0 }}>
-                        <div style={sectionLabel}>Unit Type</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 3, maxHeight: 160, overflowY: 'auto' }}>
-                            {METIS_ICONS.map(ic => {
-                                const selected = ann.properties.a3Icon === ic.index
-                                return (
-                                    <button key={ic.index} onClick={() => upd({ a3Icon: ic.index })} title={ic.label}
-                                        style={{
-                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                            gap: 2, padding: '4px 2px',
-                                            background: selected ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.03)',
-                                            border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.07)'}`,
-                                            borderRadius: 3, cursor: 'pointer',
-                                        }}>
-                                        <MetisIconPreview iconIndex={ic.index} sideId={ann.properties.a3SideId ?? 'blu'} size={28} />
-                                        <span style={{ fontSize: 6.5, color: selected ? '#fff' : 'rgba(255,255,255,0.45)', lineHeight: 1, textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            {ic.label}
-                                        </span>
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-
-                    <div style={divider} />
-
-                    {/* Echelon + Status */}
-                    <div style={{ padding: '0 10px', minWidth: 160, flexShrink: 0 }}>
-                        <div style={sectionLabel}>Echelon</div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 3, marginBottom: 8 }}>
-                            {METIS_ECHELONS.map(e => {
-                                const selected = ann.properties.a3Size === e.size
-                                return (
-                                    <button key={e.size} onClick={() => upd({ a3Size: e.size })} title={e.label}
-                                        style={{
-                                            display: 'flex', flexDirection: 'column', alignItems: 'center',
-                                            justifyContent: 'center', gap: 1, padding: '4px 1px',
-                                            background: selected ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.03)',
-                                            border: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.07)'}`,
-                                            borderRadius: 3, cursor: 'pointer',
-                                        }}>
-                                        <span style={{ fontSize: 11, fontFamily: 'monospace', color: selected ? '#fff' : 'rgba(255,255,255,0.6)', lineHeight: 1 }}>{e.nato}</span>
-                                        <span style={{ fontSize: 6, color: selected ? '#fff' : 'rgba(255,255,255,0.4)', lineHeight: 1 }}>{e.label.slice(0, 4)}</span>
-                                    </button>
-                                )
-                            })}
-                        </div>
-                        <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
-                            <label style={chk}>
-                                <input type="checkbox" checked={ann.properties.a3Reinforced ?? false}
-                                    onChange={e => upd({ a3Reinforced: e.target.checked })} />
-                                Reinforced
-                            </label>
-                            <label style={chk}>
-                                <input type="checkbox" checked={ann.properties.a3Reduced ?? false}
-                                    onChange={e => upd({ a3Reduced: e.target.checked })} />
-                                Reduced
-                            </label>
-                        </div>
-                        <div style={sectionLabel}>HQ / TF</div>
-                        <select value={ann.properties.a3HqTf ?? 0} onChange={e => upd({ a3HqTf: Number(e.target.value) })} style={sel}>
-                            {METIS_HQTF.map(h => <option key={h.index} value={h.index}>{h.label}</option>)}
-                        </select>
-                        <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
-                            <label style={chk}>
-                                <input type="checkbox"
-                                    checked={[1, 2, 5, 6].includes(ann.properties.a3HqTf ?? 0)}
-                                    onChange={e => {
-                                        const isHQ = e.target.checked
-                                        const isTF = [3, 4, 5, 6].includes(ann.properties.a3HqTf ?? 0)
-                                        upd({ a3HqTf: isHQ && isTF ? 5 : isHQ ? 1 : isTF ? 3 : 0 })
-                                    }} />
-                                HQ
-                            </label>
-                        </div>
-                    </div>
-
-                    <div style={divider} />
-
-                    {/* Modifiers */}
-                    <div style={{ padding: '0 10px', minWidth: 140, flexShrink: 0 }}>
-                        <div style={sectionLabel}>Modifier 1</div>
-                        <select value={ann.properties.a3Mod1 ?? 0} onChange={e => upd({ a3Mod1: Number(e.target.value) })} style={{ ...sel, marginBottom: 10 }}>
-                            {METIS_MOB.map(m => <option key={m.index} value={m.index}>{m.label}</option>)}
-                        </select>
-                        <div style={sectionLabel}>Modifier 2</div>
-                        <select value={ann.properties.a3Mod2 ?? 0} onChange={e => upd({ a3Mod2: Number(e.target.value) })} style={sel}>
-                            {METIS_MOD2.map(m => <option key={m.index} value={m.index}>{m.label}</option>)}
-                        </select>
-                    </div>
-
-                    <div style={divider} />
-
-                    {/* Text + Scale */}
-                    <div style={{ padding: '0 10px', flex: 1, minWidth: 140 }}>
-                        <div style={sectionLabel}>Text</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                            <div>
-                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>Designation</div>
-                                <input type="text" style={inp} placeholder="1, ALPHA…"
-                                    value={ann.properties.a3Designation ?? ''}
-                                    onChange={e => upd({ a3Designation: e.target.value })} />
-                            </div>
-                            <div>
-                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>Higher Formation</div>
-                                <input type="text" style={inp} placeholder="Parent unit…"
-                                    value={ann.properties.a3HigherFormation ?? ''}
-                                    onChange={e => upd({ a3HigherFormation: e.target.value })} />
-                            </div>
-                            <div>
-                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>Additional Info</div>
-                                <input type="text" style={inp}
-                                    value={ann.properties.a3AdditionalInfo ?? ''}
-                                    onChange={e => upd({ a3AdditionalInfo: e.target.value })} />
-                            </div>
-                            <div>
-                                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginBottom: 2 }}>Scale <span style={{ color: 'rgba(255,255,255,0.25)' }}>{(ann.properties.a3MetisScale ?? 1).toFixed(1)}×</span></div>
-                                <input type="range" min={0.5} max={3} step={0.1}
-                                    value={ann.properties.a3MetisScale ?? 1}
-                                    onChange={e => upd({ a3MetisScale: Number(e.target.value) })}
-                                    style={{ width: '100%' }} />
-                            </div>
-                        </div>
+                    {/* A marker placed before the Metis rebuild is read through
+                        its translation and written back in the mod's own ids
+                        the first time anything on it is changed. */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <MetisForm wide value={readMetis(ann.properties)} onChange={marker => upd(writeMetis(marker))} />
                     </div>
                 </>}
 

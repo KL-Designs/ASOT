@@ -16,6 +16,12 @@ declare global {
         confirmedAt: Date | null
         importedStatus?: string     // 'ATTENDED' | 'NOT ATTENDING' | 'RESOLVED' | 'LOA' (from CSV)
         attendanceType?: string     // Visual flag: 'ATTENDED' | 'NOT ATTENDING' | 'RESOLVED' | 'NO NOTICE' | 'LOA' | 'CONFIRM' | 'N/A' | 'ADDED TO UNIT'
+        /**
+         * Set when the member was not on the roster and a roll call added them
+         * afterwards: the section they played in. They hold no slot, so this is
+         * the only thing that ties them to a section on the night.
+         */
+        lateJoinSection?: string
         reservistSection?: string   // if set, member is attending as a reservist in this section instead of their own
         /**
          * Reservist pool preference — a signal for staff and for auto-fill, not
@@ -31,6 +37,13 @@ declare global {
         _id: ObjectId
         operationId: ObjectId
         assignedPlatoons: string[]  // e.g. ['platoon11', 'platoon12', 'support']
+        /**
+         * Which of the support platoon's crews this operation uses, when
+         * 'support' is assigned: only 1-3 slots tagged for that night (or for
+         * both) are cut into the roster. Absent or 'both' takes every slot.
+         * See `onCrew` in lib/attendance/roster.ts.
+         */
+        supportCrew?: 'saturday' | 'sunday' | 'both'
         records: OperationAttendanceRecord[]
         reservistAssignments: {     // reservists temporarily assigned to a section for this op
             userId: string
@@ -59,6 +72,33 @@ declare global {
         confirmationOpenedAt?: Date // when confirmation was last opened (for 24h auto-close)
         stage?: 'preparing' | 'rsvp_open' | 'rsvp_closed' | 'op_running' | 'confirmations_open' | 'completed'
 
+        /**
+         * This operation's own details for its Discord attendance post: which
+         * kind it is, its timings, and server details where they differ from
+         * the site's. Anything absent uses the default. See
+         * lib/attendance/discord-post.ts.
+         */
+        postDetails?: {
+            kind?: 'main' | 'midweek'
+            timings?: Partial<Record<'staffLoadIn' | 'staffBriefing' | 'membersLoadIn' | 'stepOff' | 'missionEnd', number>>
+            serverAddress?: string
+            serverPort?: string
+            serverPassword?: string
+            modlistUrl?: string
+        }
+        /**
+         * The Discord attendance post, once made. `fingerprint` and `drawnAt`
+         * decide when the roster picture is redrawn; `closedAt` is set when
+         * sign-ups shut and the post is finished with.
+         */
+        discordPost?: {
+            channelId: string
+            messageId: string
+            postedAt: Date
+            fingerprint?: string
+            drawnAt?: Date
+            closedAt?: Date
+        }
         chqAllocationReminderSentAt?: Date  // set when the 1hr-before CHQ reminder fires (prevents re-send)
 
         // Lead Zeus nomination — CHQ picks one Zeus for the night

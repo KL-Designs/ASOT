@@ -5,6 +5,8 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { CERTIFICATIONS } from '@/lib/military/certifications'
 import { createNotification } from '@/lib/notifications'
+import { BCT_QUALIFICATIONS, clearBctAvailabilityIfDone } from '@/lib/training/bct-availability'
+import { queueMemberTeamspeakSync } from '@/lib/orbat/member-sync'
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -52,6 +54,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
                     ...(cert.points > 0 ? { $inc: { 'milpac.promotionPoints': cert.points } } : {}),
                 }
             )
+            // The certification's TeamSpeak group, where it has one.
+            queueMemberTeamspeakSync(record.memberId)
         }
 
         await Db.trainingAttendance.updateOne(
@@ -70,6 +74,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
             relatedId: id,
         }).catch(console.error)
     }))
+
+    // Finishing BCT 1 and 2 takes a recruit's availability off the J3 calendar.
+    // After the awards above, so the check sees the qualification just given.
+    if (cert && (BCT_QUALIFICATIONS as readonly string[]).includes(cert.label)) {
+        await Promise.all(unawarded.map(record => clearBctAvailabilityIfDone(record.memberId)))
+    }
 
     return NextResponse.json({ awarded: unawarded.length, certLabel: cert?.label ?? null })
 }

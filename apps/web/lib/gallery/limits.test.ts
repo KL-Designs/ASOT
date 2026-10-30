@@ -8,7 +8,7 @@ describe('the ceilings themselves', () => {
     test('match the values the spec fixed', () => {
         expect(MAX_ITEMS_PER_SUBMISSION).toBe(20)
         expect(MAX_IMAGE_BYTES).toBe(20 * 1024 * 1024)
-        expect(MAX_VIDEO_BYTES).toBe(500 * 1024 * 1024)
+        expect(MAX_VIDEO_BYTES).toBe(50 * 1024 * 1024)
         expect(MAX_VIDEO_SECONDS).toBe(300)
     })
 })

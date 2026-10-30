@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { CLASH_LABEL, type ClashKind } from '@/lib/training/clashes'
+import MemberPicker from '@/app/dashboard/_components/meetings/MemberPicker'
 import { Add, CheckCircle, Cancel, Edit, Delete } from '@mui/icons-material'
 
 const RED = '#db001d'
@@ -131,6 +133,121 @@ function SlotPill({ slotType, rsvpStatus }: { slotType: string; rsvpStatus: stri
         <span style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color, border: `1px solid ${color.replace('0.7', '0.3')}`, padding: '2px 6px', flexShrink: 0 }}>
             {SLOT_LABELS[slotType] ?? slotType}{rsvpStatus === 'waitlist' ? ' (Waitlist)' : ''}
         </span>
+    )
+}
+
+type PreLearning = {
+    trainingTypeId: string
+    trainingTypeName: string
+    state: 'locked' | 'open' | 'done' | 'expired'
+    count: number
+    expiresAt: string | null
+    completedAt: string | null
+    material: { type: 'video' | 'file' | 'url'; label: string; url: string }[]
+}
+
+const PRE_LEARNING_KIND = { video: 'Video', file: 'Document', url: 'Link' } as const
+
+/**
+ * A training's pre-learning, under each of its sessions.
+ *
+ * Locked and expired say what would open it, because a locked panel with no
+ * reason reads as a fault. The links themselves only exist in `item.material`
+ * while the server considers it open — this component cannot show what it was
+ * never sent.
+ */
+function PreLearningPanel({ item, onDone }: { item: PreLearning; onDone: () => void }) {
+    const open = item.state === 'open' || item.state === 'done'
+    const tone = item.state === 'done' ? 'rgba(80,200,120,0.75)' : open ? 'rgba(120,160,220,0.8)' : 'rgba(237,237,237,0.35)'
+    const until = item.expiresAt ? new Date(item.expiresAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) : null
+
+    return (
+        <div style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderTop: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: tone }}>
+                    Pre-learning{item.state === 'done' ? ' · done' : item.state === 'locked' ? ' · locked' : item.state === 'expired' ? ' · expired' : ''}
+                </span>
+                <span style={{ fontSize: '0.7rem', lineHeight: 1.5, color: 'rgba(237,237,237,0.5)' }}>
+                    {item.state === 'locked' && `${item.count} item${item.count === 1 ? '' : 's'}. Opens when you have a seat on a session, or are in the first two on the waitlist.`}
+                    {item.state === 'expired' && 'Your two weeks ran out before you attended. Sign up to a session to open it again, and work through it again.'}
+                    {open && until && `Open to you until ${until}. Work through it before the session.`}
+                </span>
+            </div>
+
+            {open && (
+                <>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {item.material.map((m, i) => (
+                            <a
+                                key={i}
+                                href={m.url}
+                                target='_blank'
+                                rel='noopener noreferrer'
+                                style={{ fontSize: '0.78rem', color: 'rgba(160,190,235,0.9)', textDecoration: 'underline', textUnderlineOffset: 2 }}
+                            >
+                                {PRE_LEARNING_KIND[m.type]}: {m.label}
+                            </a>
+                        ))}
+                    </div>
+                    {item.state === 'open' && (
+                        <button
+                            type='button'
+                            onClick={onDone}
+                            style={{ alignSelf: 'flex-start', padding: '4px 12px', background: 'rgba(80,200,120,0.1)', border: '1px solid rgba(80,200,120,0.25)', color: 'rgba(80,200,120,0.75)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}
+                        >
+                            I have done the pre-learning
+                        </button>
+                    )}
+                </>
+            )}
+        </div>
+    )
+}
+
+type Clash = { kind: ClashKind; title: string; start: string; end: string }
+
+/**
+ * What else is on at the time being booked: missions, other trainings, J2 and
+ * unit calendar events. A warning only — the booking still goes through, since
+ * the trainer is the one who knows whether the overlap matters.
+ *
+ * Asked again a moment after the time or duration stops changing, and shows
+ * nothing at all when the time is clear.
+ */
+function ClashWarning({ at, duration, excludeId }: { at: string; duration: number; excludeId?: string }) {
+    const [clashes, setClashes] = useState<Clash[]>([])
+
+    useEffect(() => {
+        const when = new Date(at)
+        if (!at || Number.isNaN(when.getTime())) return
+        let live = true
+        const timer = setTimeout(() => {
+            const query = new URLSearchParams({ at: when.toISOString(), duration: String(duration) })
+            if (excludeId) query.set('exclude', excludeId)
+            fetch(`/api/training/events/clashes?${query}`)
+                .then(r => (r.ok ? r.json() : { clashes: [] }))
+                .then(d => { if (live) setClashes(d.clashes ?? []) })
+                .catch(() => { if (live) setClashes([]) })
+        }, 400)
+        return () => { live = false; clearTimeout(timer) }
+    }, [at, duration, excludeId])
+
+    if (!clashes.length) return null
+
+    const time = (iso: string) => new Date(iso).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false })
+
+    return (
+        <div role='status' style={{ padding: '10px 12px', border: '1px solid rgba(245,158,11,0.35)', borderLeft: '3px solid #f59e0b', background: 'rgba(245,158,11,0.06)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(245,158,11,0.95)' }}>
+                This time overlaps with
+            </span>
+            {clashes.map((c, i) => (
+                <span key={i} style={{ fontSize: '0.76rem', lineHeight: 1.45, color: 'rgba(237,237,237,0.75)' }}>
+                    {CLASH_LABEL[c.kind]}: {c.title} ({time(c.start)} to {time(c.end)})
+                </span>
+            ))}
+            <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.4)' }}>You can still book it.</span>
+        </div>
     )
 }
 
@@ -341,6 +458,21 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
     const [slotCounts, setSlotCounts] = useState<Record<string, SlotCounts>>({})
     const [myRsvps, setMyRsvps] = useState<Record<string, MyRsvp>>({})
     const [rsvpingId, setRsvpingId] = useState<string | null>(null)
+    // Why a sign-up was refused, per event — most often missing prerequisites.
+    const [rsvpErrors, setRsvpErrors] = useState<Record<string, string>>({})
+    // The caller's pre-learning, by training type. Re-read after every sign-up
+    // change, since that is what opens it.
+    const [preLearning, setPreLearning] = useState<Record<string, PreLearning>>({})
+    const loadPreLearning = useCallback(() => {
+        fetch('/api/training/pre-learning')
+            .then(r => (r.ok ? r.json() : { items: [] }))
+            .then(d => setPreLearning(Object.fromEntries((d.items ?? []).map((i: PreLearning) => [i.trainingTypeId, i]))))
+            .catch(() => { })
+    }, [])
+    useEffect(() => { loadPreLearning() }, [loadPreLearning])
+    // Prerequisite waivers for the session whose attendance panel is open.
+    const [waivers, setWaivers] = useState<Record<string, { memberId: string; memberName: string; byName: string }[]>>({})
+    const [waiverPick, setWaiverPick] = useState<{ id: string; name: string } | null>(null)
 
     // Attendance state
     const [attendanceView, setAttendanceView] = useState<string | null>(null)
@@ -552,11 +684,19 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ slotType }),
             })
-            if (!res.ok) return
+            if (!res.ok) {
+                // Say why. This used to return silently, so a refused sign-up
+                // looked exactly like a button that did nothing.
+                const data = await res.json().catch(() => null)
+                setRsvpErrors(prev => ({ ...prev, [eventId]: data?.error ?? 'That sign-up could not be saved. Try again.' }))
+                return
+            }
+            setRsvpErrors(prev => { const next = { ...prev }; delete next[eventId]; return next })
             const record = await res.json()
             setMyRsvps(prev => ({ ...prev, [eventId]: { slotType: record.slotType ?? slotType, rsvpStatus: record.rsvpStatus } }))
             const refresh = await fetch('/api/training/events').then(r => r.json())
             setSlotCounts(refresh.slotCounts ?? {})
+            loadPreLearning()
         } finally {
             setRsvpingId(null)
         }
@@ -575,9 +715,23 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
             setMyRsvps(prev => ({ ...prev, [eventId]: { slotType: prev[eventId]?.slotType ?? 'trainee', rsvpStatus: 'not_attending' } }))
             const refresh = await fetch('/api/training/events').then(r => r.json())
             setSlotCounts(refresh.slotCounts ?? {})
+            loadPreLearning()
         } finally {
             setRsvpingId(null)
         }
+    }
+
+    /** Let one member sign up to this session without its prerequisites, or undo that. */
+    async function handleWaiver(eventId: string, member: { id: string; name: string }, allow: boolean) {
+        const res = await fetch(`/api/training/events/${eventId}/attendance`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ waiver: { memberId: member.id, memberName: member.name, allow } }),
+        })
+        if (!res.ok) return
+        const data = await res.json()
+        setWaivers(prev => ({ ...prev, [eventId]: data.waivers ?? [] }))
+        setWaiverPick(null)
     }
 
     async function handleLoadAttendance(eventId: string) {
@@ -590,6 +744,7 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
             if (!res.ok) return
             const data = await res.json()
             setAttendanceData(prev => ({ ...prev, [eventId]: data.records ?? [] }))
+            setWaivers(prev => ({ ...prev, [eventId]: data.waivers ?? [] }))
             const dirty: Record<string, boolean> = {}
             for (const r of (data.records ?? []) as AttendanceRecord[]) {
                 if (r.rsvpStatus === 'attending') dirty[r.memberId] = r.attended ?? false
@@ -679,6 +834,24 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
                                     onEdit={() => openEditModal(ev)}
                                     onComplete={() => setCompleteModal({ eventId: ev._id, notes: '' })}
                                 />
+                                {ev.approvalStatus === 'approved' && ev.status === 'Scheduled' && preLearning[ev.trainingTypeId] && (
+                                    <PreLearningPanel
+                                        item={preLearning[ev.trainingTypeId]}
+                                        onDone={async () => {
+                                            await fetch('/api/training/pre-learning', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ trainingTypeId: ev.trainingTypeId }),
+                                            }).catch(() => null)
+                                            loadPreLearning()
+                                        }}
+                                    />
+                                )}
+                                {rsvpErrors[ev._id] && (
+                                    <div role='alert' style={{ padding: '9px 14px', fontSize: '0.72rem', lineHeight: 1.5, color: 'rgba(255,170,150,0.95)', background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.3)', borderTop: 'none' }}>
+                                        {rsvpErrors[ev._id]}
+                                    </div>
+                                )}
                                 {/* Attendance panel */}
                                 {attendanceView === ev._id && (isJ3Lead || ev.trainerId === myId) && (
                                     <div style={{ background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)', borderTop: 'none', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -706,6 +879,35 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
                                                     {savingAttendance ? 'Saving…' : 'Save Attendance'}
                                                 </button>
                                             </>
+                                        )}
+                                        {/* Prerequisite waivers — while the session is still open for sign-ups. */}
+                                        {ev.status === 'Scheduled' && (
+                                            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>
+                                                    Allow without prerequisites
+                                                </div>
+                                                <div style={{ fontSize: '0.66rem', lineHeight: 1.5, color: 'rgba(237,237,237,0.35)' }}>
+                                                    Members missing this training&apos;s prerequisites cannot sign up as a trainee. Add someone here to let them in for this session only.
+                                                </div>
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                                                    <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+                                                        <MemberPicker value={waiverPick} onChange={setWaiverPick} allMembers placeholder='Search member…' />
+                                                    </div>
+                                                    <button type='button' disabled={!waiverPick} onClick={() => waiverPick && handleWaiver(ev._id, waiverPick, true)}
+                                                        style={{ padding: '6px 14px', background: 'rgba(80,200,120,0.12)', border: '1px solid rgba(80,200,120,0.3)', color: 'rgba(80,200,120,0.85)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: waiverPick ? 'pointer' : 'default', opacity: waiverPick ? 1 : 0.45 }}>
+                                                        Allow
+                                                    </button>
+                                                </div>
+                                                {(waivers[ev._id] ?? []).map(w => (
+                                                    <div key={w.memberId} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.7rem', color: 'rgba(237,237,237,0.65)' }}>
+                                                        <span style={{ flex: 1 }}>{w.memberName} <span style={{ color: 'rgba(237,237,237,0.3)' }}>· allowed by {w.byName}</span></span>
+                                                        <button type='button' onClick={() => handleWaiver(ev._id, { id: w.memberId, name: w.memberName }, false)}
+                                                            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.6)' }}>
+                                                            Remove
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                         {isJ3Lead && ev.status === 'Completed' && (
                                             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
@@ -784,6 +986,7 @@ export default function EventsTab({ isJ3Lead, isTrainer, isJ3Trainer }: { isJ3Le
                                     style={{ ...inputStyle, width: 80 }} />
                             </Field>
                         </div>
+                        <ClashWarning at={form.scheduledAt} duration={form.durationMinutes} excludeId={'id' in form ? String(form.id) : undefined} />
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                             <Field label='Server'>
                                 <input value={form.server} onChange={e => setForm(prev => ({ ...prev, server: e.target.value }))}

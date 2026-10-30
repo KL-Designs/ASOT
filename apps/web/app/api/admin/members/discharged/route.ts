@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
+import { restoreFromSnapshot, sanitiseRestoreItems } from '@/lib/military/reinstate'
 import { logAction } from '@/lib/logs'
 
 // GET /api/admin/members/discharged — list discharged members (J4 only)
@@ -74,41 +75,10 @@ export async function PATCH(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
     if (!user.discharged) return NextResponse.json({ error: 'Member is not discharged' }, { status: 400 })
 
-    // Apply selective data restoration from discharge snapshot
-    if (Array.isArray(restoreItems) && restoreItems.length > 0) {
-        const snapshot = await Db.dischargeSnapshots.findOne({ discordId: targetUserId })
-        if (snapshot) {
-            const snap = snapshot as unknown as DischargeSnapshot
-            const milpac = snap.milpac
-            const setOps: Record<string, unknown> = {}
-
-            if (restoreItems.includes('qualifications') && milpac?.qualifications?.length) {
-                setOps['milpac.qualifications'] = milpac.qualifications
-            }
-            if (restoreItems.includes('awards') && milpac?.awards?.length) {
-                setOps['milpac.awards'] = milpac.awards
-            }
-            if (restoreItems.includes('trainings') && milpac?.billetCounts) {
-                const bc = milpac.billetCounts
-                setOps['milpac.billetCounts.platoonTraining'] = bc.platoonTraining ?? 0
-                setOps['milpac.billetCounts.sectionTraining'] = bc.sectionTraining ?? 0
-                setOps['milpac.billetCounts.j3Bct12'] = bc.j3Bct12 ?? 0
-                setOps['milpac.billetCounts.j3OtherTrainings'] = bc.j3OtherTrainings ?? 0
-            }
-            if (restoreItems.includes('operations')) {
-                if (milpac?.operations?.length) {
-                    setOps['milpac.operations'] = milpac.operations
-                }
-                if (milpac?.billetCounts?.campaignMedals) {
-                    setOps['milpac.billetCounts.campaignMedals'] = milpac.billetCounts.campaignMedals
-                }
-            }
-
-            if (Object.keys(setOps).length > 0) {
-                await Db.users.updateOne({ id: targetUserId }, { $set: setOps })
-            }
-        }
-    }
+    // Apply selective data restoration from the discharge snapshot. Shared with
+    // the J1 recruit sign-off, which restores the same way — see
+    // lib/military/reinstate.ts.
+    await restoreFromSnapshot(targetUserId, sanitiseRestoreItems(restoreItems))
 
     await Db.users.updateOne({ id: targetUserId }, { $unset: { discharged: '' } })
 

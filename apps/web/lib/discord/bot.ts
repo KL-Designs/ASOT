@@ -1114,6 +1114,76 @@ export async function sendChannelMessage(
 }
 
 /**
+ * Create a channel message with one attached file, or edit one in place.
+ *
+ * The attendance post is the only caller: it carries a picture of the roster,
+ * and Discord takes a file as multipart form data rather than the JSON every
+ * other call here sends. `payload` is Discord's own message body and is passed
+ * through as `payload_json`.
+ *
+ * Returns the message id, or **null when developer mode held it back** — the
+ * attempt is logged as blocked, exactly as `sendChannelMessage` does, and the
+ * caller treats null as "not sent, try again later". Throws on a real failure.
+ */
+export async function upsertChannelPost(args: {
+    channelId: string
+    /** Set to edit that message; absent to create one. */
+    messageId?: string
+    payload: Record<string, unknown> & { embeds?: DiscordEmbed[] }
+    file: { name: string; data: Buffer; contentType: string }
+    messageType?: string
+}): Promise<string | null> {
+    const { channelId, messageId, payload, file, messageType = 'raw' } = args
+    if (!channelId) return null
+
+    const preview = payload.embeds?.[0]?.title ?? '(embed)'
+    const log = (status: 'blocked' | 'sent' | 'failed', devMode: boolean) => logDiscord({
+        action: 'channel_message',
+        status,
+        targetUserId: channelId,
+        targetUserName: `#channel:${channelId}`,
+        messageType,
+        preview,
+        embeds: payload.embeds as DiscordLog['embeds'],
+        devMode,
+        override: false,
+    })
+
+    if (await isDevModeEnabled()) {
+        await log('blocked', true)
+        return null
+    }
+
+    const token = process.env.DISCORD_BOT_TOKEN
+    if (!token) throw new Error('[discord/bot] DISCORD_BOT_TOKEN is not set')
+
+    const form = new FormData()
+    form.set('payload_json', JSON.stringify(payload))
+    form.set('files[0]', new Blob([new Uint8Array(file.data)], { type: file.contentType }), file.name)
+
+    const path = messageId ? `/channels/${channelId}/messages/${messageId}` : `/channels/${channelId}/messages`
+    try {
+        const res = await fetch(`${BASE}${path}`, {
+            method: messageId ? 'PATCH' : 'POST',
+            // No content-type: fetch sets the multipart boundary itself.
+            headers: { authorization: `Bot ${token}` },
+            body: form,
+            cache: 'no-store',
+        })
+        if (!res.ok) {
+            const text = await res.text().catch(() => res.statusText)
+            throw new Error(`[discord/bot] ${messageId ? 'PATCH' : 'POST'} ${path} → ${res.status}: ${text}`)
+        }
+        const sent = await res.json() as { id: string }
+        await log('sent', false)
+        return sent.id
+    } catch (err) {
+        await log('failed', false)
+        throw err
+    }
+}
+
+/**
  * Notify a member that they have been nominated as Lead Zeus for an operation.
  */
 export async function sendLeadZeusDM(

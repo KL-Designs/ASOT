@@ -22,15 +22,45 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ me
         return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
     }
 
-    const existing = await Db.billetExtras.findOne({ memberId })
+    /*
+     * Find the SAME record the sheet is showing for this row. The list
+     * (`GET ../billet`) attaches a row's billet data three ways, and looking
+     * only for the first is why Apply appeared to do nothing on the others:
+     *
+     *  1. by `memberId` — a CSV row that was matched to an account;
+     *  2. by the extras document's own `_id` — the stub rows for discharged
+     *     members with no account, whose row id IS that `_id`;
+     *  3. by display name — a CSV row never matched to an account, which the
+     *     list still shows against the member of the same name.
+     *
+     * Missing (2) and (3) meant the edit was written to a brand-new document
+     * the list never reads for that row, so the old value came straight back.
+     */
+    const user = await Db.users.findOne(
+        { _id: memberId as any },
+        { projection: { name: 1, 'guild.nickname': 1, 'guild.displayName': 1, globalName: 1, username: 1 } }
+    )
+    const memberName = user?.guild?.nickname || user?.guild?.displayName || user?.name || user?.globalName || user?.username || memberId
+
+    let existing = await Db.billetExtras.findOne({ memberId })
+    if (!existing && ObjectId.isValid(memberId)) {
+        existing = await Db.billetExtras.findOne({ _id: new ObjectId(memberId) as BilletExtra['_id'] })
+    }
+    let adopt = false
+    if (!existing && user) {
+        const escaped = memberName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        existing = await Db.billetExtras.findOne({
+            memberId: { $exists: false },
+            memberName: { $regex: `^${escaped}$`, $options: 'i' },
+        })
+        // Now that it is known whose row this is, record it, so the next
+        // edit takes the first path.
+        adopt = !!existing
+    }
+
     if (existing) {
-        await Db.billetExtras.updateOne({ memberId }, { $set: updates })
+        await Db.billetExtras.updateOne({ _id: existing._id }, { $set: { ...updates, ...(adopt ? { memberId } : {}) } })
     } else {
-        const user = await Db.users.findOne(
-            { _id: memberId as any },
-            { projection: { name: 1, 'guild.nickname': 1, 'guild.displayName': 1, globalName: 1, username: 1 } }
-        )
-        const memberName = user?.guild?.nickname || user?.guild?.displayName || user?.name || user?.globalName || user?.username || memberId
         await Db.billetExtras.insertOne({
             _id: new ObjectId() as BilletExtra['_id'],
             memberName,

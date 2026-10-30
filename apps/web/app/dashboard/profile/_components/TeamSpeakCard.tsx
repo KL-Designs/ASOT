@@ -10,7 +10,7 @@ interface Props {
     onLinked?: () => void
 }
 
-type Step = 'searching' | 'confirm' | 'manual' | 'awaiting-code' | 'success' | 'error'
+type Step = 'ready' | 'searching' | 'confirm' | 'manual' | 'awaiting-code' | 'success' | 'error'
 
 interface OnlineClient { clid: string, nickname: string }
 
@@ -34,6 +34,17 @@ export function TeamSpeakCard({ linked, expectedNickname, onLinked }: Props) {
     const [isLinked, setIsLinked] = useState(!!linked)
     const [notifyState, setNotifyState] = useState<'idle' | 'sending' | 'sent' | 'offline'>('idle')
     const [unlinking, setUnlinking] = useState(false)
+
+    /** Open the dialog on the "have TeamSpeak open" step. Nothing is searched
+     *  until the member says they are connected — searching first only ever
+     *  found nobody and sent them to pick from a list they were not on. */
+    function openLink() {
+        setOpen(true)
+        setStep('ready')
+        setErrorMsg('')
+        setCode('')
+        setSelectedClid('')
+    }
 
     async function startLink() {
         setOpen(true)
@@ -168,7 +179,7 @@ export function TeamSpeakCard({ linked, expectedNickname, onLinked }: Props) {
                                             : notifyState === 'offline' ? 'You are offline'
                                                 : 'Poke me the name'}
                                 </Button>
-                                <Button variant='subtle' size='sm' onClick={startLink}>Change</Button>
+                                <Button variant='subtle' size='sm' onClick={openLink}>Change</Button>
                                 <Button variant='danger' size='sm' disabled={unlinking} onClick={unlink}>
                                     {unlinking ? 'Removing…' : 'Unlink'}
                                 </Button>
@@ -178,7 +189,7 @@ export function TeamSpeakCard({ linked, expectedNickname, onLinked }: Props) {
                         <>
                             <span className={s.hint}>No TeamSpeak account linked</span>
                             <div>
-                                <Button variant='primary' size='sm' onClick={startLink}>Link account</Button>
+                                <Button variant='primary' size='sm' onClick={openLink}>Link account</Button>
                             </div>
                         </>
                     )}
@@ -193,6 +204,17 @@ export function TeamSpeakCard({ linked, expectedNickname, onLinked }: Props) {
                         </div>
 
                         <div className={s.dialogB}>
+                            {step === 'ready' && (
+                                <div className='flex flex-col gap-3'>
+                                    <Badge tone='warn' dot>TeamSpeak needs to be open</Badge>
+                                    <p style={{ fontSize: 13, color: 'var(--txt-2)', lineHeight: 1.6 }}>
+                                        Before you continue, open TeamSpeak and connect to the ASOT server.
+                                        Linking works by finding you in the list of people online and poking
+                                        you a code, so it cannot find you if you are not connected.
+                                    </p>
+                                </div>
+                            )}
+
                             {step === 'searching' && (
                                 <p className={s.hint}>Searching for your account on TeamSpeak…</p>
                             )}
@@ -207,10 +229,13 @@ export function TeamSpeakCard({ linked, expectedNickname, onLinked }: Props) {
                                 <div className='flex flex-col gap-3'>
                                     <p style={{ fontSize: 13, color: 'var(--txt-2)', lineHeight: 1.6 }}>
                                         We couldn&apos;t find you automatically. Pick yourself out of the online
-                                        list and we&apos;ll poke you a code.
+                                        list and we&apos;ll poke you a code. If you are not in the list, check
+                                        that TeamSpeak is open and connected to the ASOT server, then search again.
                                     </p>
                                     {onlineClients.length === 0 ? (
-                                        <Badge tone='warn' dot>Nobody is on TeamSpeak right now</Badge>
+                                        // The badge is a single line by design; this sentence needs to wrap
+                                        // inside the dialog rather than run off its right edge.
+                                        <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--amber)' }}>Nobody is on TeamSpeak right now. Is yours open and connected?</p>
                                     ) : (
                                         <Select
                                             value={selectedClid}
@@ -259,6 +284,12 @@ export function TeamSpeakCard({ linked, expectedNickname, onLinked }: Props) {
                         </div>
 
                         <div className={s.dialogF}>
+                            {step === 'ready' && (
+                                <>
+                                    <Button variant='subtle' onClick={close}>Cancel</Button>
+                                    <Button variant='primary' onClick={startLink}>I&apos;m connected, continue</Button>
+                                </>
+                            )}
                             {step === 'confirm' && (
                                 <>
                                     <Button variant='subtle' onClick={fetchManual}>No, that&apos;s not me</Button>
@@ -268,6 +299,7 @@ export function TeamSpeakCard({ linked, expectedNickname, onLinked }: Props) {
                             {step === 'manual' && (
                                 <>
                                     <Button variant='subtle' onClick={close}>Cancel</Button>
+                                    <Button variant='subtle' onClick={fetchManual}>Search again</Button>
                                     <Button variant='primary' disabled={!selectedClid} onClick={sendPoke}>Send code</Button>
                                 </>
                             )}

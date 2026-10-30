@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { connection } from 'next/server'
 
 import Db from '@/lib/mongo'
@@ -152,7 +151,6 @@ export default async function Page() {
             }}
         >
             <div className={s.topbar}>
-                <Link href='/milpacs' className={s.btn}>← Milpacs</Link>
                 <span className={s.crumb}>COMMUNITY / KITS</span>
             </div>
 

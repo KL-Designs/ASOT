@@ -1,4 +1,4 @@
-import { Extension } from '@tiptap/core'
+import { Extension, Node, mergeAttributes } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import TextAlign from '@tiptap/extension-text-align'
@@ -109,10 +109,54 @@ export const ContentImage = Image.extend({
     },
 })
 
+/**
+ * A flowchart: boxes and arrows, stored as data in one attribute.
+ *
+ * Schema only, for the reason `ContentImage` is: the read view has to parse a
+ * document that contains one. What it renders to is a placeholder `<div>`
+ * carrying the chart as JSON — the drawing is done by whoever shows it
+ * (`FlowchartNodeView` in the editor, `DocBody` in the read view), both from
+ * `lib/operations/flowchart.ts`, because an SVG laid out by dagre is not
+ * something a ProseMirror `renderHTML` can describe.
+ *
+ * An atom: the editor treats it as one block, not as text to type into.
+ */
+export const ContentFlowchart = Node.create({
+    name: 'flowchart',
+    group: 'block',
+    atom: true,
+    draggable: true,
+    selectable: true,
+
+    addAttributes() {
+        return {
+            chart: {
+                default: '{"nodes":[],"edges":[]}',
+                parseHTML: (el: HTMLElement) => el.getAttribute('data-flowchart') || '{"nodes":[],"edges":[]}',
+                renderHTML: (attrs: Record<string, any>) => ({ 'data-flowchart': attrs.chart }),
+            },
+            title: {
+                default: '',
+                parseHTML: (el: HTMLElement) => el.getAttribute('data-title') || '',
+                renderHTML: (attrs: Record<string, any>) => (attrs.title ? { 'data-title': attrs.title } : {}),
+            },
+        }
+    },
+
+    parseHTML() {
+        return [{ tag: 'div[data-flowchart]' }]
+    },
+
+    renderHTML({ HTMLAttributes }) {
+        return ['div', mergeAttributes(HTMLAttributes, { class: 'op-flowchart' })]
+    },
+})
+
 export function contentExtensions() {
     return [
         StarterKit.configure({ undoRedo: false }),
         ContentImage,
+        ContentFlowchart,
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
         Highlight.configure({ multicolor: false }),
         Underline,
