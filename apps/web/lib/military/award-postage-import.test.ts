@@ -40,3 +40,24 @@ describe('matchRows', () => {
         expect(unmatched.map(u => u.line)).toEqual([3, 4, 5])
     })
 })
+
+describe('matching names without ranks', () => {
+    const members = [
+        { userId: '1', names: ['CPL J. Smith', 'CPL J. Smith [LOA]', 'jsmith99'] },
+        { userId: '2', names: ['LCPL Alex Brown'] },
+        { userId: '3', names: ['PTE Jordan-Lee Nguyen'] },
+    ]
+    const ranks = ['CPL', 'LCPL', 'PTE']
+    test('a plain list of names finds members whose nicknames carry ranks and tags', () => {
+        const { matched, unmatched } = matchRows([
+            { line: 1, member: 'J Smith', value: 'Yes' },
+            { line: 2, member: 'Alex Brown', value: 'No' },
+            { line: 3, member: 'Brown', value: 'Unassigned' },
+            { line: 4, member: 'Jordan Lee Nguyen', value: 'yes' },
+            { line: 5, member: 'J.Smith', value: 'no' },
+        ], members, ranks)
+        expect(matched.map(m => [m.line, m.userId])).toEqual([[1, '1'], [2, '2'], [3, '2'], [4, '3'], [5, '1']])
+        expect(unmatched).toEqual([])
+    })
+})
+

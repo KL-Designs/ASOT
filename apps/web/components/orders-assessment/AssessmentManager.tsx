@@ -150,11 +150,7 @@ function OrdersEditor({ orders, editable, onChange, onSave, saving }: { orders: 
                     </div>
                     <div style={label}>Orders on the site</div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <select value={o.operationId ?? ''} onChange={e => link(i, e.target.value)} style={{ ...input, flex: 1 }}>
-                            <option value=''>Choose the operation these orders are in…</option>
-                            {o.operationId && !ops.some(x => x._id === o.operationId) && <option value={o.operationId}>{o.operationTitle || o.operationId}</option>}
-                            {ops.map(x => <option key={x._id} value={x._id}>{x.title}{x.status === 'In Development' ? ' (in development)' : ''}{x.date ? ` · ${new Date(x.date).toLocaleDateString('en-AU')}` : ''}</option>)}
-                        </select>
+                        <OpPicker ops={ops} value={o.operationId ?? ''} valueTitle={o.operationTitle} onPick={id => link(i, id)} />
                         {o.operationId && <a href={`/operations/${o.operationId}/edit`} target='_blank' rel='noreferrer' style={{ ...button(), textDecoration: 'none', whiteSpace: 'nowrap' }}>Open ↗</a>}
                     </div>
                     {!o.operationId && o.body.trim() && (
@@ -169,6 +165,33 @@ function OrdersEditor({ orders, editable, onChange, onSave, saving }: { orders: 
                 <div style={{ display: 'flex', gap: 8 }}>
                     {orders.length < 12 && <button type='button' onClick={() => onChange([...orders, { variant: orders.length + 1, title: `Assessment Orders ${orders.length + 1}`, body: '', level: '' }])} style={button()}>+ Add variant</button>}
                     <button type='button' onClick={onSave} disabled={saving} style={button('red')}>{saving ? 'Saving…' : 'Save source orders'}</button>
+                </div>
+            )}
+        </div>
+    )
+}
+
+/** Type to find an operation by name; there are too many to scroll through. */
+function OpPicker({ ops, value, valueTitle, onPick }: { ops: OpOption[]; value: string; valueTitle?: string; onPick: (id: string) => void }) {
+    const [q, setQ] = useState('')
+    const [open, setOpen] = useState(false)
+    const terms = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+    const matches = ops.filter(x => terms.every(t => x.title.toLowerCase().includes(t))).slice(0, 30)
+    const current = ops.find(x => x._id === value)
+    return (
+        <div style={{ position: 'relative', flex: 1 }}>
+            <input value={open ? q : (current?.title ?? valueTitle ?? '')} placeholder='Search operations by name…'
+                onFocus={() => { setOpen(true); setQ('') }} onBlur={() => setTimeout(() => setOpen(false), 150)}
+                onChange={e => setQ(e.target.value)} style={input} />
+            {open && (
+                <div style={{ position: 'absolute', zIndex: 5, left: 0, right: 0, background: '#111', border: '1px solid rgba(255,255,255,0.12)', maxHeight: 260, overflowY: 'auto' }}>
+                    {value && <button type='button' onMouseDown={() => onPick('')} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', background: 'transparent', border: 'none', color: 'rgba(237,237,237,0.5)', fontSize: '0.72rem', cursor: 'pointer' }}>Clear</button>}
+                    {matches.length === 0 && <div style={{ padding: '6px 10px', fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}>No operation matches.</div>}
+                    {matches.map(x => (
+                        <button key={x._id} type='button' onMouseDown={() => onPick(x._id)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '6px 10px', background: x._id === value ? 'rgba(219,0,29,0.12)' : 'transparent', border: 'none', color: '#ededed', fontSize: '0.75rem', cursor: 'pointer' }}>
+                            {x.title}<span style={{ color: 'rgba(237,237,237,0.4)' }}>{x.status === 'In Development' ? ' · in development' : ''}{x.date ? ` · ${new Date(x.date).toLocaleDateString('en-AU')}` : ''}</span>
+                        </button>
+                    ))}
                 </div>
             )}
         </div>
