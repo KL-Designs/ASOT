@@ -3,18 +3,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
     ADVANCED_MODULES, COMPOSITION, COMPOSITION_DETAIL_FIELDS, EMPTY_VALUES, FORCE_LAYERS, PROFICIENCY, RELIABILITY, SECTIONS, TRIGGER_EVENTS,
-    compositionKey, fieldApplies, presentCategories,
+    compositionKey, fieldApplies, fieldComplete, presentCategories, sectionComplete,
     type CompositionCategory, type DoctrineCustomOption, type DoctrineField, type DoctrineValues, type ForceLayer, type Indicator, type Trigger,
 } from '@/lib/doctrine/schema'
 import { LEVEL_LABEL, type DoctrineChange, type DoctrineLevel } from '@/lib/doctrine/values'
+import { parseDoctrineText, type ImportResult } from '@/lib/doctrine/import'
+import ImageLibraryModal from '@/components/editor/ImageLibraryModal'
 import DoctrineViews from './DoctrineViews'
 import s from './doctrine.module.css'
 
 /**
  * Rows 334 and 335: the guided Enemy Doctrine Builder.
  *
- * Twelve sections, each question with collapsed Additional Notes; advanced
- * modules collapsed so a basic doctrine takes minutes. The builder edits the
+ * Twelve sections, each question with collapsed Additional Notes, a Not
+ * applicable tick and pictures; advanced modules collapsed so a basic
+ * doctrine takes minutes. A question turns green once it is answered or
+ * ticked Not applicable, and a section once every question in it is. Import
+ * reads a pasted doctrine into the builder (`lib/doctrine/import.ts`). The builder edits the
  * effective doctrine and the server keeps only what this level changes.
  * Preview opens both Zeus views over the builder from the unsaved values.
  * Publishing a significant change asks for a reason and goes to the J2 Lead;
@@ -52,6 +57,7 @@ export default function DoctrineBuilder({ doctrineId, onClose, onPublished }: { 
     const [reason, setReason] = useState('')
     const [reviewNote, setReviewNote] = useState('')
     const [busy, setBusy] = useState(false)
+    const [importOpen, setImportOpen] = useState(false)
 
     const base = `/api/doctrines/${doctrineId}`
 
@@ -59,7 +65,8 @@ export default function DoctrineBuilder({ doctrineId, onClose, onPublished }: { 
         const { ok, body } = await json(base, 'GET')
         if (!ok) { setError(body.error ?? 'Could not load the doctrine'); return }
         setData(body)
-        setValues(body.draft?.values ?? body.published.values)
+        // Doctrines saved before Not applicable and pictures existed have neither.
+        setValues({ ...EMPTY_VALUES, ...(body.draft?.values ?? body.published.values) })
         setDirty(false)
     }, [base])
 
@@ -142,6 +149,7 @@ export default function DoctrineBuilder({ doctrineId, onClose, onPublished }: { 
                 </div>
                 <div className={s.flex} />
                 {dirty && <span className={s.unsaved}>Unsaved changes</span>}
+                {!readOnly && <button type='button' className={s.ghost} onClick={() => setImportOpen(true)}>Import text</button>}
                 <button type='button' className={s.ghost} onClick={() => setPreview(true)}>Preview Doctrine</button>
                 {!readOnly && <button type='button' className={s.ghost} disabled={busy || !dirty} onClick={save}>Save draft</button>}
                 {!readOnly && <button type='button' className={s.primary} disabled={busy} onClick={() => doPublish('')}>Publish</button>}
@@ -188,12 +196,13 @@ export default function DoctrineBuilder({ doctrineId, onClose, onPublished }: { 
 
             <fieldset className={s.fieldset} disabled={readOnly}>
                 {SECTIONS.map(sec => (
-                    <details key={sec.key} className={s.section} open={sec.number <= 1}>
-                        <summary className={s.sectionSummary}>{sec.number}. {sec.title}</summary>
+                    <details key={sec.key} className={`${s.section} ${sectionComplete(values, sec, present) ? s.sectionDone : ''}`} open={sec.number <= 1}>
+                        <summary className={s.sectionSummary}>{sec.number}. {sec.title}{sectionComplete(values, sec, present) && <span className={s.doneMark}> ✓</span>}</summary>
                         <div className={s.sectionBody}>
                             {sec.kind === 'composition' ? (
                                 <CompositionEditor values={values} update={update} options={options} pendingLabel={pendingLabel} addCustom={addCustom} />
                             ) : sec.kind === 'indicators' ? (
+                                <>
                                 <ListEditor<Indicator>
                                     rows={values.indicators}
                                     empty={{ observed: '', interpretation: '', capability: '', reliability: '', notes: '' }}
@@ -207,10 +216,12 @@ export default function DoctrineBuilder({ doctrineId, onClose, onPublished }: { 
                                         { key: 'notes', label: 'Notes' },
                                     ]}
                                 />
+                                <BoxExtras k='indicators' values={values} update={update} notes={false} />
+                                </>
                             ) : sec.fields.filter(f => fieldApplies(f, present)).map(f => (
                                 <FieldInput key={f.key} field={f} values={values} update={update} options={options(f.key, f.options)} pendingLabel={pendingLabel} addCustom={addCustom} />
                             ))}
-                            {sec.kind === 'composition' && <Notes k='composition' values={values} update={update} />}
+                            {sec.kind === 'composition' && <BoxExtras k='composition' values={values} update={update} />}
                             {sec.key === 'support' && !present.size && <p className={s.muted}>Vehicle, aviation and fire support questions appear once Section 4 lists those assets.</p>}
                         </div>
                     </details>
@@ -271,6 +282,11 @@ export default function DoctrineBuilder({ doctrineId, onClose, onPublished }: { 
                 </details>
             )}
 
+            {importOpen && (
+                <ImportDialog values={values} onClose={() => setImportOpen(false)}
+                    onApply={next => { update(() => next); setImportOpen(false); setStatus('Imported into the builder. Check it, then save the draft.') }} />
+            )}
+
             {preview && (
                 <div className={s.modalBackdrop} onClick={() => setPreview(false)}>
                     <div className={s.modal} onClick={e => e.stopPropagation()} role='dialog' aria-label='Preview doctrine'>
@@ -292,12 +308,119 @@ export default function DoctrineBuilder({ doctrineId, onClose, onPublished }: { 
 type Update = (fn: (v: DoctrineValues) => DoctrineValues) => void
 type AddCustom = (fieldKey: string, label: string, description: string) => Promise<boolean>
 
-function Notes({ k, values, update }: { k: string; values: DoctrineValues; update: Update }) {
+async function uploadImage(file: File): Promise<string> {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch('/api/upload', { method: 'POST', body: form })
+    const body = await res.json().catch(() => ({}))
+    if (!res.ok || !body.url) throw new Error(body.error ?? 'Upload failed')
+    return body.url
+}
+
+/** Under every question: Additional Notes, Not applicable, and pictures (uploaded or from the site library). */
+function BoxExtras({ k, values, update, notes = true }: { k: string; values: DoctrineValues; update: Update; notes?: boolean }) {
     const [open, setOpen] = useState(!!values.notes[k])
-    if (!open) return <button type='button' className={s.notesToggle} onClick={() => setOpen(true)}>+ Additional Notes</button>
+    const [library, setLibrary] = useState(false)
+    const [uploading, setUploading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const images = values.images?.[k] ?? []
+    const na = !!values.na?.[k]
+    const setImages = (list: string[]) => update(v => {
+        const next = { ...(v.images ?? {}) }
+        if (list.length) next[k] = list
+        else delete next[k]
+        return { ...v, images: next }
+    })
+    const addImage = (url: string) => update(v => ({ ...v, images: { ...(v.images ?? {}), [k]: [...new Set([...(v.images?.[k] ?? []), url])] } }))
+
+    async function upload(files: FileList | null) {
+        if (!files?.length) return
+        setUploading(true)
+        setError(null)
+        try {
+            for (const f of Array.from(files)) addImage(await uploadImage(f))
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Upload failed')
+        } finally {
+            setUploading(false)
+        }
+    }
+
     return (
-        <textarea className={s.textarea} rows={2} placeholder='Additional Notes' value={values.notes[k] ?? ''}
-            onChange={e => update(v => ({ ...v, notes: { ...v.notes, [k]: e.target.value } }))} />
+        <>
+            <div className={s.extras}>
+                {notes && !open && <button type='button' className={s.notesToggle} onClick={() => setOpen(true)}>+ Additional Notes</button>}
+                <label className={s.naLabel}>
+                    <input type='checkbox' checked={na} onChange={() => update(v => {
+                        const next = { ...(v.na ?? {}) }
+                        if (na) delete next[k]
+                        else next[k] = true
+                        return { ...v, na: next }
+                    })} />
+                    Not applicable
+                </label>
+                <label className={s.notesToggle}>
+                    {uploading ? 'Uploading…' : '+ Upload picture'}
+                    <input type='file' accept='image/*' multiple hidden disabled={uploading} onChange={e => { upload(e.target.files); e.target.value = '' }} />
+                </label>
+                <button type='button' className={s.notesToggle} onClick={() => setLibrary(true)}>+ From library</button>
+                {error && <span className={s.error}>{error}</span>}
+            </div>
+            {notes && open && (
+                <textarea className={s.textarea} rows={2} placeholder='Additional Notes' value={values.notes[k] ?? ''}
+                    onChange={e => update(v => ({ ...v, notes: { ...v.notes, [k]: e.target.value } }))} />
+            )}
+            {images.length > 0 && (
+                <div className={s.thumbs}>
+                    {images.map(url => (
+                        <div key={url} className={s.thumb}>
+                            <a href={url} target='_blank' rel='noreferrer'><img src={url} alt='' /></a>
+                            <button type='button' className={s.thumbRemove} title='Remove picture' onClick={() => setImages(images.filter(x => x !== url))}>×</button>
+                        </div>
+                    ))}
+                </div>
+            )}
+            {library && <ImageLibraryModal onSelect={url => { addImage(url); setLibrary(false) }} onClose={() => setLibrary(false)} />}
+        </>
+    )
+}
+
+/** Paste a written doctrine; check what it matched, then merge it into the builder. Nothing is saved until the draft is. */
+function ImportDialog({ values, onClose, onApply }: { values: DoctrineValues; onClose: () => void; onApply: (next: DoctrineValues) => void }) {
+    const [text, setText] = useState('')
+    const [result, setResult] = useState<ImportResult | null>(null)
+    return (
+        <div className={s.modalBackdrop} onClick={onClose}>
+            <div className={s.modal} onClick={e => e.stopPropagation()} role='dialog' aria-label='Import doctrine text'>
+                <div className={s.row}>
+                    <div className={s.label}>Import doctrine text</div>
+                    <div className={s.flex} />
+                    <button type='button' className={s.ghost} onClick={onClose}>Close</button>
+                </div>
+                <p className={s.muted}>
+                    Paste a doctrine written as &quot;Question: answer&quot; lines, for example &quot;Command structure: Centralised&quot;. Numbered section headings
+                    (&quot;6. Contact and Engagement&quot;) help where questions share a name. &quot;N/A&quot; ticks Not applicable, &quot;Additional notes:&quot; adds notes
+                    to the question above, and &quot;Infantry: Rifle squads, Snipers&quot; adds force composition. Answers already in the builder are kept unless the text
+                    answers them again.
+                </p>
+                <textarea className={s.textarea} rows={14} value={text} onChange={e => { setText(e.target.value); setResult(null) }} placeholder={'1. Faction Identity\nFaction name: …\nPrimary combat style: …'} />
+                <div className={s.row}>
+                    <button type='button' className={s.ghost} disabled={!text.trim()} onClick={() => setResult(parseDoctrineText(text, values))}>Check</button>
+                    <button type='button' className={s.primary} disabled={!result || !result.matched.length} onClick={() => result && onApply(result.values)}>Add to doctrine</button>
+                </div>
+                {result && (
+                    <>
+                        <div className={s.notice}>{result.matched.length} question(s) matched{result.matched.length ? `: ${result.matched.join(', ')}` : ''}.</div>
+                        {result.unmatched.length > 0 && (
+                            <details open>
+                                <summary className={s.error}>{result.unmatched.length} line(s) matched no question and will be left out</summary>
+                                {result.unmatched.map((l, i) => <div key={i} className={s.muted}>{l}</div>)}
+                            </details>
+                        )}
+                    </>
+                )}
+            </div>
+        </div>
     )
 }
 
@@ -324,7 +447,7 @@ function FieldInput({ field: f, values, update, options, pendingLabel, addCustom
     const v = values.fields[f.key]
     const set = (val: string | string[]) => update(x => ({ ...x, fields: { ...x.fields, [f.key]: val } }))
     return (
-        <div className={s.field}>
+        <div className={`${s.field} ${s.box} ${fieldComplete(values, f.key) ? s.boxDone : ''} ${values.na?.[f.key] ? s.boxNa : ''}`}>
             <label className={s.fieldLabel}>{f.label}{f.significant && <span className={s.sig} title='Changing this mid-campaign needs J2 Lead approval'>●</span>}</label>
             {f.type === 'text' && <input className={s.input} value={(v as string) ?? ''} onChange={e => set(e.target.value)} />}
             {f.type === 'textarea' && <textarea className={s.textarea} rows={3} value={(v as string) ?? ''} onChange={e => set(e.target.value)} />}
@@ -355,7 +478,7 @@ function FieldInput({ field: f, values, update, options, pendingLabel, addCustom
                     <CustomOption fieldKey={f.key} addCustom={addCustom} onAdded={label => set([...((v as string[]) ?? []), label])} />
                 </>
             )}
-            <Notes k={f.key} values={values} update={update} />
+            <BoxExtras k={f.key} values={values} update={update} />
         </div>
     )
 }

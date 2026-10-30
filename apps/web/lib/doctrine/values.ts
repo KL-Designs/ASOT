@@ -1,5 +1,5 @@
 import {
-    ADVANCED_MODULES, ALL_FIELDS, COMPOSITION_DETAIL_FIELDS, EMPTY_VALUES, FIELD_BY_KEY, splitCompositionKey,
+    ADVANCED_MODULES, ALL_FIELDS, COMPOSITION_DETAIL_FIELDS, EMPTY_VALUES, FIELD_BY_KEY, SECTION_KEYS, splitCompositionKey,
     type CompositionDetail, type DoctrineValues, type ForceLayer, type Indicator, type Trigger,
 } from './schema'
 
@@ -21,6 +21,8 @@ export interface DoctrineOverrides {
     indicators?: Indicator[]
     layers?: ForceLayer[]
     triggers?: Trigger[]
+    na?: Record<string, boolean | null>
+    images?: Record<string, string[] | null>
 }
 
 export type DoctrineLevel = 'faction' | 'campaign' | 'mission'
@@ -92,8 +94,17 @@ export function sanitiseValues(raw: unknown): DoctrineValues {
         const s = str(v, 8000).trim()
         if (s && MODULE_KEYS.has(k)) modules[k] = s
     }
+    const boxKey = (k: string) => FIELD_BY_KEY.has(k) || (SECTION_KEYS as readonly string[]).includes(k)
+    const na: DoctrineValues['na'] = {}
+    for (const [k, v] of Object.entries(obj(r.na))) if (v === true && boxKey(k)) na[k] = true
+    const images: DoctrineValues['images'] = {}
+    for (const [k, v] of Object.entries(obj(r.images))) {
+        if (!boxKey(k) || !Array.isArray(v)) continue
+        const list = [...new Set(v.map(x => str(x, 600).trim()).filter(u => /^(\/|https?:\/\/)/i.test(u)))].slice(0, 12)
+        if (list.length) images[k] = list
+    }
     return {
-        fields, notes, composition, modules,
+        fields, notes, composition, modules, na, images,
         indicators: cleanList<Indicator>(r.indicators, INDICATOR_KEYS),
         layers: cleanList<ForceLayer>(r.layers, LAYER_KEYS),
         triggers: cleanList<Trigger>(r.triggers, TRIGGER_KEYS),
@@ -119,6 +130,8 @@ export function diffOverrides(base: DoctrineValues, edited: DoctrineValues): Doc
     const n = diffMap(base.notes, edited.notes); if (n) out.notes = n
     const c = diffMap(base.composition, edited.composition); if (c) out.composition = c
     const m = diffMap(base.modules, edited.modules); if (m) out.modules = m
+    const a = diffMap(base.na ?? {}, edited.na ?? {}); if (a) out.na = a
+    const i = diffMap(base.images ?? {}, edited.images ?? {}); if (i) out.images = i
     if (!same(base.indicators, edited.indicators)) out.indicators = edited.indicators
     if (!same(base.layers, edited.layers)) out.layers = edited.layers
     if (!same(base.triggers, edited.triggers)) out.triggers = edited.triggers
@@ -142,6 +155,8 @@ export function applyOverrides(base: DoctrineValues, ov: DoctrineOverrides | nul
         notes: applyMap(base.notes, ov.notes),
         composition: applyMap(base.composition, ov.composition),
         modules: applyMap(base.modules, ov.modules),
+        na: applyMap(base.na ?? {}, ov.na),
+        images: applyMap(base.images ?? {}, ov.images),
         indicators: ov.indicators ?? base.indicators,
         layers: ov.layers ?? base.layers,
         triggers: ov.triggers ?? base.triggers,
@@ -214,6 +229,15 @@ export function changesBetween(before: DoctrineValues, after: DoctrineValues): D
         if (same(before.modules[k], after.modules[k])) continue
         out.push({ key: `modules.${k}`, label: ADVANCED_MODULES.find(m => m.key === k)?.title ?? k, kind: 'module', significant: false, before: show(before.modules[k]), after: show(after.modules[k]) })
     }
+    const boxLabel = (k: string) => FIELD_BY_KEY.get(k)?.label ?? (k === 'composition' ? 'Force composition' : k === 'indicators' ? 'Indicators' : k)
+    for (const k of new Set([...Object.keys(before.na ?? {}), ...Object.keys(after.na ?? {})])) {
+        if (same(before.na?.[k], after.na?.[k])) continue
+        out.push({ key: `na.${k}`, label: `Not applicable: ${boxLabel(k)}`, kind: 'notes', significant: false, before: before.na?.[k] ? 'Yes' : '', after: after.na?.[k] ? 'Yes' : '' })
+    }
+    for (const k of new Set([...Object.keys(before.images ?? {}), ...Object.keys(after.images ?? {})])) {
+        if (same(before.images?.[k], after.images?.[k])) continue
+        out.push({ key: `images.${k}`, label: `Pictures: ${boxLabel(k)}`, kind: 'notes', significant: false, before: `${before.images?.[k]?.length ?? 0} picture(s)`, after: `${after.images?.[k]?.length ?? 0} picture(s)` })
+    }
     const lists: [keyof Pick<DoctrineValues, 'indicators' | 'layers' | 'triggers'>, string][] = [['indicators', 'Indicators'], ['layers', 'Force layers'], ['triggers', 'Behaviour triggers']]
     for (const [k, label] of lists) {
         if (!same(before[k], after[k])) out.push({ key: k, label, kind: 'list', significant: false, before: `${before[k].length} entries`, after: `${after[k].length} entries` })
@@ -252,7 +276,7 @@ export function displayValue(v: string | string[] | undefined): string {
 
 /** Is there anything at all? An empty doctrine renders as a prompt rather than twelve blank sections. */
 export function hasContent(v: DoctrineValues): boolean {
-    return Object.keys(v.fields).length > 0 || Object.keys(v.composition).length > 0 || v.indicators.length > 0
+    return Object.keys(v.fields).length > 0 || Object.keys(v.composition).length > 0 || v.indicators.length > 0 || Object.keys(v.images ?? {}).length > 0
 }
 
 export { ALL_FIELDS }

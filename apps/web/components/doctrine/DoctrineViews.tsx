@@ -18,6 +18,15 @@ import s from './doctrine.module.css'
 
 export type Sources = { fields: Record<string, DoctrineLevel>; composition: Record<string, DoctrineLevel> }
 
+function Pictures({ urls }: { urls?: string[] }) {
+    if (!urls?.length) return null
+    return (
+        <div className={s.pictures}>
+            {urls.map(u => <a key={u} href={u} target='_blank' rel='noreferrer'><img src={u} alt='' /></a>)}
+        </div>
+    )
+}
+
 function Source({ level }: { level?: DoctrineLevel }) {
     if (!level || level === 'faction') return null
     return <span className={s.source}>{LEVEL_LABEL[level]}</span>
@@ -85,7 +94,7 @@ export function FullDoctrine({ values, sources }: { values: DoctrineValues; sour
                     return (
                         <details key={sec.key} className={s.fullSection} open>
                             <summary>{sec.number}. {sec.title}</summary>
-                            {!entries.length ? <p className={s.muted}>No force composition recorded.</p> : COMPOSITION.map(cat => {
+                            {!entries.length ? <p className={s.muted}>{values.na?.composition ? 'Not applicable.' : 'No force composition recorded.'}</p> : COMPOSITION.map(cat => {
                                 const mine = entries.filter(([k]) => splitCompositionKey(k).category?.key === cat.key)
                                 if (!mine.length) return null
                                 return (
@@ -103,6 +112,7 @@ export function FullDoctrine({ values, sources }: { values: DoctrineValues; sour
                                 )
                             })}
                             {values.notes['composition'] && <div className={s.note}>{values.notes['composition']}</div>}
+                            <Pictures urls={values.images?.composition} />
                         </details>
                     )
                 }
@@ -110,7 +120,7 @@ export function FullDoctrine({ values, sources }: { values: DoctrineValues; sour
                     return (
                         <details key={sec.key} className={s.fullSection} open={values.indicators.length > 0}>
                             <summary>{sec.number}. {sec.title}</summary>
-                            {!values.indicators.length ? <p className={s.muted}>No indicators recorded.</p> : (
+                            {!values.indicators.length ? <p className={s.muted}>{values.na?.indicators ? 'Not applicable.' : 'No indicators recorded.'}</p> : (
                                 <>
                                     <p className={s.muted}>Learning indicators for players and Zeus, not absolute rules.</p>
                                     {values.indicators.map((ind, i) => (
@@ -124,17 +134,19 @@ export function FullDoctrine({ values, sources }: { values: DoctrineValues; sour
                                     ))}
                                 </>
                             )}
+                            <Pictures urls={values.images?.indicators} />
                         </details>
                     )
                 }
-                const fields = sec.fields.filter(f => fieldApplies(f, present) && (values.fields[f.key] || values.notes[f.key]))
+                const fields = sec.fields.filter(f => fieldApplies(f, present) && (values.fields[f.key] || values.notes[f.key] || values.na?.[f.key] || values.images?.[f.key]?.length))
                 return (
                     <details key={sec.key} className={s.fullSection} open={fields.length > 0}>
                         <summary>{sec.number}. {sec.title}</summary>
                         {!fields.length ? <p className={s.muted}>Not specified.</p> : fields.map(f => (
                             <div key={f.key} className={s.field}>
-                                <div className={s.kv}><span>{f.label}</span><span className={s.pre}>{displayValue(values.fields[f.key]) || '—'} <Source level={sources?.fields[f.key]} /></span></div>
+                                <div className={s.kv}><span>{f.label}</span><span className={s.pre}>{displayValue(values.fields[f.key]) || (values.na?.[f.key] ? 'Not applicable' : '—')} <Source level={sources?.fields[f.key]} /></span></div>
                                 {values.notes[f.key] && <div className={s.note}>{values.notes[f.key]}</div>}
+                                <Pictures urls={values.images?.[f.key]} />
                             </div>
                         ))}
                     </details>

@@ -298,9 +298,16 @@ export interface DoctrineValues {
     layers: ForceLayer[]
     triggers: Trigger[]
     modules: Record<string, string>
+    /** Ticked "Not applicable", by field key (or `composition` / `indicators` for those sections). Counts as complete. */
+    na: Record<string, boolean>
+    /** Pictures attached to a field (or section), by the same keys as `na`. Uploaded or picked from the site library. */
+    images: Record<string, string[]>
 }
 
-export const EMPTY_VALUES: DoctrineValues = { fields: {}, notes: {}, composition: {}, indicators: [], layers: [], triggers: [], modules: {} }
+export const EMPTY_VALUES: DoctrineValues = { fields: {}, notes: {}, composition: {}, indicators: [], layers: [], triggers: [], modules: {}, na: {}, images: {} }
+
+/** The `na` / `images` keys that are sections rather than fields. */
+export const SECTION_KEYS = ['composition', 'indicators'] as const
 
 export const ALL_FIELDS: DoctrineField[] = SECTIONS.flatMap(sec => sec.fields)
 export const FIELD_BY_KEY = new Map(ALL_FIELDS.map(f => [f.key, f]))
@@ -326,4 +333,20 @@ export interface DoctrineCustomOption {
     addedById: string
     addedByName: string
     addedAt: string
+}
+
+/** Answered, or ticked Not applicable: the builder turns the box green. */
+export function fieldComplete(v: DoctrineValues, key: string): boolean {
+    if (v.na?.[key]) return true
+    if (key === 'composition') return Object.keys(v.composition).length > 0
+    if (key === 'indicators') return v.indicators.length > 0
+    const val = v.fields[key]
+    return Array.isArray(val) ? val.length > 0 : !!val?.trim()
+}
+
+/** Every box in the section that applies is complete. */
+export function sectionComplete(v: DoctrineValues, sec: DoctrineSection, present: Set<CompositionCategoryKey>): boolean {
+    if (sec.kind) return fieldComplete(v, sec.kind)
+    const fields = sec.fields.filter(f => fieldApplies(f, present))
+    return fields.length > 0 && fields.every(f => fieldComplete(v, f.key))
 }
