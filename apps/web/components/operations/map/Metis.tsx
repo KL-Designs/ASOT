@@ -164,7 +164,7 @@ export function MetisForm({ value, onChange, wide = false }: {
 
             <div style={{ ...section, ...(wide ? { flex: '2 1 300px' } : {}) }}>
                 <div style={label}>Unit type</div>
-                <div style={{ display: 'grid', gridTemplateColumns: wide ? 'repeat(auto-fill, minmax(46px, 1fr))' : 'repeat(4, 1fr)', gap: 3, maxHeight: wide ? 150 : 260, overflowY: 'auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: wide ? 'repeat(auto-fill, minmax(46px, 1fr))' : 'repeat(auto-fill, minmax(56px, 1fr))', gap: 3, maxHeight: wide ? 150 : 260, overflowY: 'auto' }}>
                     {METIS_ICONS.map((icon, id) => {
                         const on = value.icon === id
                         return (

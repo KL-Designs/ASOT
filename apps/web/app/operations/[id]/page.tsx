@@ -117,16 +117,18 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     const Themed = OWN_PAGE[pageTheme as keyof typeof OWN_PAGE]
     /*
      * The comment thread sits under whichever theme rendered the orders, once,
-     * here — not inside each theme. It is the same thread whatever the orders
-     * look like, and four copies of the mount would be four places to forget.
+     * here — not inside each theme's own code. It is the same thread whatever
+     * the orders look like, and four copies of the mount would be four places
+     * to forget. Each theme draws it at the end of its page (`afterOrders`):
+     * placed after the theme instead, it ran under the site footer.
      * Signed-in only: the thread is for members, and the component would only
      * spend a request finding that out for a visitor.
      */
     const comments = isLoggedIn ? <OrdersComments operationId={id} /> : null
 
-    if (!Themed) return <><ClassicPage {...shared} />{comments}</>
+    if (!Themed) return <ClassicPage {...shared} afterOrders={comments} />
 
-    return <><Themed {...shared} attendance={attendance} lineage={lineage} />{comments}</>
+    return <Themed {...shared} attendance={attendance} lineage={lineage} afterOrders={comments} />
 }
 
 /**

@@ -233,7 +233,9 @@ export function TeamSpeakCard({ linked, expectedNickname, onLinked }: Props) {
                                         that TeamSpeak is open and connected to the ASOT server, then search again.
                                     </p>
                                     {onlineClients.length === 0 ? (
-                                        <Badge tone='warn' dot>Nobody is on TeamSpeak right now. Is yours open and connected?</Badge>
+                                        // The badge is a single line by design; this sentence needs to wrap
+                                        // inside the dialog rather than run off its right edge.
+                                        <p style={{ fontSize: 12.5, lineHeight: 1.5, color: 'var(--amber)' }}>Nobody is on TeamSpeak right now. Is yours open and connected?</p>
                                     ) : (
                                         <Select
                                             value={selectedClid}

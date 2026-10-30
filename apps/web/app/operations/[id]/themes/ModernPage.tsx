@@ -34,7 +34,7 @@ const OCAP = '__ocap__'
  */
 export default function ModernPage({
     id, operation, isLoggedIn, isHQ, canZeus, canOcapManage, access, showAcknowledgeCard,
-    activePageParam, fromJ2, attendance, lineage,
+    activePageParam, fromJ2, attendance, lineage, afterOrders,
 }: ModernPageProps) {
     const accent = operation.themeColor || '#db001d'
     const rgb = hexToRgb(accent)
@@ -289,6 +289,8 @@ export default function ModernPage({
                     </div>
                 </main>
             </div>
+
+            {afterOrders}
 
             {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} />}
         </div>

@@ -271,6 +271,7 @@ export default function PreProductionInspector({
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--s1)', border: '1px solid var(--line)', borderRadius: 'var(--r)' }}>
                                         <span style={{ ...label, flexShrink: 0 }}>Remind me:</span>
                                         <DateTimePicker
+                                            format="DD/MM/YYYY HH:mm"
                                             value={ordersCheckReminderAt}
                                             onChange={v => setOrdersCheckReminderAt(v)}
                                             slotProps={{ textField: { size: 'small', sx: pickerSx }, popper: { sx: { zIndex: 19999 } } }}
@@ -392,6 +393,7 @@ export default function PreProductionInspector({
                                 <div>
                                     <div style={{ ...label, marginBottom: 8 }}>Preferred date &amp; time</div>
                                     <DateTimePicker
+                                        format="DD/MM/YYYY HH:mm"
                                         value={ordersCheckPreferredAt}
                                         onChange={v => setOrdersCheckPreferredAt(v)}
                                         slotProps={{ textField: { size: 'small', fullWidth: true, sx: pickerSx }, popper: { sx: { zIndex: 19999 } } }}

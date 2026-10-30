@@ -103,7 +103,7 @@ const PAPER_CHROME: Record<string, string> = {
  */
 export default function ColdWarPage({
     id, operation, isLoggedIn, isHQ, canZeus, canOcapManage, access, showAcknowledgeCard,
-    activePageParam, fromJ2, attendance, lineage,
+    activePageParam, fromJ2, attendance, lineage, afterOrders,
 }: ModernPageProps) {
     /*
      * Zeus Notes pages are ordinary documents — same sections, same schema, same
@@ -364,6 +364,8 @@ export default function ColdWarPage({
                 </div>
               </div>
             </div>
+
+            {afterOrders}
 
             {/* Same repaint as the bar — otherwise it is one dark chip on a buff desk. */}
             {isHQ && <EditOrdersButton operationId={id} themeColor={operation.themeColor} palette={PAPER_CHROME} />}
