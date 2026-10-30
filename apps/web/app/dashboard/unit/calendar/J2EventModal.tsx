@@ -193,8 +193,10 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
                     </TextField>
                 )}
 
-                {/* Date/time range */}
-                <div style={{ display: 'flex', gap: 12 }}>
+                {/* Date/time range. Wraps rather than sharing a row: side by side
+                    in this dialog each datetime field was too narrow for its own
+                    value, and the end of the date and time was cut off. */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
                     <TextField
                         label='Start'
                         type='datetime-local'
@@ -202,6 +204,7 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
                         onChange={e => setStartVal(e.target.value)}
                         size='small'
                         fullWidth
+                        sx={{ flex: '1 1 300px' }}
                         InputLabelProps={{ shrink: true, style: { fontSize: '0.8rem' } }}
                         InputProps={{ style: { borderRadius: 0, fontSize: '0.82rem' } }}
                     />
@@ -212,6 +215,7 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
                         onChange={e => setEndVal(e.target.value)}
                         size='small'
                         fullWidth
+                        sx={{ flex: '1 1 300px' }}
                         InputLabelProps={{ shrink: true, style: { fontSize: '0.8rem' } }}
                         InputProps={{ style: { borderRadius: 0, fontSize: '0.82rem' } }}
                     />
