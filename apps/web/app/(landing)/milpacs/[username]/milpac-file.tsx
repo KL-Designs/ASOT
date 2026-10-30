@@ -336,7 +336,23 @@ export async function MilpacFile({ segment, tab, kitSegment }: {
 							accent={accent}
 						/>
 					)
-					: null}
+					: isOwn
+						? (
+							// The same deep link as My Profile's: the MILPAC bug form with
+							// the member already filled in, from the page that is wrong.
+							<Link
+								href='/tickets/new?type=bug-milpac&self=1'
+								style={{
+									display: 'inline-flex', alignItems: 'center', gap: 6,
+									fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase',
+									textDecoration: 'none', padding: '5px 12px',
+									border: `1px solid ${accent}40`, background: `${accent}0d`, color: `${accent}cc`,
+								}}
+							>
+								Report an issue
+							</Link>
+						)
+						: null}
 			/>
 
 			<MilpacTabs active={tab} basePath={`/milpacs/${profile.canonical}`} />
