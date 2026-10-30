@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Alert, Button, CircularProgress, FormControlLabel, Switch, TextField } from '@mui/material'
+import { Alert, Button, Checkbox, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, Switch, TextField } from '@mui/material'
 import ImageUploadField from '@/app/dashboard/_components/ImageUploadField'
 import { POSTAGE_STATUS_LABEL, monthLabel } from '@/lib/military/award-postage'
 
@@ -18,6 +18,7 @@ interface Member {
     name: string
     rank: string
     preference: Pref
+    discharged: boolean
     firstAskedAt: string | null
     lastReminderAt: string | null
     nextReminderAt: string | null
@@ -72,7 +73,9 @@ function pill(active: boolean): React.CSSProperties {
 function PostageView() {
     const [data, setData] = useState<{ currentMonth: string; members: Member[]; items: Item[] } | null>(null)
     const [error, setError] = useState<string | null>(null)
-    const [showNo, setShowNo] = useState(false)
+    /** Which members the register lists. Discharged is its own filter, on top of the preference. */
+    const [show, setShow] = useState<{ yes: boolean; no: boolean; unassigned: boolean; discharged: boolean }>({ yes: true, no: false, unassigned: true, discharged: false })
+    const [importOpen, setImportOpen] = useState(false)
     const [search, setSearch] = useState('')
     const [open, setOpen] = useState<Record<string, boolean>>({})
     const [busy, setBusy] = useState<string | null>(null)
@@ -114,9 +117,12 @@ function PostageView() {
     if (!data) return <div className='m-6'>{error ? <Alert severity='error' sx={{ borderRadius: 0 }}>{error}</Alert> : <CircularProgress size={18} />}</div>
 
     const q = search.trim().toLowerCase()
-    const members = data.members.filter(m => (showNo || m.preference !== 'no') && (!q || m.name.toLowerCase().includes(q)))
-    const counts = { yes: 0, no: 0, unassigned: 0 }
-    for (const m of data.members) counts[m.preference]++
+    const members = data.members.filter(m => show[m.preference] && (show.discharged || !m.discharged) && (!q || m.name.toLowerCase().includes(q)))
+    const counts = { yes: 0, no: 0, unassigned: 0, discharged: 0 }
+    for (const m of data.members) {
+        if (m.discharged) counts.discharged++
+        else counts[m.preference]++
+    }
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 24, alignItems: 'start' }}>
@@ -124,18 +130,31 @@ function PostageView() {
             <section className='flex flex-col gap-3'>
                 <div className='flex items-baseline justify-between gap-2 flex-wrap'>
                     <span style={label}>Member Physical Award Preference</span>
-                    <span style={small}>{counts.yes} yes · {counts.unassigned} unassigned · {counts.no} no</span>
+                    <span style={small}>{counts.yes} yes · {counts.unassigned} unassigned · {counts.no} no · {counts.discharged} discharged</span>
                 </div>
                 <div className='flex gap-2 items-center flex-wrap'>
                     <TextField size='small' placeholder='Search members' value={search} onChange={e => setSearch(e.target.value)} sx={{ ...inputSx, flex: 1, minWidth: 160 }} />
-                    <FormControlLabel control={<Switch size='small' checked={showNo} onChange={e => setShowNo(e.target.checked)} />}
-                        label={<span style={{ fontSize: '0.72rem' }}>Show No</span>} />
+                    <Button variant='outlined' size='small' onClick={() => setImportOpen(true)}
+                        sx={{ borderRadius: 0, fontSize: '0.66rem', fontWeight: 700, letterSpacing: '0.08em', borderColor: 'rgba(219,0,29,0.4)', color: 'var(--red)' }}>
+                        Import
+                    </Button>
+                </div>
+                <div className='flex gap-3 items-center flex-wrap' style={{ marginTop: -6 }}>
+                    {([['yes', 'Show Yes'], ['unassigned', 'Show Unassigned'], ['no', 'Show No'], ['discharged', 'Show Discharged']] as const).map(([k, l]) => (
+                        <FormControlLabel key={k} sx={{ mr: 0 }}
+                            control={<Checkbox size='small' checked={show[k]} onChange={e => setShow({ ...show, [k]: e.target.checked })}
+                                sx={{ p: 0.5, color: 'rgba(237,237,237,0.3)', '&.Mui-checked': { color: 'var(--red)' } }} />}
+                            label={<span style={{ fontSize: '0.72rem' }}>{l}</span>} />
+                    ))}
                 </div>
                 <div className='flex flex-col' style={{ maxHeight: '70vh', overflowY: 'auto', border: '1px solid rgba(255,255,255,0.06)' }}>
                     {members.map(m => (
                         <div key={m.userId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 12px', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>{m.rank ? `${m.rank} ` : ''}{m.name}</div>
+                                <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                                    {m.rank ? `${m.rank} ` : ''}{m.name}
+                                    {m.discharged && <span style={{ marginLeft: 6, fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>Discharged</span>}
+                                </div>
                                 <div style={small}>
                                     {m.answeredAt
                                         ? `Answered ${date(m.answeredAt)}${m.answeredBy === 'member' ? ' on Discord' : ' (set by hand)'}`
@@ -226,6 +245,7 @@ function PostageView() {
                 })}
             </section>
             {error && <Alert severity='error' sx={{ borderRadius: 0, fontSize: '0.8rem', gridColumn: '1 / -1' }}>{error}</Alert>}
+            <ImportDialog open={importOpen} onClose={changed => { setImportOpen(false); if (changed) load() }} />
         </div>
     )
 }
@@ -324,5 +344,76 @@ export default function AwardPostageTab() {
             </div>
             {sub === 'postage' ? <PostageView /> : <MessageView />}
         </div>
+    )
+}
+
+interface ImportResult {
+    applied: boolean
+    rows: number
+    matched: number
+    changes: { member: string; userId: string; from: Pref; to: Pref }[]
+    unmatched: { line: number; member: string; reason: string }[]
+}
+
+/**
+ * Two columns from J4's own list (member, yes or no), pasted or read from a
+ * CSV. Checked first, then applied: nothing changes until Apply is pressed.
+ */
+function ImportDialog({ open, onClose }: { open: boolean; onClose: (changed: boolean) => void }) {
+    const [text, setText] = useState('')
+    const [result, setResult] = useState<ImportResult | null>(null)
+    const [busy, setBusy] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    async function run(apply: boolean) {
+        setBusy(true); setError(null)
+        try {
+            const res = await fetch('/api/j4/award-postage/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, apply }) })
+            const d = await res.json().catch(() => ({}))
+            if (!res.ok) { setError(d.error ?? 'Import failed.'); return }
+            setResult(d)
+            if (apply) { setText(''); onClose(true); setResult(null) }
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    return (
+        <Dialog open={open} onClose={() => !busy && onClose(false)} maxWidth='sm' fullWidth
+            PaperProps={{ sx: { background: '#0e0e0e', borderRadius: 0, border: '1px solid rgba(219,0,29,0.25)', borderTop: '2px solid var(--red)', color: 'inherit' } }}>
+            <DialogTitle sx={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase' }}>Import postage preferences</DialogTitle>
+            <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <span style={small}>Two columns: the member (name as on the website, with or without rank, or Discord ID) and Yes, No or blank. Paste from a spreadsheet or choose a CSV. No addresses.</span>
+                <input type='file' accept='.csv,.tsv,.txt,text/csv' style={{ fontSize: '0.72rem' }}
+                    onChange={async e => { const f = e.target.files?.[0]; if (f) { setText(await f.text()); setResult(null) } }} />
+                <TextField multiline minRows={6} maxRows={14} size='small' value={text} placeholder={'J Smith\tYes\nA Brown\tNo'}
+                    onChange={e => { setText(e.target.value); setResult(null) }} sx={inputSx} />
+                {error && <Alert severity='error' sx={{ borderRadius: 0, fontSize: '0.78rem' }}>{error}</Alert>}
+                {result && (
+                    <div className='flex flex-col gap-2' style={{ fontSize: '0.76rem' }}>
+                        <span>{result.rows} rows · {result.matched} matched · <strong>{result.changes.length} will change</strong> · {result.unmatched.length} not matched</span>
+                        {result.changes.length > 0 && (
+                            <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid rgba(255,255,255,0.06)', padding: '6px 10px' }}>
+                                {result.changes.map(c => <div key={c.userId} style={small}>{c.member}: {PREF_STYLE[c.from].label} → <span style={{ color: PREF_STYLE[c.to].color }}>{PREF_STYLE[c.to].label}</span></div>)}
+                            </div>
+                        )}
+                        {result.unmatched.length > 0 && (
+                            <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid rgba(245,158,11,0.25)', padding: '6px 10px' }}>
+                                {result.unmatched.map(u => <div key={u.line} style={{ ...small, color: 'var(--amber)' }}>Line {u.line}, {u.member}: {u.reason}</div>)}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+                <Button size='small' disabled={busy} onClick={() => onClose(false)} sx={{ borderRadius: 0, fontSize: '0.7rem', color: 'rgba(237,237,237,0.5)' }}>Cancel</Button>
+                <Button size='small' variant='outlined' disabled={busy || !text.trim()} onClick={() => run(false)}
+                    sx={{ borderRadius: 0, fontSize: '0.7rem', borderColor: 'rgba(255,255,255,0.2)', color: 'inherit' }}>Check</Button>
+                <Button size='small' variant='contained' disabled={busy || !result || result.changes.length === 0} onClick={() => run(true)}
+                    sx={{ borderRadius: 0, fontSize: '0.7rem', background: 'var(--red)', '&:hover': { background: 'var(--red)' } }}>
+                    {busy ? 'Working…' : `Apply ${result?.changes.length ?? 0} change${result?.changes.length === 1 ? '' : 's'}`}
+                </Button>
+            </DialogActions>
+        </Dialog>
     )
 }
