@@ -206,6 +206,17 @@ function SortHdr({ label, field, sortBy, sortDir, onSort, style }: {
 function TextEdit({ value, onDone, style }: { value: string; onDone: (v: string) => void; style?: React.CSSProperties }) {
     const [val, setVal] = useState(value)
     const orig = useRef(value)
+    // A value still being typed is not staged yet (that happens when the cell
+    // is left), so the page's own unapplied-changes guard can't see it. Guard
+    // it here, for as long as it differs: a reload mid-edit used to lose it
+    // without a word.
+    const typed = val !== orig.current
+    useEffect(() => {
+        if (!typed) return
+        const warn = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+        window.addEventListener('beforeunload', warn)
+        return () => window.removeEventListener('beforeunload', warn)
+    }, [typed])
     return (
         <input autoFocus value={val} onChange={e => setVal(e.target.value)}
             onBlur={() => onDone(val)}
