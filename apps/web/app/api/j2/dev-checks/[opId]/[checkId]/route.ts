@@ -5,6 +5,7 @@ import client from '@/lib/discord'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { createNotification } from '@/lib/notifications'
 import { sendTaskAssignedDM } from '@/lib/discord/bot'
+import { unitDateTime } from '@/lib/unit-time'
 
 type Params = { params: Promise<{ opId: string; checkId: string }> }
 
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
     const result = await Db.tasks.insertOne(task)
     const taskId = result.insertedId.toString()
-    const dueDateStr = dueDate.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+    const dueDateStr = unitDateTime(dueDate)
 
     // In-app notification to reviewer
     await createNotification({

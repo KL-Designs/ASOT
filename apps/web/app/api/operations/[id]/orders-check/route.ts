@@ -6,6 +6,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { createNotificationForRole, createNotification } from '@/lib/notifications'
 import { sendTaskAssignedDM } from '@/lib/discord/bot'
+import { unitDateTime } from '@/lib/unit-time'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     const callerName = (me as any).guild?.displayName || (me as any).guild?.nickname
         || (me as any).globalName || (me as any).username || 'Unknown'
 
-    const preferredStr = scheduledDate.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+    const preferredStr = unitDateTime(scheduledDate)
     const taskTitle  = `[Orders Check] ${op.title}`
     const actionUrl  = `/operations/${id}/edit`
     const j2LeadRole = PERMISSIONS.departmentLeads.j2[0]  // 'J2 - Department Leader'
@@ -265,7 +266,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         // Notify requester if identifiable
         if (task.assignedBy) {
             const confirmedStr = task.ordersCheckAt
-                ? new Date(task.ordersCheckAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+                ? unitDateTime(task.ordersCheckAt)
                 : 'the proposed time'
 
             await createNotification({
@@ -298,7 +299,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
             } as never
         )
 
-        const proposedStr = proposedDate.toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })
+        const proposedStr = unitDateTime(proposedDate)
         if (task.assignedBy) {
             await createNotification({
                 userId: task.assignedBy,

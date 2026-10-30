@@ -7,6 +7,7 @@ import { createNotification } from '@/lib/notifications'
 import { sendTrainingApprovedDM } from '@/lib/discord/bot'
 import { logAction } from '@/lib/logAction'
 import { scheduleTrainingReminders } from '@/lib/training/scheduleReminders'
+import { unitDateTime } from '@/lib/unit-time'
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
     const me = await client.fetchMe().catch(() => null)
@@ -56,7 +57,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     // Schedule 60-min and 15-min reminders for this event
     scheduleTrainingReminders(id, event.title, event.scheduledAt).catch(console.error)
 
-    const scheduledStr = event.scheduledAt.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+    const scheduledStr = unitDateTime(event.scheduledAt)
     await Promise.all([
         createNotification({
             userId: event.trainerId,

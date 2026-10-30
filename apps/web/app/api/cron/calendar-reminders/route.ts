@@ -4,6 +4,7 @@ import { sendCalendarReminderDM, sendMeetingDM, sendTrainingReminderDM } from '@
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
 import { verifyCronSecret } from '@/lib/cron-auth'
+import { unitDateTime } from '@/lib/unit-time'
 
 /**
  * GET /api/cron/calendar-reminders
@@ -123,7 +124,7 @@ export async function GET(request: NextRequest) {
                 if (item.type === 'meeting_reminder') {
                     const mtg = await getMtg()
                     const attendee = (mtg?.attendees ?? []).find((a: MeetingAttendee) => a.userId === userId)
-                    const dateLabel = mtg?.date ? new Date(mtg.date).toLocaleString('en-AU', { dateStyle: 'long', timeStyle: 'short' }) : ''
+                    const dateLabel = mtg?.date ? unitDateTime(mtg.date, 'long') : ''
                     if (attendee?.status === 'attending' || attendee?.status === 'confirmed_attended') {
                         body = `Reminder: "${mtg?.title}" is scheduled for ${dateLabel}. You are marked as attending.`
                     } else if (attendee?.status === 'not_attending' || attendee?.status === 'confirmed_absent') {
@@ -163,7 +164,7 @@ export async function GET(request: NextRequest) {
         }).toArray()
 
         const scheduledAt = new Date(reminder.fireAt.getTime() + reminder.minutesBefore * 60_000)
-        const scheduledStr = scheduledAt.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
+        const scheduledStr = unitDateTime(scheduledAt)
         const actionUrl = '/dashboard/unit/training-docs'
 
         await Promise.all(attendees.map(a =>

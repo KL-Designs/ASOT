@@ -43,3 +43,10 @@ describe('findClashes', () => {
         expect(findClashes('not a date', 60, [{ kind: 'training', title: 'x', start: at(9) }])).toEqual([])
     })
 })
+
+test('the same thing at the same time is one row with a count', () => {
+    const at = '2026-11-06T02:00:00Z'
+    const dev = { kind: 'operation' as const, title: 'A mission in development', start: at }
+    const clashes = findClashes(at, 60, [dev, dev, dev, { kind: 'operation', title: 'Op Anvil', start: at }])
+    expect(clashes.map(c => c.title)).toEqual(['A mission in development (×3)', 'Op Anvil'])
+})

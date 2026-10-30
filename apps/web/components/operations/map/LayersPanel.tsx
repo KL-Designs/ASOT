@@ -66,6 +66,8 @@ export default function LayersPanel({
     const [newLayerName, setNewLayerName] = useState('')
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editingName, setEditingName] = useState('')
+    // Delete asks twice, in place: the first press arms it, the second deletes.
+    const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
     const [iconGroup, setIconGroup] = useState<typeof ICON_GROUPS[number]>('Generic')
     const [activeTab, setActiveTab] = useState<'layers' | 'presets'>('layers')
     const [presets, setPresets] = useState<import('./types').MapMarkerPreset[]>([])
@@ -506,8 +508,10 @@ export default function LayersPanel({
                             <button
                                 onClick={e => {
                                     e.stopPropagation()
-                                    const name = window.prompt(`Name of the new layer inside "${layer.name}" (logistics, IDF, recon…)`)
-                                    if (name?.trim()) onLayerSelect(actions.addLayer(name.trim(), layer.color, layer.id))
+                                    // Made with a placeholder name and opened for renaming in
+                                    // place, rather than asked for in a browser prompt.
+                                    const id = actions.addLayer('New layer', layer.color, layer.id)
+                                    if (id) { onLayerSelect(id); setEditingId(id); setEditingName('New layer') }
                                 }}
                                 style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1, flexShrink: 0 }}
                                 title="Add a layer inside this one"
@@ -519,11 +523,9 @@ export default function LayersPanel({
                             <button
                                 onClick={e => {
                                     e.stopPropagation()
-                                    const name = window.prompt('Name for the copy (your callsign, for example)', `${layer.name} copy`)
-                                    if (name?.trim()) {
-                                        const copyId = actions.duplicateLayer(layer.id, name.trim())
-                                        if (copyId) onLayerSelect(copyId)
-                                    }
+                                    // Named "… copy" and opened for renaming (your callsign, say).
+                                    const copyId = actions.duplicateLayer(layer.id, `${layer.name} copy`)
+                                    if (copyId) { onLayerSelect(copyId); setEditingId(copyId); setEditingName(`${layer.name} copy`) }
                                 }}
                                 style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', padding: 0, fontSize: 12, lineHeight: 1, flexShrink: 0 }}
                                 title="Copy this layer and everything on it"
@@ -531,15 +533,25 @@ export default function LayersPanel({
                                 ⧉
                             </button>
                         )}
-                        {canEdit && (
+                        {canEdit && (confirmDeleteId === layer.id ? (
                             <button
-                                onClick={e => { e.stopPropagation(); actions.removeLayer(layer.id) }}
+                                onClick={e => { e.stopPropagation(); actions.removeLayer(layer.id); setConfirmDeleteId(null) }}
+                                onBlur={() => setConfirmDeleteId(null)}
+                                autoFocus
+                                style={{ background: 'rgba(219,0,29,0.18)', border: '1px solid rgba(219,0,29,0.6)', color: '#ff8a80', cursor: 'pointer', padding: '1px 5px', fontSize: 10, borderRadius: 3, lineHeight: 1.3, flexShrink: 0 }}
+                                title="Press again to delete this layer and everything drawn on it"
+                            >
+                                Delete?
+                            </button>
+                        ) : (
+                            <button
+                                onClick={e => { e.stopPropagation(); setConfirmDeleteId(layer.id) }}
                                 style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: 0, fontSize: 13, lineHeight: 1, flexShrink: 0 }}
                                 title="Delete layer"
                             >
                                 ×
                             </button>
-                        )}
+                        ))}
                     </div>
                 ))}
             </div>

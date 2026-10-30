@@ -8,6 +8,7 @@ import { createNotification } from '@/lib/notifications'
 import { sendMeetingDM } from '@/lib/discord/bot'
 import { getGrantedUserIds } from '@/lib/permissions/tree'
 import { ObjectId } from 'mongodb'
+import { unitDate } from '@/lib/unit-time'
 
 const VALID_DEPARTMENTS = ['j1', 'j2', 'j3', 'j4', 'j6', 'j7', 'unit']
 
@@ -191,7 +192,7 @@ export async function POST(req: NextRequest) {
             .toArray()
 
         const leadTitle = `Mission Check Requested: ${relatedOperationTitle}`
-        const leadBody = `**${displayName}** has requested a mission check for **${relatedOperationTitle}** scheduled for ${startDate.toLocaleDateString('en-AU')}.`
+        const leadBody = `**${displayName}** has requested a mission check for **${relatedOperationTitle}** scheduled for ${unitDate(startDate)}.`
         const notifiedIds = new Set<string>()
         for (const lead of leads) {
             if (!lead.id || notifiedIds.has(lead.id)) continue

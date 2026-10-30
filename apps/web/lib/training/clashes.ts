@@ -45,6 +45,10 @@ export function overlaps(aStart: number, aEnd: number, bStart: number, bEnd: num
 /**
  * Everything in `candidates` that overlaps a session starting at `start` and
  * running `durationMinutes`, earliest first.
+ *
+ * The same thing at the same time is listed once. Missions still in
+ * development all arrive under one anonymous title, so five of them on one
+ * night read as five identical rows; they become one row that says how many.
  */
 export function findClashes(start: Date | string, durationMinutes: number, candidates: readonly ClashCandidate[]): Clash[] {
     const from = ms(start)
@@ -60,6 +64,13 @@ export function findClashes(start: Date | string, durationMinutes: number, candi
         .filter(({ s, e }) => !Number.isNaN(s) && overlaps(from, to, s, e))
         .sort((a, b) => a.s - b.s)
         .map(({ c, s, e }) => ({ kind: c.kind, title: c.title, start: new Date(s).toISOString(), end: new Date(e).toISOString() }))
+        .reduce<(Clash & { count: number })[]>((out, clash) => {
+            const same = out.find(o => o.kind === clash.kind && o.title === clash.title && o.start === clash.start && o.end === clash.end)
+            if (same) same.count += 1
+            else out.push({ ...clash, count: 1 })
+            return out
+        }, [])
+        .map(({ count, ...clash }) => count > 1 ? { ...clash, title: `${clash.title} (×${count})` } : clash)
 }
 
 export const CLASH_LABEL: Record<ClashKind, string> = {
