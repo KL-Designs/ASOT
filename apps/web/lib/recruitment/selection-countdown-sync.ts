@@ -1,5 +1,5 @@
 import Db from '@/lib/mongo'
-import { upsertChannelPost } from '@/lib/discord/bot'
+import { botRequest, upsertChannelPost } from '@/lib/discord/bot'
 import { findNextSelection } from '@/lib/training/find-next-selection'
 import {
     SELECTION_COUNTDOWN_ID, buildCountdownPost, countdownAction, countdownDate, fingerprint, withDefaults,
@@ -22,15 +22,25 @@ export function countdownChannel(config: SelectionCountdownConfig): string {
  * including the moment a Selection's Session 1 passes and the next one (or
  * "To be confirmed") takes over. Disabled means it stops touching the post.
  *
+ * `fresh` is J3's "Send post now": the old message is deleted and a new one
+ * goes up, so it lands at the bottom of the channel again. It still needs a
+ * channel, but not the switch, so a one-off post works while it is disabled.
+ *
  * Never throws: a Discord failure is recorded on the settings for J3 to see.
  */
-export async function syncSelectionCountdown(now = new Date()): Promise<CountdownAction | 'failed'> {
+export async function syncSelectionCountdown(now = new Date(), opts: { fresh?: boolean } = {}): Promise<CountdownAction | 'failed'> {
     const config = await loadCountdownConfig()
     const channelId = countdownChannel(config)
-    const next = config.enabled ? await findNextSelection(now) : null
+    const next = config.enabled || opts.fresh ? await findNextSelection(now) : null
     const post = buildCountdownPost(config, countdownDate(config, next, now), process.env.NEXT_PUBLIC_BASEURL ?? '')
     const fp = fingerprint(channelId, post)
-    const action = countdownAction(config, channelId, fp)
+    let action = countdownAction(config, channelId, fp)
+    if (opts.fresh && channelId) {
+        if (config.messageId && config.postedChannelId) {
+            await botRequest('DELETE', `/channels/${config.postedChannelId}/messages/${config.messageId}`).catch(() => null)
+        }
+        action = 'post'
+    }
     if (action === 'off' || action === 'unconfigured' || action === 'unchanged') return action
 
     const send = (messageId?: string) => upsertChannelPost({ channelId, messageId, payload: post, messageType: 'selection_countdown' })
@@ -47,7 +57,7 @@ export async function syncSelectionCountdown(now = new Date()): Promise<Countdow
         if (!messageId) return action
         await Db.siteSettings.updateOne(
             { _id: SELECTION_COUNTDOWN_ID },
-            { $set: { messageId, postedChannelId: channelId, postedFingerprint: fp, postedAt: now }, $unset: { lastError: '' } },
+            { $set: { messageId, postedChannelId: channelId, postedFingerprint: fp, postedAt: now, ...(action === 'post' ? { sentAt: now } : {}) }, $unset: { lastError: '' } },
             { upsert: true },
         )
         return action

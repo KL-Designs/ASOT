@@ -22,6 +22,7 @@ interface State {
         overrideAt: string | null
         messageId: string | null
         postedAt: string | null
+        sentAt: string | null
         lastError: string | null
         updatedAt: string | null
         updatedByName: string | null
@@ -64,6 +65,7 @@ export default function SelectionCountdownTab() {
     const [state, setState] = useState<State | null>(null)
     const [form, setForm] = useState<State['config'] | null>(null)
     const [saving, setSaving] = useState(false)
+    const [sending, setSending] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
@@ -90,6 +92,18 @@ export default function SelectionCountdownTab() {
             setState(d); setForm(d.config)
         } finally {
             setSaving(false)
+        }
+    }
+
+    async function sendNow() {
+        setSending(true); setError(null)
+        try {
+            const res = await fetch('/api/j3/selection-countdown', { method: 'POST' })
+            const d = await res.json().catch(() => ({}))
+            if (!res.ok) { setError(d.error ?? 'Sending failed.'); return }
+            setState(d); setForm(f => f && { ...f, messageId: d.config.messageId, postedAt: d.config.postedAt, sentAt: d.config.sentAt, lastError: d.config.lastError })
+        } finally {
+            setSending(false)
         }
     }
 
@@ -151,9 +165,19 @@ export default function SelectionCountdownTab() {
                         {state.preview.image && <img src={state.preview.image.url} alt='' style={{ marginTop: 10, maxWidth: '100%', borderRadius: 4 }} />}
                         <div style={{ marginTop: 8, fontSize: '0.7rem', color: '#949ba4' }}>Times are shown in your own timezone</div>
                     </div>
-                    <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>
-                        {state.config.messageId ? `Posted; last updated ${state.config.postedAt ? fmt(state.config.postedAt) : ''}.` : 'Not posted yet.'}
-                    </span>
+                    <div className='flex flex-col gap-1 items-start' style={{ marginTop: 4 }}>
+                        <Button variant='contained' size='small' disabled={sending || saving} onClick={sendNow}
+                            sx={{ borderRadius: 0, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', background: 'var(--red)', '&:hover': { background: 'var(--red)', filter: 'brightness(1.15)' } }}>
+                            {sending ? 'Sending…' : 'Send post now'}
+                        </Button>
+                        <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.45)' }}>
+                            {state.config.sentAt ?? state.config.postedAt
+                                ? `Last posted ${fmt((state.config.sentAt ?? state.config.postedAt)!)}`
+                                : 'Not posted yet'}
+                            {state.config.sentAt && state.config.postedAt && state.config.postedAt !== state.config.sentAt ? `; last edited ${fmt(state.config.postedAt)}` : ''}
+                        </span>
+                        <span style={{ fontSize: '0.68rem', color: 'rgba(237,237,237,0.3)' }}>Deletes the current post and sends it again at the bottom of the channel. Save changes first.</span>
+                    </div>
                 </div>
             </div>
         </div>

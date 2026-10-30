@@ -28,6 +28,8 @@ declare global {
         /** What was last sent, so an unchanged post is not edited every tick. */
         postedFingerprint?: string
         postedAt?: Date
+        /** When the current message first went up (a new post, not an edit). */
+        sentAt?: Date
         lastError?: string
         updatedAt?: Date
         updatedByName?: string

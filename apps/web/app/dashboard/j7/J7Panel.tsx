@@ -50,6 +50,8 @@ export default function J7Panel({
         borderRadius: 999,
     })
 
+    const tabSx = { fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }
+
     return (
         <div className='h-full w-full flex flex-col'>
             <div
@@ -82,10 +84,6 @@ export default function J7Panel({
                     </div>
             </div>
 
-            {view === 'settings' && (
-                <DeptSettingsView department='j7' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
-                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
-            )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j7' userId={userId} isJ4={isJ4} />
             )}
@@ -94,24 +92,31 @@ export default function J7Panel({
                     <ActivityLogTab department='j7' />
                 </div>
             )}
-            {view === 'dept' && (
+            {(view === 'dept' || view === 'settings') && (
                 <>
-                    <DeptLinksRail department='j7' canManage={canManageLinks} onManage={() => setView('settings')} />
+                    {view === 'dept' && <DeptLinksRail department='j7' canManage={canManageLinks} onManage={() => setView('settings')} />}
 
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                         <Tabs
-                            value={tab}
-                            onChange={(_, v) => setTab(v)}
+                            value={view === 'settings' ? 'admin' : tab}
+                            onChange={(_, v) => v === 'admin' ? setView('settings') : setTab(v)}
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
-                            <Tab label={<PinTabLabel label='Board'    pinLabel='J7 — Board'    href='/dashboard/j7' tabIndex={0} />} sx={{ fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.1em', minHeight: 40, padding: '8px 16px', color: 'rgba(237,237,237,0.5)', '&.Mui-selected': { color: 'var(--foreground)' } }} />
+                            <Tab label={<PinTabLabel label='Board'    pinLabel='J7 — Board'    href='/dashboard/j7' tabIndex={0} />} sx={tabSx} />
+                            <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>
                     </div>
 
-                    <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && <BoardTab department='j7' canManageColumns={canManageMembers || isJ4} />}
-                    </div>
+                    {view === 'settings' && (
+                        <DeptSettingsView department='j7' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                            sections={adminSections} active={adminTab} onSelect={setAdminTab} />
+                    )}
+                    {view === 'dept' && (
+                        <div className='flex-1 min-h-0 mt-0'>
+                            {tab === 0 && <BoardTab department='j7' canManageColumns={canManageMembers || isJ4} />}
+                        </div>
+                    )}
                 </>
             )}
         </div>

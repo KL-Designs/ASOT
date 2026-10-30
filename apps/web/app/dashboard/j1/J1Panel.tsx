@@ -121,10 +121,6 @@ export default function J1Panel({ displayName, userId, canManageMembers, canMana
                     </div>
             </div>
 
-            {view === 'settings' && (
-                <DeptSettingsView department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
-                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
-            )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j1' userId={userId} isJ4={isJ4} />
             )}
@@ -133,47 +129,54 @@ export default function J1Panel({ displayName, userId, canManageMembers, canMana
                     <ActivityLogTab department='j1' />
                 </div>
             )}
-            {view === 'dept' && (
+            {(view === 'dept' || view === 'settings') && (
                 <>
-                    <DeptLinksRail department='j1' canManage={canManageLinks} onManage={() => setView('settings')} />
+                    {view === 'dept' && <DeptLinksRail department='j1' canManage={canManageLinks} onManage={() => setView('settings')} />}
 
                     {/* Tabs */}
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                         <Tabs
-                            value={tab}
-                            onChange={(_, v) => setTab(v)}
+                            value={view === 'settings' ? 'admin' : tab}
+                            onChange={(_, v) => v === 'admin' ? setView('settings') : setTab(v)}
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
                             <Tab label={<PinTabLabel label='Recruit Member' pinLabel='J1 — Recruit Member' href='/dashboard/j1' tabIndex={0} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/dashboard/j1' tabIndex={1} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Mastersheet'    pinLabel='J1 — Mastersheet'    href='/dashboard/j1' tabIndex={2} />} sx={tabSx} />
+                            <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     {/* Tab content */}
-                    <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && <RecruitMemberTab displayName={displayName} />}
-                        {tab === 1 && (
-                            <div
-                                className='m-6 mt-4'
-                                style={{
-                                    border: '1px solid var(--line-2)',
-                                    background: 'rgba(255,255,255,0.01)',
-                                }}
-                            >
-                                <ApplicationsTab isJ4={isJ4} isLead={canManageMembers} userId={userId} />
-                            </div>
-                        )}
-                        {tab === 2 && (
-                            <div
-                                className='m-6 mt-4'
-                                style={{ border: '1px solid rgba(0,195,100,0.1)', background: 'rgba(255,255,255,0.01)' }}
-                            >
-                                <MastersheetTab />
-                            </div>
-                        )}
-                    </div>
+                    {view === 'settings' && (
+                        <DeptSettingsView department='j1' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                            sections={adminSections} active={adminTab} onSelect={setAdminTab} />
+                    )}
+                    {view === 'dept' && (
+                        <div className='flex-1 min-h-0 mt-0'>
+                            {tab === 0 && <RecruitMemberTab displayName={displayName} />}
+                            {tab === 1 && (
+                                <div
+                                    className='m-6 mt-4'
+                                    style={{
+                                        border: '1px solid var(--line-2)',
+                                        background: 'rgba(255,255,255,0.01)',
+                                    }}
+                                >
+                                    <ApplicationsTab isJ4={isJ4} isLead={canManageMembers} userId={userId} />
+                                </div>
+                            )}
+                            {tab === 2 && (
+                                <div
+                                    className='m-6 mt-4'
+                                    style={{ border: '1px solid rgba(0,195,100,0.1)', background: 'rgba(255,255,255,0.01)' }}
+                                >
+                                    <MastersheetTab />
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </>
             )}
         </div>

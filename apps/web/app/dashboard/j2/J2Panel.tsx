@@ -103,10 +103,6 @@ export default function J2Panel({
                 </div>
             </div>
 
-            {view === 'settings' && (
-                <DeptSettingsView department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
-                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
-            )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j2' userId={userId} isJ4={isJ4} isJ2Lead={canManageMembers} />
             )}
@@ -115,14 +111,14 @@ export default function J2Panel({
                     <ActivityLogTab department='j2' />
                 </div>
             )}
-            {view === 'dept' && (
+            {(view === 'dept' || view === 'settings') && (
                 <>
-                    <DeptLinksRail department='j2' canManage={canManageLinks} onManage={() => setView('settings')} />
+                    {view === 'dept' && <DeptLinksRail department='j2' canManage={canManageLinks} onManage={() => setView('settings')} />}
 
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                         <Tabs
-                            value={tab}
-                            onChange={(_, v) => setTab(v)}
+                            value={view === 'settings' ? 'admin' : tab}
+                            onChange={(_, v) => v === 'admin' ? setView('settings') : setTab(v)}
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
@@ -135,17 +131,24 @@ export default function J2Panel({
                             <Tab value={7} label={<PinTabLabel label='Mission Bible' pinLabel='J2 — Mission Bible' href='/dashboard/j2' tabIndex={7} />} sx={tabSx} />
                             <Tab value={8} label={<PinTabLabel label='Objective Suggestions' pinLabel='J2 — Objectives' href='/dashboard/j2' tabIndex={8} />} sx={tabSx} />
                             <Tab value={9} label={<PinTabLabel label='Enemy Doctrine' pinLabel='J2 — Enemy Doctrine' href='/dashboard/j2' tabIndex={9} />} sx={tabSx} />
+                            <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>
                     </div>
 
-                    <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && <J2OperationsTab isJ4={isJ4} />}
-                        {tab === 3 && <MembersWorkspaceTab userId={userId} isJ4={isJ4} canManage={canManageMembers} />}
-                        {tab === 4 && <MissionChecksTab userId={userId} isJ2Lead={canManageMembers || isJ4} />}
-                        {tab === 7 && <MissionBibleTab />}
-                        {tab === 8 && <ObjectiveSuggestions />}
-                        {tab === 9 && <div className='h-full overflow-y-auto'><DoctrineTab /></div>}
-                    </div>
+                    {view === 'settings' && (
+                        <DeptSettingsView department='j2' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                            sections={adminSections} active={adminTab} onSelect={setAdminTab} />
+                    )}
+                    {view === 'dept' && (
+                        <div className='flex-1 min-h-0 mt-0'>
+                            {tab === 0 && <J2OperationsTab isJ4={isJ4} />}
+                            {tab === 3 && <MembersWorkspaceTab userId={userId} isJ4={isJ4} canManage={canManageMembers} />}
+                            {tab === 4 && <MissionChecksTab userId={userId} isJ2Lead={canManageMembers || isJ4} />}
+                            {tab === 7 && <MissionBibleTab />}
+                            {tab === 8 && <ObjectiveSuggestions />}
+                            {tab === 9 && <div className='h-full overflow-y-auto'><DoctrineTab /></div>}
+                        </div>
+                    )}
                 </>
             )}
         </div>

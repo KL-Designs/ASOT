@@ -114,24 +114,20 @@ export default function J3Panel({ displayName, userId, canManageMembers, canMana
                     </div>
             </div>
 
-            {view === 'settings' && (
-                <DeptSettingsView department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
-                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
-            )}
             {view === 'activity' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
                     <ActivityLogTab department='j3' />
                 </div>
             )}
-            {view === 'dept' && (
+            {(view === 'dept' || view === 'settings') && (
                 <>
-                    <DeptLinksRail department='j3' canManage={canManageLinks} onManage={() => setView('settings')} />
+                    {view === 'dept' && <DeptLinksRail department='j3' canManage={canManageLinks} onManage={() => setView('settings')} />}
 
                     {/* Tabs */}
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                         <Tabs
-                            value={tab}
-                            onChange={(_, v) => setTab(v)}
+                            value={view === 'settings' ? 'admin' : tab}
+                            onChange={(_, v) => v === 'admin' ? setView('settings') : setTab(v)}
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
@@ -143,33 +139,40 @@ export default function J3Panel({ displayName, userId, canManageMembers, canMana
                             <Tab value={3} label={<PinTabLabel label='Training Requests' pinLabel='J3 — Training Requests'  href='/dashboard/j3' tabIndex={3} />} sx={tabSx} />
                             <Tab value={4} label={<PinTabLabel label='Training Records'  pinLabel='J3 — Records'            href='/dashboard/j3' tabIndex={4} />} sx={tabSx} />
                             <Tab value={7} label={<PinTabLabel label='Master Sheet'      pinLabel='J3 — Master Sheet'       href='/dashboard/j3' tabIndex={7} />} sx={tabSx} />
+                            <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>
                     </div>
 
                     {/* Tab content */}
-                    <div className='flex-1 min-h-0 mt-0'>
-                        {tab === 0 && (
-                            <TrainingHub
-                                isJ3Lead={canManageMembers}
-                                isTrainer={true}
-                                isJ3Trainer={true}
-                                myId={userId}
-                                isJ3Context={true}
-                                canApproveGuides={canManageMembers || isJ4}
-                            />
-                        )}
-                        {tab === 1 && <TrainingTicketsTab isJ3Lead={canManageMembers} />}
-                        {tab === 2 && <DeptCalendarTab department='j3' userId={userId} isJ4={isJ4} />}
-                        {tab === 3 && (
-                            <EventsTab
-                                isJ3Lead={canManageMembers}
-                                isTrainer={true}
-                                isJ3Trainer={true}
-                            />
-                        )}
-                        {tab === 4 && <TrainingRecordsTab userId={userId} canManageMembers={canManageMembers} />}
-                        {tab === 7 && <J3MasterSheetTab />}
-                    </div>
+                    {view === 'settings' && (
+                        <DeptSettingsView department='j3' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                            sections={adminSections} active={adminTab} onSelect={setAdminTab} />
+                    )}
+                    {view === 'dept' && (
+                        <div className='flex-1 min-h-0 mt-0'>
+                            {tab === 0 && (
+                                <TrainingHub
+                                    isJ3Lead={canManageMembers}
+                                    isTrainer={true}
+                                    isJ3Trainer={true}
+                                    myId={userId}
+                                    isJ3Context={true}
+                                    canApproveGuides={canManageMembers || isJ4}
+                                />
+                            )}
+                            {tab === 1 && <TrainingTicketsTab isJ3Lead={canManageMembers} />}
+                            {tab === 2 && <DeptCalendarTab department='j3' userId={userId} isJ4={isJ4} />}
+                            {tab === 3 && (
+                                <EventsTab
+                                    isJ3Lead={canManageMembers}
+                                    isTrainer={true}
+                                    isJ3Trainer={true}
+                                />
+                            )}
+                            {tab === 4 && <TrainingRecordsTab userId={userId} canManageMembers={canManageMembers} />}
+                            {tab === 7 && <J3MasterSheetTab />}
+                        </div>
+                    )}
                 </>
             )}
         </div>

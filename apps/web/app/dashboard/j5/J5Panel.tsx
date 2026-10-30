@@ -153,10 +153,6 @@ export default function J5Panel({
                     </div>
             </div>
 
-            {view === 'settings' && (
-                <DeptSettingsView department='j5' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
-                    sections={adminSections} active={adminTab} onSelect={setAdminTab} />
-            )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j5' userId={userId} isJ4={isJ4} />
             )}
@@ -165,14 +161,14 @@ export default function J5Panel({
                     <ActivityLogTab department='j5' />
                 </div>
             )}
-            {view === 'dept' && (
+            {(view === 'dept' || view === 'settings') && (
                 <>
-                    <DeptLinksRail department='j5' canManage={canManageLinks} onManage={() => setView('settings')} />
+                    {view === 'dept' && <DeptLinksRail department='j5' canManage={canManageLinks} onManage={() => setView('settings')} />}
 
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                         <Tabs
-                            value={activeTab}
-                            onChange={(_, v) => setTab(v)}
+                            value={view === 'settings' ? 'admin' : activeTab}
+                            onChange={(_, v) => v === 'admin' ? setView('settings') : setTab(v)}
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
@@ -209,12 +205,19 @@ export default function J5Panel({
                                     sx={tabSx}
                                 />
                             ))}
+                            <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>
                     </div>
 
-                    <div className='flex-1 min-h-0 mt-0'>
-                        {visibleTabs[activeTab]?.render()}
-                    </div>
+                    {view === 'settings' && (
+                        <DeptSettingsView department='j5' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                            sections={adminSections} active={adminTab} onSelect={setAdminTab} />
+                    )}
+                    {view === 'dept' && (
+                        <div className='flex-1 min-h-0 mt-0'>
+                            {visibleTabs[activeTab]?.render()}
+                        </div>
+                    )}
                 </>
             )}
         </div>

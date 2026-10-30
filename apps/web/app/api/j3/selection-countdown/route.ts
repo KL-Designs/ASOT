@@ -14,6 +14,7 @@ export const dynamic = 'force-dynamic'
  *
  * GET returns the settings, the calculated next Session 1, and a preview of
  * exactly what would be posted. PUT saves the settings and syncs straight away.
+ * POST sends the post now, as a new message at the bottom of the channel.
  * J3 leads only (`training.manage`), the same people who schedule Selection.
  */
 
@@ -38,6 +39,7 @@ async function state() {
             overrideAt: config.overrideAt ?? null,
             messageId: config.messageId ?? null,
             postedAt: config.postedAt ?? null,
+            sentAt: config.sentAt ?? null,
             lastError: config.lastError ?? null,
             updatedAt: config.updatedAt ?? null,
             updatedByName: config.updatedByName ?? null,
@@ -104,5 +106,24 @@ export async function PUT(req: NextRequest) {
     }).catch(console.error)
 
     await syncSelectionCountdown()
+    return NextResponse.json(await state())
+}
+
+export async function POST() {
+    const g = await gate()
+    if (g.error) return g.error
+    const me = g.me!
+    const result = await syncSelectionCountdown(new Date(), { fresh: true })
+    if (result === 'unconfigured') return NextResponse.json({ error: 'Set the channel first.' }, { status: 400 })
+    logAction({
+        action: 'j3.selectionCountdown.send',
+        category: 'training',
+        performedBy: me.id,
+        performedByName: me.guild?.displayName ?? me.username,
+        department: 'j3',
+        entityType: 'site_settings',
+        entityId: SELECTION_COUNTDOWN_ID,
+        details: { result },
+    }).catch(console.error)
     return NextResponse.json(await state())
 }
