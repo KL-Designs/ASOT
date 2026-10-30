@@ -13,7 +13,9 @@ import AssessmentsTab from './AssessmentsTab'
 import RequestsTab from './RequestsTab'
 import TrainingVideosTab from './TrainingVideosTab'
 import { CATEGORY_ORDER } from '@/lib/training/categories'
-import { calculateSessionDates, SESSION_DEFS } from '@/lib/training/session-dates'
+import { sessionTemplateFor, type SessionTemplateItem } from '@/lib/training/course-sessions'
+import CourseSessionsEditor, { rowsFromTemplate, rowsToPlan, type SessionRow } from '@/app/dashboard/unit/calendar/CourseSessionsEditor'
+import SessionTemplateDialog from './SessionTemplateDialog'
 import AssessmentManager from '@/components/orders-assessment/AssessmentManager'
 import { guideSlotId, slotsFor, TRAINERS_GUIDE_SLOT, TRAINING_DOCUMENT_SLOT, type DocumentSlot } from '@/lib/training/document-slots'
 import type { Route } from 'next'
@@ -58,6 +60,7 @@ type TType = {
     sortOrder?: number
     courseType?: string
     documentSlots?: DocumentSlot[]
+    sessionTemplate?: SessionTemplateItem[]
 }
 
 type TCourseInstance = {
@@ -364,7 +367,9 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
     const [restoringInstanceId, setRestoringInstanceId] = useState<string | null>(null)
     const [showDeletedInstances, setShowDeletedInstances] = useState<Record<string, boolean>>({})
     const [showHistoryInstances, setShowHistoryInstances] = useState<Record<string, boolean>>({})
-    const [createInstanceModal, setCreateInstanceModal] = useState<{ typeId: string; typeName: string; courseType: string; session1Date: string } | null>(null)
+    const [createInstanceModal, setCreateInstanceModal] = useState<{ typeId: string; typeName: string; courseType: string; session1Date: string; session1Time: string; sessions: SessionRow[]; error?: string } | null>(null)
+    /** Training Hub → course → Sessions: the default session list being edited. */
+    const [sessionTemplateType, setSessionTemplateType] = useState<TType | null>(null)
     const [deleteInstanceModal, setDeleteInstanceModal] = useState<{ instanceId: string; typeId: string; instanceRef: string } | null>(null)
 
     // Per-course add video form state
@@ -523,18 +528,25 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
         if (data) setCourseInstancesCache(prev => ({ ...prev, [typeId]: data.instances ?? [] }))
     }
 
-    async function handleCreateInstance(typeId: string, session1Date?: string) {
+    async function handleCreateInstance(typeId: string, sessions: SessionRow[]) {
         if (creatingInstance) return
+        // No sessions yet is allowed: the run is created and dated later.
+        const course = sessions.length ? rowsToPlan(sessions) : { plan: undefined }
+        if (course.error) { setCreateInstanceModal(m => m ? { ...m, error: course.error } : m); return }
         setCreatingInstance(true)
         try {
-            const body: Record<string, string> = { trainingTypeId: typeId }
-            if (session1Date) body.session1Date = session1Date
+            const body: Record<string, unknown> = { trainingTypeId: typeId }
+            if (course.plan) body.sessions = course.plan
             const res = await fetch('/api/j3/course-instances', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             })
-            if (!res.ok) return
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}))
+                setCreateInstanceModal(m => m ? { ...m, error: d.error ?? 'Launch failed.' } : m)
+                return
+            }
             await refreshInstances(typeId)
             setCreateInstanceModal(null)
         } finally {
@@ -955,8 +967,14 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     const sBorder = (s: string) => s === 'planning' ? 'rgba(255,180,50,0.25)' : (s === 'active' || s === 'in_progress') ? 'rgba(80,200,120,0.25)' : s === 'completed' ? 'rgba(100,160,240,0.25)' : 'rgba(255,255,255,0.1)'
                     return (
                         <div style={{ paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)' }}>
-                                Course Instances
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)' }}>
+                                    Course Instances
+                                </div>
+                                <button type='button' onClick={() => setSessionTemplateType(t)} title='Default session names and runtimes'
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.55)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                    <Edit style={{ fontSize: 11 }} /> Sessions ({sessionTemplateFor(t).length})
+                                </button>
                             </div>
                             {!isLoaded ? (
                                 <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)' }}>Loading…</div>
@@ -997,7 +1015,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)' }}>No active {tLabel} instance</div>
-                                    <button type='button' onClick={() => setCreateInstanceModal({ typeId: t._id, typeName: t.name, courseType: t.courseType!, session1Date: '' })}
+                                    <button type='button' onClick={() => setCreateInstanceModal({ typeId: t._id, typeName: t.name, courseType: t.courseType!, session1Date: '', session1Time: '19:00', sessions: [] })}
                                         style={{ display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.25)', color: 'rgba(219,0,29,0.65)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
                                         <Add style={{ fontSize: 11 }} /> Launch {tLabel}
                                     </button>
@@ -1887,7 +1905,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {createInstanceModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                     onClick={e => { if (e.target === e.currentTarget) setCreateInstanceModal(null) }}>
-                    <div style={{ background: '#0e0e0e', border: '1px solid var(--line-2)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div style={{ background: '#0e0e0e', border: '1px solid var(--line-2)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 520, maxHeight: '88vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
                             <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>{'//'} LAUNCH COURSE</div>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
@@ -1897,42 +1915,58 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                         <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>
                             Creating a new course instance for <strong style={{ color: 'rgba(237,237,237,0.8)' }}>{createInstanceModal.typeName}</strong>. Only one active instance is permitted at a time.
                         </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>Session 1 Date (optional)</label>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: 'block', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>Session 1 (optional)</label>
+                                <input
+                                    type='date'
+                                    value={createInstanceModal.session1Date}
+                                    min={new Date().toLocaleDateString('en-CA')}
+                                    onChange={e => {
+                                        const d = e.target.value
+                                        const type = types.find(x => x._id === createInstanceModal.typeId)
+                                        setCreateInstanceModal(m => m ? { ...m, session1Date: d, error: undefined, sessions: d && type ? rowsFromTemplate(sessionTemplateFor(type), d, m.session1Time) : [] } : m)
+                                    }}
+                                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
+                                />
+                            </div>
                             <input
-                                type='date'
-                                value={createInstanceModal.session1Date}
-                                min={new Date().toLocaleDateString('en-CA')}
-                                onChange={e => setCreateInstanceModal(m => m ? { ...m, session1Date: e.target.value } : m)}
-                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
+                                type='time'
+                                value={createInstanceModal.session1Time}
+                                onChange={e => {
+                                    const t = e.target.value
+                                    const type = types.find(x => x._id === createInstanceModal.typeId)
+                                    setCreateInstanceModal(m => m ? { ...m, session1Time: t, sessions: m.session1Date && type ? rowsFromTemplate(sessionTemplateFor(type), m.session1Date, t) : m.sessions } : m)
+                                }}
+                                style={{ width: 110, boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
                             />
                         </div>
-                        {createInstanceModal.session1Date && (() => {
-                            const dates = calculateSessionDates(createInstanceModal.session1Date)
-                            return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                    <div style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 2 }}>Calculated Session Dates</div>
-                                    {SESSION_DEFS.map((def, i) => (
-                                        <div key={def.sessionNumber} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.65rem', color: def.catchUp ? 'rgba(255,180,50,0.65)' : 'rgba(237,237,237,0.45)' }}>
-                                            <span>Session {def.sessionNumber}</span>
-                                            <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: '0.62rem' }}>{dates[i].toLocaleDateString('en-AU', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )
-                        })()}
+                        {createInstanceModal.sessions.length > 0 && (
+                            <CourseSessionsEditor rows={createInstanceModal.sessions}
+                                onChange={rows => setCreateInstanceModal(m => m ? { ...m, sessions: rows, error: undefined } : m)}
+                                onResuggest={() => setCreateInstanceModal(m => m && m.sessions[0] ? { ...m, sessions: rowsFromTemplate(m.sessions.map(r => ({ name: r.name, durationMinutes: r.durationMinutes })), m.sessions[0].date, m.sessions[0].time) } : m)} />
+                        )}
+                        {createInstanceModal.error && <div style={{ fontSize: '0.72rem', color: 'var(--red)' }}>{createInstanceModal.error}</div>}
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                             <button type='button' onClick={() => setCreateInstanceModal(null)}
                                 style={{ padding: '8px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.45)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
                                 Cancel
                             </button>
-                            <button type='button' onClick={() => handleCreateInstance(createInstanceModal.typeId, createInstanceModal.session1Date || undefined)} disabled={creatingInstance}
+                            <button type='button' onClick={() => handleCreateInstance(createInstanceModal.typeId, createInstanceModal.sessions)} disabled={creatingInstance}
                                 style={{ padding: '8px 20px', background: creatingInstance ? 'rgba(219,0,29,0.3)' : RED, border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: creatingInstance ? 'default' : 'pointer' }}>
                                 {creatingInstance ? 'Launching…' : 'Launch'}
                             </button>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {sessionTemplateType && (
+                <SessionTemplateDialog type={sessionTemplateType} onClose={() => setSessionTemplateType(null)}
+                    onSaved={template => {
+                        setTypes(prev => prev.map(x => x._id === sessionTemplateType._id ? { ...x, sessionTemplate: template ?? undefined } : x))
+                        setSessionTemplateType(null)
+                    }} />
             )}
 
             {/* Delete doc confirmation modal */}

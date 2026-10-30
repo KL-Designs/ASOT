@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { sanitiseSessionTemplate } from '@/lib/training/course-sessions'
 import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
@@ -48,6 +49,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.coverImageUrl !== undefined) updates.coverImageUrl = body.coverImageUrl?.trim() || undefined
     if (body.linkedMedia !== undefined) updates.linkedMedia = Array.isArray(body.linkedMedia) ? body.linkedMedia as TrainingMedia[] : undefined
     if (body.preLearning !== undefined) updates.preLearning = sanitisePreLearning(body.preLearning)
+    if (body.sessionTemplate !== undefined) {
+        const template = body.sessionTemplate === null ? null : sanitiseSessionTemplate(body.sessionTemplate)
+        if (body.sessionTemplate !== null && !template) return NextResponse.json({ error: 'Sessions need at least one entry.' }, { status: 400 })
+        updates.sessionTemplate = template ?? undefined
+    }
     if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder !== '' ? Number(body.sortOrder) || undefined : undefined
 
     await Db.trainingTypes.updateOne({ _id: new ObjectId(id) }, { $set: updates })

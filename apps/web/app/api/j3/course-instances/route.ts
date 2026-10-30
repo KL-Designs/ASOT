@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
-import { calculateSessionDates, SESSION_DEFS } from '@/lib/training/session-dates'
+import { sanitiseSessionPlan, sessionTemplateFor, sessionTitle, suggestedSessionDates, weekOf } from '@/lib/training/course-sessions'
 import { logAction } from '@/lib/logAction'
 import { sanitiseOffsets } from '@/lib/training/reminder-offsets'
 import { rescheduleCourseReminders } from '@/lib/training/scheduleReminders'
@@ -63,16 +63,21 @@ export async function POST(req: NextRequest) {
     const name = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || ''
     const now = new Date()
 
-    // Parse optional session 1 date and calculate all 6 session dates
-    let sessionDates: Date[] | null = null
-    let parsedSession1Date: Date | undefined
-    if (session1DateRaw) {
+    /*
+     * The sessions, each with its own date and time: as sent by the Add
+     * Training Event or launch dialog (named, some perhaps removed), or, from
+     * an older client that sends only Session 1, the course's sessions on the
+     * suggested Wednesday/Saturday run.
+     */
+    let plan = sanitiseSessionPlan(body.sessions)
+    if (!plan && session1DateRaw) {
         const d = new Date(session1DateRaw)
         if (!isNaN(d.getTime())) {
-            parsedSession1Date = d
-            sessionDates = calculateSessionDates(d)
+            const template = sessionTemplateFor(trainingType)
+            plan = suggestedSessionDates(d, template.length).map((start, i) => ({ name: template[i].name, start, durationMinutes: template[i].durationMinutes }))
         }
     }
+    const parsedSession1Date = plan?.[0]?.start
 
     const status: CourseInstanceStatus = 'planning'
     const reminderOffsets = sanitiseOffsets(body.reminderOffsets) ?? undefined
@@ -89,10 +94,10 @@ export async function POST(req: NextRequest) {
         createdAt: now,
         updatedAt: now,
         ...(reminderOffsets ? { reminderOffsets } : {}),
-        ...(parsedSession1Date ? {
+        ...(plan && parsedSession1Date ? {
             session1Date: parsedSession1Date,
-            startDate: sessionDates![0],
-            endDate: sessionDates![5],
+            startDate: parsedSession1Date,
+            endDate: plan[plan.length - 1].start,
         } : {}),
     }
 
@@ -110,37 +115,32 @@ export async function POST(req: NextRequest) {
         after: { instanceRef, courseType: trainingType.courseType, trainingTypeName: trainingType.name, status: 'planning' },
     })
 
-    // Create 6 session documents if dates were provided
-    if (sessionDates) {
-        const sessionDocs = SESSION_DEFS.map((def, i) => ({
+    // One session document and one pair of calendar events (J3 and unit) per session.
+    if (plan && parsedSession1Date) {
+        const sessionDocs = plan.map((p, i) => ({
             courseInstanceId: instanceId,
-            sessionNumber: def.sessionNumber,
-            weekNumber: def.weekNumber,
-            title: def.title,
-            catchUp: def.catchUp,
-            scheduledDate: sessionDates![i],
+            sessionNumber: i + 1,
+            weekNumber: weekOf(parsedSession1Date, p.start),
+            title: sessionTitle(i + 1, p.name),
+            catchUp: false,
+            scheduledDate: p.start,
+            ...(p.durationMinutes ? { durationMinutes: p.durationMinutes } : {}),
             createdAt: now,
             updatedAt: now,
         }))
         await Db.courseSessions.insertMany(sessionDocs as CourseSession[])
 
-    // Create calendar events for each session (J3 + unit calendars)
     const courseLabel = trainingType.courseType === 'selection' ? 'Selection' : 'Reinforcement Cycle'
     const calendarDocs: Omit<CalendarEvent, '_id'>[] = []
-    for (let i = 0; i < SESSION_DEFS.length; i++) {
-        const def = SESSION_DEFS[i]
-        const sessionDate = new Date(sessionDates![i])
-        sessionDate.setHours(0, 0, 0, 0)
-        const dayEnd = new Date(sessionDate)
-        dayEnd.setHours(23, 59, 59, 999)
-        const title = `${courseLabel} ${instanceRef} — Session ${def.sessionNumber}`
-        const description = 'Status: Planning'
+    plan.forEach((p, i) => {
+        const minutes = p.durationMinutes ?? trainingType.durationMinutes ?? 120
+        const title = `${courseLabel} ${instanceRef} — ${sessionTitle(i + 1, p.name)}`
         const base = {
             title,
-            description,
-            start: sessionDate,
-            end: dayEnd,
-            allDay: true,
+            description: 'Status: Planning',
+            start: p.start,
+            end: new Date(p.start.getTime() + minutes * 60_000),
+            allDay: false,
             courseInstanceId: instanceId,
             createdById: me.id,
             createdByName: name,
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
         }
         calendarDocs.push({ ...base, department: 'j3' } as Omit<CalendarEvent, '_id'>)
         calendarDocs.push({ ...base, title: `[J3] ${title}`, department: 'unit' } as Omit<CalendarEvent, '_id'>)
-    }
+    })
     const calResult = await Db.calendarEvents.insertMany(calendarDocs as CalendarEvent[])
     const calIds = Object.values(calResult.insertedIds).map(id => String(id))
     await Db.courseInstances.updateOne({ _id: result.insertedId }, { $set: { calendarEventIds: calIds } })

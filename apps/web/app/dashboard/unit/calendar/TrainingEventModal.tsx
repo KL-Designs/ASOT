@@ -7,6 +7,8 @@ import {
 } from '@mui/material'
 import { Close, Add, Remove } from '@mui/icons-material'
 import { groupByCategory } from '@/lib/training/categories'
+import { sessionTemplateFor, type SessionTemplateItem } from '@/lib/training/course-sessions'
+import CourseSessionsEditor, { rowsFromTemplate, rowsToPlan, type SessionRow } from './CourseSessionsEditor'
 import { defaultReminderOffsets, formatOffset, sanitiseOffsets, suggestedEnd, LOAD_IN_NOTE, LOAD_IN_OFFSET } from '@/lib/training/reminder-offsets'
 
 /**
@@ -29,6 +31,7 @@ interface TypeRow {
     durationMinutes?: number
     description?: string
     courseType?: 'selection' | 'reinforcement_cycle'
+    sessionTemplate?: SessionTemplateItem[]
 }
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -64,6 +67,8 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
     const [endEdited, setEndEdited] = useState(false)
     const [description, setDescription] = useState('')
     const [offsets, setOffsets] = useState<number[]>(defaultReminderOffsets())
+    /** Selection / Reinforcement Cycle: one row per session. */
+    const [sessions, setSessions] = useState<SessionRow[]>([])
     const [addOffset, setAddOffset] = useState<number | ''>('')
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -92,12 +97,13 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
         setTypeId(id)
         const t = courses.find(x => x._id === id)
         setOffsets(defaultReminderOffsets(t?.courseType))
+        setSessions(t?.courseType ? rowsFromTemplate(sessionTemplateFor(t), date, startTime) : [])
         if (t?.description && !description) setDescription(t.description)
         recalcEnd(t, date, startTime)
     }
 
     function reset() {
-        setTypeId(''); setDescription(''); setEndEdited(false); setError(null)
+        setTypeId(''); setDescription(''); setEndEdited(false); setError(null); setSessions([])
         setOffsets(defaultReminderOffsets()); setAddOffset('')
     }
 
@@ -105,9 +111,11 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
 
     async function save() {
         if (!selected) return
+        const course = isCourse ? rowsToPlan(sessions) : null
+        if (course?.error) { setError(course.error); return }
         const start = new Date(`${date}T${startTime}`)
         let end = new Date(`${date}T${endTime}`)
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) { setError('Set a date, start and end time.'); return }
+        if (!isCourse && (isNaN(start.getTime()) || isNaN(end.getTime()))) { setError('Set a date, start and end time.'); return }
         // An end earlier than the start is the next morning, not a mistake.
         if (end <= start) end = new Date(end.getTime() + 24 * 60 * 60_000)
 
@@ -116,7 +124,7 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
             const res = isCourse
                 ? await fetch('/api/j3/course-instances', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ trainingTypeId: selected._id, session1Date: start.toISOString(), reminderOffsets: offsets }),
+                    body: JSON.stringify({ trainingTypeId: selected._id, sessions: course!.plan, reminderOffsets: offsets }),
                 })
                 : await fetch('/api/training/events', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -180,23 +188,29 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
                     ])}
                 </TextField>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-                    <TextField label={isCourse ? 'Session 1 date' : 'Date'} size='small' type='date' value={date}
-                        onChange={e => { setDate(e.target.value); recalcEnd(selected, e.target.value, startTime) }}
-                        InputLabelProps={{ shrink: true }} sx={inputSx} />
-                    <TextField label='Start' size='small' type='time' value={startTime}
-                        onChange={e => { setStartTime(e.target.value); recalcEnd(selected, date, e.target.value) }}
-                        InputLabelProps={{ shrink: true }} sx={inputSx} />
-                    {!isCourse && (
+                {isCourse ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <span style={labelStyle}>Sessions</span>
+                        <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.45)', lineHeight: 1.5 }}>
+                            Creates the next numbered {selected?.name} run. Rename or remove sessions for this run; the defaults are set on the course in the Training Hub.
+                        </span>
+                        <CourseSessionsEditor rows={sessions} onChange={setSessions}
+                            onResuggest={() => selected && sessions[0] && setSessions(rowsFromTemplate(
+                                sessions.map(r => ({ name: r.name, durationMinutes: r.durationMinutes })), sessions[0].date, sessions[0].time,
+                            ))} />
+                    </div>
+                ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+                        <TextField label='Date' size='small' type='date' value={date}
+                            onChange={e => { setDate(e.target.value); recalcEnd(selected, e.target.value, startTime) }}
+                            InputLabelProps={{ shrink: true }} sx={inputSx} />
+                        <TextField label='Start' size='small' type='time' value={startTime}
+                            onChange={e => { setStartTime(e.target.value); recalcEnd(selected, date, e.target.value) }}
+                            InputLabelProps={{ shrink: true }} sx={inputSx} />
                         <TextField label='End' size='small' type='time' value={endTime}
                             onChange={e => { setEndTime(e.target.value); setEndEdited(true) }}
                             helperText={endEdited ? undefined : 'From the course length'}
                             InputLabelProps={{ shrink: true }} sx={inputSx} />
-                    )}
-                </div>
-                {isCourse && (
-                    <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.45)', lineHeight: 1.5 }}>
-                        Creates the next {selected?.name} course with this as Session 1. The other five sessions are dated from it, as in the Training Hub.
                     </div>
                 )}
 

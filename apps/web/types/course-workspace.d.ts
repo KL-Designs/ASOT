@@ -10,6 +10,8 @@ interface CourseSession {
     title: string
     catchUp: boolean
     scheduledDate: Date
+    /** Runtime in minutes, from the course's session list when it was created. */
+    durationMinutes?: number
     completedAt?: Date
     catchUpRequired?: boolean
     sessionStatus?: 'scheduled' | 'completed' | 'cancelled'

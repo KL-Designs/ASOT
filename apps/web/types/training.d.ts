@@ -47,6 +47,8 @@ interface TrainingType {
     courseType?: 'selection' | 'reinforcement_cycle'
     /** Row 372: the course's document areas. Unset means the defaults (`lib/training/document-slots.ts`). */
     documentSlots?: import('@/lib/training/document-slots').DocumentSlot[]
+    /** Selection / Reinforcement Cycle: default session names and runtimes. Unset means `lib/training/course-sessions.ts`. */
+    sessionTemplate?: import('@/lib/training/course-sessions').SessionTemplateItem[]
     createdAt: Date
     updatedAt: Date
 }

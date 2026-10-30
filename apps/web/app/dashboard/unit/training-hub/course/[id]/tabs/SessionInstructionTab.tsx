@@ -303,7 +303,7 @@ export default function SessionInstructionTab({ courseInstanceId, sessionId, ses
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-start' }}>
                     <div style={{ flex: 1, minWidth: 200 }}>
                         <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 4 }}>
-                            Session {session.sessionNumber} — Week {session.weekNumber}
+                            {session.title || `Session ${session.sessionNumber}`} · Week {session.weekNumber}
                         </div>
                         <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'rgba(237,237,237,0.85)', marginBottom: 8 }}>
                             {fmt(session.scheduledDate)}
