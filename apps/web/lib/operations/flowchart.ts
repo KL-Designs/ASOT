@@ -7,10 +7,11 @@ import dagre from 'dagre'
  * reaches the bridge", "is it mined?", two branches — as boxes and arrows
  * inside the orders, instead of as a paragraph of ifs.
  *
- * The chart is stored as data, not as a drawing: a list of boxes and a list of
- * arrows between them. Nobody positions anything. The layout is computed, here,
- * every time it is shown, which is what lets the editor be a short form and
- * keeps a chart that was edited by three people from ending up as a tangle.
+ * The chart is stored as data: a list of boxes and a list of arrows between
+ * them. A box may also carry where it was dragged to. Boxes nobody has moved
+ * are placed by dagre; once a box has been dragged in the editor every box is
+ * pinned where it stands (see `pinPositions`), so moving one never makes the
+ * rest jump. Arrows are always routed here, from wherever their boxes are.
  *
  * Everything in this file is pure: the same functions draw the chart inside
  * the editor and in the read view, so the two cannot disagree, and the SVG is
@@ -31,6 +32,9 @@ export interface FlowNode {
     id: string
     label: string
     kind: FlowNodeKind
+    /** Centre of the box, once it has been dragged. Absent: dagre places it. */
+    x?: number
+    y?: number
 }
 
 export interface FlowEdge {
@@ -48,6 +52,12 @@ export interface FlowChart {
 export const FLOW_LIMITS = { nodes: 40, edges: 80, label: 120, edgeLabel: 40, title: 80 } as const
 
 const KINDS = new Set<FlowNodeKind>(['start', 'step', 'decision', 'end'])
+
+/** Far enough for any chart anyone will draw; a bound on what JSON can claim. */
+const COORD_LIMIT = 20_000
+const isCoord = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= COORD_LIMIT
+
+const n1 = (v: number) => Math.round(v * 10) / 10
 
 /** What a new flowchart starts as: enough to show what one is. */
 export function starterFlowchart(): FlowChart {
@@ -87,13 +97,15 @@ export function parseFlowchart(raw: unknown): FlowChart {
     for (const n of Array.isArray(source.nodes) ? source.nodes : []) {
         if (nodes.length >= FLOW_LIMITS.nodes) break
         if (!n || typeof n !== 'object') continue
-        const { id, label, kind } = n as Record<string, unknown>
+        const { id, label, kind, x, y } = n as Record<string, unknown>
         if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,24}$/.test(id) || ids.has(id)) continue
         ids.add(id)
         nodes.push({
             id,
             label: typeof label === 'string' ? label.slice(0, FLOW_LIMITS.label) : '',
             kind: KINDS.has(kind as FlowNodeKind) ? (kind as FlowNodeKind) : 'step',
+            // A position is kept only as a pair; half of one is no position.
+            ...(isCoord(x) && isCoord(y) ? { x: n1(x), y: n1(y) } : {}),
         })
     }
 
@@ -172,60 +184,204 @@ export interface PlacedEdge extends FlowEdge {
 }
 
 export interface FlowLayout {
+    /** The drawing's bounds: boxes can be dragged above or left of zero. */
+    minX: number
+    minY: number
     width: number
     height: number
     nodes: PlacedNode[]
     edges: PlacedEdge[]
 }
 
-export function layoutFlowchart(chart: FlowChart): FlowLayout {
-    const g = new dagre.graphlib.Graph()
-    g.setGraph({ rankdir: 'TB', nodesep: 34, ranksep: 46, marginx: 12, marginy: 12 })
-    g.setDefaultEdgeLabel(() => ({}))
+const MARGIN = 12
 
-    const sized = new Map<string, { lines: string[]; width: number; height: number }>()
-    for (const node of chart.nodes) {
-        const lines = wrapLabel(node.label || ' ')
-        const longest = Math.max(...lines.map(l => l.length), 6)
-        // A decision is drawn with pointed sides, which eat into its width.
-        const extra = node.kind === 'decision' ? 26 : 0
-        const size = {
-            lines,
-            width: Math.round(longest * CHAR_W + PAD_X * 2 + extra),
-            height: Math.round(lines.length * LINE_H + PAD_Y * 2),
+function sizeNode(node: FlowNode) {
+    const lines = wrapLabel(node.label || ' ')
+    const longest = Math.max(...lines.map(l => l.length), 6)
+    // A decision is drawn with pointed sides, which eat into its width.
+    const extra = node.kind === 'decision' ? 26 : 0
+    return {
+        lines,
+        width: Math.round(longest * CHAR_W + PAD_X * 2 + extra),
+        height: Math.round(lines.length * LINE_H + PAD_Y * 2),
+    }
+}
+
+/**
+ * An arrow from one box to another as right-angled segments: out of the
+ * bottom of the box above and into the top of the box below, or side to side
+ * when they sit level. The label goes on the middle of the run between them,
+ * which for a fork is the stretch that leans towards its own branch.
+ */
+export function routeEdge(from: PlacedNode, to: PlacedNode): { points: { x: number; y: number }[]; mid: { x: number; y: number } } {
+    const fromBottom = from.y + from.height / 2, toTop = to.y - to.height / 2
+    const fromTop = from.y - from.height / 2, toBottom = to.y + to.height / 2
+    if (toTop >= fromBottom + 8) {
+        const midY = (fromBottom + toTop) / 2
+        return {
+            points: [{ x: from.x, y: fromBottom }, { x: from.x, y: midY }, { x: to.x, y: midY }, { x: to.x, y: toTop }],
+            mid: { x: (from.x + to.x) / 2, y: midY },
         }
-        sized.set(node.id, size)
-        g.setNode(node.id, { width: size.width, height: size.height })
     }
-    for (const edge of chart.edges) {
-        g.setEdge(edge.from, edge.to, edge.label
-            ? { label: edge.label, width: edge.label.length * 6.4 + 12, height: 18, labelpos: 'c' }
-            : {})
+    if (fromTop >= toBottom + 8) {
+        const midY = (fromTop + toBottom) / 2
+        return {
+            points: [{ x: from.x, y: fromTop }, { x: from.x, y: midY }, { x: to.x, y: midY }, { x: to.x, y: toBottom }],
+            mid: { x: (from.x + to.x) / 2, y: midY },
+        }
     }
+    const dir = to.x >= from.x ? 1 : -1
+    const sx = from.x + dir * from.width / 2, ex = to.x - dir * to.width / 2
+    const midX = (sx + ex) / 2
+    return {
+        points: [{ x: sx, y: from.y }, { x: midX, y: from.y }, { x: midX, y: to.y }, { x: ex, y: to.y }],
+        mid: { x: midX, y: (from.y + to.y) / 2 },
+    }
+}
 
-    dagre.layout(g)
+export function layoutFlowchart(chart: FlowChart): FlowLayout {
+    const sized = new Map(chart.nodes.map(node => [node.id, sizeNode(node)]))
+
+    // Dagre only for boxes nobody has placed.
+    const auto = new Map<string, { x: number; y: number }>()
+    if (chart.nodes.some(n => n.x === undefined || n.y === undefined)) {
+        const g = new dagre.graphlib.Graph()
+        g.setGraph({ rankdir: 'TB', nodesep: 34, ranksep: 46, marginx: MARGIN, marginy: MARGIN })
+        g.setDefaultEdgeLabel(() => ({}))
+        for (const node of chart.nodes) {
+            const size = sized.get(node.id)!
+            g.setNode(node.id, { width: size.width, height: size.height })
+        }
+        for (const edge of chart.edges) {
+            g.setEdge(edge.from, edge.to, edge.label
+                ? { label: edge.label, width: edge.label.length * 6.4 + 12, height: 18, labelpos: 'c' }
+                : {})
+        }
+        dagre.layout(g)
+        for (const node of chart.nodes) {
+            const at = g.node(node.id)
+            auto.set(node.id, { x: at.x, y: at.y })
+        }
+    }
 
     const nodes: PlacedNode[] = chart.nodes.map(node => {
-        const at = g.node(node.id)
-        const size = sized.get(node.id)!
-        return { ...node, ...size, x: at.x, y: at.y }
+        const at = node.x !== undefined && node.y !== undefined ? { x: node.x, y: node.y } : auto.get(node.id)!
+        return { ...node, ...sized.get(node.id)!, x: at.x, y: at.y }
     })
+    const byId = new Map(nodes.map(n => [n.id, n]))
     const edges: PlacedEdge[] = chart.edges.map(edge => {
-        const at = g.edge(edge.from, edge.to) as { points?: { x: number; y: number }[]; x?: number; y?: number }
-        return {
-            ...edge,
-            points: at.points ?? [],
-            labelAt: edge.label && typeof at.x === 'number' && typeof at.y === 'number' ? { x: at.x, y: at.y } : null,
-        }
+        const route = routeEdge(byId.get(edge.from)!, byId.get(edge.to)!)
+        return { ...edge, points: route.points, labelAt: route.mid }
     })
 
-    const graph = g.graph()
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const n of nodes) {
+        minX = Math.min(minX, n.x - n.width / 2); maxX = Math.max(maxX, n.x + n.width / 2)
+        minY = Math.min(minY, n.y - n.height / 2); maxY = Math.max(maxY, n.y + n.height / 2)
+    }
+    for (const e of edges) {
+        if (!e.label) continue
+        const half = (e.label.length * 6.4 + 10) / 2
+        minX = Math.min(minX, e.labelAt!.x - half); maxX = Math.max(maxX, e.labelAt!.x + half)
+    }
+    if (!nodes.length) { minX = 0; minY = 0; maxX = 1; maxY = 1 }
+
     return {
-        width: Math.max(1, Math.ceil(graph.width ?? 1)),
-        height: Math.max(1, Math.ceil(graph.height ?? 1)),
+        minX: Math.floor(minX - MARGIN),
+        minY: Math.floor(minY - MARGIN),
+        width: Math.max(1, Math.ceil(maxX - minX + MARGIN * 2)),
+        height: Math.max(1, Math.ceil(maxY - minY + MARGIN * 2)),
         nodes,
         edges,
     }
+}
+
+/* ── Arranging, for the editor ──────────────────────────────────────────── */
+
+/** Every box at the position it is drawn at now, so moving one moves only it. */
+export function pinPositions(chart: FlowChart): FlowChart {
+    if (chart.nodes.every(n => n.x !== undefined && n.y !== undefined)) return chart
+    const at = new Map(layoutFlowchart(chart).nodes.map(n => [n.id, n]))
+    return { ...chart, nodes: chart.nodes.map(n => ({ ...n, x: n1(at.get(n.id)!.x), y: n1(at.get(n.id)!.y) })) }
+}
+
+/** Forget every dragged position and let dagre lay the chart out again. */
+export function unpinPositions(chart: FlowChart): FlowChart {
+    return { ...chart, nodes: chart.nodes.map(({ x: _x, y: _y, ...n }) => n) }
+}
+
+/** The boxes that hang beneath `id`: everything its arrows lead to, at any depth. */
+export function descendants(chart: FlowChart, id: string): Set<string> {
+    const out = new Set<string>()
+    const queue = [id]
+    while (queue.length) {
+        const at = queue.shift()!
+        for (const e of chart.edges) {
+            if (e.from === at && e.to !== id && !out.has(e.to)) { out.add(e.to); queue.push(e.to) }
+        }
+    }
+    return out
+}
+
+/** Move a box and everything beneath it by the same amount. Expects pinned positions. */
+export function moveBranch(chart: FlowChart, id: string, dx: number, dy: number): FlowChart {
+    const moving = descendants(chart, id).add(id)
+    return {
+        ...chart,
+        nodes: chart.nodes.map(n => moving.has(n.id) && n.x !== undefined && n.y !== undefined
+            ? { ...n, x: n1(n.x + dx), y: n1(n.y + dy) }
+            : n),
+    }
+}
+
+const CHILD_GAP_Y = 56
+const CHILD_GAP_X = 30
+
+/** Where a new child of `parentId` goes: under it, or right of its last child. */
+function childSlot(chart: FlowChart, parentId: string, child: FlowNode, ignore?: Set<string>): { x: number; y: number } {
+    const layout = layoutFlowchart(chart)
+    const byId = new Map(layout.nodes.map(n => [n.id, n]))
+    const parent = byId.get(parentId)!
+    const size = sizeNode(child)
+    const siblings = chart.edges
+        .filter(e => e.from === parentId && e.to !== child.id && !ignore?.has(e.to))
+        .map(e => byId.get(e.to)!)
+    const y = parent.y + parent.height / 2 + CHILD_GAP_Y + size.height / 2
+    if (!siblings.length) return { x: parent.x, y }
+    const right = Math.max(...siblings.map(n => n.x + n.width / 2))
+    return { x: right + CHILD_GAP_X + size.width / 2, y: Math.max(y, ...siblings.map(n => n.y)) }
+}
+
+/** A new box beneath `parentId`, with an arrow to it. */
+export function addChild(chart: FlowChart, parentId: string): { chart: FlowChart; id: string } {
+    const pinned = pinPositions(chart)
+    const id = nextNodeId(pinned)
+    const node: FlowNode = { id, label: 'New step', kind: 'step' }
+    const at = childSlot(pinned, parentId, node)
+    return {
+        id,
+        chart: {
+            nodes: [...pinned.nodes, { ...node, x: n1(at.x), y: n1(at.y) }],
+            edges: [...pinned.edges, { from: parentId, to: id }],
+        },
+    }
+}
+
+/**
+ * Drop box `id` onto box `parentId`: it becomes a sub box of that one. Its old
+ * incoming arrows go (it has moved to a new parent), one arrow from the new
+ * parent comes in, and the box and its own branch move to sit beneath it.
+ * Dropping a box onto one of its own descendants would make a loop of the
+ * branch, so that is refused and the chart comes back unchanged.
+ */
+export function reparent(chart: FlowChart, id: string, parentId: string): FlowChart {
+    if (id === parentId || descendants(chart, id).has(parentId)) return chart
+    const pinned = pinPositions(chart)
+    const node = pinned.nodes.find(n => n.id === id)!
+    const without: FlowChart = { ...pinned, edges: pinned.edges.filter(e => e.to !== id) }
+    const at = childSlot(without, parentId, node, descendants(pinned, id))
+    const moved = moveBranch(without, id, at.x - node.x!, at.y - node.y!)
+    return { ...moved, edges: [...moved.edges, { from: parentId, to: id }] }
 }
 
 /* ── Drawing ────────────────────────────────────────────────────────────── */
@@ -238,8 +394,6 @@ export function escapeXml(value: string): string {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;')
 }
-
-const n1 = (v: number) => Math.round(v * 10) / 10
 
 function shape(node: PlacedNode): string {
     const { x, y, width: w, height: h } = node
@@ -265,9 +419,8 @@ function shape(node: PlacedNode): string {
  * shown. `id` namespaces the arrowhead marker — two charts on one page with the
  * same marker id would both point at whichever came first.
  */
-export function flowchartSvg(chart: FlowChart, id = 'flow'): string {
+export function flowchartSvg(chart: FlowChart, id = 'flow', layout: FlowLayout = layoutFlowchart(chart)): string {
     if (!chart.nodes.length) return ''
-    const layout = layoutFlowchart(chart)
     const marker = `${id.replace(/[^A-Za-z0-9_-]/g, '')}-arrow`
 
     const edges = layout.edges.map(edge => {
@@ -290,7 +443,7 @@ export function flowchartSvg(chart: FlowChart, id = 'flow'): string {
         return `${shape(node)}<text class="flow-label" text-anchor="middle">${text}</text>`
     }).join('')
 
-    return `<svg class="flow-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${layout.width} ${layout.height}" `
+    return `<svg class="flow-svg" xmlns="http://www.w3.org/2000/svg" viewBox="${layout.minX} ${layout.minY} ${layout.width} ${layout.height}" `
         + `width="${layout.width}" height="${layout.height}" role="img" aria-label="Flowchart">`
         + `<defs><marker id="${marker}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">`
         + `<path class="flow-arrowhead" d="M0 0L10 5L0 10z"/></marker></defs>`
