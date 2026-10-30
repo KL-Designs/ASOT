@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import { sendCalendarReminderDM, sendMeetingDM, sendTrainingReminderDM } from '@/lib/discord/bot'
 import Db from '@/lib/mongo'
 import { createNotification } from '@/lib/notifications'
+import { formatOffset, reminderSentence } from '@/lib/training/reminder-offsets'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { unitDateTime } from '@/lib/unit-time'
 
@@ -157,28 +158,35 @@ export async function GET(request: NextRequest) {
     }).toArray()
 
     await Promise.all(dueTraining.map(async reminder => {
-        // Find all current attending members for this event
-        const attendees = await Db.trainingAttendance.find({
-            eventId: reminder.eventId,
-            rsvpStatus: 'attending',
-        }).toArray()
+        // Who hears about it: a training event's sign-ups, or for a Selection /
+        // Reinforcement Cycle Session 1 the course's enrolled candidates.
+        const recipientIds: string[] = reminder.kind === 'course'
+            ? (await Db.courseCandidates.find({
+                courseInstanceId: reminder.eventId.replace(/^course:/, ''),
+                status: 'active',
+                userId: { $exists: true },
+            }).toArray()).map(c => c.userId!).filter(Boolean)
+            : (await Db.trainingAttendance.find({
+                eventId: reminder.eventId,
+                rsvpStatus: 'attending',
+            }).toArray()).map(a => a.memberId)
 
         const scheduledAt = new Date(reminder.fireAt.getTime() + reminder.minutesBefore * 60_000)
         const scheduledStr = unitDateTime(scheduledAt)
-        const actionUrl = '/dashboard/unit/training-docs'
+        const actionUrl = reminder.kind === 'course' ? '/dashboard/unit/training-hub' : '/dashboard/unit/training-docs'
 
-        await Promise.all(attendees.map(a =>
+        await Promise.all(recipientIds.map(memberId =>
             Promise.all([
                 createNotification({
-                    userId: a.memberId,
+                    userId: memberId,
                     type: 'training_reminder',
-                    title: `Training Reminder — ${reminder.minutesBefore === 15 ? '15 Minutes' : '1 Hour'}`,
-                    body: `${reminder.eventTitle} starts in ${reminder.minutesBefore === 15 ? '15 minutes' : '1 hour'}.`,
+                    title: `Training Reminder — ${formatOffset(reminder.minutesBefore)}`,
+                    body: reminderSentence(reminder.eventTitle, reminder.minutesBefore),
                     actionUrl,
                     relatedId: reminder.eventId,
                 }),
-                sendTrainingReminderDM(a.memberId, reminder.eventTitle, reminder.minutesBefore, scheduledStr, actionUrl)
-                    .catch(err => console.error(`[cron] training reminder DM failed for ${a.memberId}:`, err)),
+                sendTrainingReminderDM(memberId, reminder.eventTitle, reminder.minutesBefore, scheduledStr, actionUrl)
+                    .catch(err => console.error(`[cron] training reminder DM failed for ${memberId}:`, err)),
             ])
         ))
 

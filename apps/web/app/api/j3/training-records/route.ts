@@ -59,5 +59,12 @@ export async function GET(req: NextRequest) {
         .sort({ [sortField]: sortDir })
         .toArray()
 
-    return NextResponse.json({ records })
+    // Row 372: how many assessment documents each course instance holds.
+    const counts = await Db.ordersAssessments.aggregate<{ _id: string; n: number }>([
+        { $match: { 'session.kind': 'instance', 'session.id': { $in: records.map(r => String(r._id)) } } },
+        { $group: { _id: '$session.id', n: { $sum: 1 } } },
+    ]).toArray()
+    const byId = new Map(counts.map(c => [c._id, c.n]))
+
+    return NextResponse.json({ records: records.map(r => ({ ...r, documentCount: byId.get(String(r._id)) ?? 0 })) })
 }

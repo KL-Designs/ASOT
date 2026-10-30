@@ -7,6 +7,9 @@ import ZeusNotesPanel from './ZeusNotesPanel'
 import OcapStatsPanel from './OcapStatsPanel'
 import OcapLinkPanel from './OcapLinkPanel'
 import IntelPackageViewer from '@/components/editor/intel-package/IntelPackageViewer'
+import IntelReport, { IntelReportSignIn } from '@/components/intel-report/IntelReport'
+import DoctrinePage from '@/components/doctrine/DoctrinePage'
+import AarBoard from '@/app/operations/[id]/aar/AarBoard'
 import DocAcknowledgeCard from './DocAcknowledgeCard'
 
 const ZEUS_TAB = '__zeus__'
@@ -32,6 +35,8 @@ interface Props {
     b?: number
     /** If provided (from URL ?page= param), use this as the initial active page */
     initialPageId?: string
+    /** Rows 328 to 330: show the After Action Report page (the operation has run, and this viewer may read AARs). */
+    canAar?: boolean
 }
 
 function hexToRgb(hex: string) {
@@ -43,13 +48,16 @@ function hexToRgb(hex: string) {
     }
 }
 
-export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, isHQ, isAllStaff, showAcknowledgeCard, operationId, zeusNotes, ocap, initialOcap, r: rProp, g: gProp, b: bProp, initialPageId }: Props) {
+export default function PagedView({ pages, sectionsByPage, operationTitle, themeColor, pageTheme, isLoggedIn, isJ6, isHQ, isAllStaff, showAcknowledgeCard, operationId, zeusNotes, ocap, initialOcap, r: rProp, g: gProp, b: bProp, initialPageId, canAar }: Props) {
     // Zeus/OCAP pages are always rendered as hardcoded tabs — exclude them from the content page list.
     // Also deduplicate by id to guard against stale Yjs race-condition data.
     const contentPages = (() => {
         const seen = new Set<string>()
         return pages.filter(p => {
             if (p.pageType === 'zeus' || p.pageType === 'ocap') return false
+            // Enemy Doctrine is Zeus-facing (rows 334, 335).
+            if (p.pageType === 'doctrine' && !isJ6) return false
+            if (p.pageType === 'aar' && !canAar) return false
             if (seen.has(p.id)) return false
             seen.add(p.id)
             return true
@@ -237,6 +245,18 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                             <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
                         )}
                     </div>
+                ) : activePageMeta?.pageType === 'doctrine' && operationId ? (
+                    <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
+                        <DoctrinePage key={activePageMeta.id} operationId={operationId} pageId={activePageMeta.id} themeColor={themeColor} />
+                    </div>
+                ) : activePageMeta?.pageType === 'aar' && operationId ? (
+                    <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
+                        <AarBoard key={activePageMeta.id} embedded operationId={operationId} title={operationTitle} themeColor={themeColor} date={null} open />
+                    </div>
+                ) : activePageMeta?.pageType === 'intel_report' && operationId ? (
+                    <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
+                        {isLoggedIn ? <IntelReport operationId={operationId} themeColor={themeColor} /> : <IntelReportSignIn />}
+                    </div>
                 ) : activePageMeta?.pageType === 'intel' && operationId ? (
                     <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
                         <IntelPackageViewer operationId={operationId} themeColor={themeColor} />
@@ -315,6 +335,18 @@ export default function PagedView({ pages, sectionsByPage, operationTitle, theme
                         {ocap && (
                             <OcapStatsPanel ocap={ocap} themeColor={themeColor} r={r} g={g} b={b} pageTheme={pageTheme} operationId={operationId} />
                         )}
+                    </div>
+                ) : activePageMeta?.pageType === 'doctrine' && operationId ? (
+                    <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
+                        <DoctrinePage key={activePageMeta.id} operationId={operationId} pageId={activePageMeta.id} themeColor={themeColor} />
+                    </div>
+                ) : activePageMeta?.pageType === 'aar' && operationId ? (
+                    <div className='w-full px-4 pb-16' style={{ marginTop: 24 }}>
+                        <AarBoard key={activePageMeta.id} embedded operationId={operationId} title={operationTitle} themeColor={themeColor} date={null} open />
+                    </div>
+                ) : activePageMeta?.pageType === 'intel_report' && operationId ? (
+                    <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>
+                        {isLoggedIn ? <IntelReport operationId={operationId} themeColor={themeColor} /> : <IntelReportSignIn />}
                     </div>
                 ) : activePageMeta?.pageType === 'intel' && operationId ? (
                     <div className='w-full px-4 md:px-8 pb-16' style={{ marginTop: 32 }}>

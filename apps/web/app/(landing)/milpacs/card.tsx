@@ -86,7 +86,8 @@ export default function Card({ member, role, href, kit, coverUrl, coverAnimated,
 
     return (
         <Link
-            href={href ?? `/milpacs/${member.username}`}
+            // Through string: `Route ?? template` is a union past TypeScript's size limit.
+            href={((href as string | undefined) ?? `/milpacs/${member.username}`) as Route}
             className={s.card}
             style={{
                 ['--acc' as string]: accent,

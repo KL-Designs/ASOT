@@ -21,6 +21,8 @@ import { ServiceStatusList } from '@/app/dashboard/_components/ServiceStatus'
 interface NavTab {
     label: string
     tab: number
+    /** Links to the department's Admin view instead of a main tab. */
+    admin?: boolean
 }
 
 interface NavItem {
@@ -82,6 +84,7 @@ function NavRow({
     const pinned = isPinned(item.href)
     const hasTabs = item.tabs && item.tabs.length > 0
     const activeTab = isActive ? Number(searchParams.get('tab') ?? -1) : -1
+    const activeView = isActive ? searchParams.get('view') : null
     const isTasksLink = item.href.startsWith('/dashboard/tasks')
 
     // Auto-expand when navigating to this section
@@ -203,11 +206,11 @@ function NavRow({
                 <Collapse in={subExpanded}>
                     <div className='flex flex-col pb-1'>
                         {item.tabs!.map(t => {
-                            const isTabActive = isActive && activeTab === t.tab
+                            const isTabActive = isActive && (t.admin ? activeView === 'settings' : activeView !== 'settings' && activeTab === t.tab)
                             return (
                                 <Link
-                                    key={t.tab}
-                                    href={`${item.href}?tab=${t.tab}` as never}
+                                    key={t.label}
+                                    href={(t.admin ? `${item.href}?view=settings` : `${item.href}?tab=${t.tab}`) as never}
                                     onClick={guardedClick}
                                     style={{
                                         padding: '5px 16px 5px 44px',
@@ -508,21 +511,18 @@ export default function StaffSidebar({
                         { label: 'Recruit Member', tab: 0 },
                         { label: 'Applications',   tab: 1 },
                         { label: 'Mastersheet',    tab: 2 },
-                        { label: 'Statistics',     tab: 3 },
-                        { label: 'Meetings',       tab: 4 },
-                        { label: 'Tickets',        tab: 5 },
-                        ...(permissions.canManageJ1 ? [{ label: 'TFAR Plugin', tab: 6 }, { label: 'Recruit Video', tab: 7 }] : []),
+                        { label: 'Admin', tab: -1, admin: true },
                     ],
                 },
                 {
                     label: '[J2] Mission Making', href: '/dashboard/j2', visible: permissions.canSeeJ2, icon: <Map sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Operations',        tab: 0 },
-                        { label: 'Meetings',          tab: 1 },
-                        { label: 'Tickets',           tab: 2 },
-                        { label: 'Members Workspace', tab: 3 },
-                        { label: 'Mission Checks',    tab: 4 },
-                        { label: 'Intel Images',      tab: 5 },
+                        { label: 'Operations',            tab: 0 },
+                        { label: 'Members Workspace',     tab: 3 },
+                        { label: 'Mission Checks',        tab: 4 },
+                        { label: 'Mission Bible',         tab: 7 },
+                        { label: 'Objective Suggestions', tab: 8 },
+                        { label: 'Admin', tab: -1, admin: true },
                     ],
                 },
                 {
@@ -531,46 +531,40 @@ export default function StaffSidebar({
                         { label: 'Training Hub',      tab: 0 },
                         { label: 'Training Tickets',  tab: 1 },
                         { label: 'Training Calendar', tab: 2 },
-                        { label: 'Training Records',  tab: 3 },
-                        { label: 'Meetings',          tab: 4 },
-                        { label: 'Tickets',           tab: 5 },
-                        { label: 'Master Sheet',      tab: 6 },
+                        { label: 'Training Requests', tab: 3 },
+                        { label: 'Training Records',  tab: 4 },
+                        { label: 'Master Sheet',      tab: 7 },
+                        { label: 'Admin', tab: -1, admin: true },
                     ],
                 },
                 {
                     label: '[J4] Administration', href: '/dashboard/j4', visible: permissions.canSeeJ4, icon: <AdminPanelSettings sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Mastersheet',      tab: 0 },
-                        { label: 'Tickets',          tab: 1 },
-                        { label: 'Meetings',         tab: 2 },
-                        { label: 'Snapshots',        tab: 3 },
-                        { label: 'Teamspeak',        tab: 4 },
-                        { label: 'Tools',            tab: 5 },
-                        { label: 'AI Administration', tab: 6 },
+                        { label: 'Mastersheet', tab: 0 },
+                        { label: 'Tickets',     tab: 1 },
+                        { label: 'Tools',       tab: 5 },
+                        { label: 'Admin', tab: -1, admin: true },
                     ],
                 },
                 {
                     label: '[J5] Media', href: '/dashboard/j5', visible: permissions.canSeeJ5, icon: <Collections sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Gallery',              tab: 0 },
-                        { label: 'Screenshot of Month',  tab: 1 },
-                        { label: 'Meetings',             tab: 2 },
-                        { label: 'Tickets',              tab: 3 },
+                        { label: 'Media',               tab: 0 },
+                        { label: 'Admin', tab: -1, admin: true },
                     ],
                 },
                 {
                     label: '[J6] Game Masters', href: '/dashboard/j6', visible: permissions.canSeeJ6, icon: <SportsEsports sx={{ fontSize: 14 }} />,
                     tabs: [
                         { label: 'Zeus Notes', tab: 0 },
-                        { label: 'Meetings',   tab: 1 },
-                        { label: 'Tickets',    tab: 2 },
+                        { label: 'Admin', tab: -1, admin: true },
                     ],
                 },
                 {
                     label: '[J7] Development', href: '/dashboard/j7', visible: permissions.canSeeJ7, icon: <Code sx={{ fontSize: 14 }} />,
                     tabs: [
-                        { label: 'Meetings', tab: 0 },
-                        { label: 'Tickets',  tab: 1 },
+                        { label: 'Board', tab: 0 },
+                        { label: 'Admin', tab: -1, admin: true },
                     ],
                 },
             ],

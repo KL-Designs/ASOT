@@ -3,6 +3,8 @@ import { ObjectId } from 'mongodb'
 import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { can } from '@/lib/operations/permissions'
+import { canCommend } from '@/lib/operations/aar-access'
+import { loadAarContext } from '@/lib/operations/aar-context'
 import { toBoardUser } from '@/lib/attendance/board-user'
 import { aarOpen, writableSections } from '@/lib/operations/aar'
 
@@ -38,7 +40,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const roster = attendance.roster ?? []
     const canManageAll = await can(me, 'aar.manage')
-    if (!writableSections(roster, me.id, canManageAll).length) {
+    // Row 330: `?on=1` searches the people who were on the operation instead,
+    // for the commendation picker, and is open to whoever may commend.
+    const onOperation = req.nextUrl.searchParams.get('on') === '1'
+    if (onOperation) {
+        const ctx = await loadAarContext(operationId, me)
+        if (!canCommend(roster, me.id, ctx.standing)) return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
+    } else if (!writableSections(roster, me.id, canManageAll).length) {
         return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
     }
 
@@ -57,6 +65,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         .find({
             isSkeletonAccount: { $ne: true },
             discharged: { $exists: false },
+            ...(onOperation ? { id: { $in: [...taken] } } : {}),
             $or: [
                 { name: pattern },
                 { 'guild.displayName': pattern },
@@ -69,7 +78,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         .toArray()
 
     const members = users
-        .filter(u => !taken.has(u.id) && !taken.has(String(u._id)))
+        .filter(u => onOperation || (!taken.has(u.id) && !taken.has(String(u._id))))
         .slice(0, 8)
         .map(u => ({ userId: u.id ?? String(u._id), name: toBoardUser(u, u.id ?? String(u._id)).displayName }))
 

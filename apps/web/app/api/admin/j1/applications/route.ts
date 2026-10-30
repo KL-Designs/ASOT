@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     const regionCustomStr = regionCustom?.toString().trim() ?? ''
     const effectiveRegion = regionStr === 'Other' && regionCustomStr ? regionCustomStr : regionStr
 
-    await Db.j1Applications.insertOne({
+    const inserted = await Db.j1Applications.insertOne({
         discordUsername: discordUsername.toString().trim(),
         discordId: discordId.toString().trim(),
         inGameName: joiningName.toString().trim(),
@@ -116,5 +116,6 @@ export async function POST(request: NextRequest) {
         actionUrl: '/dashboard/j1',
     })
 
-    return NextResponse.json({ ok: true })
+    // The wizard needs the id for the pending chase-up task and the Induction Pack button.
+    return NextResponse.json({ ok: true, id: inserted.insertedId.toString() })
 }

@@ -40,7 +40,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (scheduledDate !== undefined) {
         const parsedDate = new Date(scheduledDate)
         if (isNaN(parsedDate.getTime())) return NextResponse.json({ error: 'Invalid scheduledDate' }, { status: 400 })
-        parsedDate.setHours(0, 0, 0, 0)
+        if (/^\d{4}-\d{2}-\d{2}$/.test(String(scheduledDate))) {
+            // A bare date keeps the session's start time (sessions are created with one).
+            const current = await Db.courseSessions.findOne({ _id: sessionOid, courseInstanceId: id }, { projection: { scheduledDate: 1 } })
+            const t = current?.scheduledDate ? new Date(current.scheduledDate) : null
+            parsedDate.setHours(t?.getHours() ?? 0, t?.getMinutes() ?? 0, 0, 0)
+        }
         update.scheduledDate = parsedDate
     }
     if (catchUpRequired !== undefined) update.catchUpRequired = catchUpRequired
@@ -53,15 +58,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     )
     if (!result) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
 
-    // Sync startDate / endDate on the course instance when session dates change
+    // Keep the course's start and end on its first and last sessions, however many it has.
     if (scheduledDate !== undefined) {
-        const instanceUpdate: Record<string, unknown> = { updatedAt: new Date() }
-        if (result.sessionNumber === 1) instanceUpdate.startDate = result.scheduledDate
-        if (result.sessionNumber === 6 && !result.catchUp) instanceUpdate.endDate = result.scheduledDate
-        if (Object.keys(instanceUpdate).length > 1) {
-            let instOid: ObjectId | undefined
-            try { instOid = new ObjectId(id) } catch { /* ignore */ }
-            if (instOid) await Db.courseInstances.updateOne({ _id: instOid }, { $set: instanceUpdate }).catch(() => {})
+        const all = await Db.courseSessions.find({ courseInstanceId: id }, { projection: { scheduledDate: 1, sessionNumber: 1 } }).sort({ scheduledDate: 1 }).toArray()
+        if (all.length && ObjectId.isValid(id)) {
+            const first = all[0].scheduledDate
+            await Db.courseInstances.updateOne(
+                { _id: new ObjectId(id) },
+                { $set: { startDate: first, endDate: all[all.length - 1].scheduledDate, updatedAt: new Date(), ...(result.sessionNumber === 1 ? { session1Date: first } : {}) } },
+            ).catch(() => {})
         }
     }
 

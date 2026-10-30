@@ -65,6 +65,8 @@ type NotificationType =
     | 'training_ticket_rejected'        // Trainer: ticket rejected
     | 'training_ticket_amendments'      // Trainer: amendments requested on ticket
     | 'training_request_submitted'      // J3 leads: new training request from member
+    | 'selection_interest'              // J3 leads: a new member registered interest in Selection (induction, row 213)
+    | 'orders_assessment'               // Trainee: an orders assessment was assigned or reviewed; trainer: one was submitted (row 373)
     | 'training_request_approved'       // Requester: training request approved
     | 'training_request_rejected'       // Requester: training request rejected
     | 'training_video_checkpoint_fail'  // J3 lead: member failed a checkpoint 3 times
@@ -80,7 +82,7 @@ type NotificationType =
     | 'gallery_submission_rejected'     // Submitter: your gallery submission was rejected, with a reason
     | 'system'
 
-type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check' | 'mission_check'
+type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check' | 'mission_check' | 'doctrine_review'
 
 interface Task {
     _id?: import('mongodb').ObjectId

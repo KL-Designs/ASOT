@@ -12,12 +12,17 @@ import EventsTab from './EventsTab'
 import AssessmentsTab from './AssessmentsTab'
 import RequestsTab from './RequestsTab'
 import TrainingVideosTab from './TrainingVideosTab'
-import { calculateSessionDates, SESSION_DEFS } from '@/lib/training/session-dates'
+import { CATEGORY_ORDER } from '@/lib/training/categories'
+import { sessionTemplateFor, type SessionTemplateItem } from '@/lib/training/course-sessions'
+import CourseSessionsEditor, { rowsFromTemplate, rowsToPlan, type SessionRow } from '@/app/dashboard/unit/calendar/CourseSessionsEditor'
+import SessionTemplateDialog from './SessionTemplateDialog'
+import AssessmentManager from '@/components/orders-assessment/AssessmentManager'
+import { guideSlotId, sessionSlotsFor, slotsFor, TRAINERS_GUIDE_SLOT, TRAINING_DOCUMENT_SLOT, type DocumentSlot } from '@/lib/training/document-slots'
+import type { Route } from 'next'
 
 const RED = '#db001d'
 type Tab = 'courses' | 'events' | 'requests' | 'assessments' | 'guides' | 'videos'
 
-const CATEGORY_ORDER = ['Selection', 'Reinforcement Cycle', 'BCT', 'Medical', 'CQB', 'Fires', 'Aviation', 'Communications', 'Leadership', 'Special', 'Armoured', 'Proficiency']
 
 const BILLET_LABELS: Record<string, string> = {
     j3Bct12: 'BCT',
@@ -54,6 +59,8 @@ type TType = {
     preLearning?: { type: 'video' | 'file' | 'url'; label: string; url: string }[]
     sortOrder?: number
     courseType?: string
+    documentSlots?: DocumentSlot[]
+    sessionTemplate?: SessionTemplateItem[]
 }
 
 type TCourseInstance = {
@@ -311,6 +318,8 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
         if (wanted === 'assessments' || wanted === 'events' || wanted === 'requests') setTab(wanted)
     }, [])
     const [types, setTypes] = useState<TType[]>([])
+    /** Staff Assessments: '' is NCO assessments, otherwise a course's Assessment Orders. */
+    const [staffAssessment, setStaffAssessment] = useState('')
     const [loading, setLoading] = useState(true)
     const [showInactive, setShowInactive] = useState(false)
     const [modal, setModal] = useState<ModalState | null>(null)
@@ -342,6 +351,8 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
     const [guidesCache, setGuidesCache] = useState<Record<string, TrainingGuide[]>>({})
     const [guidesLoading, setGuidesLoading] = useState<string | null>(null)
     const [creatingGuide, setCreatingGuide] = useState(false)
+    const [addingSlot, setAddingSlot] = useState<{ typeId: string; name: string } | null>(null)
+    const [slotError, setSlotError] = useState<{ typeId: string; message: string } | null>(null)
 
     // Videos state (per-course panel within Courses tab)
     const [videosExpanded, setVideosExpanded] = useState<string | null>(null)
@@ -356,7 +367,9 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
     const [restoringInstanceId, setRestoringInstanceId] = useState<string | null>(null)
     const [showDeletedInstances, setShowDeletedInstances] = useState<Record<string, boolean>>({})
     const [showHistoryInstances, setShowHistoryInstances] = useState<Record<string, boolean>>({})
-    const [createInstanceModal, setCreateInstanceModal] = useState<{ typeId: string; typeName: string; courseType: string; session1Date: string } | null>(null)
+    const [createInstanceModal, setCreateInstanceModal] = useState<{ typeId: string; typeName: string; courseType: string; session1Date: string; session1Time: string; sessions: SessionRow[]; error?: string } | null>(null)
+    /** Training Hub → course → Sessions: the default session list being edited. */
+    const [sessionTemplateType, setSessionTemplateType] = useState<TType | null>(null)
     const [deleteInstanceModal, setDeleteInstanceModal] = useState<{ instanceId: string; typeId: string; instanceRef: string } | null>(null)
 
     // Per-course add video form state
@@ -515,18 +528,25 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
         if (data) setCourseInstancesCache(prev => ({ ...prev, [typeId]: data.instances ?? [] }))
     }
 
-    async function handleCreateInstance(typeId: string, session1Date?: string) {
+    async function handleCreateInstance(typeId: string, sessions: SessionRow[]) {
         if (creatingInstance) return
+        // No sessions yet is allowed: the run is created and dated later.
+        const course = sessions.length ? rowsToPlan(sessions) : { plan: undefined }
+        if (course.error) { setCreateInstanceModal(m => m ? { ...m, error: course.error } : m); return }
         setCreatingInstance(true)
         try {
-            const body: Record<string, string> = { trainingTypeId: typeId }
-            if (session1Date) body.session1Date = session1Date
+            const body: Record<string, unknown> = { trainingTypeId: typeId }
+            if (course.plan) body.sessions = course.plan
             const res = await fetch('/api/j3/course-instances', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
             })
-            if (!res.ok) return
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}))
+                setCreateInstanceModal(m => m ? { ...m, error: d.error ?? 'Launch failed.' } : m)
+                return
+            }
             await refreshInstances(typeId)
             setCreateInstanceModal(null)
         } finally {
@@ -559,14 +579,26 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
         }
     }
 
-    async function handleCreateGuide(typeId: string, guideType: TrainingGuide['guideType'] = 'trainers_guide') {
+    async function handleAddSlot(typeId: string) {
+        if (!addingSlot?.name.trim()) return
+        setSlotError(null)
+        const res = await fetch(`/api/training/types/${typeId}/document-slots`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: addingSlot.name }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) { setSlotError({ typeId, message: data.error ?? 'Could not add the document.' }); return }
+        setTypes(prev => prev.map(x => x._id === typeId ? { ...x, documentSlots: data.slots } : x))
+        setAddingSlot(null)
+    }
+
+    async function handleCreateGuide(typeId: string, slotId: string = TRAINERS_GUIDE_SLOT) {
         if (creatingGuide) return
         setCreatingGuide(true)
         try {
             const res = await fetch('/api/training-guides', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ trainingTypeId: typeId, guideType }),
+                body: JSON.stringify({ trainingTypeId: typeId, slotId }),
             })
             if (!res.ok) return
             const guide: TrainingGuide = await res.json()
@@ -935,8 +967,14 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     const sBorder = (s: string) => s === 'planning' ? 'rgba(255,180,50,0.25)' : (s === 'active' || s === 'in_progress') ? 'rgba(80,200,120,0.25)' : s === 'completed' ? 'rgba(100,160,240,0.25)' : 'rgba(255,255,255,0.1)'
                     return (
                         <div style={{ paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)' }}>
-                                Course Instances
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)' }}>
+                                    Course Instances
+                                </div>
+                                <button type='button' onClick={() => setSessionTemplateType(t)} title='Default session names and runtimes'
+                                    style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.55)', fontSize: '0.52rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                    <Edit style={{ fontSize: 11 }} /> Sessions ({sessionTemplateFor(t).length})
+                                </button>
                             </div>
                             {!isLoaded ? (
                                 <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.25)' }}>Loading…</div>
@@ -977,7 +1015,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                             ) : (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.2)' }}>No active {tLabel} instance</div>
-                                    <button type='button' onClick={() => setCreateInstanceModal({ typeId: t._id, typeName: t.name, courseType: t.courseType!, session1Date: '' })}
+                                    <button type='button' onClick={() => setCreateInstanceModal({ typeId: t._id, typeName: t.name, courseType: t.courseType!, session1Date: '', session1Time: '19:00', sessions: [] })}
                                         style={{ display: 'flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: '4px 10px', background: 'transparent', border: '1px solid rgba(219,0,29,0.25)', color: 'rgba(219,0,29,0.65)', fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
                                         <Add style={{ fontSize: 11 }} /> Launch {tLabel}
                                     </button>
@@ -1101,29 +1139,45 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     </div>
                 )}
 
-                {/* Persistent guide buttons for J3 context */}
+                {/* Row 372: one button per document slot, from the course's slot list */}
                 {isJ3Context && (() => {
                     const cached = guidesCache[t._id] ?? []
-                    const tDoc    = cached.find(g => g.guideType === 'training_document')
-                    const tGuide  = cached.find(g => g.guideType === 'trainers_guide' || !g.guideType)
+                    const slots = slotsFor(t)
+                    const btn = (filled: boolean, accent: string): React.CSSProperties => ({ flex: '1 1 30%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '8px 10px', background: filled ? `rgba(${accent},0.08)` : 'rgba(255,255,255,0.03)', border: `1px solid ${filled ? `rgba(${accent},0.3)` : 'rgba(255,255,255,0.1)'}`, color: filled ? `rgba(${accent},0.85)` : 'rgba(237,237,237,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: creatingGuide ? 'default' : 'pointer', opacity: (creatingGuide || guidesLoading === t._id) ? 0.5 : 1 })
                     return (
-                        <div style={{ display: 'flex', gap: 6 }}>
-                            {/* Training Document button */}
-                            <button type='button'
-                                onClick={() => tDoc ? handleOpenGuide(String(tDoc._id)) : handleCreateGuide(t._id, 'training_document')}
-                                disabled={creatingGuide || guidesLoading === t._id}
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '8px 10px', background: tDoc ? 'rgba(100,160,240,0.06)' : 'rgba(255,255,255,0.03)', border: `1px solid ${tDoc ? 'rgba(100,160,240,0.25)' : 'rgba(255,255,255,0.1)'}`, color: tDoc ? 'rgba(100,160,240,0.85)' : 'rgba(237,237,237,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: creatingGuide ? 'default' : 'pointer', opacity: (creatingGuide || guidesLoading === t._id) ? 0.5 : 1 }}>
-                                <Article style={{ fontSize: 12 }} />
-                                {tDoc ? 'Training Document' : (creatingGuide ? 'Creating…' : '+ Training Document')}
-                            </button>
-                            {/* Trainer's Guide button */}
-                            <button type='button'
-                                onClick={() => tGuide ? handleOpenGuide(String(tGuide._id)) : handleCreateGuide(t._id, 'trainers_guide')}
-                                disabled={creatingGuide || guidesLoading === t._id}
-                                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '8px 10px', background: tGuide ? 'rgba(219,0,29,0.08)' : 'rgba(219,0,29,0.03)', border: `1px solid ${tGuide ? 'rgba(219,0,29,0.3)' : 'rgba(219,0,29,0.15)'}`, color: tGuide ? 'rgba(219,0,29,0.85)' : 'rgba(219,0,29,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: creatingGuide ? 'default' : 'pointer', opacity: (creatingGuide || guidesLoading === t._id) ? 0.5 : 1 }}>
-                                <Article style={{ fontSize: 12 }} />
-                                {tGuide ? "Trainer's Guide" : (creatingGuide ? 'Creating…' : "+ Trainer's Guide")}
-                            </button>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                            {slots.map(slot => {
+                                if (slot.kind === 'assessment') return (
+                                    <button key={slot.id} type='button' onClick={() => router.push(`/dashboard/unit/training-hub/assessment/${t._id}` as Route)} style={btn(true, '245,158,11')}>
+                                        <Article style={{ fontSize: 12 }} />{slot.name}
+                                    </button>
+                                )
+                                const guide = cached.find(g => guideSlotId(g) === slot.id)
+                                const accent = slot.id === TRAINING_DOCUMENT_SLOT ? '100,160,240' : '219,0,29'
+                                return (
+                                    <button key={slot.id} type='button'
+                                        onClick={() => guide ? handleOpenGuide(String(guide._id)) : handleCreateGuide(t._id, slot.id)}
+                                        disabled={creatingGuide || guidesLoading === t._id}
+                                        style={btn(!!guide, accent)}>
+                                        <Article style={{ fontSize: 12 }} />
+                                        {guide ? slot.name : (creatingGuide ? 'Creating…' : `+ ${slot.name}`)}
+                                    </button>
+                                )
+                            })}
+                            {isJ3Lead && (addingSlot?.typeId === t._id ? (
+                                <form style={{ flex: '1 1 100%', display: 'flex', gap: 6 }} onSubmit={e => { e.preventDefault(); handleAddSlot(t._id) }}>
+                                    <input autoFocus value={addingSlot.name} onChange={e => setAddingSlot({ typeId: t._id, name: e.target.value })} placeholder='Document name'
+                                        style={{ flex: 1, padding: '6px 9px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.12)', color: '#ededed', fontSize: '0.7rem' }} />
+                                    <button type='submit' disabled={!addingSlot.name.trim()} style={{ padding: '6px 12px', background: 'rgba(219,0,29,0.1)', border: '1px solid rgba(219,0,29,0.35)', color: 'var(--red)', fontSize: '0.6rem', fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}>Add</button>
+                                    <button type='button' onClick={() => setAddingSlot(null)} style={{ padding: '6px 10px', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(237,237,237,0.45)', fontSize: '0.6rem', cursor: 'pointer' }}>Cancel</button>
+                                </form>
+                            ) : (
+                                <button type='button' onClick={() => setAddingSlot({ typeId: t._id, name: '' })}
+                                    style={{ flex: '1 1 30%', padding: '8px 10px', background: 'transparent', border: '1px dashed rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.4)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                    + Add Document
+                                </button>
+                            ))}
+                            {slotError?.typeId === t._id && <div style={{ flex: '1 1 100%', fontSize: '0.62rem', color: 'rgba(219,0,29,0.8)' }}>{slotError.message}</div>}
                         </div>
                     )
                 })()}
@@ -1196,6 +1250,38 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                 )}
 
 
+            </div>
+        )
+    }
+
+    /** One instructor document per session of a Selection / RC course, under its session's header. */
+    function renderSessionDocs(t: TType) {
+        const cached = guidesCache[t._id] ?? []
+        const busy = creatingGuide || guidesLoading === t._id
+        return (
+            <div style={{ flex: '1 1 380px', minWidth: 0, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.15)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)' }}>
+                    Session Documents
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
+                    {sessionSlotsFor(t).map(slot => {
+                        const guide = cached.find(g => guideSlotId(g) === slot.id)
+                        return (
+                            <div key={slot.id} style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={slot.sessionName}>
+                                    {slot.sessionName}
+                                </div>
+                                <button type='button'
+                                    onClick={() => guide ? handleOpenGuide(String(guide._id)) : handleCreateGuide(t._id, slot.id)}
+                                    disabled={busy}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 8px', background: guide ? 'rgba(219,0,29,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${guide ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.1)'}`, color: guide ? 'rgba(219,0,29,0.85)' : 'rgba(237,237,237,0.45)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1 }}>
+                                    <Article style={{ fontSize: 12 }} />
+                                    {guide ? 'Instructor Document' : (creatingGuide ? 'Creating…' : '+ Instructor Document')}
+                                </button>
+                            </div>
+                        )
+                    })}
+                </div>
             </div>
         )
     }
@@ -1327,7 +1413,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                     {(['courses', 'events', 'requests', 'assessments'] as Tab[]).map(t => (
                         <button key={t} type='button' onClick={() => setTab(t)}
                             style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: `2px solid ${tab === t ? RED : 'transparent'}`, color: tab === t ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.35)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: 'pointer', marginBottom: -1, transition: 'color 0.15s, border-color 0.15s' }}>
-                            {t === 'courses' ? 'Courses' : t === 'events' ? 'Events' : t === 'requests' ? 'Requests' : 'NCO Assessments'}
+                            {t === 'courses' ? 'Courses' : t === 'events' ? 'Events' : t === 'requests' ? 'Requests' : 'Staff Assessments'}
                         </button>
                     ))}
                     {isJ3Context && (
@@ -1378,8 +1464,12 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleCategoryDragEnd(cat, e)}>
                                             <SortableContext items={catItems.map(t => t._id)} strategy={rectSortingStrategy}>
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
-                                                    {catItems.map(t => (
-                                                        <div key={t._id} style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    {catItems.map(t => {
+                                                        // Selection / RC: the expanded course takes the whole row and its
+                                                        // per-session documents fill the space to its right.
+                                                        const bySession = docsExpanded === t._id && isJ3Context && sessionSlotsFor(t).length > 0
+                                                        const course = (
+                                                        <div key={t._id} style={{ display: 'flex', flexDirection: 'column', ...(bySession ? { flex: '0 1 340px', minWidth: 260 } : {}) }}>
                                                             <SortableTypeCard
                                                                 type={t}
                                                                 isJ3Lead={isJ3Lead}
@@ -1396,7 +1486,15 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                                                             {docsExpanded === t._id && renderDocsPanel(t)}
                                                             {videosExpanded === t._id && renderVideosPanel(t)}
                                                         </div>
-                                                    ))}
+                                                        )
+                                                        if (!bySession) return course
+                                                        return (
+                                                            <div key={t._id} style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 10 }}>
+                                                                {course}
+                                                                {renderSessionDocs(t)}
+                                                            </div>
+                                                        )
+                                                    })}
                                                 </div>
                                             </SortableContext>
                                         </DndContext>
@@ -1539,8 +1637,28 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {/* Tab: Events */}
             {tab === 'events' && <EventsTab isJ3Lead={isJ3Lead} isTrainer={isTrainer} isJ3Trainer={isJ3Trainer} />}
 
-            {/* Tab: NCO assessments */}
-            {tab === 'assessments' && <AssessmentsTab />}
+            {/* Tab: Staff assessments. NCO assessments, and each Leadership
+                course's Assessment Orders; senior NCO and officer ones join later. */}
+            {tab === 'assessments' && (() => {
+                const orderCourses = isJ3Context ? types.filter(t => slotsFor(t).some(sl => sl.kind === 'assessment')) : []
+                const subBtn = (on: boolean): React.CSSProperties => ({ padding: '6px 14px', background: on ? 'rgba(219,0,29,0.1)' : 'transparent', border: `1px solid ${on ? 'rgba(219,0,29,0.4)' : 'rgba(255,255,255,0.1)'}`, color: on ? 'rgba(237,237,237,0.9)' : 'rgba(237,237,237,0.45)', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' })
+                const current = orderCourses.find(t => t._id === staffAssessment)
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {orderCourses.length > 0 && (
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: '14px 24px 0' }}>
+                                <button type='button' style={subBtn(!current)} onClick={() => setStaffAssessment('')}>NCO Assessments</button>
+                                {orderCourses.map(t => (
+                                    <button key={t._id} type='button' style={subBtn(current?._id === t._id)} onClick={() => setStaffAssessment(t._id)}>{t.name}: Orders</button>
+                                ))}
+                            </div>
+                        )}
+                        {current
+                            ? <div style={{ padding: '16px 24px' }}><AssessmentManager key={current._id} embedded typeId={current._id} myId={myId} initialReview={null} initialSession='' backUrl='/dashboard/unit/training-hub' /></div>
+                            : <AssessmentsTab />}
+                    </div>
+                )
+            })()}
 
             {/* Tab: Requests */}
             {tab === 'requests' && <RequestsTab isJ3Lead={isJ3Lead} myId={myId} />}
@@ -1831,7 +1949,7 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
             {createInstanceModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
                     onClick={e => { if (e.target === e.currentTarget) setCreateInstanceModal(null) }}>
-                    <div style={{ background: '#0e0e0e', border: '1px solid var(--line-2)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                    <div style={{ background: '#0e0e0e', border: '1px solid var(--line-2)', borderTop: '3px solid #db001d', padding: 28, width: '100%', maxWidth: 520, maxHeight: '88vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
                         <div>
                             <div style={{ fontSize: '0.55rem', fontWeight: 800, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--txt-3)', marginBottom: 6 }}>{'//'} LAUNCH COURSE</div>
                             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.9)' }}>
@@ -1841,42 +1959,58 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                         <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.6 }}>
                             Creating a new course instance for <strong style={{ color: 'rgba(237,237,237,0.8)' }}>{createInstanceModal.typeName}</strong>. Only one active instance is permitted at a time.
                         </div>
-                        <div>
-                            <label style={{ display: 'block', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>Session 1 Date (optional)</label>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: 'block', fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.4)', marginBottom: 6 }}>Session 1 (optional)</label>
+                                <input
+                                    type='date'
+                                    value={createInstanceModal.session1Date}
+                                    min={new Date().toLocaleDateString('en-CA')}
+                                    onChange={e => {
+                                        const d = e.target.value
+                                        const type = types.find(x => x._id === createInstanceModal.typeId)
+                                        setCreateInstanceModal(m => m ? { ...m, session1Date: d, error: undefined, sessions: d && type ? rowsFromTemplate(sessionTemplateFor(type), d, m.session1Time) : [] } : m)
+                                    }}
+                                    style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
+                                />
+                            </div>
                             <input
-                                type='date'
-                                value={createInstanceModal.session1Date}
-                                min={new Date().toLocaleDateString('en-CA')}
-                                onChange={e => setCreateInstanceModal(m => m ? { ...m, session1Date: e.target.value } : m)}
-                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
+                                type='time'
+                                value={createInstanceModal.session1Time}
+                                onChange={e => {
+                                    const t = e.target.value
+                                    const type = types.find(x => x._id === createInstanceModal.typeId)
+                                    setCreateInstanceModal(m => m ? { ...m, session1Time: t, sessions: m.session1Date && type ? rowsFromTemplate(sessionTemplateFor(type), m.session1Date, t) : m.sessions } : m)
+                                }}
+                                style={{ width: 110, boxSizing: 'border-box', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderBottom: '1px solid var(--line-2)', color: 'rgba(237,237,237,0.9)', fontSize: '0.82rem', padding: '7px 10px', outline: 'none' }}
                             />
                         </div>
-                        {createInstanceModal.session1Date && (() => {
-                            const dates = calculateSessionDates(createInstanceModal.session1Date)
-                            return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                    <div style={{ fontSize: '0.5rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.25)', marginBottom: 2 }}>Calculated Session Dates</div>
-                                    {SESSION_DEFS.map((def, i) => (
-                                        <div key={def.sessionNumber} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.65rem', color: def.catchUp ? 'rgba(255,180,50,0.65)' : 'rgba(237,237,237,0.45)' }}>
-                                            <span>Session {def.sessionNumber}</span>
-                                            <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: '0.62rem' }}>{dates[i].toLocaleDateString('en-AU', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            )
-                        })()}
+                        {createInstanceModal.sessions.length > 0 && (
+                            <CourseSessionsEditor rows={createInstanceModal.sessions}
+                                onChange={rows => setCreateInstanceModal(m => m ? { ...m, sessions: rows, error: undefined } : m)}
+                                onResuggest={() => setCreateInstanceModal(m => m && m.sessions[0] ? { ...m, sessions: rowsFromTemplate(m.sessions.map(r => ({ name: r.name, durationMinutes: r.durationMinutes })), m.sessions[0].date, m.sessions[0].time) } : m)} />
+                        )}
+                        {createInstanceModal.error && <div style={{ fontSize: '0.72rem', color: 'var(--red)' }}>{createInstanceModal.error}</div>}
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                             <button type='button' onClick={() => setCreateInstanceModal(null)}
                                 style={{ padding: '8px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.45)', fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
                                 Cancel
                             </button>
-                            <button type='button' onClick={() => handleCreateInstance(createInstanceModal.typeId, createInstanceModal.session1Date || undefined)} disabled={creatingInstance}
+                            <button type='button' onClick={() => handleCreateInstance(createInstanceModal.typeId, createInstanceModal.sessions)} disabled={creatingInstance}
                                 style={{ padding: '8px 20px', background: creatingInstance ? 'rgba(219,0,29,0.3)' : RED, border: 'none', color: '#fff', fontSize: '0.65rem', fontWeight: 800, letterSpacing: '0.14em', textTransform: 'uppercase', cursor: creatingInstance ? 'default' : 'pointer' }}>
                                 {creatingInstance ? 'Launching…' : 'Launch'}
                             </button>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {sessionTemplateType && (
+                <SessionTemplateDialog type={sessionTemplateType} onClose={() => setSessionTemplateType(null)}
+                    onSaved={template => {
+                        setTypes(prev => prev.map(x => x._id === sessionTemplateType._id ? { ...x, sessionTemplate: template ?? undefined } : x))
+                        setSessionTemplateType(null)
+                    }} />
             )}
 
             {/* Delete doc confirmation modal */}

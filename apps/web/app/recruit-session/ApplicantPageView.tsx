@@ -23,6 +23,8 @@ interface ApplicantPageViewProps {
     onRulesAnswer?: (questionIndex: number, answer: boolean) => void
     rulesAnswers?: Record<number, boolean | null>
     tsLinkWidget?: React.ReactNode
+    /** Set when the session has ended or the link is wrong: shown instead of "Reconnecting". */
+    ended?: string | null
 }
 
 export default function ApplicantPageView({
@@ -38,6 +40,7 @@ export default function ApplicantPageView({
     onRulesAnswer,
     rulesAnswers = {},
     tsLinkWidget,
+    ended = null,
 }: ApplicantPageViewProps) {
     const [animating, setAnimating] = useState(false)
     const prevStepRef = useRef(step)
@@ -68,7 +71,7 @@ export default function ApplicantPageView({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)' }}>
                         <div style={{ width: 7, height: 7, borderRadius: '50%', background: connected ? '#00c364' : '#f59e0b', boxShadow: connected ? '0 0 6px rgba(0,195,100,0.5)' : 'none' }} />
-                        {connected ? 'Connected' : 'Reconnecting…'}
+                        {connected ? 'Connected' : ended ? 'Session ended' : 'Reconnecting…'}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.68rem', color: 'rgba(237,237,237,0.35)' }}>
                         <div style={{ width: 7, height: 7, borderRadius: '50%', background: recruiterOnline ? '#00c364' : 'rgba(255,255,255,0.15)' }} />
@@ -132,7 +135,12 @@ export default function ApplicantPageView({
                     </div>
                 )}
 
-                {!connected && !staticMode && (
+                {ended && !staticMode && (
+                    <div style={{ marginTop: 20, fontSize: '0.8rem', color: '#ef4444' }}>
+                        {ended} Ask your recruiter for a new link.
+                    </div>
+                )}
+                {!connected && !ended && !staticMode && (
                     <div style={{ marginTop: 20, fontSize: '0.75rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b', animation: 'pulse 1.5s infinite' }} />
                         Reconnecting to session…

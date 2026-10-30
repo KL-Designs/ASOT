@@ -67,9 +67,32 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - `didAttend(record, heldAPosition)` — gates feedback. Confirmation is definitive but arrives late, so an unconfirmed member who said yes *and* held a position counts until somebody says otherwise; an explicit non-attending status always wins. Without that, nobody could leave feedback until their 1IC did paperwork.
 - `SELECTABLE_STATUSES` — the five a roll call offers (Attended, Not Attending, Resolved, No Notice, LOA). **Confirm is discontinued**: `selectable: false` and `present: false`, kept in the list only so past records still read. Resolved is an accepted absence — in `NON_ATTENDING`, no billet point, and not a No Notice. (The "repeated No Notice raises a warning" rule has no threshold agreed and is not implemented.)
 - `ATTENDANCE_STATUSES` — the eight (ATTENDED / NOT ATTENDING / RESOLVED / NO NOTICE / LOA / CONFIRM / N/A / ADDED TO UNIT), **moved here** from a private constant in `components/operations/AttendancePanel.tsx`. Two copies of "what states can a member be in" is how the board and the write-up end up disagreeing about a night that already happened. Each carries `present`, which is what drives confirmation and the billet rollup.
-- `RATING_SCALE` / `RATING_ASPECTS` — **why it is not stars.** The question is "how did this compare to a normal night", which makes the middle *neutral*, not mediocre. Stars cannot say that: 5 reads as the goal and 3 as a disappointment, so a run of perfectly good ordinary operations would score 3/5 and look like a problem. Stored 1–5, drawn as a diverging bar centred on "As usual" with `offset` from -2 to +2.
+- `RATING_SCALE` / `RATING_ASPECTS` (server, combat, story, and since row 328 **enjoyment**) — **why it is not stars.** The question is "how did this compare to a normal night", which makes the middle *neutral*, not mediocre. Stars cannot say that: 5 reads as the goal and 3 as a disappointment, so a run of perfectly good ordinary operations would score 3/5 and look like a problem. Stored 1–5, drawn as a diverging bar centred on "As usual" with `offset` from -2 to +2.
 - `validRating` / `averageRating` — the latter rounds to one decimal, because an average of "compared to usual" carries about that much signal and quoting 3.47 implies otherwise.
 - `aar.test.ts` — 42 tests, including every fallback case for `sectionLead` and every branch of `didAttend`.
+
+### lib/operations/aar-access.ts
+- Row 328, pure and tested (`aar-access.test.ts`). `viewableSections(roster, userId, standing)` (section lead → own, PHQ → platoon, CHQ / J4 / mission maker / `aar.manage` → all), `consolidatedUnlocked` (own report written and, if attended, feedback left), `bypassesUnlock` (J4 or mission maker only), `aarHasContent`, `summariseFeedback` (averages per aspect including Enjoyment, plus non-empty comments), `sanitiseMissionAar` / `VEHICLE_STATUSES`, `canEditMissionAar`, `canCommend`, `sectionOf`.
+
+### lib/operations/aar-context.ts
+- `loadAarContext(operationId, me)` — everything the AAR routes need to decide what a viewer sees, read once so the gate is the same on every route: operation, attendance, roster, records, own report and feedback, `standing`, `attended`, `bypass`, `unlocked`, `open`, `missionAarEnabled` (campaign wins), `hasCampaign`. Also `actorName(me)`.
+
+### lib/operations/aar-reports.ts / aar-reports-db.ts
+- Rows 329 and 330. Pure half (tested): `reportViewer(positions, isJ4)` from the viewer's **current** ORBAT positions (CHQ or J4 → company; an HQ section → its platoon; `isSenior` → own call sign; otherwise nothing, Q8: no cross-call-sign requests), `levelsFor`, `canReadEntry`, `groupByUnit`, `summaryKey` / `sourceSignature` (the summary cache key and the signature that marks it stale), `SUMMARY_SYSTEM_PROMPT` / `buildSummaryInput` (no member names sent), `commendationsPost`.
+- Mongo half: `loadReportViewer`, `loadReportOptions`, `operationsInScope(scope, ref)`, `loadReportData(viewer, ops)` — an entry's platoon comes from that operation's own roster, so a call sign that later moved still rolls up where it was on the night.
+
+### lib/doctrine/
+- Rows 334, 335. `schema.ts` is the one definition of the twelve sections, their questions and options (`significant` and `quick` flags, `requires` for Section 9), the Section 4 composition hierarchy (with intel `terms`), indicators, force layers, triggers and `ADVANCED_MODULES`; the builder, both views, change control and the comparison all read it. `values.ts` (pure, tested in `values.test.ts`): `sanitiseValues`, `diffOverrides` / `applyOverrides` / `resolveChain` / `sourcesOf` (each level stores only its changes), `versionAt` (historic pinning), `changesBetween` and `needsApproval` (significant fields, a unit type added or removed, or `COLLECTIVE_THRESHOLD` structural changes; text edits never count). `compare.ts`: `compareIntel` (advisory matches and not-listed). `db.ts`: `loadChain`, `resolve(doctrine, at, draftOf?)`, `saveDraft`, `publish`, `reviewPending`, `createReviewTask` / `raiseOptionsTask` (tasks to `J2 - Department Leader`), `globalOptions`, `operationDoctrine` (pins a past operation to the end of its day).
+
+### components/doctrine/
+- `DoctrineBuilder.tsx`, `DoctrineViews.tsx` (`QuickReference`, `FullDoctrine`, tabs with copy and print), `DoctrinePage.tsx` (the operation page), `doctrine.module.css`. The J2 faction library and review queue is `app/dashboard/j2/tabs/DoctrineTab.tsx` (tab 9; `?doctrine=` opens one in the builder, which is where review tasks link).
+
+### lib/intel/report.ts / report-db.ts
+- Rows 331, 332, pure half tested (`report.test.ts`). `DEFAULT_INTEL_SETTINGS` / `resolveSettings` / `sanitiseSettings` (sharing, carry forward, intel from AARs, approval before publication). `intelStanding(roster, userId, grants, isOwner)` (staff on the night may add; owner holds everything) and `viewsFor`. `inReport` (same campaign or same standalone operation, at or before this mission; carry forward off keeps starting intel and this mission), `isReleased`, **`playerCanSee`** (sharing, not deleted, published, released; assessment plays no part, so declined intel still carries forward), `inView` (staff tabs), **`forViewer`** (the only shape that leaves the server: strips hidden-until, publication, versions and submitter id for players, and the assessment until released), `tallyVotes`, `groupByMission`, `safeUrl` / `sanitiseEvidence` / `sanitiseEntryInput` / `hiddenUntil`, `snapshotVersion` / `changed`, `canEditEntry`.
+- Mongo half: `loadIntelContext(operationId, me)` (position from `campaign_missions`, settings from the campaign or operation, standing via `can()`, `myCallSign`), `missionNames`, `loadReport(ctx, view, me)`, `loadEntryInScope` (null for a player asking for a hidden entry, the same as a missing one).
+
+### components/intel-report/
+- `IntelReport.tsx` — the Intelligence Report page (tabs, settings for `intel.manage`, entry cards with votes, assessment, approve / release / hide, edit with version history, soft delete, staff comments). Also exports `IntelReportSignIn`. `IntelEntryForm.tsx` — the entry form shared with the AAR block (title, description, grid, images by pick / drop / paste, video and links, captions; hidden-until, starting intel and call sign for assessors). Styles in `intel-report.module.css`, themed by `--intel-rgb`.
 
 ### lib/dashboard/layout.ts
 - Pure model of the dashboard home page's member-arranged layout: `PANEL_IDS`/`PANEL_TITLES`, `DEFAULT_LAYOUT`, `normaliseLayout(saved, available)` (every available panel exactly once), `sanitiseLayout` (what gets stored), `movePanel`. Unit-tested. Used by `/api/preferences` and `app/dashboard/DashboardOverview.tsx`.
@@ -124,6 +147,16 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - NCO assessments (`Db.ncoAssessments`, type `NcoAssessment`). `nco-assessment.ts` is the pure rules, tested: `farEnoughAhead` (a week's notice), `holdsNight` (a night is taken once an assessment on it has an assessor), `canDo(action, actor, assessment)` for the eight steps (assign / confirm / requestShadow / decideShadow / sheet / recording / complete / cancel) and `canSee`. Roles are positional: section staff = `isSenior` in the candidate's section, CHQ = a `companyHQ` position, J3 lead = `training.manage`.
 - `nco-actor.ts` — the ORBAT reads (`ncoActor`, `sectionOf`, `staffOfSection`) and `toNcoView`, which sends each assessment with `can` already computed, so the page offers exactly what the route will accept.
 - UI: `app/dashboard/unit/training-docs/AssessmentsTab.tsx` (the *NCO Assessments* tab of the training hub; `?tab=assessments` opens it) and `components/operations/board/AssessmentMarker.tsx` (the banner on the attendance board for CHQ and those involved).
+
+### lib/training/document-slots.ts (row 372)
+- Pure. `DocumentSlot { id, name, order, kind: 'guide' | 'assessment' }`; `DEFAULT_SLOTS` (Training Document, Trainer's Guide), `ASSESSMENT_SLOT` (Leadership courses, `isLeadership`); `slotsFor(type)` (saved slots plus any missing defaults, sorted); `guideSlotId(guide)` (`slotId`, else derived from the old `guideType`, so no migration); `addSlot`, `sanitiseSlots`.
+
+### lib/training/orders-assessment.ts + orders-assessment-db.ts + similarity.ts (row 373)
+- `orders-assessment.ts` (pure, tested): statuses and `STATUS_LABEL`, `isOpenForTrainee`, `isAwaitingReview`; `AssessmentTemplate` / `TemplateField` / `SourceOrders` with `DEFAULT_TEMPLATE` (SMEAC) and `DEFAULT_ORDERS` (three empty variants), `sanitiseTemplate`, `sanitiseOrders`, `usableVariants` (non-empty only); `assignVariants` (round robin across the cohort, avoiding a variant the trainee has sat) and `nextVariant` (for a reassessment); `sanitiseAnswers`, `answersText`, `templateStrip`; visibility `canReview`, `canSeeSimilarity` (assigned trainer, J3 leads and J4; never the trainee), `canRead`, `shapeFor` (strips similarity from the document and its attempts).
+- `similarity.ts` (pure, tested): word 5-shingles after `normalise` strips template text and `COMMON_PHRASES` of military orders; `containment` score; `levelOf` (0.1 low, 0.25 moderate, 0.5 high); `passages` (matching sentences for the side-by-side view); `compareSubmission` → `SimilarityResult { score, level, matches (top 8), checkedAt, comparedWith }`.
+- `orders-assessment-db.ts`: `assessmentStanding(me)`, `loadConfig(typeId)` (defaults when none), `sessionsFor`, `sessionTrainees`, `assessmentUrl`, `notify` (website + DM, never throws), `runSimilarity(doc)` (compares against every other submission of the course, earlier attempts included, and the source orders; writes the reverse match onto each matched submission, so the order of submission does not matter), `logAssessment`.
+- Types: `types/orders-assessment.d.ts` (`OrdersAssessmentConfig`, `OrdersAssessment` with frozen `orders` / `template`, `attempts[]`, `history[]`); `TrainingType.documentSlots`, `TrainingGuide.slotId`; notification type `orders_assessment` (Training).
+- UI: `components/orders-assessment/` (`shared.tsx` pills, `AnswerSheet`, `OrdersBody`, `SimilarityPanel`; `AssessmentManager.tsx`; `TraineeAssessment.tsx`; `MyAssessments.tsx`).
 
 ### lib/training/pre-learning.ts + pre-learning-sync.ts
 - Pre-learning: material on a `TrainingType` (`preLearning`) locked until the member has a place. `pre-learning.ts` is pure and tested: `unlockedMemberIds(records)` (confirmed trainees + the first `WAITLIST_UNLOCKED` = 2 of the waitlist), `waitlistOrder` (priority first, then first come — the one definition of "who is next", used by both the unlock rule and the sign-up route's promotion sort), `grantIsLive` / `grantExpiresAt` (two weeks from unlock), `preLearningState` (locked / open / done / expired), `hasSeatPriority` (finished it, missed that session, signing up to another inside the window), `sanitisePreLearning`.
@@ -664,8 +697,36 @@ Content-addressed, deduplicating backup system via [restic](https://restic.net/)
 - `TRAINING_TYPE_DEFAULTS: Array<Omit<TrainingType,'_id'|'createdAt'|'updatedAt'>>` — seed list of ~24 default training types (BCT 1/2, medical, CQB, fires, aviation, comms, leadership, special, armoured, proficiency courses) with billet field/points pre-assigned.
 
 ### lib/training/scheduleReminders.ts
-- `scheduleTrainingReminders(eventId, eventTitle, scheduledAt): Promise<void>` — upserts 60-min and 15-min-before reminder docs into `Db.trainingReminders` (skips reminders that would fire in the past).
+- `scheduleTrainingReminders(eventId, eventTitle, scheduledAt, offsets = LEGACY_OFFSETS, kind = 'event'): Promise<void>` — upserts one reminder doc per offset (minutes before) into `Db.trainingReminders` (skips reminders that would fire in the past). Events with no stored `reminderOffsets` keep the old 60 and 15.
 - `cancelTrainingReminders(eventId): Promise<void>` — deletes all unfired reminders for an event (on cancellation).
+- `courseReminderId(instanceId)` → `course:{id}`, and `rescheduleCourseReminders(instance)` — a Selection / Reinforcement Cycle course's Session 1 reminders (`kind: 'course'`, sent by `cron/calendar-reminders` to the course's active candidates). Called on course create and restore; cancelled on complete, cancel and delete.
+
+### lib/training/reminder-offsets.ts
+- Row 213's reminder rules, pure and unit-tested: `defaultReminderOffsets(courseType)` (Selection: 1 month and 1 week before Session 1; otherwise 1 day and 30 minutes), `sanitiseOffsets(input)`, `formatOffset(minutes)`, `reminderSentence(title, minutes)` (the 30-minute one adds "Be ready to load in in 15 minutes."), `suggestedEnd(start, durationMinutes)`. Used by the cron's wording, `sendTrainingReminderDM`, and `TrainingEventModal`.
+
+### lib/training/approve.ts
+- `approveTrainingEvent(event, approver)` — the one approval path: J3 calendar entry (`department: 'j3'`, `templateTrainingTypeId`, end from `estimatedFinishAt` or duration), approval fields, reminders from the event's own offsets, trainer notification + DM (skipped when the trainer approved it themself), `training.event.approve` log. Used by `POST /api/training/events/[id]/approve` and by `POST /api/training/events` when a J3 lead sends `approveNow`.
+
+### lib/training/next-selection.ts + find-next-selection.ts
+- Rows 212 and 213: when the next Selection starts. `pickNextSelection(instances, now)` (pure, tested): Session 1 of the earliest Selection course in `UPCOMING` statuses that has not started, so a running Selection is skipped for the next one. `discordTimestamp`, `selectionDateLine` (`<t:…:F> (<t:…:R>)`, or "To be confirmed"), `fillPlaceholders` (unknown `{keys}` are left visible). `find-next-selection.ts` is the database read, kept apart so the pure file tests without Mongo.
+
+### lib/recruitment/selection-countdown.ts + selection-countdown-sync.ts
+- Row 212. Pure, tested: `DEFAULT_COUNTDOWN` (disabled), `withDefaults`, `countdownDate` (a future override wins, an expired one is ignored), `buildCountdownPost`, `fingerprint`, `countdownAction` (off / unconfigured / unchanged / post / edit; a changed channel means a new post). `absoluteUrl` now lives in `lib/absolute-url.ts`. `selection-countdown-sync.ts`: `loadCountdownConfig`, `countdownChannel` (config, else `DISCORD_WANT_TO_JOIN_CHANNEL_ID`), `syncSelectionCountdown()` (never throws; records `lastError`). Called by `cron/selection-countdown` and the J3 settings PUT.
+
+### lib/recruitment/induction-pack.ts + induction-pack-db.ts
+- Row 213. Pure, tested: `DEFAULT_STEPS` (rows 348 Attendance, 349 Orders, 350 MILPAC), `DEFAULT_INDUCTION_PACK`, `withInductionDefaults`, `inductionUrls`, `buildInductionDM` (placeholders filled, Selection date from the same helper as 212), `inductionRecipient` (linked account, else `discordId`), `inductionStatus`, `doneSteps` / `allStepsDone` (removed steps stop counting), `sanitiseInductionPack` (lengths, http(s) or site-relative links only, unique step ids). `induction-pack-db.ts`: `loadInductionPack`, `sendInductionPack(applicationId, sender)` (DM, `J1Application.inductionPack`, `Db.inductionProgress` upsert, log).
+
+### lib/military/award-postage.ts + award-postage-db.ts
+- Row 384. Pure, tested: `postageOwnerId` / `canManagePostage` (the owner or OVERRIDE, never roles), `DEFAULT_POSTAGE_CONFIG` (LT GEN Thomas's own wording), `isPhysicalAward` (every `milpac.awards` entry except Campaign Medallions unless switched on), `addedAwards(before, after)`, `monthKey` / `monthLabel`, `carryOver`, `POSTAGE_STATUS_LABEL`, `awardList`, `buildPostageDM` (embed plus `award_postage.yes` / `.no` buttons), `sanitisePostageConfig`. `award-postage-db.ts`: `onAwardsAdded(userId, awards)` (the hook both award write paths call; Yes queues Ready, No nothing, Unassigned queues Awaiting and schedules one DM; never throws), `setPostagePreference`, `markSent`, `rollOver`, `sendDuePreferenceDMs`, `memberName`.
+
+### lib/absolute-url.ts
+- `absoluteUrl(url, baseUrl)` — a site-relative URL made absolute for Discord embeds. Its own file, with no Node imports, so client components can import the modules that use it.
+
+### lib/training/categories.ts
+- `CATEGORY_ORDER` (the Training Hub's category headings, moved out of `TrainingHub.tsx`) and `groupByCategory(items)`.
+
+### app/dashboard/_components/ImageUploadField.tsx
+- One image for a message or post: click, drag and drop or paste, replace and remove. Uploads through `POST /api/upload` and hands back its URL. Used by the Selection countdown post and the Induction Pack.
 
 ### lib/safe-fetch.ts
 - SSRF-guarded fetcher, the only outbound-fetch path in the department-quick-links feature (`lib/dept-links/favicon.ts`). Exports `isPublicIpAddress(ip): boolean` (fail-closed IPv4/IPv6 classifier: rejects loopback/private/CGNAT/link-local incl. cloud metadata/documentation/multicast/6to4/Teredo/NAT64/IPv4-mapped ranges), `assertPublicHttpUrl(input): URL` (throws `BlockedUrlError`; http/https only, no embedded credentials, default/80/443 port only, rejects `localhost`/single-label/`.local`/`.internal`/`.lan`/`.home.arpa` hosts and non-public IP literals), `safeFetch(url, opts): Promise<SafeFetchResult>` (manual redirect handling with full per-hop re-validation, hard byte cap via `readCapped`, per-hop timeout via `AbortController`), and the `BlockedUrlError`/`FetchCapError` error classes. Transport is an undici `Agent` with a connect-time guarded DNS `lookup` (validates **every** resolved address, after resolution, on every socket); rebinding-proof, unlike a pre-fetch resolve-then-check pattern. `undici` is a `serverExternalPackages` entry (`next.config.ts`).
@@ -718,6 +779,18 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 - `CommunityTicketCategory`, `CommunityTicketSubtype`, `CommunityTicketStatus`, `CommunityTicketVisibility` — union types for the community tickets ("/tickets") feature.
 - `CommunityTicket` — the big ticket document interface, with per-category optional field groups (request/bug/mission-campaign/unit-feedback/complaint/award fields), `statuses[]` multi-status support, `ticketTags[]`, `activityLog`.
 - `CommunityTicketTask`, `CampaignPhase`, `CommunityTicketComment`, `CommunityTicketActivity`.
+
+### types/induction.d.ts
+- `SelectionCountdownConfig` (row 212, `site_settings` `_id: 'selectionCountdown'`: enabled, channel, title, text, image, override, posted message id/channel/fingerprint, last error), `InductionStep`, `InductionPackConfig` (row 213, `_id: 'inductionPack'`), `InductionProgress` (`induction_progress`, one per member: sent, opened, steps done, completed, Selection interest). `J1Application.inductionPack` (`types/j1.d.ts`) records who sent it and how often.
+
+### types/award-postage.d.ts
+- Row 384: `AwardPostagePreference`, `AwardPostagePref` (`award_postage_prefs`: preference, first asked, last reminder, next reminder, answered at and by), `AwardPostageStatus`, `AwardPostageItem` (`award_postage_items`: member, award name/type/date, month, `carriedFrom`, status, sent at/by), `AwardPostageConfig` (`site_settings` `_id: 'awardPostage'`). No postal fields, by design.
+
+### types/doctrine.d.ts
+Rows 334, 335: `Doctrine` (`doctrines`: level, parent, campaign / operation, `draft` overrides, `publishedVersion`, `baselineVersion`, `pending`, `customOptions`, `optionsTaskId`), `DoctrinePendingChange`, `DoctrineVersion` (`doctrine_versions`, immutable), `DoctrineGlobalOption` (`doctrine_options`). Task type `doctrine_review` in `types/notification.d.ts`.
+
+### types/intel-report.d.ts
+Rows 331, 332: `IntelEntry` (`intel_entries`: campaign, source operation and sequence, source AAR, call sign, title, description, `evidence[]`, grid, `hiddenUntilSequence`, `publication`, `assessment`, `versions[]`, soft-delete fields), `IntelEvidence`, `IntelAssessment` / `IntelAssessmentStatus`, `IntelVersion`, `IntelVote` (`intel_votes`, unique on entry and member), `IntelComment` (`intel_comments`), `IntelReportSettings` (stored as `intelSettings` on `OperationCampaign`, or on `Operation` outside a campaign).
 
 ### types/discord.d.ts
 - Empty/commented-out placeholder (`GuildMember`, `GuildRole` shapes commented out) — no active exports.

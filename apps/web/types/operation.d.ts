@@ -246,6 +246,10 @@ declare global {
         // Ownership — the J2 member responsible for this mission
         ownedBy?: string         // Discord user ID of owner/mission maker
         ownedByName?: string     // Display name of owner
+        /** Row 328: the shared Mission AAR block, for an operation outside a campaign. A campaign's setting wins. */
+        missionAarEnabled?: boolean
+        /** Rows 331, 332: Intelligence Report settings, for an operation outside a campaign. */
+        intelSettings?: Partial<IntelReportSettings>
         billetPoints?: number    // Billet points awarded to owner on completion (default 2)
 
         // Orders acknowledgement — staff who have read and confirmed the orders
@@ -254,6 +258,14 @@ declare global {
             userName: string
             acknowledgedAt: string  // ISO timestamp
         }>
+
+        /**
+         * Row 373: a trainee's private copy of an assessment's source orders.
+         * Never listed anywhere (`lib/operations/private-scope.ts` keeps it out
+         * of every query that is not by id) and opened only by the trainee,
+         * their trainer, J3 training staff and J4 (`lib/training/assessment-operation.ts`).
+         */
+        assessment?: { id: string; traineeId: string; traineeName: string; trainingTypeId: string }
 
         // Soft delete
         deletedAt?: Date
@@ -287,6 +299,10 @@ declare global {
         startDate?: string   // ISO date string e.g. "2026-05-12"
         endDate?: string     // ISO date string e.g. "2026-05-26"
         status?: 'Active' | 'Upcoming' | 'Completed' | 'In Development'  // explicit override
+        /** Row 328: the shared Mission AAR block is on for every operation in the campaign. */
+        missionAarEnabled?: boolean
+        /** Rows 331, 332: Intelligence Report settings for every operation in the campaign. */
+        intelSettings?: Partial<IntelReportSettings>
         isDeleted?: boolean
         deletedAt?: string
         deletedBy?: string

@@ -15,6 +15,7 @@ import {
 import { Typography } from '@mui/material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import { RESTORE_LABEL } from '@/lib/military/reinstate-items'
+import InductionPackSend from './InductionPackSend'
 
 type Application = J1Application & { _id: string }
 
@@ -902,6 +903,9 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                     })()}
                                 </div>
                             )}
+
+                            {/* Row 213: Induction Pack */}
+                            {app.status !== 'rejected' && <InductionPackSend applicationId={app._id} />}
 
                             {/* Discord linking */}
                             <div>

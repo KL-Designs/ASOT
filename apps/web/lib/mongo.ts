@@ -1,4 +1,5 @@
 import { MongoClient, Collection as MongoCollection, Document } from 'mongodb'
+import { hidePrivateOperations } from './operations/private-scope'
 
 if (!process.env.MONGO_URI) throw new Error('MONGO_URI is not set')
 if (!process.env.MONGO_DB) throw new Error('MONGO_DB is not set')
@@ -21,7 +22,8 @@ const DbInterface = {
     roles: db.collection('roles') as MongoCollection<Role>,
     milpacs: db.collection('milpacs') as MongoCollection<Milpac>,
     optionals: db.collection('optionals') as MongoCollection<Optional>,
-    operations: db.collection('operations') as MongoCollection<Operation>,
+    /** Trainees' private assessment copies are hidden from every query that is not by id: see lib/operations/private-scope.ts. */
+    operations: hidePrivateOperations(db.collection('operations') as MongoCollection<Operation>),
     operationActivity: db.collection<OperationActivityLog>('operation_activity'),
     minigameScores: db.collection('minigame_scores'),
     minigameLive: db.collection('minigame_live'),
@@ -42,6 +44,20 @@ const DbInterface = {
      *  they answer to different people — the section's commander, and the
      *  mission maker. */
     operationFeedback: db.collection('operation_feedback') as MongoCollection<OperationFeedback>,
+    /** Row 328: a section's shared Mission AAR block (situation, MIA/captured, vehicles) per operation. */
+    operationMissionAars: db.collection('operation_mission_aars') as MongoCollection<OperationMissionAar>,
+    /** Row 330: commendations written on the AAR, rolled up in AAR Reports. */
+    operationCommendations: db.collection('operation_commendations') as MongoCollection<OperationCommendation>,
+    /** Row 329: cached AI summaries of AAR entries, keyed by scope, level and unit. */
+    aarSummaries: db.collection('aar_summaries') as MongoCollection<AarSummary>,
+    intelEntries: db.collection('intel_entries') as MongoCollection<IntelEntry>,
+    intelVotes: db.collection('intel_votes') as MongoCollection<IntelVote>,
+    intelComments: db.collection('intel_comments') as MongoCollection<IntelComment>,
+    doctrines: db.collection('doctrines') as MongoCollection<Doctrine>,
+    doctrineVersions: db.collection('doctrine_versions') as MongoCollection<DoctrineVersion>,
+    doctrineOptions: db.collection('doctrine_options') as MongoCollection<DoctrineGlobalOption>,
+    ordersAssessmentConfigs: db.collection('orders_assessment_configs') as MongoCollection<OrdersAssessmentConfig>,
+    ordersAssessments: db.collection('orders_assessments') as MongoCollection<OrdersAssessment>,
     /** The comment thread under an operation's orders. See lib/operations/comments.ts. */
     operationComments: db.collection('operation_comments') as MongoCollection<OperationComment>,
 
@@ -125,6 +141,13 @@ const DbInterface = {
     // ── Recruitment Video ─────────────────────────────────────────────────────
     recruitVideoConfig:   db.collection('recruit_video_config')   as MongoCollection<RecruitVideoConfig & { _id: string }>,
     recruitVideoProgress: db.collection('recruit_video_progress') as MongoCollection<RecruitVideoProgress>,
+
+    // ── Member Induction (row 213) ────────────────────────────────────────────
+    /** One new member's progress through the website induction. Config lives in siteSettings ('inductionPack'). */
+    inductionProgress: db.collection('induction_progress') as MongoCollection<InductionProgress>,
+    /** Row 384: physical award preference per member, and the awards waiting to be posted. LT GEN Thomas only. */
+    awardPostagePrefs: db.collection('award_postage_prefs') as MongoCollection<AwardPostagePref>,
+    awardPostageItems: db.collection('award_postage_items') as MongoCollection<AwardPostageItem>,
 
     // ── Training Guides ───────────────────────────────────────────────────────
     trainingGuides: db.collection('training_guides') as MongoCollection<TrainingGuide>,

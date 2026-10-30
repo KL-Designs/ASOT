@@ -25,7 +25,7 @@ Also here: drag-and-drop favourites reorder via `@dnd-kit` + `useFavourites`, a 
 Route: `/dashboard/j5`. Gate: `PERMISSIONS.departments.j5` (redirects `/dashboard` on failure). Computes `canManageMembers` via `hasPermission(me, 'departmentLeads.j5')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j5', 'deptLinks.manage')`, and `isJ4`, renders `J5Panel`.
 
 #### app/dashboard/j5/J5Panel.tsx
-Client shell for the J5 dept page. Header with title "[J5] Media" + toggle buttons for Settings/Calendar/Activity Log views (via `useTabState`, URL-backed). Default "dept" view has 5 sub-tabs: Operations (`GalleryOperationsTab`), Featured Images (`GalleryFeaturedTab`), Screenshot of Month (`ScreenshotOfMonthTab`), Meetings (`MeetingsTab`), Tickets (`DeptTicketsTab`); opens with `DeptLinksRail` (department quick links, see H) as the first child before the Tabs strip. Reuses `DeptSettingsView` (which stacks the quick-links manager card above the unchanged `DeptMembersTab`) and `DeptCalendarTab` (outside this scope) for the Settings/Calendar toggle views. Same shape reused by J6Panel/J7Panel.
+Client shell for the J5 dept page. Header with title "[J5] Media" + toggle buttons for Admin/Calendar/Activity Log views (via `useTabState`, URL-backed). Default "dept" view's tabs are built from one keyed array (Media, Submissions, Featured, Screenshot of month, Tags; Submissions and Tags permission-gated) and indexed by position. Meetings and Tickets moved under Admin (row 84); their old numbers varied with the gated tabs, so old pins to them are clamped rather than redirected. Opens with `DeptLinksRail`. Admin renders `DeptSettingsView` with those two tools as sections; Calendar renders `DeptCalendarTab`. Same shape reused by J6Panel/J7Panel.
 
 #### app/dashboard/j5/loading.tsx
 `<TacticalLoader label='LOADING J5 // MEDIA' />`.
@@ -56,7 +56,7 @@ Client component: view/set the current "Screenshot of the Month" (SOTM). Shows c
 Route: `/dashboard/j6`. Gate: `PERMISSIONS.departments.j6`. Renders `J6Panel` with `canManageMembers` via `hasPermission(me, 'departmentLeads.j6')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j6', 'deptLinks.manage')`, `isJ4`.
 
 #### app/dashboard/j6/J6Panel.tsx
-Same shell pattern as J5Panel, header "[J6] Game Masters". Dept tabs: Zeus Notes (`ZeusNotesTab`), Meetings, Tickets (only 3 tabs, no gallery-style tab). Settings/Calendar/Activity Log header toggles and the `DeptLinksRail` quick-links rail follow the same shape as J5Panel above.
+Same shell pattern as J5Panel, header "[J6] Game Masters". Dept tabs: Zeus Notes (`ZeusNotesTab`); Meetings and Tickets live under Admin (row 84), old tab numbers 1 and 2 redirect there. Admin/Calendar/Activity Log header toggles and the `DeptLinksRail` quick-links rail follow the same shape as J5Panel above.
 
 #### app/dashboard/j6/ZeusNotesTab.tsx
 Client component: master-detail view for per-operation "Zeus notes" (Zeus/GM freeform notes attached to an operation). Left: searchable, paginated operation list (title, date, status, has-notes indicator dot). Right: view/edit notes textarea for the selected op with Save/Cancel. Calls `GET/POST /api/operations/zeus-notes` (list paginated via `?page=&search=`, save via `{ id, notes }`).
@@ -72,7 +72,7 @@ Client component: master-detail view for per-operation "Zeus notes" (Zeus/GM fre
 Route: `/dashboard/j7`. Gate: `PERMISSIONS.departments.j7`. Renders `J7Panel` with `canManageMembers` via `hasPermission(me, 'departmentLeads.j7')` and `canManageLinks` as that OR `hasDepartmentPermission(me, 'j7', 'deptLinks.manage')`, `isJ4`.
 
 #### app/dashboard/j7/J7Panel.tsx
-Same shell pattern, header "[J7] Development". Dept tabs: **Board** (0, `BoardTab`, see below), Meetings (1), Tickets (2). `BoardTab` receives `department='j7'` and `canManageColumns={canManageMembers || isJ4}`. Settings/Calendar/Activity Log header toggles and the `DeptLinksRail` quick-links rail follow the same shape as J5Panel above.
+Same shell pattern, header "[J7] Development". Dept tabs: **Board** (0, `BoardTab`, see below); Meetings and Tickets live under Admin (row 84), old tab numbers 1 and 2 redirect there. `BoardTab` receives `department='j7'` and `canManageColumns={canManageMembers || isJ4}`. Admin/Calendar/Activity Log header toggles and the `DeptLinksRail` quick-links rail follow the same shape as J5Panel above.
 
 #### app/dashboard/j7/tabs/BoardTab.tsx
 Trello-style kanban board — the only department-specific feature tab J7 has. Customizable columns (create/rename/delete/drag-reorder, `canManageColumns`-gated — i.e. dept lead or J4 only) each holding freeform cards (title/description/optional assignee/optional linked `Db.tasks` item), draggable within and between columns. Any dept member (not just leads) can create/edit/move/delete cards. Drag-and-drop combines `@dnd-kit/sortable`'s `useSortable` (in-column card reorder, and column-itself reorder via a `` `col:{id}` `` id prefix to avoid colliding with the same column's card-drop-zone id) nested inside per-column `useDroppable` zones (cross-column card moves) — same combined pattern as the codebase's other multi-container drag UIs (`OrbatManager.tsx`, `AttendanceManageDialog.tsx`). Reorder drops use midpoint-order insertion (`(prevSibling.order + target.order) / 2`) rather than reusing the target's exact order value, avoiding order collisions. Opens `BoardCardModal` for card create/edit and `ConfirmDialog` for column delete. Calls `GET/POST /api/admin/board/columns`, `PATCH/DELETE /api/admin/board/columns/{id}`, `GET/POST /api/admin/board/cards`, `PATCH/DELETE /api/admin/board/cards/{id}`.
@@ -103,7 +103,7 @@ Full milpac editor + J4 administration panel for one member — **shared** betwe
 Route: `/dashboard/personnel/all-staff`. Gate: `PERMISSIONS.pages.admin`. Renders `AllStaffPanel`.
 
 #### app/dashboard/personnel/all-staff/AllStaffPanel.tsx
-Simple tab shell ("Move Requests" / "Discipline" / "Performance Reports") over the three staff-ticket tabs below. No fetches itself.
+Simple tab shell ("Move Requests" / "Discipline" / "Performance Reports" / "Objective Suggestions" / "AAR Reports") over the tabs below. No fetches itself.
 
 #### app/dashboard/personnel/all-staff/tabs/MoveRequestsTab.tsx
 Submit/approve ORBAT move-request tickets. Form: autocomplete pick an occupied ORBAT position (member), pick destination (Active Reservist or a section with a vacant position, then a specific vacant role), optional notes; submits — auto-applies immediately if the requester has authority, else routes to the required approver. Also shows "Pending My Approval" table (Approve/Reject buttons) and "My Submitted Requests" table with status chips. Calls `GET /api/admin/orbat/for-move` (flat position list), `GET /api/admin/tickets?issuedById=`/`?requiredApproverUserId=&status=open` (filtered client-side to `type === 'move-request'`), `POST /api/admin/tickets` (`{type:'move-request', targetUserId, fromPositionId, toPositionId|toIsReservist, notes}`), `PATCH /api/admin/tickets/{id}` (`{decision: 'approve'|'reject'}`). Uses `PLATOON_CATEGORIES`/`RESERVIST_CATEGORY_IDS` from `lib/orbat/constants`.
@@ -113,6 +113,9 @@ Submit a discipline ticket against a member (member autocomplete + reason + note
 
 #### app/dashboard/personnel/all-staff/tabs/PerformanceReportTab.tsx
 Same shape as DisciplineTab but for performance reports (`type==='performance-report'`, field `performanceReason`). Calls `GET /api/admin/members`, `GET /api/admin/tickets?issuedById=`, `POST /api/admin/tickets`.
+
+#### app/dashboard/personnel/all-staff/tabs/AarReportsTab.tsx
+Rows 329 and 330. Pick a scope (Mission, Campaign, last 6 or 12 months) and a level (Call sign, Platoon, Company, limited to what `reportViewer` allows). Each unit's Fix / Improve / Sustain entries are listed, with a per-unit **Summarise** button when AI is on (cached; marked out of date when entries change) and the raw entries always shown when it is off. Commendations are listed beneath with **Copy Discord post** for the Monday post. Calls `GET /api/aar-reports` and `POST /api/aar-reports/summary`. A viewer whose ORBAT position is not a section senior, PHQ, CHQ or J4 sees a notice instead.
 
 #### app/dashboard/personnel/all-staff/loading.tsx
 `<TacticalLoader label='LOADING PERSONNEL' />`.
@@ -210,6 +213,9 @@ Reusable department-scoped calendar (used by every JX panel's "Calendar" view an
 #### app/dashboard/unit/calendar/EventModal.tsx (761 lines — large)
 Shared calendar event create/view/edit/delete dialog, exports `CalendarEventRow` type and `DEPT_COLORS` map (also imported by `CalendarPanel`/`DeptCalendarTab`/`AllStaffCalendarPanel`). View mode shows full event detail (title, time, department, description, linked operation/task) with edit/delete for authorised users (`isJ4` or creator via `canWrite`-style checks) and a reminder sub-panel (add/remove reminder offsets from `LEAD_UP_PRESETS`). Create/edit mode: title, department select, start/end (or all-day date), description, private toggle. Calls `GET/POST/PATCH/DELETE /api/admin/calendar` and `/api/admin/calendar/{id}`, `GET/POST/DELETE /api/admin/calendar/reminders?eventId=`.
 
+#### app/dashboard/unit/calendar/TrainingEventModal.tsx
+The J3 Training Calendar's Add Event (row 213); `DeptCalendarTab` opens it instead of `EventModal`'s create mode when `department === 'j3'`. Training dropdown of **active** Training Hub types grouped by `CATEGORY_ORDER` (`GET /api/training/types`), date, start, end (start + course duration until edited by hand), optional description, editable reminder list (defaults from `lib/training/reminder-offsets.ts`). A normal course posts to `POST /api/training/events` with `endsAt`, `reminderOffsets`, `approveNow: true` (approved on save for a J3 lead, pending otherwise); Selection / Reinforcement Cycle posts to `POST /api/j3/course-instances` with this as `session1Date`.
+
 #### app/dashboard/unit/calendar/J2EventModal.tsx
 J2-specific modal used for two special event types: `mode='unavailability'` (J2 lead blocks a period unit-wide as unavailable for mission-making) and `mode='mission_check'` (any J2 member requests a mission check against an in-development/upcoming operation, searched via `GET /api/operations?status=In Development,Upcoming&limit=100`). Submits via `POST /api/admin/calendar` with mode-specific flags (`isJ2Unavailability` / `isMissionCheckRequest`, `relatedOperationId`).
 
@@ -239,6 +245,11 @@ Route: `/dashboard/unit/training-docs`. Gate: `hasPermission(user, 'pages.member
 
 #### app/dashboard/unit/training-docs/TrainingHub.tsx (1002 lines — large)
 Tab `'courses'`: manages `TrainingType` definitions (course catalogue) — create/edit (name, category, billet field/points, description, status, duration, server, required mods, prerequisites, min trainers/trainees, trainer/info doc URLs, cover image, linked media), drag-reorder via `@dnd-kit`, seed defaults, and per-type expandable **training docs** list with add/approve/reject/delete (a document-request/approval workflow distinct from the standalone `TrainingDocsPanel` explorer below — these are docs attached directly to a training type). Tab `'events'` renders `EventsTab`; tab `'requests'` renders `RequestsTab`. Calls `GET/POST /api/training/types`, `PATCH/DELETE /api/training/types/{id}`, `POST /api/training/types/seed`, `GET/POST /api/training/types/{id}/docs`, `DELETE /api/training/types/{typeId}/docs/{docId}`, `POST /api/training/types/{typeId}/docs/{docId}/approve|reject`.
+
+Row 372: in the J3 context the two fixed guide buttons are now one button per **document slot** (`slotsFor(type)`): a filled slot opens its guide, an empty one creates it through `POST /api/training-guides { trainingTypeId, slotId }`, and the Assessment Orders slot (Leadership courses) opens `/dashboard/unit/training-hub/assessment/[typeId]`. J3 leads get "+ Add Document" (`POST /api/training/types/[id]/document-slots`).
+
+#### app/dashboard/unit/training-hub/assessment/[typeId]/page.tsx (+ components/orders-assessment/AssessmentManager.tsx)
+Rows 372 and 373. Route `/dashboard/unit/training-hub/assessment/[typeId]`. Gate: dashboard access plus training staff, a config editor, or the trainer on any assessment of this course (`assessmentStanding`). `?review=<id>` opens that assessment (the trainer's submit notification links here), `?session=kind:id` filters the list, `?from=records` points Back at J3 Training Records. Tabs: **Assessments** (list with status and similarity score; the review panel shows the similarity check with matched passages side by side, the trainee's source orders and answers, earlier attempts, and Pass / Reassess / Fail for the assigned trainer or a lead), **Assign** (training staff: session picker, "Add session trainees", member search, a lead may pick another trainer), **Source Orders** (variants 1 to n with title, level and body) and **Template** (title, instructions, heading / short / long fields, reorder, preview). API: everything under `/api/training/assessments/**`.
 
 #### app/dashboard/unit/training-docs/EventsTab.tsx (959 lines — large)
 Training-session event calendar/list: create/edit/cancel/complete training events tied to a `TrainingType`, RSVP (trainer/trainee slots) with slot-count pills, attendance view/mark, award-qualifications action on completion, and an approve/reject flow for trainer-submitted events (`isJ3Lead`). Calls `GET /api/training/events`, `GET /api/training/types`, `POST /api/training/events`, `PATCH /api/training/events/{id}`, `POST /api/training/events/{id}/approve|reject|cancel|complete|award-qualifications`, `GET/POST/DELETE /api/training/events/{id}/attendance`.
@@ -285,7 +296,7 @@ Generic searchable Discord-role autocomplete input (single value, with clear but
 Presentational shimmer-loading placeholder (animated CSS gradient rows) used throughout dashboard panels while data loads (e.g. gallery tabs, move-requests tab, calendars). Props: `rows`, `className`. No fetches.
 
 #### app/dashboard/_components/useTabState.ts
-Hook: URL-search-param-backed `{tab, setTab, view, setView}` state for department panels, so the sidebar's deep-links (`?tab=&view=`) drive the active tab reactively and links stay shareable/bookmarkable. `View` union: `'dept'|'settings'|'calendar'|'meetings'|'logs'|'activity'|'tickets'`; `'settings'` replaced `'members'` in the department-quick-links build; `rawView === 'members'` is aliased to `'settings'` so pre-existing `?view=members` bookmarks/pinned links keep resolving. Used by J5Panel/J6Panel/J7Panel (and J1–J4 panels, see E).
+Hook: URL-search-param-backed `{tab, setTab, view, setView, adminTab, setAdminTab}` state for department panels, so the sidebar's deep-links (`?tab=&view=`) drive the active tab reactively. The parsing lives in the pure `tab-state.ts` (`resolveTabState`, unit-tested in `tab-state.test.ts`): `View` union `'dept'|'settings'|'calendar'|'meetings'|'logs'|'activity'|'tickets'`, `?view=members` and `?view=admin` alias to `'settings'` (the Admin view), `?admin=<key>` picks an Admin tool, and the optional `movedTabs` argument sends an old main-tab number to its Admin tool (row 84). Used by J1–J7 panels.
 
 ### `_components/dept-links/` (department quick links, J1-J7 favicon tile rail, managed from each department's Management view)
 

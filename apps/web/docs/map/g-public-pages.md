@@ -792,6 +792,31 @@ by both. The tab key is `orders`, not `brief`: "Brief" was the editor's name for
 and nobody outside the editor used it. `?tab=brief` and `?tab=development` are aliased for the
 bookmarks already out there.
 
+#### Enemy Doctrine page (`pageType: 'doctrine'`)
+Rows 334, 335. Added after Zeus Notes in "Choose Document Type" (one per operation). Zeus-facing: the
+themes hide it from anyone without `canZeus`, as they do Zeus Notes, and the API needs
+`doctrine.view`. Renders `components/doctrine/DoctrinePage.tsx`: pick a faction to start, then the
+doctrine in force as Quick Reference and Full Doctrine (`DoctrineViews.tsx`, both generated from the
+same values), with "Edit mission / campaign / faction" opening `DoctrineBuilder.tsx` on that level.
+The builder has the twelve sections, collapsed Additional Notes on every question, custom options
+(pending J2 Lead review), collapsed advanced modules, and a Preview modal that renders the unsaved
+values. Choosing doctrine never changes Arma AI; triggers are reference instructions for Zeus.
+
+#### Intelligence Report page (`pageType: 'intel_report'`)
+Rows 331, 332. A document type added from the editor's "Choose Document Type" menu (order: Staff
+Orders, Intelligence Report, Zeus Notes, Separator; one per operation; also offered to non-Zeus
+editors in `BriefTab`). Like OCAP, the page holds no sections: it renders
+`components/intel-report/IntelReport.tsx`, backed by Mongo, in the editor (`CollabEditor`), the
+Classic theme (`paged-view.tsx`) and the Modern, Cold War and Sci-Fi themes (in their staff-panel
+slot). Visitors who are not signed in see a sign-in line instead. The entries persist across the
+campaign: an operation's report shows every entry from its campaign reported at or before its
+mission sequence (`campaign_missions`), one record, never copied. Four tabs: Active, Add, Review,
+Deleted. Hidden future intel, pending entries, deleted entries and withheld assessments never reach a
+player (see `lib/intel/report.ts`). Q9: images upload through `/api/upload` (pick, drag and drop,
+paste); video and other files are links for now. Q11: the Intel Package stays as the briefing.
+For staff, each entry's Details shows an advisory comparison with the doctrine in force
+(`lib/doctrine/compare.ts`): matches and things the doctrine does not list, never true or false.
+
 #### app/operations/[id]/aar/
 The **After Action Report** — the fifth tab, and the only one that does not exist for most of an
 operation's life. It appears at `confirmations_open` (see `aarOpen()`) and stays.
@@ -816,6 +841,31 @@ member who gave no RSVP on "Choose…" rather than defaulting them.
 `GET /aar/members?q=` (only for somebody with a section to confirm; excludes anyone already on the
 night). The pick is submitted in `lateJoiners` with the roll call and stored as a record carrying
 `lateJoinSection`, after which they are part of that section's roll call and may have an AAR written.
+
+**Row 328, the consolidated view.** Below the member's own cards, once they have written their report
+and, if they attended, left feedback (`consolidatedUnlocked`), the tab shows `Consolidated.tsx`:
+Mission Feedback averages (Enjoyment added as a fourth diverging scale, Q7), each call sign's points,
+the shared Mission AAR block, and Commendations. J4 and the mission maker skip the gate
+(`bypassesUnlock`). Who reads which call sign is `viewableSections`: a section lead their own, PHQ
+their platoon, CHQ/J4/mission maker everything; an ordinary member reads only the averages.
+`GET /aar/consolidated` returns it. Editing another member's report logs `operations.aar.editOther`.
+
+**Mission AAR block** (Situation, Missing/Captured, Vehicles): off by default, switched on per campaign
+or per standalone operation by the mission maker or J4 (`POST /aar/settings`, logs
+`operations.aar.missionToggle`; the campaign's setting wins). One block per section in
+`operation_mission_aars`, written with `PUT /aar/mission` by section staff, PHQ, CHQ or the overrides
+(`canEditMissionAar`, logs `operations.aar.missionBlock`). **Mongo is the authority**; the live
+document `maar-{operationId}` (`useMissionAarLive.ts`) only carries presence and a per-section
+revision so other editors reload, the attendance board's split, because the collab socket cannot
+authorise per field. `/api/auth/collab` gates `maar-` on `aar.view`; `server.mjs` never stores it.
+
+**Commendations** (row 330): `POST/DELETE /aar/commendations`, for a member (searched with
+`GET /aar/members?on=1`, the night's own attendees) or a whole call sign, by anyone `canCommend`
+(section staff and above on the night). Logged. Never AI-summarised; rolled up in AAR Reports.
+
+**Intelligence block** (row 331, `IntelBlock.tsx`): for staff on the night or anyone with an intel
+grant, while the campaign takes intel from AARs. Each observation is posted straight into the
+Intelligence Report as its own entry (`fromAar`), filed under the author's call sign on the night.
 
 `POST /aar/attendance` is the roll call, and it **replaces the ORBAT-`isSenior` scoping** the old
 confirm route used. It also only counts a member into `billetCounts` on the transition into present —
@@ -1232,6 +1282,12 @@ Server page: `redirect('/login')` if not authenticated. Shows the current user's
 `<TimezoneSelector/>`, `<TSLinkButton/>`, and `<ResetTokenButton/>`. Also surfaces `isHQ`/`isJ5`
 flags (not fully shown but present) likely for quick-link buttons (dashboard/preferences/calendar/
 member-management icons imported: `Api`, `Tune`, `CalendarToday`, `ManageAccounts`).
+
+#### app/me/assessments/page.tsx and app/me/assessments/[id]/page.tsx
+Row 373. A trainee's orders-writing assessments, under `/me` so a trainee without dashboard access can reach them; the assignment notification and DM link to `/me/assessments/[id]`. Login required; the API decides who may read. The list (`components/orders-assessment/MyAssessments.tsx`, `GET /api/training/assessments?mine=1`) and one assessment (`TraineeAssessment.tsx`): the trainee's source orders beside the template, saved as they type (`PUT`), submitted with an inline confirm (`POST`), then read-only with the trainer's feedback. Nothing about the similarity check is ever sent here.
+
+#### app/me/induction/page.tsx (+ InductionClient.tsx)
+Row 213, Part D, `/me/induction`: the website Member Induction the Induction Pack DM links to. Under `/me` because a recruit on day one usually cannot open the dashboard. Login required. Welcome text, image and links; a progress bar; each configured step (the first three are rows 348 Attendance, 349 Orders and 350 MILPAC) with a Mark as read toggle; and a `#selection` section with the next Selection in the reader's local time and a Register interest button. API calls: `GET/POST /api/me/induction`.
 
 #### app/me/bio.tsx
 Client `BioSections`: fetches/saves the current user's biography text via `GET/POST /api/me`.

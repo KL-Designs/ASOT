@@ -15,10 +15,8 @@ import ApplicantPageView, { STEP_LABELS } from '@/app/recruit-session/ApplicantP
 import BCTAvailabilityCalendar, { type BCTSlotSummary } from './BCTAvailabilityCalendar'
 import { LEVEL_LABEL, type ReturningLevel } from '@/lib/j1/rejoin'
 import { RESTORE_ITEMS, RESTORE_LABEL, type RestoreItem } from '@/lib/military/reinstate-items'
-
-const RS_WS_URL = (process.env.NEXT_PUBLIC_BASEURL ?? '')
-    .replace(/^http/, 'ws')
-    .replace(/^https/, 'wss') + '/recruit-session'
+import InductionPackSend from './InductionPackSend'
+import { recruitSessionWsUrls } from '@/lib/recruitment/session-ws'
 
 const ASOT_TS_ADDRESS = process.env.NEXT_PUBLIC_TS_ADDRESS ?? 'ts.asotmilsim.com'
 const TS3_DOWNLOAD = 'https://www.teamspeak.com/en/downloads/#ts3client'
@@ -310,6 +308,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
     // ── Pended / success state ─────────────────────────────────────────────
     const [pendedApplicationId, setPendedApplicationId] = useState('')
+    const [loggedApplicationId, setLoggedApplicationId] = useState('')
     const [reminderDate, setReminderDate] = useState('')
     const [reminderTime, setReminderTime] = useState('')
     const [reminderSaving, setReminderSaving] = useState(false)
@@ -390,6 +389,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
     const [sessionToken, setSessionToken] = useState<string | null>(null)
     const [sessionUrl, setSessionUrl] = useState<string | null>(null)
     const [sessionCreating, setSessionCreating] = useState(false)
+    const sessionAttempt = useRef(0)
     const [sessionLinkCopied, setSessionLinkCopied] = useState(false)
     const [applicantConnected, setApplicantConnected] = useState(false)
     const [applicantLastActive, setApplicantLastActive] = useState<number | null>(null)
@@ -573,7 +573,8 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
     const connectSessionWs = useCallback((id: string, token: string) => {
         if (sessionWsRef.current?.readyState === WebSocket.OPEN) return
-        const ws = new WebSocket(`${RS_WS_URL}?id=${id}&role=recruiter&token=${token}`)
+        const urls = recruitSessionWsUrls({ id, role: 'recruiter', token })
+        const ws = new WebSocket(urls[sessionAttempt.current % urls.length])
         sessionWsRef.current = ws
 
         ws.onmessage = (event) => {
@@ -607,6 +608,9 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
         ws.onclose = () => {
             setWsReadyState(WebSocket.CLOSED)
+            // Superseded by a new link: this one is meant to stay closed.
+            if (sessionWsRef.current !== ws) return
+            sessionAttempt.current++
             sessionReconnectTimer.current = setTimeout(() => {
                 connectSessionWs(id, token)
             }, 4000)
@@ -828,6 +832,17 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
         }
     }
 
+    /** A fresh link when the applicant cannot connect on the old one. The step carries over once it connects. */
+    async function newSessionLink() {
+        if (sessionReconnectTimer.current) { clearTimeout(sessionReconnectTimer.current); sessionReconnectTimer.current = null }
+        const old = sessionWsRef.current
+        sessionWsRef.current = null
+        old?.close()
+        sessionAttempt.current = 0
+        setApplicantConnected(false)
+        await createSession()
+    }
+
     function copySessionLink() {
         if (!sessionUrl) return
         navigator.clipboard.writeText(sessionUrl).then(() => {
@@ -1000,6 +1015,7 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                 } else {
                     fetch('/api/admin/j1/in-progress', { method: 'DELETE' }).catch(() => {})
                     setHasDraft(false)
+                    setLoggedApplicationId(String(data.id ?? ''))
                     setSuccess('complete')
                     resetForm()
                 }
@@ -1888,6 +1904,14 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                     <div style={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.4)' }}>The record is in the Applications tab and awaits sign-off from a J1 lead.</div>
                 </div>
             </div>
+            {loggedApplicationId && (
+                <div style={{ padding: '12px 16px', border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                    <InductionPackSend applicationId={loggedApplicationId} />
+                    <div style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)', marginTop: 8, lineHeight: 1.5 }}>
+                        Sends the new member a DM with the website induction and the next Selection. It can also be sent or resent later from the application in the Applications tab.
+                    </div>
+                </div>
+            )}
             <Button onClick={() => { clearDraftFully(); setSuccess(false) }} sx={{ borderRadius: 0, color: 'rgba(237,237,237,0.5)', border: '1px solid rgba(255,255,255,0.1)', alignSelf: 'flex-start', fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', padding: '6px 16px', '&:hover': { background: 'rgba(255,255,255,0.04)' } }}>
                 ADD ANOTHER RECRUIT
             </Button>
@@ -2402,6 +2426,14 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
                                                     >
                                                         {sessionLinkCopied ? <><CheckCircle style={{ fontSize: 13 }} /> COPIED</> : <><ContentCopy style={{ fontSize: 13 }} /> COPY</>}
                                                     </button>
+                                                </div>
+                                                <button type='button' onClick={newSessionLink} disabled={sessionCreating}
+                                                    title='Make a new link if the applicant cannot connect. Send them the new one; the old link stops working.'
+                                                    style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', fontSize: '0.66rem', fontWeight: 700, letterSpacing: '0.08em', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(237,237,237,0.6)', cursor: sessionCreating ? 'default' : 'pointer', opacity: sessionCreating ? 0.6 : 1 }}>
+                                                    {sessionCreating ? 'GENERATING…' : 'GENERATE NEW LINK'}
+                                                </button>
+                                                <div style={{ fontSize: '0.64rem', color: 'rgba(237,237,237,0.4)' }}>
+                                                    {wsReadyState === WebSocket.OPEN ? 'You are connected to the session.' : 'Connecting you to the session…'}
                                                 </div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.68rem', color: applicantConnected ? '#00c364' : 'rgba(237,237,237,0.3)' }}>
                                                     <div style={{ width: 7, height: 7, borderRadius: '50%', background: applicantConnected ? '#00c364' : 'rgba(255,255,255,0.15)', flexShrink: 0 }} />

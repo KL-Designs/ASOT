@@ -9,6 +9,31 @@ Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,miniga
 
 ---
 
+### aar-reports (2 files)
+
+#### /api/aar-reports
+- **GET** `?scope=mission|campaign|6m|1y&ref=&level=section|platoon|company` — rows 329 and 330. Gate: `PERMISSIONS.pages.admin`, then `reportViewer` from the caller's current `Db.orbatPositions` plus `departments.j4` decides what they may read (a viewer with none gets `level: null`). Returns `levels`, `options` (recent operations, campaigns), `groups[{unit, entries, summary}]` (summary from `Db.aarSummaries`, `stale` when the entries changed), `commendations`, `commendationsPost`, `aiEnabled`. Collections: `operations`, `operationCampaigns`, `operationAttendance` (roster → platoon), `operationAars`, `operationCommendations`, `users`, `aiConfig`.
+
+#### /api/aar-reports/summary
+- **POST** `{scope, ref, level, unit, force?}` — AI summary of one unit via `callText` feature `aar.summary`, cached in `Db.aarSummaries` by `summaryKey` and reused while `sourceSignature` matches. Commendations and member names are never sent. 503 with the reason when AI is off or over budget. Logs `aar.summary.generate`.
+
+### doctrines (5 files)
+
+#### /api/doctrines
+- Rows 334, 335. **GET** the faction library (`?pending=1` adds everything waiting on the J2 Lead: significant changes and custom options). **POST** `{name}` creates a faction doctrine (`doctrine.edit`).
+
+#### /api/doctrines/[id]
+- **GET** one level: published (resolved through its parents, with provenance), draft (for editors), versions, pending change, options (approved globals from `doctrine_options` plus the chain's custom ones). **PUT** `{values}` saves the builder's values as this level's draft; only what differs from the parent is stored (`diffOverrides`).
+
+#### /api/doctrines/[id]/publish
+- **POST** `{reason?}`. First publish, minor changes and J2 Lead publishes go live. A significant change measured against the last **approved** version (`baselineVersion`, so splitting a change does not get round it) returns `needs-reason`, then with a reason becomes `pending` plus a `doctrine_review` task to the `J2 - Department Leader` role; the live version is unchanged until approved. Pending custom options raise their own review task here.
+
+#### /api/doctrines/[id]/review
+- **POST** `{decision: approve|reject|revise, note}` (`doctrine.approve`). Approve writes the pending change as a new approved version; the task closes with the note.
+
+#### /api/doctrines/[id]/options
+- **POST** `{fieldKey, label, description}` adds a custom option to this doctrine, usable at once and pending global review. **PATCH** `{optionId, action: approve|edit|merge|reject, label?, mergeInto?, note?}` (`doctrine.approve`): approve adds it to `doctrine_options` (no duplicates); reject keeps it valid where used. All logged as `doctrine.*`.
+
 ### teamspeak (11 files)
 
 #### /api/teamspeak/clients
@@ -49,12 +74,15 @@ Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,miniga
 
 ---
 
-### cron (9 files)
+### cron (11 files)
 
 All routes gated by `verifyCronSecret(request)` from `lib/cron-auth.ts` (Bearer `CRON_SECRET`), called on a schedule by `server.mjs`.
 
 #### /api/cron/application-reminders
 - **GET** — finds J1 applications `status: 'reviewing'` past `reviewDueAt` and not yet reminded; marks linked `application_review` task overdue, notifies assigned reviewer + assigning J1 Lead, sets `overdueReminderSentAt`. Collections: `Db.j1Applications`, `Db.tasks`. Side effects: `createNotification`, `sendDM` (Discord).
+
+#### /api/cron/award-postage
+- **GET** — every 5 min; row 384. `rollOver()` moves Ready and Awaiting items from past months into the current one (keeping `carriedFrom`), then `sendDuePreferenceDMs()` sends the preference DMs that are due: the first one a couple of minutes after an award (so awards given together share one DM), then every two weeks while the member is Unassigned with awards waiting. A failed DM waits for the next two-weekly mark. Collections: `Db.awardPostageItems`, `Db.awardPostagePrefs`, `Db.users`, `Db.siteSettings`. Side effects: `sendDM()` with Yes / No buttons.
 
 #### /api/cron/backups
 - **GET** — runs both restic-backed backup repos (`runAllBackups()` — DB dump + media, sequentially) if `autoEnabled` config and no operation already in progress; each side's failure is caught independently. No DB collections directly (uses restic repos + file-based status/config via `lib/backups.ts`).
@@ -70,6 +98,9 @@ All routes gated by `verifyCronSecret(request)` from `lib/cron-auth.ts` (Bearer 
 
 #### /api/cron/operations
 - **GET** — runs every 5 min; multi-stage operations lifecycle driver: (0) RSVP auto-open at `rsvpOpenAt`; (1) RSVP auto-close (configurable offset before op date) + notifies section leaders via `getSectionLeaders`; (1b) CHQ allocation reminder 1hr before op start if unassigned reservists exist; (2) auto-activate Upcoming→Active at op start, mirrors attendance `stage` to `op_running`; (3) confirmation auto-open when op Completed, calls `createAttendanceTasksForOperation`; (4) confirmation auto-close 24h after opened. Collections: `Db.operationAttendance`, `Db.operations`, `Db.orbatPositions`. Side effects: `createNotification`, `lib/attendance/tasks.ts` task creation.
+
+#### /api/cron/selection-countdown
+- **GET** — every 5 min; `syncSelectionCountdown()` (`lib/recruitment/selection-countdown-sync.ts`): when enabled, posts the Want to Join "next Selection" embed once and then edits that same message whenever the date, override, text or image changes (fingerprinted, so an unchanged post is not touched); a deleted message is reposted, a new channel gets a new post, and a Discord failure is stored as `lastError`. Collections: `Db.siteSettings` (`selectionCountdown`), `Db.courseInstances`. Side effects: `upsertChannelPost()`.
 
 #### /api/cron/task-reminders
 - **GET** — runs every minute; (1) chase-up reminders for tasks past `reminderDateTime` not yet notified → notification + `sendTaskReminderDM`; (1b) one-shot "orders check maker" reminders for `orders_check` tasks; (2) due/overdue notifications for tasks past `dueDate` → sets status `overdue`, notification + `sendTaskOverdueDM`; (3) task-limit escalation — counts incomplete tasks per member against `Db.notifPolicyConfig` policy thresholds, escalates via `createNotification` + `sendTaskEscalationDM` to configured recipient roles, sets `escalationLevel`. Collections: `Db.tasks`, `Db.notifPolicyConfig`, `Db.users`.
@@ -120,6 +151,9 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 #### /api/me/promotion-progress
 - **GET** — the caller's progress toward their next rank, for the navbar account menu: `{ currentRank, progress }`. Runs the same `loadConfirmedOps` → `resolvePromotionPoints` → `getPromotionProgress` chain (`lib/military/milpac-stats.ts`) the milpac file renders its bar from, so the two can never disagree. `progress` is `null` (no rank / rank on no known track), `{ atMax }`, `{ billetOnly }`, or the full `{ nextRank, required, current, pct }`. Auth: any authenticated user (`client.fetchMe()`). Collections: `Db.operationAttendance`, `Db.operations` (via `loadConfirmedOps`).
+
+#### /api/me/induction
+- **GET** — the signed-in member's induction (row 213): welcome, links, steps from `Db.siteSettings` `inductionPack`, steps done, completion, Selection interest, next Selection. Marks `openedAt` the first time for a member who was sent the pack. **POST** — `{ action: 'step', stepId, done }` ticks or unticks a step (completion is recorded once, when every current step is done); `{ action: 'selection-interest' }` registers interest in the next Selection (Q4: interest only, J3 adds the candidate), notifies the J3 leads (`selection_interest`) and logs `j3.selection.interest`. Auth: any authenticated user. Collections: `Db.inductionProgress`.
 
 #### /api/me/roles
 - **GET** — `?has=role1,role2` checks whether current user holds any of the given Discord roles. Auth: any authenticated user.
@@ -271,7 +305,7 @@ The rest of `app/api/gallery/admin/**` — the J5 media console's facets/tree/bu
 
 #### /api/members/[username]
 - **GET** — returns full member document by username. Auth: `PERMISSIONS.members.editStandard`. Collections: `Db.users`.
-- **PUT** — updates milpac fields; splits into "standard" fields (promotions/awards/qualifications/name — `PERMISSIONS.members.editStandard`) and "restricted" fields (enlistedDate/bioRank/billetCounts/j4Points/disciplineHistory/disciplineDeductions — `PERMISSIONS.members.editRestricted`); stamps entries with the editor as issuer **only when the entry carries no `issuedByName` key at all** (i.e. a brand-new row). The presence of that key — including an empty string — is authoritative, because the editor deliberately clears `issuedById` whenever a name is typed by hand, and keying the stamp off the *id* meant every manually entered officer was silently overwritten with the editor's own name on save. A blank issuer is a decision and stays blank; `MilpacEditor` warns about it instead; checks name uniqueness; triggers async Discord nickname rebuild via `buildNickname` + `setGuildNickname`. Collections: `Db.users`. Side effects: `setGuildNickname` (fire-and-forget).
+- **PUT** — updates milpac fields; splits into "standard" fields (promotions/awards/qualifications/name — `PERMISSIONS.members.editStandard`) and "restricted" fields (enlistedDate/bioRank/billetCounts/j4Points/disciplineHistory/disciplineDeductions — `PERMISSIONS.members.editRestricted`); stamps entries with the editor as issuer **only when the entry carries no `issuedByName` key at all** (i.e. a brand-new row). The presence of that key — including an empty string — is authoritative, because the editor deliberately clears `issuedById` whenever a name is typed by hand, and keying the stamp off the *id* meant every manually entered officer was silently overwritten with the editor's own name on save. A blank issuer is a decision and stays blank; `MilpacEditor` warns about it instead; checks name uniqueness; triggers async Discord nickname rebuild via `buildNickname` + `setGuildNickname`. When awards are sent it reads the old list first and passes the added ones (`addedAwards`, matched on name and date) to `onAwardsAdded()` for row 384's postage. Collections: `Db.users`. Side effects: `setGuildNickname` (fire-and-forget).
 
 ---
 
@@ -463,6 +497,10 @@ Both explicitly marked "DEV-ONLY — delete before deploying to production" in s
 ## /api/milpac/certificate/[username]
 
 - **GET** `?type=promotion|award&cert={code}` — renders a member's certificate on demand via the `apps/milpac` service and returns `image/png` inline. Nothing is persisted: unlike uniforms there is no staleness to track. Auth: any logged-in member (`client.fetchMe()`). Verifies the member actually holds the award, or has ever held the rank (any entry in `milpac.promotions`, plus `currentRank` for CSV-imported members with no history), before rendering — so the route can't be used to mint a citation for an arbitrary code. Signing officer is the officer who issued that award/promotion (`issuedByName` + `issuedByRank` on the record), falling back to `resolveUnitSignatory()` (`lib/milpac-gen/signatory.ts`) when the record names nobody. The member's own `{name}` is rendered rank-first ("MAJ Thomas") — for an award, the rank held on the award's date derived from the promotion history; for a promotion, the rank being granted. **Refuses to render an incomplete document**: a certificate is a record a member keeps, so a missing field stops it being issued rather than being filled with a plausible default. Returns **422** naming what is absent when the award/promotion date is missing or unparseable, when `milpac.enlistedDate` is, or when no signatory can be resolved at all (neither the record nor the ORBAT). The enlistment date is what the template's "enlisted on ..." line prints — it used to be passed the *award's* date, so both dates on every certificate read the same. Dates go through `parseMilpacDate` (`lib/military/milpac-dates.ts`) rather than `new Date()`, which misreads the day-first forms CSV imports produce. Returns 404 for a code the member doesn't hold or that has no slide, 502 if the render service is unreachable. Collections: `Db.users`.
+
+## /api/bot/award-postage
+
+- **POST** `{ discordId, answer: 'yes' | 'no' }` — the buttons on row 384's physical awards DM, from `apps/bot`'s `award_postage` button handler. Sets the preference through `setPostagePreference(…, 'member')` (Yes readies waiting awards, No marks them not required, both stop reminders, logged as `j4.awardPostage.preference`) and returns the `message` the bot shows the member, which tells them to send their details to LT GEN Thomas directly. Current members only. Auth: `Authorization: Bearer ${BOT_API_SECRET}`; unset closes it. Collections: `Db.awardPostagePrefs`, `Db.awardPostageItems`.
 
 ## /api/bot/milpac/[discordId]
 

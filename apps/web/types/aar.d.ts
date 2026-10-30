@@ -68,9 +68,70 @@ declare global {
         combat: number | null
         /** Whether the story could be followed, and whether it landed. */
         story: number | null
+        /** Row 328 (Q7): how much the member enjoyed the night overall. */
+        enjoyment?: number | null
         /** Anything the three scores could not carry. */
         comment: string
         createdAt: Date
         updatedAt: Date
+    }
+
+    /**
+     * Row 328: a section's shared Mission AAR block for one operation, written
+     * together by its staff when the mission maker switches it on. One per
+     * section per operation, collection `operation_mission_aars`. Mongo is the
+     * authority; the live document `maar-{operationId}` only carries a revision
+     * and who is looking, the same split the attendance board uses.
+     */
+    interface OperationMissionAar {
+        _id?: ObjectId
+        operationId: ObjectId
+        section: string
+        situation: string
+        /** Missing in action or captured, as free text: names, last seen, circumstances. */
+        missingCaptured: string
+        /** A list rather than prose, so it can carry into the campaign's next mission later. */
+        vehicles: { name: string; status: string; note: string }[]
+        updatedAt: Date
+        updatedById: string
+        updatedByName: string
+    }
+
+    /**
+     * Row 330: one commendation written on an operation's AAR, for a member or
+     * a whole call sign. Rolled up Call Sign → PHQ → CHQ in AAR Reports and
+     * never summarised by AI. Collection `operation_commendations`.
+     */
+    interface OperationCommendation {
+        _id?: ObjectId
+        operationId: ObjectId
+        authorId: string
+        authorName: string
+        /** The section the author wrote it from; empty for staff outside the roster. */
+        authorSection: string
+        targetType: 'member' | 'callsign'
+        targetUserId?: string
+        /** The member's name or the call sign, as shown. */
+        targetName: string
+        wording: string
+        createdAt: Date
+    }
+
+    /**
+     * Row 329: a cached AI summary of AAR entries for one scope and level.
+     * Collection `aar_summaries`. Regenerated when `sourceHash` no longer
+     * matches the entries it was made from; the raw entries are never changed.
+     */
+    interface AarSummary {
+        _id: string
+        scope: string
+        level: string
+        unit: string
+        sourceIds: string[]
+        sourceHash: string
+        summary: string
+        generatedAt: Date
+        generatedById: string
+        generatedByName: string
     }
 }

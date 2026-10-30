@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logAction'
+import { cancelTrainingReminders, courseReminderId } from '@/lib/training/scheduleReminders'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,6 +80,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         { returnDocument: 'after' },
     )
 
+    // A finished or cancelled course reminds nobody of a Session 1 that is not coming.
+    if (body.status === 'completed' || body.status === 'cancelled') {
+        cancelTrainingReminders(courseReminderId(id)).catch(console.error)
+    }
+
     // Lock the training record when course is completed or cancelled
     if (body.status === 'completed' || body.status === 'cancelled') {
         await Db.courseInstances.updateOne({ _id: oid }, {
@@ -146,6 +152,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     await Db.courseInstances.updateOne({ _id: oid }, {
         $set: { deletedAt, deletedById: me.id, deletedByName: name, updatedAt: new Date() },
     })
+    cancelTrainingReminders(courseReminderId(id)).catch(console.error)
     await logAction({
         action: 'course.delete',
         category: 'J3',
