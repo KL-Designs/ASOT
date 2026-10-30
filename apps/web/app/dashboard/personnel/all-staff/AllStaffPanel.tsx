@@ -8,7 +8,8 @@ import PerformanceReportTab from './tabs/PerformanceReportTab'
 import AarReportsTab from './tabs/AarReportsTab'
 import ObjectiveSuggestions from '@/components/j2/ObjectiveSuggestions'
 
-export default function AllStaffPanel({ userId, displayName }: { userId: string; displayName: string }) {
+/** Also the HQ Staff dashboard, under its own title: the same tabs, AAR Reports included. */
+export default function AllStaffPanel({ userId, displayName, title = 'All Staff' }: { userId: string; displayName: string; title?: string }) {
     const [tab, setTab] = useState(0)
 
     return (
@@ -25,7 +26,7 @@ export default function AllStaffPanel({ userId, displayName }: { userId: string;
                     Personnel
                 </Typography>
                 <Typography fontWeight={700} fontSize='1rem' letterSpacing={3} style={{ textTransform: 'uppercase' }}>
-                    All Staff
+                    {title}
                 </Typography>
                 <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.35)', marginTop: 4 }}>
                     Move Requests · Discipline · Performance Reports · AAR Reports

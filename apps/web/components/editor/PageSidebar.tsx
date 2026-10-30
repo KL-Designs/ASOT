@@ -24,8 +24,8 @@ const STAFF_SECTION_PRESETS = [
 ] as const
 
 /** Intelligence Report pages are green, set apart from the amber staff orders. */
-const INTEL_REPORT_COLOR = '#22c55e'
-const AAR_COLOR = '#38bdf8'
+const INTEL_REPORT_COLOR = '#ec4899'
+const AAR_COLOR = '#f97316'
 /** The divider post-mission pages are added under. */
 const POST_MISSION_LABEL = 'Post-mission'
 
@@ -765,6 +765,8 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                     ···
                                 </span>
                             )}
+                            {/* A rule each side, so the label sits in the middle of the row. */}
+                            <div style={{ flex: 1, height: 1, background: 'var(--line)' }} />
                             {!isRenaming && (
                                 isConfirmingDelete ? (
                                     <div style={{ display: 'flex', gap: 2 }} onClick={e => e.stopPropagation()}>
