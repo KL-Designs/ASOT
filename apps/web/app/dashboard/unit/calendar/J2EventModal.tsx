@@ -201,7 +201,12 @@ export default function J2EventModal({ open, onClose, onSaved, mode }: J2EventMo
                         label='Start'
                         type='datetime-local'
                         value={startVal}
-                        onChange={e => setStartVal(e.target.value)}
+                        onChange={e => {
+                            setStartVal(e.target.value)
+                            // A mission check is booked at a moment, so the end follows the
+                            // start; it can still be changed afterwards.
+                            if (!isUnavailability) setEndVal(e.target.value)
+                        }}
                         size='small'
                         fullWidth
                         sx={{ flex: '1 1 300px' }}
