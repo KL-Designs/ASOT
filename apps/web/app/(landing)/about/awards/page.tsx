@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import client from '@/lib/discord'
 
 import SectionHead from '@/components/ui/SectionHead'
 import Button from '@/components/ui/Button'
@@ -20,8 +21,12 @@ export const metadata: Metadata = {
  * who can be nominated, puts the way to nominate somebody directly under that,
  * and then lays every award out by category with its ribbon — the same artwork
  * a member's milpac wears, so the page doubles as a key to reading a uniform.
+ * The nomination section is for signed-in members only: the ticket form behind
+ * it needs an account, so a visitor would only be sent to log in.
  */
-export default function Page() {
+export default async function Page() {
+	const me = await client.fetchMe().catch(() => null)
+
 	return (
 		<AboutShell page='awards'>
 			<section className={s.intro}>
@@ -54,7 +59,7 @@ export default function Page() {
 
 			{/* The document's nomination and new-award sections are forms now.
 			    This is where they went. */}
-			<section className={s.nominate}>
+			{me && <section className={s.nominate}>
 				<div>
 					<div className={s.k}>Know someone who has earned one?</div>
 					<h2>Nominate a member</h2>
@@ -72,7 +77,7 @@ export default function Page() {
 						Propose a new award
 					</Button>
 				</div>
-			</section>
+			</section>}
 
 			{AWARD_CATEGORIES.map(category => (
 				<section key={category.id} id={category.id} className={s.category}>
