@@ -16,6 +16,7 @@ const DEFAULT_CONFIG: Omit<AiSiteConfig, '_id' | 'updatedAt' | 'updatedById' | '
         'training.answer_review': { provider: 'anthropic', model: DEFAULT_TEXT_MODEL_ANTHROPIC },
         'text.general':         { provider: 'anthropic', model: DEFAULT_TEXT_MODEL_ANTHROPIC },
         'aar.summary':          { provider: 'anthropic', model: DEFAULT_TEXT_MODEL_ANTHROPIC },
+        'doctrine.import':      { provider: 'anthropic', model: DEFAULT_TEXT_MODEL_ANTHROPIC },
     },
 }
 

@@ -56,4 +56,16 @@ describe('parseDoctrineText', () => {
         expect(pictures).toBe(2)
         expect(unplaced).toEqual(['/a.png'])
     })
+
+    test('prose after a one-line answer is not poured into it', () => {
+        const { values, unmatched } = parseDoctrineText('Faction name: Takistani Army\nThey rely on massed infantry and old armour.', EMPTY_VALUES)
+        expect(values.fields['identity.name']).toBe('Takistani Army')
+        expect(unmatched).toEqual(['They rely on massed infantry and old armour.'])
+    })
+
+    test('a question on its own line takes the line below', () => {
+        const { values } = parseDoctrineText('Faction name\nTakistani Army\nGeneral description\nConscripts.\nPoorly trained.', EMPTY_VALUES)
+        expect(values.fields['identity.name']).toBe('Takistani Army')
+        expect(values.fields['identity.description']).toBe('Conscripts.\nPoorly trained.')
+    })
 })

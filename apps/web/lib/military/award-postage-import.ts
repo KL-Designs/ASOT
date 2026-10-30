@@ -17,7 +17,7 @@ export function parseImport(text: string): ImportRow[] {
     const rows: ImportRow[] = []
     text.split(/\r?\n/).forEach((raw, i) => {
         if (!raw.trim()) return
-        const cells = raw.includes('\t') ? raw.split('\t') : splitCsv(raw)
+        const cells = raw.includes('\t') ? raw.split('\t') : raw.includes(',') ? splitCsv(raw) : splitLoose(raw)
         const member = (cells[0] ?? '').trim()
         const value = (cells[1] ?? '').trim()
         if (!member) return
@@ -26,6 +26,12 @@ export function parseImport(text: string): ImportRow[] {
     // A header row ("Member, Postage") is not a member.
     if (rows.length && readPreference(rows[0].value) === null && /member|name/i.test(rows[0].member)) rows.shift()
     return rows
+}
+
+/** "AgentDove - Yes", "Ajax: Unassigned", "Alexie | No": the last separator splits name from answer. */
+function splitLoose(line: string): string[] {
+    const m = line.match(/^(.*\S)\s*(?:\s[-–—]\s|[:|=])\s*(\S.*)$/)
+    return m ? [m[1], m[2]] : [line]
 }
 
 function splitCsv(line: string): string[] {

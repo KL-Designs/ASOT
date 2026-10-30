@@ -1,22 +1,24 @@
 /**
  * Where the live recruitment session's WebSocket lives, worked out in the
- * browser. The Node server answers `/recruit-session` next to `/collab`, so
- * the address the collab editor already reaches (NEXT_PUBLIC_COLLAB_WS_URL)
- * is tried first: whatever sits in front of the site is known to pass that
- * one's upgrade through. The page's own host is the fallback. A client
- * moves to the next address each time a connection fails, so a link never
- * sits on "Reconnecting" because one of them is blocked.
+ * browser. The Node server answers it at `/collab/recruit-session` as well as
+ * `/recruit-session`, because the reverse proxy in front of live (Apache)
+ * forwards WebSocket upgrades for `/collab` and below only: a bare
+ * `/recruit-session` upgrade reaches Next.js as a page request and 404s.
+ * So the address is the collab editor's (NEXT_PUBLIC_COLLAB_WS_URL, known to
+ * get through) plus `/recruit-session`, then the same on the page's own host.
+ * A client moves to the next address each time a connection fails.
  */
 export function recruitSessionWsUrls(): string[] {
     if (typeof window === 'undefined') return []
     const out: string[] = []
-    const collab = process.env.NEXT_PUBLIC_COLLAB_WS_URL?.trim()
     const local = (u: string) => /localhost|127\.0\.0\.1/.test(u)
+    const collab = process.env.NEXT_PUBLIC_COLLAB_WS_URL?.trim()
     // The localhost default is only any use when the page is local too.
     if (collab && (!local(collab) || local(window.location.host))) {
-        out.push(collab.replace(/\/collab\/?$/, '') + '/recruit-session')
+        out.push(collab.replace(/^http/, 'ws').replace(/\/+$/, '') + '/recruit-session')
     }
-    out.push(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/recruit-session`)
+    const own = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`
+    out.push(`${own}/collab/recruit-session`, `${own}/recruit-session`)
     return [...new Set(out)]
 }
 

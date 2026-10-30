@@ -66,6 +66,9 @@
 .kv > span:first-child { color: rgba(237, 237, 237, 0.55); }
 
 .modalBackdrop { position: fixed; inset: 0; z-index: 1400; background: rgba(0, 0, 0, 0.7); display: flex; align-items: flex-start; justify-content: center; padding: 4vh 12px; }
+/* Centred, and above the site nav and its drawers. */
+.modalCentred { z-index: 5000; align-items: center; padding: 12px; }
+.modalCentred > .modal { max-height: calc(100vh - 24px); }
 .modal { width: min(920px, 100%); max-height: 92vh; overflow-y: auto; background: #0d0f11; border: 1px solid rgba(var(--doc-rgb), 0.4); padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 
 .views { display: flex; flex-direction: column; gap: 10px; }

@@ -8,6 +8,16 @@ describe('parseImport', () => {
             { line: 4, member: 'Brown, A', value: 'no' },
         ])
     })
+
+    test('a dash, colon or bar between the name and the answer', () => {
+        expect(parseImport('AgentDove - Yes\nAjax – Unassigned\nAlexie: No\nMary-Jane | yes\nLoner')).toEqual([
+            { line: 1, member: 'AgentDove', value: 'Yes' },
+            { line: 2, member: 'Ajax', value: 'Unassigned' },
+            { line: 3, member: 'Alexie', value: 'No' },
+            { line: 4, member: 'Mary-Jane', value: 'yes' },
+            { line: 5, member: 'Loner', value: '' },
+        ])
+    })
 })
 
 describe('readPreference', () => {

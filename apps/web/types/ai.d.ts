@@ -6,6 +6,7 @@ type AiFeature =
     | 'training.answer_review'
     | 'text.general'
     | 'aar.summary'
+    | 'doctrine.import'
 
 type AiImageQuality = 'standard' | 'hd'
 

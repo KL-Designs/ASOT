@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
     ADVANCED_MODULES, COMPOSITION, COMPOSITION_DETAIL_FIELDS, EMPTY_VALUES, FORCE_LAYERS, PROFICIENCY, RELIABILITY, SECTIONS, TRIGGER_EVENTS,
     compositionKey, fieldApplies, fieldComplete, presentCategories, sectionComplete,
@@ -407,6 +408,25 @@ function ImportDialog({ base, values, onClose, onApply }: { base: string; values
     const [note, setNote] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [over, setOver] = useState(false)
+    const [checking, setChecking] = useState(false)
+
+    // The AI reads the text whatever its layout and places each answer; the
+    // line-by-line reader is the fallback when AI is off or fails.
+    async function check() {
+        setChecking(true); setError(null)
+        try {
+            const res = await fetch(`${base}/interpret`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text, values }) })
+            const d = await res.json().catch(() => null)
+            if (res.ok && d?.values) { setResult(d as ImportResult); setNote('Read by AI: check the answers in the builder before saving.'); return }
+            setNote(`AI reading unavailable${d?.error ? ` (${d.error})` : ''}, so the text was read line by line as "Question: answer".`)
+            setResult(parseDoctrineText(text, values))
+        } catch {
+            setNote('AI reading unavailable, so the text was read line by line as "Question: answer".')
+            setResult(parseDoctrineText(text, values))
+        } finally {
+            setChecking(false)
+        }
+    }
 
     async function take(files: FileList | File[] | null) {
         const list = Array.from(files ?? [])
@@ -436,7 +456,7 @@ function ImportDialog({ base, values, onClose, onApply }: { base: string; values
     }
 
     return (
-        <div className={s.modalBackdrop} onClick={onClose}>
+        createPortal(<div className={`${s.modalBackdrop} ${s.modalCentred}`} onClick={onClose}>
             <div className={s.modal} onClick={e => e.stopPropagation()} role='dialog' aria-label='Import Enemy Doctrine'>
                 <div className={s.row}>
                     <div className={s.label}>Import Enemy Doctrine</div>
@@ -463,14 +483,15 @@ function ImportDialog({ base, values, onClose, onApply }: { base: string; values
                     </div>
                 )}
                 <p className={s.muted}>
-                    Or paste the text. Write it as &quot;Question: answer&quot; lines, for example &quot;Command structure: Centralised&quot;. Numbered section headings
+                    Or paste the text, in any layout: Check has AI read it and place each answer under the right question, ticking the matching options.
+                    Without AI it is read line by line, written as &quot;Question: answer&quot; lines, for example &quot;Command structure: Centralised&quot;. Numbered section headings
                     (&quot;6. Contact and Engagement&quot;) help where questions share a name. &quot;N/A&quot; ticks Not applicable, &quot;Additional notes:&quot; adds notes
                     to the question above, and &quot;Infantry: Rifle squads, Snipers&quot; adds force composition. In a document, a table with the question in one
                     column and the answer in the next reads the same way. Answers already in the builder are kept unless the import answers them again.
                 </p>
                 <textarea className={s.textarea} rows={14} value={text} onChange={e => { setText(e.target.value); setResult(null) }} placeholder={'1. Faction Identity\nFaction name: …\nPrimary combat style: …'} />
                 <div className={s.row}>
-                    <button type='button' className={s.ghost} disabled={!text.trim() || busy} onClick={() => setResult(parseDoctrineText(text, values))}>Check</button>
+                    <button type='button' className={s.ghost} disabled={!text.trim() || busy || checking} onClick={check}>{checking ? 'Reading…' : 'Check'}</button>
                     <button type='button' className={s.primary} disabled={!result || (!result.matched.length && !result.pictures)} onClick={() => result && onApply(result.values)}>Add to doctrine</button>
                 </div>
                 {result && (
@@ -489,7 +510,7 @@ function ImportDialog({ base, values, onClose, onApply }: { base: string; values
                     </>
                 )}
             </div>
-        </div>
+        </div>, document.body)
     )
 }
 

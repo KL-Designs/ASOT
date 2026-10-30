@@ -449,7 +449,7 @@ export default function ClassicPage({
                                 if (pg.pageType === 'intel') {
                                     color = 'rgba(245,158,11,0.8)'
                                 } else if (pg.pageType === 'intel_report') {
-                                    color = 'rgba(236,72,153,0.8)'
+                                    color = 'rgba(99,102,241,0.85)'
                                 } else if (pg.pageType === 'aar') {
                                     color = 'rgba(249,115,22,0.8)'
                                 } else if (pg.pageType === 'orders') {

@@ -23,8 +23,8 @@ const STAFF_SECTION_PRESETS = [
     { title: '3 PLT Orders', color: '#3b8fd0' },
 ] as const
 
-/** Intelligence Report pages are green, set apart from the amber staff orders. */
-const INTEL_REPORT_COLOR = '#ec4899'
+/** Intelligence Report pages are indigo and AARs orange, the same in the type picker, the page list and the page nav. */
+const INTEL_REPORT_COLOR = '#6366f1'
 const AAR_COLOR = '#f97316'
 /** The divider post-mission pages are added under. */
 const POST_MISSION_LABEL = 'Post-mission'
@@ -1093,10 +1093,10 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 {/* Rows 331, 332: one per operation; the entries live in Mongo, not this document. */}
                                 {allowed('intel_report') && !pages.some(p => p.pageType === 'intel_report') && (
                                 <button type='button' onClick={() => addPage('intel_report')}
-                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.3)', color: 'rgba(74,222,128,0.9)', cursor: 'pointer' }}
+                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.4)', color: 'rgba(165,180,252,0.95)', cursor: 'pointer' }}
                                 >
                                     Intelligence Report
-                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(34,197,94,0.5)', marginTop: 3 }}>Intel reported through AARs and by staff, carried across the campaign, with assessments and player votes.</div>
+                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(129,140,248,0.6)', marginTop: 3 }}>Intel reported through AARs and by staff, carried across the campaign, with assessments and player votes.</div>
                                 </button>
                                 )}
                                 {allowed('zeus') && (
@@ -1126,10 +1126,10 @@ export default function PageSidebar({ ydoc, activePage, onSelectPage, themeColor
                                 {/* Rows 328 to 330: in the document before the mission runs, so it can be laid out and tried. */}
                                 {allowed('aar') && !pages.some(p => p.pageType === 'aar') && (
                                 <button type='button' onClick={() => addPage('aar')}
-                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.3)', color: 'rgba(125,211,252,0.9)', cursor: 'pointer' }}
+                                    style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.82rem', fontWeight: 700, background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.35)', color: 'rgba(253,186,116,0.95)', cursor: 'pointer' }}
                                 >
                                     After Action Report
-                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(56,189,248,0.5)', marginTop: 3 }}>Feedback, call sign reports and the Mission AAR. Opens to members once the operation finishes; a preview until then.</div>
+                                    <div style={{ fontSize: '0.65rem', fontWeight: 400, color: 'rgba(249,115,22,0.55)', marginTop: 3 }}>Feedback, call sign reports and the Mission AAR. Opens to members once the operation finishes; a preview until then.</div>
                                 </button>
                                 )}
                                 {allowed('ocap') && !pages.some(p => p.pageType === 'ocap') && (

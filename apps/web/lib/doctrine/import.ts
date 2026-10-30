@@ -12,7 +12,9 @@ import { COMPOSITION, SECTIONS, compositionKey, type DoctrineField, type Doctrin
  * "Not applicable" ticks the box. Force composition takes "Infantry: Rifle
  * squads, Machine gun teams". Nothing is saved: the result is merged into
  * the builder for the member to check, and every line that matched nothing
- * is handed back so they can see what was missed.
+ * is handed back so they can see what was missed. This is the fallback: the
+ * builder first asks the AI to read the text whatever its layout
+ * (ai-import.ts), and only reads it line by line when that is unavailable.
  */
 
 export interface ImportResult {
@@ -134,6 +136,12 @@ export function parseDoctrineText(text: string, base: DoctrineValues): ImportRes
             continue
         }
 
+        // A question on its own line ("Faction name") takes the line below as its answer.
+        if (!label && line.length <= 60) {
+            const own = findField(line.replace(/^\d{1,2}[.)]\s*/, '').replace(/[?.]$/, ''), section)
+            if (own && norm(own.label) === norm(line.replace(/^\d{1,2}[.)]\s*/, ''))) { last = { key: own.key, target: 'field' }; continue }
+        }
+
         // A short "Something:" label that matched nothing is its own line, not more of the answer above.
         if (label && label.length <= 50) { unmatched.push(line); last = null; continue }
 
@@ -149,8 +157,11 @@ export function parseDoctrineText(text: string, base: DoctrineValues): ImportRes
                 values.fields[f.key] = [...new Set([...prev, ...splitList(line).map(x => matchOption(x, f.options))])]
                 continue
             }
-            if (f && (f.type === 'textarea' || f.type === 'text')) {
-                const prev = values.fields[f.key]
+            // Only a long answer runs on; a one-line answer that is already
+            // filled does not soak up the prose that follows it.
+            const prevText = f ? values.fields[f.key] : undefined
+            if (f && (f.type === 'textarea' || (f.type === 'text' && !prevText))) {
+                const prev = prevText
                 values.fields[f.key] = typeof prev === 'string' && prev ? `${prev}\n${line}` : line
                 if (!matched.includes(f.label)) matched.push(f.label)
                 continue

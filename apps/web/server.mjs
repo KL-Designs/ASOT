@@ -618,7 +618,10 @@ httpServer.on('upgrade', (request, socket, head) => {
         wss.handleUpgrade(request, socket, head, (ws) => {
             wss.emit('connection', ws, request)
         })
-    } else if (pathname === '/recruit-session') {
+    } else if (pathname === '/recruit-session' || pathname === '/collab/recruit-session') {
+        // Also under /collab/: the reverse proxy in front of live forwards
+        // WebSocket upgrades for /collab and its sub-paths only, so that is
+        // the address the follow-along link uses.
         recruitSessionWss.handleUpgrade(request, socket, head, (ws) => {
             recruitSessionWss.emit('connection', ws, request)
         })
