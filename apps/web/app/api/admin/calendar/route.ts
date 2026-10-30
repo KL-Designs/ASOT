@@ -5,6 +5,8 @@ import { hasPermission } from '@/lib/orbat/hasPermission'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logs'
 import { createNotification } from '@/lib/notifications'
+import { sendMeetingDM } from '@/lib/discord/bot'
+import { getGrantedUserIds } from '@/lib/permissions/tree'
 import { ObjectId } from 'mongodb'
 
 const VALID_DEPARTMENTS = ['j1', 'j2', 'j3', 'j4', 'j6', 'j7', 'unit']
@@ -178,13 +180,18 @@ export async function POST(req: NextRequest) {
             { $set: { relatedTaskId: taskId } }
         )
 
-        // Notify all J2 leads
-        const J2_LEAD_ROLES = PERMISSIONS.departmentLeads.j2
+        // Notify all J2 leads, on the site and by Discord DM. Found through the
+        // permissions resolver: departmentLeads.j2 is granted by department and
+        // ORBAT roles now, and a query on the Discord role names the static
+        // PERMISSIONS array lists found nobody, so no lead heard of a request.
+        const leadIds = await getGrantedUserIds('departmentLeads.j2')
         const leads = await Db.users
-            .find({ 'guild.roles': { $in: J2_LEAD_ROLES }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
+            .find({ id: { $in: leadIds }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
             .project<{ id: string }>({ id: 1 })
             .toArray()
 
+        const leadTitle = `Mission Check Requested: ${relatedOperationTitle}`
+        const leadBody = `**${displayName}** has requested a mission check for **${relatedOperationTitle}** scheduled for ${startDate.toLocaleDateString('en-AU')}.`
         const notifiedIds = new Set<string>()
         for (const lead of leads) {
             if (!lead.id || notifiedIds.has(lead.id)) continue
@@ -192,11 +199,12 @@ export async function POST(req: NextRequest) {
             createNotification({
                 userId: lead.id,
                 type: 'mission_check_requested',
-                title: `Mission Check Requested: ${relatedOperationTitle}`,
-                body: `**${displayName}** has requested a mission check for **${relatedOperationTitle}** scheduled for ${startDate.toLocaleDateString('en-AU')}.`,
+                title: leadTitle,
+                body: leadBody,
                 actionUrl: '/dashboard/j2',
                 relatedId: eventId,
             })
+            sendMeetingDM(lead.id, leadTitle, leadBody, '/dashboard/j2').catch(() => null)
         }
 
         // Confirm back to the mission maker
