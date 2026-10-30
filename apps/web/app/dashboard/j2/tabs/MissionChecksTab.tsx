@@ -520,7 +520,8 @@ function OpRow({
     onRefresh: () => void
 }) {
     const router = useRouter()
-    const [expanded, setExpanded]           = useState(true)
+    // Closed to start: with every mission open the list was a wall of checks.
+    const [expanded, setExpanded]           = useState(false)
     const [expandedCheckId, setExpandedCheckId] = useState<string | null>(null)
 
     const totalChecks  = row.checks.length
