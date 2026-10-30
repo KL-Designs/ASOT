@@ -5,9 +5,9 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import { sendMeetingDM } from '@/lib/discord/bot'
 import { createNotification } from '@/lib/notifications'
+import { getGrantedUserIds } from '@/lib/permissions/tree'
 
 async function notifyMissionDeleted(mission: CampaignMission, deletedByName: string) {
-    const J2_LEAD_ROLES = PERMISSIONS.departmentLeads.j2
     const title = `Mission Deleted: ${mission.name}`
     const body = `**${deletedByName}** deleted the campaign mission **"${mission.name}"**.\n\nThis mission has been moved to the Recycle Bin and can be restored via the Campaign Organiser in the J2 Dashboard.`
     const actionUrl = '/dashboard/j2'
@@ -17,7 +17,9 @@ async function notifyMissionDeleted(mission: CampaignMission, deletedByName: str
 
     // J2 leads
     const leads = await Db.users
-        .find({ 'guild.roles': { $in: J2_LEAD_ROLES }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
+        // Through the permissions resolver: departmentLeads.j2 is granted by
+        // department and ORBAT roles, which a Discord role-name query misses.
+        .find({ id: { $in: await getGrantedUserIds('departmentLeads.j2') }, discharged: { $exists: false }, isSkeletonAccount: { $ne: true } })
         .project<{ _id: string; id: string }>({ _id: 1, id: 1 })
         .toArray()
     for (const u of leads) recipientIds.add(u.id as string)
