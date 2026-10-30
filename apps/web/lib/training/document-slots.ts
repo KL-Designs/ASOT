@@ -9,6 +9,9 @@
  * they are.
  */
 
+import { courseTypeOf } from './course-type'
+import { sessionTemplateFor, sessionTitle, type SessionTemplateItem } from './course-sessions'
+
 export interface DocumentSlot {
     id: string
     name: string
@@ -37,6 +40,27 @@ export function slotsFor(type: { category?: string; documentSlots?: DocumentSlot
     for (const d of DEFAULT_SLOTS) if (!out.some(s => s.id === d.id)) out.push(d)
     if (isLeadership(type) && !out.some(s => s.id === ASSESSMENT_ORDERS_SLOT)) out.push(ASSESSMENT_SLOT)
     return out.sort((a, b) => a.order - b.order)
+}
+
+export const SESSION_SLOT_PREFIX = 'session_'
+
+/**
+ * Selection and the Reinforcement Cycle: one instructor document per session
+ * of the course's session list, shown grouped by session beside the course
+ * rather than in the slot list. Keyed by session number, so renaming a
+ * session keeps its document. Empty for every other course.
+ */
+export function sessionSlotsFor(type: { courseType?: string | null; category?: string | null; name?: string | null; sessionTemplate?: SessionTemplateItem[] | null }): (DocumentSlot & { session: number; sessionName: string })[] {
+    const courseType = courseTypeOf(type)
+    if (!courseType) return []
+    return sessionTemplateFor({ courseType, sessionTemplate: type.sessionTemplate }).map((item, i) => ({
+        id: `${SESSION_SLOT_PREFIX}${i + 1}`,
+        name: `${sessionTitle(i + 1, item.name)}: Instructor Document`,
+        order: 100 + i,
+        kind: 'guide' as const,
+        session: i + 1,
+        sessionName: sessionTitle(i + 1, item.name),
+    }))
 }
 
 /** Which slot a guide fills. */

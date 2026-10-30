@@ -4,7 +4,7 @@ import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 import { ObjectId } from 'mongodb'
-import { slotsFor, TRAINING_DOCUMENT_SLOT, TRAINERS_GUIDE_SLOT } from '@/lib/training/document-slots'
+import { sessionSlotsFor, slotsFor, TRAINING_DOCUMENT_SLOT, TRAINERS_GUIDE_SLOT } from '@/lib/training/document-slots'
 
 export const dynamic = 'force-dynamic'
 
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     let slot: { id: string; name: string } | null = null
     if (body.slotId && body.trainingTypeId && ObjectId.isValid(body.trainingTypeId)) {
         const type = await Db.trainingTypes.findOne({ _id: new ObjectId(body.trainingTypeId) })
-        const found = type ? slotsFor(type).find(s => s.id === body.slotId && s.kind === 'guide') : null
+        const found = type ? [...slotsFor(type), ...sessionSlotsFor(type)].find(s => s.id === body.slotId && s.kind === 'guide') : null
         if (!found) return NextResponse.json({ error: 'Unknown document slot' }, { status: 400 })
         slot = found
     }

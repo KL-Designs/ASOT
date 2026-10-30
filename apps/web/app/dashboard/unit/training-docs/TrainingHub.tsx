@@ -17,7 +17,7 @@ import { sessionTemplateFor, type SessionTemplateItem } from '@/lib/training/cou
 import CourseSessionsEditor, { rowsFromTemplate, rowsToPlan, type SessionRow } from '@/app/dashboard/unit/calendar/CourseSessionsEditor'
 import SessionTemplateDialog from './SessionTemplateDialog'
 import AssessmentManager from '@/components/orders-assessment/AssessmentManager'
-import { guideSlotId, slotsFor, TRAINERS_GUIDE_SLOT, TRAINING_DOCUMENT_SLOT, type DocumentSlot } from '@/lib/training/document-slots'
+import { guideSlotId, sessionSlotsFor, slotsFor, TRAINERS_GUIDE_SLOT, TRAINING_DOCUMENT_SLOT, type DocumentSlot } from '@/lib/training/document-slots'
 import type { Route } from 'next'
 
 const RED = '#db001d'
@@ -1254,6 +1254,38 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
         )
     }
 
+    /** One instructor document per session of a Selection / RC course, under its session's header. */
+    function renderSessionDocs(t: TType) {
+        const cached = guidesCache[t._id] ?? []
+        const busy = creatingGuide || guidesLoading === t._id
+        return (
+            <div style={{ flex: '1 1 380px', minWidth: 0, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(0,0,0,0.15)', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: '0.52rem', fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.5)' }}>
+                    Session Documents
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
+                    {sessionSlotsFor(t).map(slot => {
+                        const guide = cached.find(g => guideSlotId(g) === slot.id)
+                        return (
+                            <div key={slot.id} style={{ display: 'flex', flexDirection: 'column', gap: 5, padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.06em', color: 'rgba(237,237,237,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={slot.sessionName}>
+                                    {slot.sessionName}
+                                </div>
+                                <button type='button'
+                                    onClick={() => guide ? handleOpenGuide(String(guide._id)) : handleCreateGuide(t._id, slot.id)}
+                                    disabled={busy}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 8px', background: guide ? 'rgba(219,0,29,0.08)' : 'rgba(255,255,255,0.03)', border: `1px solid ${guide ? 'rgba(219,0,29,0.3)' : 'rgba(255,255,255,0.1)'}`, color: guide ? 'rgba(219,0,29,0.85)' : 'rgba(237,237,237,0.45)', fontSize: '0.56rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1 }}>
+                                    <Article style={{ fontSize: 12 }} />
+                                    {guide ? 'Instructor Document' : (creatingGuide ? 'Creating…' : '+ Instructor Document')}
+                                </button>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+        )
+    }
+
     function renderVideosPanel(t: TType) {
         const videos    = videosCache[t._id] ?? []
         const cfg       = STATUS_CFG[t.status ?? (t.isActive ? 'active' : 'inactive')]
@@ -1432,8 +1464,12 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                                         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={(e) => handleCategoryDragEnd(cat, e)}>
                                             <SortableContext items={catItems.map(t => t._id)} strategy={rectSortingStrategy}>
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 10 }}>
-                                                    {catItems.map(t => (
-                                                        <div key={t._id} style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    {catItems.map(t => {
+                                                        // Selection / RC: the expanded course takes the whole row and its
+                                                        // per-session documents fill the space to its right.
+                                                        const bySession = docsExpanded === t._id && isJ3Context && sessionSlotsFor(t).length > 0
+                                                        const course = (
+                                                        <div key={t._id} style={{ display: 'flex', flexDirection: 'column', ...(bySession ? { flex: '0 1 340px', minWidth: 260 } : {}) }}>
                                                             <SortableTypeCard
                                                                 type={t}
                                                                 isJ3Lead={isJ3Lead}
@@ -1450,7 +1486,15 @@ export default function TrainingHub({ isJ3Lead, isTrainer, isJ3Trainer, myId, is
                                                             {docsExpanded === t._id && renderDocsPanel(t)}
                                                             {videosExpanded === t._id && renderVideosPanel(t)}
                                                         </div>
-                                                    ))}
+                                                        )
+                                                        if (!bySession) return course
+                                                        return (
+                                                            <div key={t._id} style={{ gridColumn: '1 / -1', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', gap: 10 }}>
+                                                                {course}
+                                                                {renderSessionDocs(t)}
+                                                            </div>
+                                                        )
+                                                    })}
                                                 </div>
                                             </SortableContext>
                                         </DndContext>

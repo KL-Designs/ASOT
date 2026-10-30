@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest'
 import { assignVariants, canSeeSimilarity, DEFAULT_TEMPLATE, nextVariant, sanitiseAnswers, shapeFor, templateStrip, answersText } from './orders-assessment'
 import { compareSubmission, levelOf } from './similarity'
-import { addSlot, guideSlotId, slotsFor } from './document-slots'
+import { addSlot, guideSlotId, sessionSlotsFor, slotsFor } from './document-slots'
 
 describe('document slots', () => {
     test('every course has the two defaults; Leadership adds Assessment Orders', () => {
@@ -17,6 +17,13 @@ describe('document slots', () => {
         const next = addSlot(slotsFor({}), 'Range Card')!
         expect(next.at(-1)).toMatchObject({ name: 'Range Card', id: 'doc_range_card', order: 2 })
         expect(addSlot(next, 'range card')).toBeNull()
+    })
+    test('Selection and RC get one instructor document per session; other courses none', () => {
+        expect(sessionSlotsFor({ category: 'Medical', name: 'CLS' })).toEqual([])
+        const rc = sessionSlotsFor({ courseType: 'reinforcement_cycle' })
+        expect(rc).toHaveLength(14)
+        expect(rc[2]).toMatchObject({ id: 'session_3', session: 3, sessionName: 'Session 3 — CQB' })
+        expect(sessionSlotsFor({ category: 'Selection', name: 'Selection' }).map(s => s.id)).toEqual(['session_1', 'session_2', 'session_3', 'session_4'])
     })
 })
 
