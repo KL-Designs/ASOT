@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Alert, Button, CircularProgress, IconButton, TextField } from '@mui/material'
 import { Add, ArrowDownward, ArrowUpward, Delete } from '@mui/icons-material'
 import ImageUploadField from '@/app/dashboard/_components/ImageUploadField'
+import { buildInductionDM } from '@/lib/recruitment/induction-pack'
 
 /**
  * J1 → Admin → Induction Pack (row 213, Part C). The DM J1 sends a new member
@@ -59,6 +60,31 @@ function renderTimestamps(text: string): string {
         }
         return d.toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })
     })
+}
+
+/**
+ * The DM body as Discord shows it: masked links `[text](url)` and bare URLs in
+ * Discord's link blue and clickable (in a new tab, so they can be checked),
+ * and **bold**.
+ */
+function DiscordText({ text }: { text: string }) {
+    const parts: React.ReactNode[] = []
+    const re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>()]*[^\s<>().,!?;:])|\*\*([^*]+)\*\*/g
+    let last = 0
+    let m: RegExpExecArray | null
+    const link = (href: string, body: string, key: number) => (
+        <a key={key} href={href} target='_blank' rel='noreferrer' style={{ color: '#00a8fc', textDecoration: 'none' }}
+            onMouseEnter={e => { e.currentTarget.style.textDecoration = 'underline' }} onMouseLeave={e => { e.currentTarget.style.textDecoration = 'none' }}>{body}</a>
+    )
+    while ((m = re.exec(text))) {
+        if (m.index > last) parts.push(text.slice(last, m.index))
+        if (m[1]) parts.push(link(m[2], m[1], m.index))
+        else if (m[3]) parts.push(link(m[3], m[3], m.index))
+        else parts.push(<strong key={m.index}>{m[4]}</strong>)
+        last = m.index + m[0].length
+    }
+    if (last < text.length) parts.push(text.slice(last))
+    return <>{parts}</>
 }
 
 function LinksEditor({ value, onChange, disabled }: { value: Link[]; onChange: (v: Link[]) => void; disabled: boolean }) {
@@ -126,8 +152,15 @@ export default function InductionPackTab() {
         set({ steps })
     }
 
+    // Built from the form as it is typed, the same way the server builds the real DM.
+    const preview = buildInductionDM(form as unknown as InductionPackConfig, {
+        name: 'Recruit',
+        selectionAt: state.next ? new Date(state.next.at) : null,
+        baseUrl: typeof window !== 'undefined' ? window.location.origin : '',
+    }).embeds[0]
+
     return (
-        <div className='m-6 mt-4 flex flex-col gap-5' style={{ maxWidth: 960 }}>
+        <div className='m-6 mt-4 flex flex-col gap-5' style={{ maxWidth: 1280 }}>
             <div className='flex flex-col gap-1'>
                 <span style={{ fontSize: '0.9rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase' }}>Induction Pack</span>
                 <span style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.5)', lineHeight: 1.5 }}>
@@ -145,76 +178,79 @@ export default function InductionPackTab() {
                 ))}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
-                <div className='flex flex-col gap-3'>
-                    <span style={label}>Discord DM</span>
-                    <TextField label='Title' size='small' value={form.dmTitle} disabled={ro} onChange={e => set({ dmTitle: e.target.value })} sx={inputSx} />
-                    <TextField label='Message' size='small' multiline minRows={7} value={form.dmBody} disabled={ro} onChange={e => set({ dmBody: e.target.value })} sx={inputSx}
-                        helperText='{name}, {selectionDate}, {inductionUrl}, {selectionUrl} and {calendarUrl} are filled in when it is sent.' />
-                    <ImageUploadField value={form.imageUrl} onChange={url => !ro && set({ imageUrl: url })} label='Image (DM and induction page)' />
-                    <TextField label='Unit Training Calendar link' size='small' value={form.calendarUrl} disabled={ro} onChange={e => set({ calendarUrl: e.target.value })} sx={inputSx} />
+            <div className='flex gap-6 flex-wrap'>
+                <div className='flex flex-col gap-5' style={{ flex: '1 1 520px', minWidth: 0 }}>
+                    <div className='flex flex-col gap-3'>
+                        <span style={label}>Discord DM</span>
+                        <TextField label='Title' size='small' value={form.dmTitle} disabled={ro} onChange={e => set({ dmTitle: e.target.value })} sx={inputSx} />
+                        <TextField label='Message' size='small' multiline minRows={7} value={form.dmBody} disabled={ro} onChange={e => set({ dmBody: e.target.value })} sx={inputSx}
+                            helperText='{name}, {selectionDate}, {inductionUrl}, {selectionUrl} and {calendarUrl} are filled in when it is sent.' />
+                        <ImageUploadField value={form.imageUrl} onChange={url => !ro && set({ imageUrl: url })} label='Image (DM and induction page)' />
+                        <TextField label='Unit Training Calendar link' size='small' value={form.calendarUrl} disabled={ro} onChange={e => set({ calendarUrl: e.target.value })} sx={inputSx} />
+                    </div>
+
+                    <div className='flex flex-col gap-3'>
+                        <span style={label}>Induction page</span>
+                        <TextField label='Welcome text' size='small' multiline minRows={2} value={form.welcomeText} disabled={ro} onChange={e => set({ welcomeText: e.target.value })} sx={inputSx} />
+                        <span style={{ ...label, fontSize: '0.55rem' }}>Useful links</span>
+                        <LinksEditor value={form.links} disabled={ro} onChange={links => set({ links })} />
+                        <TextField label='Selection section text' size='small' multiline minRows={2} value={form.selectionText} disabled={ro} onChange={e => set({ selectionText: e.target.value })} sx={inputSx} />
+                    </div>
+
+                    <div className='flex flex-col gap-3'>
+                        <span style={label}>Steps ({form.steps.length})</span>
+                        {form.steps.map((s, i) => (
+                            <div key={s.id} className='flex flex-col gap-2' style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', padding: 12 }}>
+                                <div className='flex gap-2 items-center'>
+                                    <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(237,237,237,0.4)', width: 18 }}>{i + 1}</span>
+                                    <TextField size='small' label='Title' value={s.title} disabled={ro} onChange={e => setStep(i, { title: e.target.value })} sx={{ ...inputSx, flex: 1 }} />
+                                    {!ro && <>
+                                        <IconButton size='small' disabled={i === 0} onClick={() => move(i, -1)}><ArrowUpward sx={{ fontSize: 16 }} /></IconButton>
+                                        <IconButton size='small' disabled={i === form.steps.length - 1} onClick={() => move(i, 1)}><ArrowDownward sx={{ fontSize: 16 }} /></IconButton>
+                                        <IconButton size='small' disabled={form.steps.length === 1} onClick={() => set({ steps: form.steps.filter((_, j) => j !== i) })}><Delete sx={{ fontSize: 16 }} /></IconButton>
+                                    </>}
+                                </div>
+                                <TextField size='small' label='Text' multiline minRows={3} value={s.body} disabled={ro} onChange={e => setStep(i, { body: e.target.value })} sx={inputSx}
+                                    helperText='A blank line starts a new paragraph.' />
+                                <LinksEditor value={s.links ?? []} disabled={ro} onChange={links => setStep(i, { links })} />
+                            </div>
+                        ))}
+                        {!ro && form.steps.length < 20 && (
+                            <Button size='small' startIcon={<Add />} onClick={() => set({ steps: [...form.steps, { id: slug('new step', new Set(form.steps.map(s => s.id))), title: 'New step', body: '', links: [] }] })}
+                                sx={{ alignSelf: 'flex-start', borderRadius: 0, fontSize: '0.7rem', color: 'var(--red)' }}>
+                                Add step
+                            </Button>
+                        )}
+                    </div>
+
+                    {!ro && (
+                        <div className='flex gap-3 items-center'>
+                            <Button variant='outlined' size='small' disabled={saving} onClick={save}
+                                sx={{ borderRadius: 0, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', borderColor: 'rgba(219,0,29,0.4)', color: 'var(--red)' }}>
+                                {saving ? 'Saving…' : 'Save'}
+                            </Button>
+                            {saved && <span style={{ fontSize: '0.72rem', color: '#00c364' }}>Saved</span>}
+                            {form.updatedByName && form.updatedAt && (
+                                <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>Last changed by {form.updatedByName}, {fmt(form.updatedAt)}</span>
+                            )}
+                        </div>
+                    )}
+                    {error && <Alert severity='error' sx={{ borderRadius: 0, fontSize: '0.8rem' }}>{error}</Alert>}
                 </div>
-                <div className='flex flex-col gap-2'>
-                    <span style={label}>DM preview</span>
-                    <div style={{ borderLeft: '4px solid #db001d', background: '#2b2d31', padding: '12px 14px', color: '#dbdee1', fontSize: '0.85rem', lineHeight: 1.45 }}>
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>{state.preview.title}</div>
-                        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{renderTimestamps(state.preview.description)}</div>
+                <div className='flex flex-col gap-2' style={{ flex: '0 1 400px', minWidth: 300, position: 'sticky', top: 16, alignSelf: 'flex-start' }}>
+                    <span style={label}>DM preview (live)</span>
+                    <div style={{ borderLeft: '4px solid #db001d', background: '#2b2d31', padding: '12px 14px', color: '#dbdee1', fontSize: '0.85rem', lineHeight: 1.45, maxHeight: 'calc(100vh - 120px)', overflowY: 'auto' }}>
+                        <div style={{ fontWeight: 700, marginBottom: 6 }}>{preview.title}</div>
+                        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}><DiscordText text={renderTimestamps(preview.description)} /></div>
                         { }
-                        {state.preview.image && <img src={state.preview.image.url} alt='' style={{ marginTop: 10, maxWidth: '100%', borderRadius: 4 }} />}
+                        {preview.image && <img src={preview.image.url} alt='' style={{ marginTop: 10, maxWidth: '100%', borderRadius: 4 }} />}
+                        <div style={{ marginTop: 8, fontSize: '0.7rem', color: '#949ba4' }}>{preview.footer?.text}</div>
                     </div>
                     <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>
-                        Preview as saved. Next Selection: {state.next ? `${state.next.instanceRef}, ${fmt(state.next.at)}` : 'none scheduled, so the DM says "To be confirmed"'}.
+                        Updates as you type; links open in a new tab. Next Selection: {state.next ? `${state.next.instanceRef}, ${fmt(state.next.at)}` : 'none scheduled, so the DM says "To be confirmed"'}.
                     </span>
                 </div>
             </div>
-
-            <div className='flex flex-col gap-3'>
-                <span style={label}>Induction page</span>
-                <TextField label='Welcome text' size='small' multiline minRows={2} value={form.welcomeText} disabled={ro} onChange={e => set({ welcomeText: e.target.value })} sx={inputSx} />
-                <span style={{ ...label, fontSize: '0.55rem' }}>Useful links</span>
-                <LinksEditor value={form.links} disabled={ro} onChange={links => set({ links })} />
-                <TextField label='Selection section text' size='small' multiline minRows={2} value={form.selectionText} disabled={ro} onChange={e => set({ selectionText: e.target.value })} sx={inputSx} />
-            </div>
-
-            <div className='flex flex-col gap-3'>
-                <span style={label}>Steps ({form.steps.length})</span>
-                {form.steps.map((s, i) => (
-                    <div key={s.id} className='flex flex-col gap-2' style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', padding: 12 }}>
-                        <div className='flex gap-2 items-center'>
-                            <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'rgba(237,237,237,0.4)', width: 18 }}>{i + 1}</span>
-                            <TextField size='small' label='Title' value={s.title} disabled={ro} onChange={e => setStep(i, { title: e.target.value })} sx={{ ...inputSx, flex: 1 }} />
-                            {!ro && <>
-                                <IconButton size='small' disabled={i === 0} onClick={() => move(i, -1)}><ArrowUpward sx={{ fontSize: 16 }} /></IconButton>
-                                <IconButton size='small' disabled={i === form.steps.length - 1} onClick={() => move(i, 1)}><ArrowDownward sx={{ fontSize: 16 }} /></IconButton>
-                                <IconButton size='small' disabled={form.steps.length === 1} onClick={() => set({ steps: form.steps.filter((_, j) => j !== i) })}><Delete sx={{ fontSize: 16 }} /></IconButton>
-                            </>}
-                        </div>
-                        <TextField size='small' label='Text' multiline minRows={3} value={s.body} disabled={ro} onChange={e => setStep(i, { body: e.target.value })} sx={inputSx}
-                            helperText='A blank line starts a new paragraph.' />
-                        <LinksEditor value={s.links ?? []} disabled={ro} onChange={links => setStep(i, { links })} />
-                    </div>
-                ))}
-                {!ro && form.steps.length < 20 && (
-                    <Button size='small' startIcon={<Add />} onClick={() => set({ steps: [...form.steps, { id: slug('new step', new Set(form.steps.map(s => s.id))), title: 'New step', body: '', links: [] }] })}
-                        sx={{ alignSelf: 'flex-start', borderRadius: 0, fontSize: '0.7rem', color: 'var(--red)' }}>
-                        Add step
-                    </Button>
-                )}
-            </div>
-
-            {!ro && (
-                <div className='flex gap-3 items-center'>
-                    <Button variant='outlined' size='small' disabled={saving} onClick={save}
-                        sx={{ borderRadius: 0, fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.1em', borderColor: 'rgba(219,0,29,0.4)', color: 'var(--red)' }}>
-                        {saving ? 'Saving…' : 'Save'}
-                    </Button>
-                    {saved && <span style={{ fontSize: '0.72rem', color: '#00c364' }}>Saved</span>}
-                    {form.updatedByName && form.updatedAt && (
-                        <span style={{ fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>Last changed by {form.updatedByName}, {fmt(form.updatedAt)}</span>
-                    )}
-                </div>
-            )}
-            {error && <Alert severity='error' sx={{ borderRadius: 0, fontSize: '0.8rem' }}>{error}</Alert>}
         </div>
     )
 }
