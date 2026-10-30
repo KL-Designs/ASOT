@@ -476,6 +476,23 @@ export default function EditorPage() {
         }
     }
 
+    async function confirmUnpublish() {
+        setPublishSaving(true)
+        try {
+            const res = await fetch(`/api/operations/${opID}/publish`, { method: 'DELETE' })
+            if (res.ok) {
+                setStatus('In Development')
+                setPublishConfirmOpen(false)
+                refresh()
+            } else {
+                const d = await res.json().catch(() => ({}))
+                alert(d.error ?? 'Unpublish failed')
+            }
+        } finally {
+            setPublishSaving(false)
+        }
+    }
+
     async function saveAttendanceSettings(updates: {
         assignedPlatoons?: string[]
         supportCrew?: 'saturday' | 'sunday' | 'both'
@@ -961,6 +978,7 @@ export default function EditorPage() {
                         onPublishClick={() => setPublishConfirmOpen(true)}
                         onPublishConfirm={confirmPublish}
                         onPublishCancel={() => setPublishConfirmOpen(false)}
+                        onUnpublishConfirm={confirmUnpublish}
                         tab={tab}
                         onTabChange={setTab}
                         // Orders is only ever the active tab inside the shell
