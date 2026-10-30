@@ -74,11 +74,12 @@ export function intelStanding(
 
 export const isIntelStaff = (s: IntelStanding) => s.canAdd || s.canAssess || s.canManage
 
-export type IntelView = 'active' | 'add' | 'review' | 'deleted'
+export type IntelView = 'active' | 'hidden' | 'add' | 'review' | 'deleted'
 
 export function viewsFor(s: IntelStanding): IntelView[] {
     return [
         'active',
+        ...(s.canAssess ? ['hidden' as const] : []),
         ...(s.canAdd ? ['add' as const] : []),
         ...(s.canAssess ? ['review' as const] : []),
         ...(s.canManage ? ['deleted' as const] : []),
@@ -124,19 +125,30 @@ const isDeleted = (e: Pick<IntelEntry, 'deletedAt'>) => !!e.deletedAt
  * passes through here: sharing on, not deleted, published, released.
  * Assessment plays no part — declined intel still carries forward.
  */
-export function playerCanSee(entry: Pick<IntelEntry, 'deletedAt' | 'publication' | 'hiddenUntilSequence'>, sequence: number, settings: IntelReportSettings): boolean {
-    return settings.sharing && !isDeleted(entry) && entry.publication === 'published' && isReleased(entry, sequence)
+export function playerCanSee(entry: Pick<IntelEntry, 'deletedAt' | 'publication' | 'hiddenUntilSequence' | 'hidden'>, sequence: number, settings: IntelReportSettings): boolean {
+    return settings.sharing && !isDeleted(entry) && visibleToPlayers(entry, sequence)
 }
 
-/** Which entries this view holds for a staff member. */
-export function inView(entry: Pick<IntelEntry, 'deletedAt' | 'publication' | 'hiddenUntilSequence' | 'assessment'>, view: IntelView, sequence: number): boolean {
+/** Published, not held back by hand, and released at this mission: what Visible holds. */
+export function visibleToPlayers(entry: Pick<IntelEntry, 'publication' | 'hiddenUntilSequence' | 'hidden'>, sequence: number): boolean {
+    return entry.publication === 'published' && !entry.hidden && isReleased(entry, sequence)
+}
+
+/**
+ * Which entries this view holds for a staff member. Visibility and assessment
+ * are separate questions: Visible and Hidden split the report by whether
+ * players can see an entry, Review lists what still needs approving or
+ * assessing, wherever it sits.
+ */
+export function inView(entry: Pick<IntelEntry, 'deletedAt' | 'publication' | 'hiddenUntilSequence' | 'hidden' | 'assessment'>, view: IntelView, sequence: number): boolean {
     if (view === 'deleted') return isDeleted(entry)
     if (isDeleted(entry)) return false
     if (view === 'review') {
-        return entry.publication === 'pending' || !isReleased(entry, sequence) || entry.assessment.status === 'unassessed' || !entry.assessment.released
+        return entry.publication === 'pending' || entry.assessment.status === 'unassessed' || !entry.assessment.released
     }
-    // Active, for staff: everything published and released, as players see it.
-    return entry.publication === 'published' && isReleased(entry, sequence)
+    if (view === 'hidden') return !visibleToPlayers(entry, sequence)
+    // Active, for staff: everything players see.
+    return visibleToPlayers(entry, sequence)
 }
 
 export interface ClientIntelEntry {
@@ -155,6 +167,7 @@ export interface ClientIntelEntry {
     votes: { up: number; down: number; mine: 1 | -1 | 0 }
     // Staff only.
     hiddenUntilSequence?: number | null
+    hidden?: boolean
     publication?: 'published' | 'pending'
     versionCount?: number
     submittedById?: string
@@ -200,6 +213,7 @@ export function forViewer(entry: IntelEntry & { _id: { toString(): string } }, s
     return {
         ...base,
         hiddenUntilSequence: entry.hiddenUntilSequence,
+        hidden: !!entry.hidden,
         publication: entry.publication,
         versionCount: entry.versions?.length ?? 0,
         submittedById: entry.submittedById,

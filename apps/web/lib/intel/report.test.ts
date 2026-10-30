@@ -72,6 +72,16 @@ describe('staff views', () => {
         expect(inView(entry({ deletedAt: new Date() }), 'deleted', 3)).toBe(true)
         expect(inView(entry({ deletedAt: new Date() }), 'active', 3)).toBe(false)
     })
+    test('visible and hidden split by what players can see; assessment plays no part', () => {
+        const assessed = { assessment: { status: 'confirmed' as const, comment: '', released: true } }
+        expect(inView(entry(assessed), 'active', 3)).toBe(true)
+        expect(inView(entry({ ...assessed, hidden: true }), 'active', 3)).toBe(false)
+        expect(inView(entry({ ...assessed, hidden: true }), 'hidden', 3)).toBe(true)
+        expect(inView(entry({ ...assessed, hiddenUntilSequence: 5 }), 'hidden', 3)).toBe(true)
+        expect(inView(entry({ ...assessed, hiddenUntilSequence: 5 }), 'review', 3)).toBe(false)
+        expect(inView(entry({}), 'active', 3)).toBe(true)
+        expect(playerCanSee(entry({ hidden: true }), 3, settings)).toBe(false)
+    })
     test('standing: staff on the night may add, the owner holds everything', () => {
         const slot = (p: Partial<RosterSlot> & { sectionTitle: string; order: number }): RosterSlot =>
             ({ id: `${p.sectionTitle}-${p.order}`, category: 'platoon11', role: 'R', roleId: null, homeUserId: null, occupantUserId: null, ...p })
@@ -80,7 +90,7 @@ describe('staff views', () => {
         expect(intelStanding(roster, 'sgt', none, false)).toEqual({ canAdd: true, canAssess: false, canManage: false })
         expect(intelStanding(roster, 'rfn', none, false)).toEqual(none)
         expect(intelStanding(roster, 'rfn', none, true)).toEqual({ canAdd: true, canAssess: true, canManage: true })
-        expect(viewsFor({ canAdd: true, canAssess: true, canManage: false })).toEqual(['active', 'add', 'review'])
+        expect(viewsFor({ canAdd: true, canAssess: true, canManage: false })).toEqual(['active', 'hidden', 'add', 'review'])
     })
 })
 

@@ -3,7 +3,7 @@ import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logAction'
 import { actorName } from '@/lib/operations/aar-context'
 import { loadReport, missionNames } from '@/lib/intel/report-db'
-import { forViewer, hiddenUntil, sanitiseEntryInput, STARTING_INTEL, viewsFor, type IntelView } from '@/lib/intel/report'
+import { ASSESSMENT_STATUSES, forViewer, hiddenUntil, sanitiseEntryInput, STARTING_INTEL, viewsFor, type IntelView } from '@/lib/intel/report'
 import { intelGate } from './gate'
 
 /**
@@ -78,10 +78,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         submittedById: me.id,
         submittedByName: name,
         ...input,
-        // Only an assessor may hold intel back for a later mission.
+        // Only an assessor may hold intel back, or assess it as it is entered.
         hiddenUntilSequence: ctx.standing.canAssess ? hiddenUntil(body?.hiddenUntil, sourceSequence) : null,
+        hidden: ctx.standing.canAssess && body?.hidden === true,
         publication: ctx.settings.requireApproval && !ctx.standing.canAssess ? 'pending' : 'published',
-        assessment: { status: 'unassessed', comment: '', released: false },
+        assessment: ctx.standing.canAssess && ASSESSMENT_STATUSES.includes(body?.assessment) && body.assessment !== 'unassessed'
+            ? { status: body.assessment, comment: '', released: body?.assessmentReleased !== false, byId: me.id, byName: name, at: now }
+            : { status: 'unassessed', comment: '', released: false },
         versions: [],
         deletedAt: null,
         createdAt: now,

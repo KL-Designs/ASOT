@@ -104,6 +104,15 @@ export async function PATCH(req: NextRequest, { params }: Params) {
             details = { hiddenUntil: until }
             break
         }
+        // Held back by hand, regardless of mission: for laying out a campaign's intel ahead of time.
+        case 'conceal':
+            if (!s.canAssess) return deny()
+            set = { hidden: true }
+            break
+        case 'reveal':
+            if (!s.canAssess) return deny()
+            set = { hidden: false, hiddenUntilSequence: null }
+            break
         case 'restore':
             if (!s.canManage) return deny()
             set = { deletedAt: null, deletedById: null, deletedByName: null, deleteReason: null }

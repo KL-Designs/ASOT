@@ -18,11 +18,15 @@ export interface IntelFormValue {
     grid: string
     evidence: IntelEvidence[]
     hiddenUntil: string
+    /** Held back from players until shown by hand (assessors). */
+    hidden: boolean
+    /** The assessment it is entered with (assessors); unassessed otherwise. */
+    assessment: IntelAssessmentStatus
     starting: boolean
     callSign: string
 }
 
-export const EMPTY_INTEL_FORM: IntelFormValue = { title: '', description: '', grid: '', evidence: [], hiddenUntil: '', starting: false, callSign: '' }
+export const EMPTY_INTEL_FORM: IntelFormValue = { title: '', description: '', grid: '', evidence: [], hiddenUntil: '', hidden: false, assessment: 'unassessed', starting: false, callSign: '' }
 
 interface Props {
     initial?: Partial<IntelFormValue>
@@ -135,6 +139,22 @@ export default function IntelEntryForm({ initial, canAssess, simple, sequence, s
                         <input className={s.input} style={{ width: 70 }} type='number' min={(v.starting ? 0 : sequence ?? 0) + 1}
                             value={v.hiddenUntil} onChange={e => set('hiddenUntil', e.target.value)} />
                     </label>
+                    {!simple && (
+                        <label className={s.check} title="Kept off the players' report until you show it, whatever the mission. For laying out intel ahead of time.">
+                            <input type='checkbox' checked={v.hidden} onChange={e => set('hidden', e.target.checked)} /> Hidden from players until I show it
+                        </label>
+                    )}
+                    {!simple && (
+                        <label className={s.check} title='Separate from visibility: unassessed intel is still shown to players.'>
+                            Assessment
+                            <select className={s.input} style={{ maxWidth: 200 }} value={v.assessment} onChange={e => set('assessment', e.target.value as IntelAssessmentStatus)}>
+                                <option value='unassessed'>Unassessed</option>
+                                <option value='confirmed'>Confirmed</option>
+                                <option value='partial'>Partially Confirmed</option>
+                                <option value='declined'>Declined</option>
+                            </select>
+                        </label>
+                    )}
                     {contradiction && (
                         <span style={{ fontSize: '0.72rem', color: '#f59e0b' }}>
                             Starting intel is visible straight away, but this is also hidden until mission {v.hiddenUntil}. Choose one or the other.
@@ -190,6 +210,8 @@ export function formToBody(v: IntelFormValue) {
         grid: v.grid,
         evidence: v.evidence,
         hiddenUntil: v.hiddenUntil,
+        hidden: v.hidden,
+        assessment: v.assessment,
         starting: v.starting,
         callSign: v.callSign,
     }

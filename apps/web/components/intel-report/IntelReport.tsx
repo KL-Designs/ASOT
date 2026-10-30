@@ -22,7 +22,9 @@ type DoctrineInForce = { values: DoctrineValues; sources: { fields: Record<strin
  * nothing else.
  */
 
-const VIEW_LABEL: Record<IntelView, string> = { active: 'Active', add: 'Add', review: 'Review', deleted: 'Deleted' }
+const VIEW_LABEL: Record<IntelView, string> = { active: 'Active', hidden: 'Hidden', add: 'Add', review: 'Review', deleted: 'Deleted' }
+/** Staff see the split spelled out: what players can see now, and what they cannot yet. */
+const STAFF_VIEW_LABEL: Partial<Record<IntelView, string>> = { active: 'Visible to players', hidden: 'Hidden from players', review: 'Review & assess' }
 const ASSESSMENT_LABEL: Record<IntelAssessmentStatus, string> = { confirmed: 'Confirmed', partial: 'Partially Confirmed', declined: 'Declined', unassessed: 'Unassessed' }
 const SETTING_LABEL: Record<keyof IntelReportSettings, string> = {
     sharing: 'Players can read the report',
@@ -140,7 +142,7 @@ export default function IntelReport({ operationId, themeColor = '#db001d' }: { o
                 <div className={s.tabs}>
                     {data.views.map(v => (
                         <button key={v} type='button' className={`${s.tab} ${view === v ? s.tabActive : ''}`} onClick={() => { setView(v); setNotice(null) }}>
-                            {VIEW_LABEL[v]}
+                            {(staff && STAFF_VIEW_LABEL[v]) || VIEW_LABEL[v]}
                         </button>
                     ))}
                 </div>
@@ -155,7 +157,7 @@ export default function IntelReport({ operationId, themeColor = '#db001d' }: { o
             ) : data.sharedOff ? (
                 <div className={s.muted}>The Intelligence Report is not shared with players for this {data.campaignName ? 'campaign' : 'operation'}.</div>
             ) : !data.entries.length ? (
-                <div className={s.muted}>{view === 'deleted' ? 'The Recycle Bin is empty.' : view === 'review' ? 'Nothing waiting for review.' : 'No intelligence reported yet.'}</div>
+                <div className={s.muted}>{view === 'deleted' ? 'The Recycle Bin is empty.' : view === 'review' ? 'Nothing waiting for review.' : view === 'hidden' ? 'Nothing is hidden from players.' : 'No intelligence reported yet.'}</div>
             ) : (
                 groups.map(g => (
                     <section key={g.sequence} className={s.mission}>
@@ -259,6 +261,7 @@ function EntryCard({ entry, view, standing, base, sequence, onChanged, doctrine 
     const a = entry.assessment
     const chips: string[] = []
     if (entry.publication === 'pending') chips.push('Awaiting approval')
+    if (entry.hidden) chips.push('Hidden from players')
     if (entry.hiddenUntilSequence != null && entry.hiddenUntilSequence > sequence) chips.push(`Hidden until mission ${entry.hiddenUntilSequence}`)
     if (staff && a && a.status !== 'unassessed' && !a.released) chips.push('Assessment withheld')
 
@@ -333,8 +336,10 @@ function EntryCard({ entry, view, standing, base, sequence, onChanged, doctrine 
                                 {detail?.canEdit && <button type='button' className={s.ghost} onClick={() => setEditing(true)}>Edit</button>}
                                 {detail?.canEdit && <button type='button' className={s.ghost} onClick={remove}>Delete</button>}
                                 {standing.canAssess && entry.publication === 'pending' && <button type='button' className={s.primary} onClick={() => act({ action: 'approve' })}>Approve</button>}
-                                {standing.canAssess && entry.hiddenUntilSequence != null && <button type='button' className={s.ghost} onClick={() => act({ action: 'release' })}>Release now</button>}
-                                {standing.canAssess && entry.hiddenUntilSequence == null && (
+                                {standing.canAssess && (entry.hidden || entry.hiddenUntilSequence != null)
+                                    ? <button type='button' className={s.primary} onClick={() => act({ action: 'reveal' })}>Show to players</button>
+                                    : standing.canAssess && <button type='button' className={s.ghost} onClick={() => act({ action: 'conceal' })}>Hide from players</button>}
+                                {standing.canAssess && entry.hiddenUntilSequence == null && !entry.hidden && (
                                     <button type='button' className={s.ghost} onClick={() => {
                                         const n = window.prompt('Hide from players until which mission number?')
                                         if (n) act({ action: 'hide', hiddenUntil: n })

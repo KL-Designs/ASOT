@@ -35,6 +35,8 @@ declare global {
         grid: string
         /** Null when released; otherwise the mission sequence it is hidden until. */
         hiddenUntilSequence: number | null
+        /** Held back from players by hand until a mission maker shows it, whatever the mission. */
+        hidden?: boolean
         /** 'pending' only while the campaign asks for approval before publication. */
         publication: 'published' | 'pending'
         assessment: IntelAssessment
