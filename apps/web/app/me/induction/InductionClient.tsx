@@ -1,8 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import type { Route } from 'next'
 
 type LinkItem = { label: string; url: string }
 type Step = { id: string; title: string; body: string; links?: LinkItem[] }
@@ -33,9 +31,8 @@ function Links({ links }: { links?: LinkItem[] }) {
         <div className='flex gap-2 flex-wrap'>
             {links.map(l => {
                 const style: React.CSSProperties = { fontSize: '0.72rem', fontWeight: 700, letterSpacing: '0.06em', padding: '5px 12px', border: '1px solid rgba(219,0,29,0.35)', color: 'var(--red)', textDecoration: 'none' }
-                return l.url.startsWith('/')
-                    ? <Link key={l.url + l.label} href={l.url as Route} style={style}>{l.label}</Link>
-                    : <a key={l.url + l.label} href={l.url} target='_blank' rel='noreferrer' style={style}>{l.label}</a>
+                // A new tab either way, so the induction stays open behind it.
+                return <a key={l.url + l.label} href={l.url} target='_blank' rel='noreferrer' style={style}>{l.label}</a>
             })}
         </div>
     )
@@ -128,13 +125,19 @@ export default function InductionClient({ name }: { name: string }) {
                 <div>
                     <strong>Next Selection: </strong>
                     {view.next
-                        ? new Date(view.next.at).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' })
+                        ? new Date(view.next.at).toLocaleString('en-GB', { dateStyle: 'full', timeStyle: 'short' })
                         : 'To be confirmed'}
                     <span style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}> (your local time)</span>
                 </div>
                 {view.selectionInterest ? (
-                    <div style={{ color: '#00c364' }}>
-                        You registered interest on {new Date(view.selectionInterest.at).toLocaleDateString()}. J3 will confirm your place.
+                    <div className='flex items-center gap-3 flex-wrap'>
+                        <span style={{ color: '#00c364' }}>
+                            You registered interest on {new Date(view.selectionInterest.at).toLocaleDateString('en-GB')}. J3 will confirm your place.
+                        </span>
+                        <button type='button' disabled={busy === 'selection'} onClick={() => act('selection', { action: 'selection-interest-undo' })}
+                            style={{ padding: '4px 12px', fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer', background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(237,237,237,0.7)', opacity: busy === 'selection' ? 0.5 : 1 }}>
+                            Undo
+                        </button>
                     </div>
                 ) : (
                     <button type='button' disabled={busy === 'selection'} onClick={() => act('selection', { action: 'selection-interest' })}

@@ -4,12 +4,12 @@ import {
 } from './reminder-offsets'
 
 describe('defaultReminderOffsets', () => {
-    test('Selection: a month and a week before Session 1', () => {
-        expect(defaultReminderOffsets('selection')).toEqual([30 * 24 * 60, 7 * 24 * 60])
+    test('Selection and Reinforcement Cycle: a month, a day and thirty minutes before Session 1', () => {
+        expect(defaultReminderOffsets('selection')).toEqual([30 * 24 * 60, 24 * 60, 30])
+        expect(defaultReminderOffsets('reinforcement_cycle')).toEqual([30 * 24 * 60, 24 * 60, 30])
     })
     test('everything else: a day and thirty minutes before', () => {
         expect(defaultReminderOffsets(undefined)).toEqual([24 * 60, 30])
-        expect(defaultReminderOffsets('reinforcement_cycle')).toEqual([24 * 60, 30])
     })
 })
 

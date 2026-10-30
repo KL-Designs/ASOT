@@ -76,10 +76,10 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
             .catch(() => setError('Could not load the Training Hub courses.'))
     }, [open, types])
 
-    // Only courses that are switched on in the Training Hub.
-    const active = useMemo(() => (types ?? []).filter(t => t.status === 'active'), [types])
-    const groups = useMemo(() => groupByCategory(active), [active])
-    const selected = active.find(t => t._id === typeId)
+    // Every course the Training Hub lists; work-in-progress and inactive ones are labelled.
+    const courses = useMemo(() => types ?? [], [types])
+    const groups = useMemo(() => groupByCategory(courses), [courses])
+    const selected = courses.find(t => t._id === typeId)
     const isCourse = !!selected?.courseType
 
     function recalcEnd(nextType: TypeRow | undefined, nextDate: string, nextStart: string) {
@@ -90,7 +90,7 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
 
     function pickType(id: string) {
         setTypeId(id)
-        const t = active.find(x => x._id === id)
+        const t = courses.find(x => x._id === id)
         setOffsets(defaultReminderOffsets(t?.courseType))
         if (t?.description && !description) setDescription(t.description)
         recalcEnd(t, date, startTime)
@@ -160,7 +160,11 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
 
             <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '20px !important' }}>
                 <TextField label='Training' size='small' select fullWidth value={typeId} onChange={e => pickType(e.target.value)} sx={inputSx}
-                    disabled={!types} helperText={types && active.length === 0 ? 'No courses are enabled in the Training Hub.' : undefined}
+                    disabled={!types}
+                    SelectProps={{ renderValue: v => courses.find(t => t._id === v)?.name ?? '' }}
+                    helperText={types && courses.length === 0
+                        ? 'No courses in the Training Hub.'
+                        : selected?.durationMinutes ? `Runtime: ${formatOffset(selected.durationMinutes)}` : undefined}
                 >
                     {groups.flatMap(g => [
                         <ListSubheader key={`h-${g.category}`} sx={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', lineHeight: '28px', background: '#141414', color: 'var(--live)' }}>
@@ -169,7 +173,8 @@ export default function TrainingEventModal({ open, onClose, onSaved }: { open: b
                         ...g.items.map(t => (
                             <MenuItem key={t._id} value={t._id} sx={{ fontSize: '0.82rem', pl: 3 }}>
                                 {t.name}
-                                {t.durationMinutes ? <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)' }}>{formatOffset(t.durationMinutes)}</span> : null}
+                                {t.status !== 'active' && <span style={{ marginLeft: 8, fontSize: '0.62rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.35)' }}>{t.status === 'wip' ? 'WIP' : 'Inactive'}</span>}
+                                {t.durationMinutes ? <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'rgba(237,237,237,0.35)', paddingLeft: 16 }}>{formatOffset(t.durationMinutes)}</span> : null}
                             </MenuItem>
                         )),
                     ])}

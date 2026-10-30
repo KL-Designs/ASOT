@@ -2,10 +2,10 @@
  * When a training's reminders go out, and what they say (row 213).
  *
  * Offsets are minutes before the start. The defaults depend on the course:
- * Selection is advertised a month and a week ahead of Session 1, because
- * people need to plan around a three-week course; every other training is
- * reminded the day before and thirty minutes before, the second one telling
- * members to be ready to load in fifteen minutes early.
+ * Selection and the Reinforcement Cycle add a reminder a month ahead of
+ * Session 1, because people need to plan around a multi-week course; every
+ * training is reminded the day before and thirty minutes before, the second
+ * one telling members to be ready to load in fifteen minutes early.
  *
  * Events saved before offsets were stored keep the old 60 and 15 minutes —
  * `LEGACY_OFFSETS` — so nothing already scheduled changes under anybody.
@@ -17,7 +17,7 @@ const DAY = 24 * HOUR
 const WEEK = 7 * DAY
 const MONTH = 30 * DAY
 
-export const SELECTION_OFFSETS = [MONTH, WEEK]
+export const SELECTION_OFFSETS = [MONTH, DAY, 30 * MINUTE]
 export const TRAINING_OFFSETS = [DAY, 30 * MINUTE]
 export const LEGACY_OFFSETS = [60, 15]
 
@@ -30,7 +30,7 @@ export const MAX_OFFSET = 2 * MONTH
 export const MAX_REMINDERS = 5
 
 export function defaultReminderOffsets(courseType?: string | null): number[] {
-    return courseType === 'selection' ? [...SELECTION_OFFSETS] : [...TRAINING_OFFSETS]
+    return courseType === 'selection' || courseType === 'reinforcement_cycle' ? [...SELECTION_OFFSETS] : [...TRAINING_OFFSETS]
 }
 
 /**

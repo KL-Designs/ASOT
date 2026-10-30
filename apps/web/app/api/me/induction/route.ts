@@ -121,5 +121,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(await view(me.id))
     }
 
+    if (body.action === 'selection-interest-undo') {
+        const existing = await Db.inductionProgress.findOne({ userId: me.id }, { projection: { selectionInterest: 1 } })
+        if (!existing?.selectionInterest) return NextResponse.json(await view(me.id))
+        await Db.inductionProgress.updateOne({ userId: me.id }, { $unset: { selectionInterest: '' } })
+        await logAction({
+            action: 'j3.selection.interestWithdrawn',
+            category: 'training',
+            performedBy: me.id,
+            performedByName: name,
+            department: 'j3',
+            entityType: 'courseInstance',
+            entityId: existing.selectionInterest.instanceId,
+            target: existing.selectionInterest.instanceRef ?? 'next Selection',
+        })
+        return NextResponse.json(await view(me.id))
+    }
+
     return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })
 }
