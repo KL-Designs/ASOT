@@ -38,6 +38,8 @@ declare global {
         trainerName: string
         variant: number
         orders: import('@/lib/training/orders-assessment').SourceOrders
+        /** The trainee's private copy of the source operation, when the variant is one. They write their orders in it. */
+        operationId?: string | null
         template: import('@/lib/training/orders-assessment').AssessmentTemplate
         answers: Record<string, string>
         status: import('@/lib/training/orders-assessment').AssessmentStatus
@@ -47,6 +49,8 @@ declare global {
         /** Earlier attempts, kept when a reassessment issues a new copy. */
         attempts: {
             variant: number
+            /** That attempt's copy of the orders, kept read-only. */
+            operationId?: string | null
             /** The template that attempt was written against, if it has since changed. */
             template?: import('@/lib/training/orders-assessment').AssessmentTemplate
             answers: Record<string, string>

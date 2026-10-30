@@ -5,7 +5,8 @@ import client from '@/lib/discord'
 import { actorName } from '@/lib/operations/aar-context'
 import { memberName } from '@/lib/military/award-postage-db'
 import { assignVariants, canSeeSimilarity, usableVariants } from '@/lib/training/orders-assessment'
-import { assessmentStanding, assessmentUrl, loadConfig, logAssessment, notify } from '@/lib/training/orders-assessment-db'
+import { assessmentStanding, assessmentUrl, createOrdersCopy, loadConfig, logAssessment, notify } from '@/lib/training/orders-assessment-db'
+import { ORDERS_DOCUMENT_TEMPLATE } from '@/lib/training/assessment-operation'
 
 export const dynamic = 'force-dynamic'
 
@@ -103,7 +104,8 @@ export async function POST(req: NextRequest) {
         trainerId: trainer.id, trainerName: trainer.name,
         variant: picks[t.id],
         orders: config.orders.find(o => o.variant === picks[t.id])!,
-        template: config.template,
+        // Orders written in a copy of an operation are snapshotted into one field on submit.
+        template: config.orders.find(o => o.variant === picks[t.id])!.operationId ? ORDERS_DOCUMENT_TEMPLATE : config.template,
         answers: {}, status: 'assigned', submittedAt: null, similarity: null, review: null,
         attempts: [], history: [{ at: now, status: 'assigned', byId: me.id, byName: actorName(me) }],
         createdAt: now, updatedAt: now,
@@ -113,7 +115,11 @@ export async function POST(req: NextRequest) {
     await Promise.all(Object.values(res.insertedIds).map(async (oid, i) => {
         const id = String(oid as ObjectId)
         const d = docs[i]
-        await notify(d.traineeId, `Orders assessment: ${type.name}`, `${trainer.name} has assigned you an orders-writing assessment for ${type.name}. Write your orders from the source orders provided and submit them for review.`, assessmentUrl(id), id)
+        if (d.orders.operationId) {
+            const operationId = await createOrdersCopy(d.orders, id, { id: d.traineeId, name: d.traineeName }, typeId)
+            if (operationId) await Db.ordersAssessments.updateOne({ _id: oid as ObjectId }, { $set: { operationId } })
+        }
+        await notify(d.traineeId, `Orders assessment: ${type.name}`, `${trainer.name} has assigned you an orders-writing assessment for ${type.name}. Write your orders from the orders you have been given and submit them for review.`, assessmentUrl(id), id)
         await logAssessment('assign', me, actorName(me), id, { course: type.name, trainee: d.traineeName, variant: d.variant, session: session?.label ?? null })
     }))
 

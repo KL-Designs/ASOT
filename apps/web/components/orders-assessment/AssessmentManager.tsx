@@ -5,18 +5,20 @@ import Link from 'next/link'
 import type { Route } from 'next'
 import {
     isAwaitingReview, usableVariants,
-    type AssessmentStatus, type AssessmentTemplate, type SourceOrders, type TemplateField,
+    type AssessmentStatus, type AssessmentTemplate, type SourceOrders,
 } from '@/lib/training/orders-assessment'
 import type { SimilarityResult } from '@/lib/training/similarity'
 import { AnswerSheet, button, input, label, OrdersBody, panel, SimilarityPanel, SimilarityPill, StatusPill } from './shared'
 
 /**
  * Rows 372 and 373: a Leadership course's Assessment Orders page. Source
- * orders per variant, the template trainees fill, assigning trainees from a
- * session, and the review queue with the similarity check side by side.
+ * orders per variant (an operation on the site, so trainees learn the
+ * site's orders), assigning trainees from a session, and the assessments
+ * by trainee with the similarity check side by side. Each trainee writes in
+ * a private copy of their variant's operation.
  */
 
-type Tab = 'assessments' | 'assign' | 'orders' | 'template'
+type Tab = 'assessments' | 'assign' | 'orders'
 type Standing = { isLead: boolean; isTrainingStaff: boolean; canEditConfig: boolean }
 type Session = { kind: 'instance' | 'event'; id: string; label: string }
 type Person = { id: string; name: string }
@@ -30,6 +32,7 @@ interface Row {
     variant: number
     status: AssessmentStatus
     session: Session | null
+    operationId?: string | null
     submittedAt?: string | null
     similarity: { score: number; level: SimilarityResult['level'] } | null
     createdAt: string
@@ -42,12 +45,13 @@ interface Full {
     status: AssessmentStatus
     variant: number
     orders: SourceOrders
+    operationId?: string | null
     template: AssessmentTemplate
     answers: Record<string, string>
     submittedAt?: string | null
     similarity?: SimilarityResult | null
     review?: { outcome: string; comment: string; byName: string; at: string } | null
-    attempts: { variant: number; template?: AssessmentTemplate; answers: Record<string, string>; submittedAt?: string | null; similarity?: SimilarityResult | null; review?: { outcome: string; comment: string; byName: string } | null }[]
+    attempts: { variant: number; operationId?: string | null; template?: AssessmentTemplate; answers: Record<string, string>; submittedAt?: string | null; similarity?: SimilarityResult | null; review?: { outcome: string; comment: string; byName: string } | null }[]
     session: Session | null
 }
 
@@ -65,7 +69,6 @@ export default function AssessmentManager({ typeId, myId, initialReview, initial
     const [type, setType] = useState<{ name: string; category: string } | null>(null)
     const [standing, setStanding] = useState<Standing | null>(null)
     const [orders, setOrders] = useState<SourceOrders[]>([])
-    const [template, setTemplate] = useState<AssessmentTemplate | null>(null)
     const [tab, setTab] = useState<Tab>('assessments')
     const [error, setError] = useState<string | null>(null)
     const [notice, setNotice] = useState<string | null>(null)
@@ -76,20 +79,20 @@ export default function AssessmentManager({ typeId, myId, initialReview, initial
             .then(r => {
                 if (!r.ok) { setError(r.error); return }
                 setType(r.data.type); setStanding(r.data.standing)
-                setOrders(r.data.config.orders); setTemplate(r.data.config.template)
+                setOrders(r.data.config.orders)
             })
     }, [typeId])
 
-    async function saveConfig(part: 'orders' | 'template') {
+    async function saveOrders() {
         setSaving(true); setNotice(null); setError(null)
-        const r = await call<{ orders: SourceOrders[]; template: AssessmentTemplate }>(`/api/training/assessments/config/${typeId}`, 'PUT', part === 'orders' ? { orders } : { template })
+        const r = await call<{ orders: SourceOrders[] }>(`/api/training/assessments/config/${typeId}`, 'PUT', { orders })
         setSaving(false)
         if (!r.ok) { setError(r.error); return }
-        setOrders(r.data.orders); setTemplate(r.data.template)
-        setNotice(part === 'orders' ? 'Source orders saved. Copies already issued keep the version they were given.' : 'Template saved. Copies already issued keep the version they were given.')
+        setOrders(r.data.orders)
+        setNotice('Source orders saved. Copies already issued keep the version they were given.')
     }
 
-    const tabs: [Tab, string][] = [['assessments', 'Assessments'], ...(standing?.isTrainingStaff ? [['assign', 'Assign'] as [Tab, string]] : []), ['orders', 'Source Orders'], ['template', 'Template']]
+    const tabs: [Tab, string][] = [['assessments', 'Assessments'], ...(standing?.isTrainingStaff ? [['assign', 'Assign'] as [Tab, string]] : []), ['orders', 'Source Orders']]
 
     return (
         <div style={{ padding: embedded ? 0 : '24px 20px', maxWidth: 1200, margin: embedded ? 0 : '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -111,10 +114,7 @@ export default function AssessmentManager({ typeId, myId, initialReview, initial
             {tab === 'assessments' && <AssessmentsList typeId={typeId} myId={myId} initialReview={initialReview} initialSession={initialSession} />}
             {tab === 'assign' && standing?.isTrainingStaff && <AssignPanel typeId={typeId} isLead={standing.isLead} hasVariants={usableVariants(orders).length > 0} onDone={msg => { setNotice(msg); setTab('assessments') }} />}
             {tab === 'orders' && (
-                <OrdersEditor orders={orders} editable={!!standing?.canEditConfig} onChange={setOrders} onSave={() => saveConfig('orders')} saving={saving} />
-            )}
-            {tab === 'template' && template && (
-                <TemplateEditor template={template} editable={!!standing?.canEditConfig} onChange={setTemplate} onSave={() => saveConfig('template')} saving={saving} />
+                <OrdersEditor orders={orders} editable={!!standing?.canEditConfig} onChange={setOrders} onSave={saveOrders} saving={saving} />
             )}
         </div>
     )
@@ -122,12 +122,24 @@ export default function AssessmentManager({ typeId, myId, initialReview, initial
 
 /* ── Source orders ──────────────────────────────────────────────────────── */
 
+type OpOption = { _id: string; title: string; date?: string; status?: string }
+
 function OrdersEditor({ orders, editable, onChange, onSave, saving }: { orders: SourceOrders[]; editable: boolean; onChange: (o: SourceOrders[]) => void; onSave: () => void; saving: boolean }) {
+    const [ops, setOps] = useState<OpOption[]>([])
+    useEffect(() => {
+        if (!editable) return
+        call<{ missions: OpOption[] }>('/api/operations?limit=300').then(r => r.ok && setOps(r.data.missions))
+    }, [editable])
     const set = (i: number, patch: Partial<SourceOrders>) => onChange(orders.map((o, j) => j === i ? { ...o, ...patch } : o))
+    const link = (i: number, id: string) => {
+        const op = ops.find(o => o._id === id)
+        set(i, id ? { operationId: id, operationTitle: op?.title ?? '' } : { operationId: undefined, operationTitle: undefined })
+    }
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>
-                Each variant is a different scenario. Trainees in the same session are spread across the variants, and a reassessment gets one they have not had. An empty variant is never handed out.
+                Each variant is a different scenario: a set of orders made on the site like any operation&apos;s. When a trainee is assigned one, they get a private copy with their name on it to write their section orders in, which only they, their trainer, J3 and J4 can open.
+                Trainees in the same session are spread across the variants, and a reassessment gets one they have not had. A variant with no orders is never handed out.
             </div>
             {orders.map((o, i) => editable ? (
                 <div key={i} style={{ ...panel, display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -136,7 +148,21 @@ function OrdersEditor({ orders, editable, onChange, onSave, saving }: { orders: 
                         <input value={o.level} onChange={e => set(i, { level: e.target.value })} style={{ ...input, flex: 1 }} placeholder='Level (e.g. section)' />
                         {orders.length > 1 && <button type='button' onClick={() => onChange(orders.filter((_, j) => j !== i))} style={button()}>Remove</button>}
                     </div>
-                    <textarea value={o.body} onChange={e => set(i, { body: e.target.value })} rows={12} style={{ ...input, resize: 'vertical' }} placeholder='The higher-level orders the trainee works from.' />
+                    <div style={label}>Orders on the site</div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <select value={o.operationId ?? ''} onChange={e => link(i, e.target.value)} style={{ ...input, flex: 1 }}>
+                            <option value=''>Choose the operation these orders are in…</option>
+                            {o.operationId && !ops.some(x => x._id === o.operationId) && <option value={o.operationId}>{o.operationTitle || o.operationId}</option>}
+                            {ops.map(x => <option key={x._id} value={x._id}>{x.title}{x.status === 'In Development' ? ' (in development)' : ''}{x.date ? ` · ${new Date(x.date).toLocaleDateString('en-AU')}` : ''}</option>)}
+                        </select>
+                        {o.operationId && <a href={`/operations/${o.operationId}/edit`} target='_blank' rel='noreferrer' style={{ ...button(), textDecoration: 'none', whiteSpace: 'nowrap' }}>Open ↗</a>}
+                    </div>
+                    {!o.operationId && o.body.trim() && (
+                        <details>
+                            <summary style={{ ...label, cursor: 'pointer' }}>Written orders from before (used until an operation is chosen)</summary>
+                            <textarea value={o.body} onChange={e => set(i, { body: e.target.value })} rows={8} style={{ ...input, resize: 'vertical', marginTop: 6 }} />
+                        </details>
+                    )}
                 </div>
             ) : <OrdersBody key={i} orders={o} />)}
             {editable && (
@@ -145,57 +171,6 @@ function OrdersEditor({ orders, editable, onChange, onSave, saving }: { orders: 
                     <button type='button' onClick={onSave} disabled={saving} style={button('red')}>{saving ? 'Saving…' : 'Save source orders'}</button>
                 </div>
             )}
-        </div>
-    )
-}
-
-/* ── Template ───────────────────────────────────────────────────────────── */
-
-function TemplateEditor({ template, editable, onChange, onSave, saving }: { template: AssessmentTemplate; editable: boolean; onChange: (t: AssessmentTemplate) => void; onSave: () => void; saving: boolean }) {
-    const [preview, setPreview] = useState(!editable)
-    const setField = (i: number, patch: Partial<TemplateField>) => onChange({ ...template, fields: template.fields.map((f, j) => j === i ? { ...f, ...patch } : f) })
-    const move = (i: number, d: -1 | 1) => {
-        const j = i + d
-        if (j < 0 || j >= template.fields.length) return
-        const fields = [...template.fields]
-        ;[fields[i], fields[j]] = [fields[j], fields[i]]
-        onChange({ ...template, fields })
-    }
-    if (preview) return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {editable && <div><button type='button' onClick={() => setPreview(false)} style={button()}>Edit template</button></div>}
-            <div style={panel}><AnswerSheet template={template} answers={{}} /></div>
-        </div>
-    )
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={panel}>
-                <div style={label}>Title</div>
-                <input value={template.title} onChange={e => onChange({ ...template, title: e.target.value })} style={{ ...input, margin: '4px 0 10px' }} />
-                <div style={label}>Instructions to the trainee</div>
-                <textarea value={template.instructions} onChange={e => onChange({ ...template, instructions: e.target.value })} rows={3} style={{ ...input, marginTop: 4, resize: 'vertical' }} />
-            </div>
-            {template.fields.map((f, i) => (
-                <div key={i} style={{ ...panel, display: 'flex', gap: 8, alignItems: 'flex-start', padding: '10px 12px' }}>
-                    <select value={f.kind} onChange={e => setField(i, { kind: e.target.value as TemplateField['kind'] })} style={{ ...input, width: 120 }}>
-                        <option value='heading'>Heading</option>
-                        <option value='text'>Short answer</option>
-                        <option value='textarea'>Long answer</option>
-                    </select>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <input value={f.label} onChange={e => setField(i, { label: e.target.value })} style={input} placeholder='Label' />
-                        {f.kind !== 'heading' && <input value={f.hint} onChange={e => setField(i, { hint: e.target.value })} style={input} placeholder='Hint (optional)' />}
-                    </div>
-                    <button type='button' onClick={() => move(i, -1)} style={button()}>↑</button>
-                    <button type='button' onClick={() => move(i, 1)} style={button()}>↓</button>
-                    <button type='button' onClick={() => onChange({ ...template, fields: template.fields.filter((_, j) => j !== i) })} style={button()}>×</button>
-                </div>
-            ))}
-            <div style={{ display: 'flex', gap: 8 }}>
-                <button type='button' onClick={() => onChange({ ...template, fields: [...template.fields, { id: `f${Date.now().toString(36)}`, kind: 'textarea', label: '', hint: '' }] })} style={button()}>+ Add field</button>
-                <button type='button' onClick={() => setPreview(true)} style={button()}>Preview</button>
-                <button type='button' onClick={onSave} disabled={saving} style={button('red')}>{saving ? 'Saving…' : 'Save template'}</button>
-            </div>
         </div>
     )
 }
@@ -308,6 +283,7 @@ function AssessmentsList({ typeId, myId, initialReview, initialSession }: { type
     useEffect(load, [load])
 
     const sessions = [...new Map((rows ?? []).filter(r => r.session).map(r => [sessionKey(r.session), r.session!])).values()]
+    const byTrainee = [...(rows ?? []).reduce((m, r) => m.set(r.traineeId, [...(m.get(r.traineeId) ?? []), r]), new Map<string, Row[]>())]
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: open ? 'minmax(260px, 340px) 1fr' : '1fr', gap: 16, alignItems: 'start' }}>
@@ -319,17 +295,23 @@ function AssessmentsList({ typeId, myId, initialReview, initialSession }: { type
                 </select>
                 {rows === null && <div style={{ fontSize: '0.72rem', color: 'rgba(237,237,237,0.4)' }}>Loading…</div>}
                 {rows?.length === 0 && <div style={{ ...panel, fontSize: '0.72rem', color: 'rgba(237,237,237,0.5)' }}>No assessments yet.</div>}
-                {rows?.map(r => (
-                    <button key={r._id} type='button' onClick={() => setOpen(r._id)} style={{ ...panel, padding: '10px 12px', textAlign: 'left', cursor: 'pointer', color: '#ededed', borderColor: open === r._id ? 'rgba(219,0,29,0.5)' : undefined, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                            <span style={{ fontWeight: 700, fontSize: '0.78rem' }}>{r.traineeName}</span>
-                            <StatusPill status={r.status} />
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', color: 'rgba(237,237,237,0.45)' }}>
-                            <span>Variant {r.variant} · {r.trainerId === myId ? 'you' : r.trainerName}{r.session ? ` · ${r.session.label}` : ''}</span>
-                            <SimilarityPill sim={r.similarity} />
-                        </div>
-                    </button>
+                {byTrainee.map(([traineeId, list]) => (
+                    <div key={traineeId} style={{ ...panel, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.8rem' }}>{list[0].traineeName}</div>
+                        {/* Oldest first: their first, second and third lot of orders, in order. */}
+                        {[...list].reverse().map((r, n) => (
+                            <button key={r._id} type='button' onClick={() => setOpen(r._id)} style={{ padding: '6px 8px', textAlign: 'left', cursor: 'pointer', color: '#ededed', background: open === r._id ? 'rgba(219,0,29,0.12)' : 'rgba(0,0,0,0.2)', border: `1px solid ${open === r._id ? 'rgba(219,0,29,0.5)' : 'rgba(255,255,255,0.06)'}`, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                                    <span style={{ fontSize: '0.72rem', fontWeight: 600 }}>Orders {n + 1} · variant {r.variant}</span>
+                                    <StatusPill status={r.status} />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.62rem', color: 'rgba(237,237,237,0.45)' }}>
+                                    <span>{r.trainerId === myId ? 'you' : r.trainerName}{r.session ? ` · ${r.session.label}` : ''}</span>
+                                    <SimilarityPill sim={r.similarity} />
+                                </div>
+                            </button>
+                        ))}
+                    </div>
                 ))}
             </div>
             {open && <ReviewPanel id={open} onClose={() => setOpen(null)} onChanged={load} />}
@@ -369,6 +351,13 @@ function ReviewPanel({ id, onClose, onChanged }: { id: string; onClose: () => vo
                 <div style={{ flex: 1 }} />
                 <button type='button' onClick={onClose} style={button()}>Close</button>
             </div>
+            {a.operationId && (
+                <div style={{ ...panel, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.75rem' }}>{a.traineeName}&apos;s copy of the orders</span>
+                    <a href={`/operations/${a.operationId}`} target='_blank' rel='noreferrer' style={{ ...button(), textDecoration: 'none' }}>View ↗</a>
+                    <a href={`/operations/${a.operationId}/edit`} target='_blank' rel='noreferrer' style={{ ...button(), textDecoration: 'none' }}>Open in the editor ↗</a>
+                </div>
+            )}
             {'similarity' in a && <SimilarityPanel sim={a.similarity} />}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12, alignItems: 'start' }}>
                 <OrdersBody orders={a.orders} />
@@ -398,6 +387,7 @@ function ReviewPanel({ id, onClose, onChanged }: { id: string; onClose: () => vo
                     {a.attempts.map((t, i) => (
                         <div key={i} style={{ borderTop: '1px solid rgba(255,255,255,0.06)', marginTop: 10, paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
                             <div style={{ fontSize: '0.7rem', fontWeight: 700 }}>Attempt {i + 1} · variant {t.variant}{t.review ? ` · ${t.review.byName}: ${t.review.comment}` : ''}</div>
+                            {t.operationId && <a href={`/operations/${t.operationId}`} target='_blank' rel='noreferrer' style={{ fontSize: '0.7rem', color: '#60a5fa' }}>That attempt&apos;s orders ↗</a>}
                             {'similarity' in t && t.similarity && <SimilarityPill sim={t.similarity} />}
                             <AnswerSheet template={t.template ?? a.template} answers={t.answers} />
                         </div>

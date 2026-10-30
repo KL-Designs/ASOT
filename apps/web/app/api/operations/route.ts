@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
+import { privateCopyAccess } from '@/lib/training/orders-assessment-db'
 
 
 export async function GET(request: NextRequest) {
@@ -18,8 +19,9 @@ export async function GET(request: NextRequest) {
 
     let isHQ = false
     let myId: string | null = null
+    let me: User | null = null
     try {
-        const me = await client.fetchMe()
+        me = await client.fetchMe()
         myId = me.id
         isHQ = !!(await client.hasRoles(me, PERMISSIONS.operations.viewInDevelopment))
     } catch { }
@@ -27,7 +29,10 @@ export async function GET(request: NextRequest) {
     try {
         if (id) {
             const mission = await Db.operations.findOne({ _id: new ObjectId(id) })
-            if (mission?.status === 'In Development' && !isHQ) {
+            // Row 373: a trainee's private copy goes to those it is shared with, whatever their role.
+            const copy = await privateCopyAccess(me, id)
+            if (copy === 'none') return NextResponse.json({ error: 'Not found' }, { status: 404 })
+            if (mission?.status === 'In Development' && !isHQ && !copy) {
                 return NextResponse.json({ error: 'Access Denied' }, { status: 403 })
             }
             return NextResponse.json({ mission }, { status: 200 })

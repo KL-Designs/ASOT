@@ -4,7 +4,8 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { actorName } from '@/lib/operations/aar-context'
 import { canReview, isAwaitingReview, nextVariant, STATUS_LABEL, usableVariants } from '@/lib/training/orders-assessment'
-import { assessmentStanding, assessmentUrl, loadConfig, logAssessment, notify } from '@/lib/training/orders-assessment-db'
+import { assessmentStanding, assessmentUrl, createOrdersCopy, loadConfig, logAssessment, notify } from '@/lib/training/orders-assessment-db'
+import { ORDERS_DOCUMENT_TEMPLATE } from '@/lib/training/assessment-operation'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,10 +44,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         const used = [doc.variant, ...doc.attempts.map(a => a.variant)]
         const variant = nextVariant(usableVariants(config.orders), used) ?? doc.variant
         const orders = config.orders.find(o => o.variant === variant) ?? doc.orders
+        // A fresh private copy for the rewrite; the old one stays, read-only, with the attempt.
+        const operationId = orders.operationId ? await createOrdersCopy(orders, id, { id: doc.traineeId, name: doc.traineeName }, doc.trainingTypeId) : null
         await Db.ordersAssessments.updateOne({ _id: doc._id }, {
-            $set: { variant, orders, template: config.template, answers: {}, status: 'reassessment_required', submittedAt: null, similarity: null, review: null, updatedAt: now },
+            $set: { variant, orders, operationId, template: orders.operationId ? ORDERS_DOCUMENT_TEMPLATE : config.template, answers: {}, status: 'reassessment_required', submittedAt: null, similarity: null, review: null, updatedAt: now },
             $push: {
-                attempts: { variant: doc.variant, template: doc.template, answers: doc.answers, submittedAt: doc.submittedAt ?? null, similarity: doc.similarity ?? null, review },
+                attempts: { variant: doc.variant, operationId: doc.operationId ?? null, template: doc.template, answers: doc.answers, submittedAt: doc.submittedAt ?? null, similarity: doc.similarity ?? null, review },
                 history,
             },
         })

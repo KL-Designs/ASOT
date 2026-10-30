@@ -45,6 +45,13 @@ export interface SourceOrders {
     body: string
     /** Free text: which course level these suit. */
     level: string
+    /**
+     * The orders as an operation on the site. Each trainee then gets a private
+     * copy to write in (`assessment-operation.ts`) instead of the template form.
+     */
+    operationId?: string
+    /** The operation's title when it was linked, for showing without a lookup. */
+    operationTitle?: string
 }
 
 const f = (id: string, kind: TemplateField['kind'], label: string, hint = ''): TemplateField => ({ id, kind, label, hint })
@@ -98,13 +105,17 @@ export function sanitiseOrders(raw: unknown): SourceOrders[] {
     for (const x of Array.isArray(raw) ? raw.slice(0, 12) : []) {
         const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>
         const variant = out.length + 1
-        out.push({ variant, title: str(o.title, 160).trim() || `Assessment Orders ${variant}`, body: str(o.body, 60_000), level: str(o.level, 120) })
+        const operationId = /^[a-f0-9]{24}$/i.test(str(o.operationId, 24)) ? str(o.operationId, 24) : undefined
+        out.push({
+            variant, title: str(o.title, 160).trim() || `Assessment Orders ${variant}`, body: str(o.body, 60_000), level: str(o.level, 120),
+            ...(operationId ? { operationId, operationTitle: str(o.operationTitle, 200) } : {}),
+        })
     }
     return out.length ? out : DEFAULT_ORDERS
 }
 
-/** Variants that have something in them; an empty one is never handed out. */
-export const usableVariants = (orders: SourceOrders[]) => orders.filter(o => o.body.trim()).map(o => o.variant)
+/** Variants that have something in them (written orders or a linked operation); an empty one is never handed out. */
+export const usableVariants = (orders: SourceOrders[]) => orders.filter(o => o.operationId || o.body.trim()).map(o => o.variant)
 
 /**
  * Spread variants across a cohort: with three variants and five trainees,

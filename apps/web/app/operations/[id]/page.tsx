@@ -71,8 +71,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     // A mission still in development is not out yet: the same rule as
     // GET /api/operations, which this page used to skip — a trooper with the
     // link could read orders nobody had released. Anyone who may open its
-    // orders in the editor, and its owner, may still see it.
-    const hiddenInDevelopment = operation?.status === 'In Development'
+    // orders in the editor, and its owner, may still see it. A trainee's
+    // assessment copy (row 373) was already limited to who may see it by the layout.
+    const hiddenInDevelopment = operation?.status === 'In Development' && !operation.assessment
         && !(me && (isHQ || client.hasRoles(me, PERMISSIONS.operations.viewInDevelopment) || (operation as { ownedBy?: string }).ownedBy === me.id))
 
     if (!operation || hiddenInDevelopment) return (

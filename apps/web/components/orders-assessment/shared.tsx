@@ -40,7 +40,9 @@ export function OrdersBody({ orders }: { orders: SourceOrders }) {
         <div style={panel}>
             <div style={label}>Source orders{orders.level ? ` · ${orders.level}` : ''}</div>
             <div style={{ fontWeight: 700, margin: '4px 0 10px' }}>{orders.title}</div>
-            {orders.body ? <Paragraphs text={orders.body} /> : <div style={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem' }}>No orders written for this variant yet.</div>}
+            {orders.operationId
+                ? <a href={`/operations/${orders.operationId}`} target='_blank' rel='noreferrer' style={{ fontSize: '0.78rem', color: '#60a5fa' }}>{orders.operationTitle || 'Open the orders'} ↗</a>
+                : orders.body ? <Paragraphs text={orders.body} /> : <div style={{ color: 'rgba(237,237,237,0.4)', fontSize: '0.75rem' }}>No orders written for this variant yet.</div>}
         </div>
     )
 }

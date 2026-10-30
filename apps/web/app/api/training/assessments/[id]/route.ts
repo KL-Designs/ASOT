@@ -4,7 +4,8 @@ import Db from '@/lib/mongo'
 import client from '@/lib/discord'
 import { actorName } from '@/lib/operations/aar-context'
 import { canRead, canReview, isOpenForTrainee, sanitiseAnswers, shapeFor } from '@/lib/training/orders-assessment'
-import { assessmentStanding, logAssessment, notify, runSimilarity } from '@/lib/training/orders-assessment-db'
+import { assessmentStanding, logAssessment, notify, runSimilarity, writtenInCopy } from '@/lib/training/orders-assessment-db'
+import { ORDERS_DOCUMENT_FIELD } from '@/lib/training/assessment-operation'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,7 +57,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (doc.traineeId !== me.id) return NextResponse.json({ error: 'Only the trainee can submit this assessment.' }, { status: 403 })
     if (!isOpenForTrainee(doc.status)) return NextResponse.json({ error: 'This assessment has already been submitted.' }, { status: 409 })
     const body = await req.json().catch(() => ({})) as { answers?: unknown }
-    const answers = body.answers !== undefined ? sanitiseAnswers(body.answers, doc.template) : doc.answers
+    // Written in their copy of the orders: what they wrote is taken from it now.
+    const written = doc.operationId ? (await writtenInCopy(doc)).slice(0, 200_000) : ''
+    const answers = doc.operationId
+        ? (written.trim() ? { [ORDERS_DOCUMENT_FIELD]: written } : {})
+        : body.answers !== undefined ? sanitiseAnswers(body.answers, doc.template) : doc.answers
+    if (doc.operationId && !written.trim()) return NextResponse.json({ error: 'Your orders document has nothing in it beyond the orders you were given. Write your orders there first.' }, { status: 400 })
     if (!Object.keys(answers).length) return NextResponse.json({ error: 'Write your orders before submitting.' }, { status: 400 })
 
     const now = new Date()

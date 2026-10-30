@@ -6,7 +6,8 @@ import { hasPermission } from '@/lib/orbat/hasPermission'
 import { createNotification } from '@/lib/notifications'
 import { sendDM } from '@/lib/discord/bot'
 import { logAction } from '@/lib/logAction'
-import { DEFAULT_ORDERS, DEFAULT_TEMPLATE, answersText, templateStrip, type ReviewerStanding } from './orders-assessment'
+import { DEFAULT_ORDERS, DEFAULT_TEMPLATE, answersText, templateStrip, type ReviewerStanding, type SourceOrders } from './orders-assessment'
+import { copyAccess, operationBlocks, writtenText, type CopyAccess } from './assessment-operation'
 import { compareSubmission, type SimilaritySource } from './similarity'
 
 /**
@@ -116,4 +117,75 @@ export async function logAssessment(action: string, me: User, name: string, id: 
         actionUrl: assessmentUrl(id),
         details,
     })
+}
+
+/* ── Private copies of the orders (row 373) ─────────────────────────────── */
+
+/**
+ * A trainee's private copy of a source operation, with their name on it.
+ * Everything about the night itself is left behind: campaign, attendance,
+ * acknowledgements, OCAP, mission-development checks, staff notes.
+ */
+export async function createOrdersCopy(source: SourceOrders, assessmentId: string, trainee: { id: string; name: string }, trainingTypeId: string): Promise<string | null> {
+    if (!source.operationId || !ObjectId.isValid(source.operationId)) return null
+    const src = await Db.operations.findOne({ _id: new ObjectId(source.operationId) })
+    if (!src) return null
+    const copy: Operation = {
+        _id: new ObjectId(),
+        title: `${src.title} — ${trainee.name}`,
+        department: src.department,
+        date: src.date,
+        loreDate: src.loreDate,
+        status: 'In Development',
+        sections: src.sections,
+        pages: src.pages,
+        extraPageSections: src.extraPageSections,
+        themeColor: src.themeColor,
+        pageTheme: src.pageTheme,
+        customTheme: src.customTheme,
+        coverImage: src.coverImage,
+        mapWorld: src.mapWorld,
+        isSingleMission: true,
+        ownedBy: trainee.id,
+        ownedByName: trainee.name,
+        assessment: { id: assessmentId, traineeId: trainee.id, traineeName: trainee.name, trainingTypeId },
+    }
+    // The collaborative state is what the editor opens; without it the copy would start blank.
+    const raw = src as Operation & { yjsState?: unknown; mapYjsState?: unknown }
+    await Db.operations.insertOne({ ...copy, ...(raw.yjsState ? { yjsState: raw.yjsState } : {}), ...(raw.mapYjsState ? { mapYjsState: raw.mapYjsState } : {}) } as Operation)
+    return String(copy._id)
+}
+
+/**
+ * Who may open an operation, when it is a trainee's copy. `null` means it is
+ * an ordinary operation and the usual rules apply.
+ */
+export async function privateCopyAccess(me: User | null, operationId: string): Promise<CopyAccess | null> {
+    if (!ObjectId.isValid(operationId)) return null
+    const op = await Db.operations.findOne({ _id: new ObjectId(operationId) }, { projection: { assessment: 1 } })
+    if (!op?.assessment) return null
+    if (!me) return 'none'
+    const standing = await assessmentStanding(me)
+    const doc = ObjectId.isValid(op.assessment.id) ? await Db.ordersAssessments.findOne({ _id: new ObjectId(op.assessment.id) }) : null
+    // The current copy, or one an earlier attempt kept.
+    const current = doc && (doc.operationId === operationId || doc.attempts?.some(a => a.operationId === operationId)) ? doc : null
+    return copyAccess(current, operationId, me.id, standing)
+}
+
+/** Has this member a copy they may write in right now? Lets them upload images into it. */
+export async function writesAnyCopy(me: User): Promise<boolean> {
+    return !!(await Db.ordersAssessments.findOne({ traineeId: me.id, operationId: { $nin: [null, ''] }, status: { $in: ['assigned', 'in_progress', 'reassessment_required'] } }, { projection: { _id: 1 } }))
+}
+
+/** What the trainee wrote in their copy, less what the source gave them. */
+export async function writtenInCopy(doc: OrdersAssessment): Promise<string> {
+    if (!doc.operationId || !ObjectId.isValid(doc.operationId)) return ''
+    const [copy, source] = await Promise.all([
+        Db.operations.findOne({ _id: new ObjectId(doc.operationId) }, { projection: { sections: 1, pages: 1, extraPageSections: 1 } }),
+        doc.orders.operationId && ObjectId.isValid(doc.orders.operationId)
+            ? Db.operations.findOne({ _id: new ObjectId(doc.orders.operationId) }, { projection: { sections: 1, pages: 1, extraPageSections: 1 } })
+            : null,
+    ])
+    if (!copy) return ''
+    return writtenText(operationBlocks(copy as never), source ? operationBlocks(source as never) : [])
 }

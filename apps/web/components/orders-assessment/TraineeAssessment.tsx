@@ -13,6 +13,7 @@ interface View {
     trainerName: string
     status: AssessmentStatus
     orders: SourceOrders
+    operationId?: string | null
     template: AssessmentTemplate
     answers: Record<string, string>
     review?: { outcome: string; comment: string; byName: string } | null
@@ -86,11 +87,36 @@ export default function TraineeAssessment({ id }: { id: string }) {
                 <div style={{ ...panel, borderColor: view.status === 'passed' ? 'rgba(76,175,80,0.35)' : 'rgba(245,158,11,0.35)' }}>
                     <div style={label}>Feedback from {lastReview.byName}</div>
                     <div style={{ fontSize: '0.78rem', marginTop: 6, whiteSpace: 'pre-wrap' }}>{lastReview.comment || 'No comment.'}</div>
-                    {view.status === 'reassessment_required' && <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.5)', marginTop: 8 }}>You have been given a new set of source orders. Write fresh orders from them below.</div>}
+                    {view.status === 'reassessment_required' && <div style={{ fontSize: '0.65rem', color: 'rgba(237,237,237,0.5)', marginTop: 8 }}>You have been given a new set of source orders. Write fresh orders from them{view.operationId ? ' in your new copy' : ' below'}.</div>}
                 </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, alignItems: 'start' }}>
+            {view.operationId && (
+                <div style={{ ...panel, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={label}>Your orders</div>
+                    <div style={{ fontSize: '0.78rem' }}>
+                        {editable
+                            ? 'You have your own copy of the orders, with your name on it. Write your section orders in it the way you would on any operation. Only you, your trainer, J3 and J4 can see it.'
+                            : 'Your copy of the orders, as you wrote them.'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                        <a href={`/operations/${view.operationId}/edit`} target='_blank' rel='noreferrer' style={{ ...button(editable ? 'red' : 'ghost'), textDecoration: 'none' }}>{editable ? 'Open and write my orders ↗' : 'Open my orders ↗'}</a>
+                        <a href={`/operations/${view.operationId}`} target='_blank' rel='noreferrer' style={{ ...button(), textDecoration: 'none' }}>Preview ↗</a>
+                        {editable && (confirming ? (
+                            <>
+                                <span style={{ fontSize: '0.72rem' }}>Submit for review? You cannot edit after this.</span>
+                                <button type='button' disabled={busy} onClick={submit} style={button('red')}>{busy ? 'Submitting…' : 'Submit'}</button>
+                                <button type='button' onClick={() => setConfirming(false)} style={button()}>Cancel</button>
+                            </>
+                        ) : (
+                            <button type='button' onClick={() => setConfirming(true)} style={button()}>Submit for review</button>
+                        ))}
+                    </div>
+                    {error && <div style={{ fontSize: '0.72rem', color: 'rgb(219,0,29)' }}>{error}</div>}
+                </div>
+            )}
+
+            {!view.operationId && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 14, alignItems: 'start' }}>
                 <OrdersBody orders={view.orders} />
                 <div style={{ ...panel, display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <AnswerSheet template={view.template} answers={answers} onChange={editable ? change : undefined} />
@@ -111,7 +137,7 @@ export default function TraineeAssessment({ id }: { id: string }) {
                     )}
                     {error && <div style={{ fontSize: '0.72rem', color: 'rgb(219,0,29)' }}>{error}</div>}
                 </div>
-            </div>
+            </div>}
         </div>
     )
 }

@@ -4,6 +4,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
 import { can } from '@/lib/operations/permissions'
+import { privateCopyAccess } from '@/lib/training/orders-assessment-db'
 
 export async function GET(request: NextRequest) {
     const token = request.headers.get('x-collab-token')
@@ -73,6 +74,17 @@ export async function GET(request: NextRequest) {
         const readOnly = (isMapDoc || isOperationDoc) && authorized
             ? !((await can(me, writeCap)) || (await hasPermission(me, 'auth.collab')))
             : false
+
+        // Row 373: a trainee's private copy of assessment orders. The trainee writes
+        // in their current copy; their trainer, J3 training staff and J4 read it; nobody else connects.
+        if (isMapDoc || isOperationDoc) {
+            const copy = await privateCopyAccess(me, isMapDoc ? doc.slice(0, -4) : doc)
+            if (copy !== null) {
+                const userName = me.guild?.displayName || me.globalName || me.username || 'Unknown'
+                const userAvatar = me.guild?.avatarURL || me.avatarURL || null
+                return NextResponse.json({ authorized: copy !== 'none', readOnly: copy !== 'write', userId: me._id, userName, userAvatar })
+            }
+        }
 
         const userName = me.guild?.displayName || me.globalName || me.username || 'Unknown'
         const userAvatar = me.guild?.avatarURL || me.avatarURL || null

@@ -259,6 +259,14 @@ declare global {
             acknowledgedAt: string  // ISO timestamp
         }>
 
+        /**
+         * Row 373: a trainee's private copy of an assessment's source orders.
+         * Never listed anywhere (`lib/operations/private-scope.ts` keeps it out
+         * of every query that is not by id) and opened only by the trainee,
+         * their trainer, J3 training staff and J4 (`lib/training/assessment-operation.ts`).
+         */
+        assessment?: { id: string; traineeId: string; traineeName: string; trainingTypeId: string }
+
         // Soft delete
         deletedAt?: Date
         deletedBy?: string       // Discord user ID

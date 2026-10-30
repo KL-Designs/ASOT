@@ -1,4 +1,5 @@
 import { MongoClient, Collection as MongoCollection, Document } from 'mongodb'
+import { hidePrivateOperations } from './operations/private-scope'
 
 if (!process.env.MONGO_URI) throw new Error('MONGO_URI is not set')
 if (!process.env.MONGO_DB) throw new Error('MONGO_DB is not set')
@@ -21,7 +22,8 @@ const DbInterface = {
     roles: db.collection('roles') as MongoCollection<Role>,
     milpacs: db.collection('milpacs') as MongoCollection<Milpac>,
     optionals: db.collection('optionals') as MongoCollection<Optional>,
-    operations: db.collection('operations') as MongoCollection<Operation>,
+    /** Trainees' private assessment copies are hidden from every query that is not by id: see lib/operations/private-scope.ts. */
+    operations: hidePrivateOperations(db.collection('operations') as MongoCollection<Operation>),
     operationActivity: db.collection<OperationActivityLog>('operation_activity'),
     minigameScores: db.collection('minigame_scores'),
     minigameLive: db.collection('minigame_live'),
