@@ -52,7 +52,32 @@ function findField(label: string, section: DoctrineSection | null): DoctrineFiel
         const loose = pool.filter(f => norm(f.label).startsWith(n) || n.startsWith(norm(f.label)))
         if (loose.length === 1) return loose[0]
     }
+    // Worded differently ("Name of faction", "Combat style"): the question
+    // whose words the label shares most, when that is most of them.
+    const mine = words(n)
+    if (!mine.size) return null
+    for (const pool of pools) {
+        let best: DoctrineField | null = null
+        let bestScore = 0
+        let tied = false
+        for (const f of pool) {
+            const theirs = words(norm(f.label))
+            if (!theirs.size) continue
+            let shared = 0
+            for (const w of mine) if ([...theirs].some(t => t === w || (w.length > 4 && t.length > 4 && (t.startsWith(w.slice(0, 5)) || w.startsWith(t.slice(0, 5)))))) shared++
+            const score = shared / Math.max(theirs.size, mine.size)
+            if (score > bestScore) { best = f; bestScore = score; tied = false } else if (score === bestScore && score > 0) tied = true
+        }
+        if (best && !tied && bestScore >= 0.5) return best
+    }
     return null
+}
+
+const hasValue = (v: unknown) => Array.isArray(v) ? v.length > 0 : typeof v === 'string' ? !!v.trim() : v != null
+
+const STOP = new Set(['the', 'and', 'of', 'a', 'an', 'or', 'to', 'in', 'on', 'for', 'by', 'with', 'their', 'its', 'is', 'are', 'what', 'how', 'does', 'do', 'they', 'enemy', 'faction'])
+function words(n: string): Set<string> {
+    return new Set(n.split(' ').filter(w => w.length > 1 && !STOP.has(w)))
 }
 
 /** The option as the schema spells it, or the text as typed (a custom option). */
@@ -107,9 +132,11 @@ export function parseDoctrineText(text: string, base: DoctrineValues): ImportRes
         const heading = findSection(line)
         if (heading) { section = heading; last = null; continue }
 
-        const colon = line.indexOf(':')
+        // "Label: answer", or "Label – answer" / "Label - answer" in a document without colons.
+        const dash = line.indexOf(':') < 0 ? line.search(/\s[-–—]\s/) : -1
+        const colon = line.indexOf(':') >= 0 ? line.indexOf(':') : dash
         const label = colon > 0 ? line.slice(0, colon).replace(/^\d{1,2}[.)]\s*/, '') : ''
-        const rest = colon > 0 ? line.slice(colon + 1).trim() : ''
+        const rest = colon > 0 ? line.slice(colon + (colon === dash ? 2 : 1)).replace(/^[-–—]\s*/, '').trim() : ''
 
         if (label && /^(additional )?notes?$/i.test(label.trim())) {
             const key = last?.key ?? (section?.kind === 'composition' ? 'composition' : null)
@@ -137,9 +164,12 @@ export function parseDoctrineText(text: string, base: DoctrineValues): ImportRes
         }
 
         // A question on its own line ("Faction name") takes the line below as its answer.
-        if (!label && line.length <= 60) {
-            const own = findField(line.replace(/^\d{1,2}[.)]\s*/, '').replace(/[?.]$/, ''), section)
-            if (own && norm(own.label) === norm(line.replace(/^\d{1,2}[.)]\s*/, ''))) { last = { key: own.key, target: 'field' }; continue }
+        const awaiting = last?.target === 'field' && !hasValue(values.fields[last.key])
+        if (!label && line.length <= 60 && !awaiting) {
+            const bare = line.replace(/^\d{1,2}[.)]\s*/, '').replace(/[?.]$/, '')
+            // Prose ends in a full stop or runs long; a question on its own line doesn't.
+            const own = /[.!]$/.test(line) || bare.split(/\s+/).length > 7 ? null : findField(bare, section)
+            if (own) { last = { key: own.key, target: 'field' }; continue }
         }
 
         // A short "Something:" label that matched nothing is its own line, not more of the answer above.

@@ -68,4 +68,22 @@ describe('parseDoctrineText', () => {
         expect(values.fields['identity.name']).toBe('Takistani Army')
         expect(values.fields['identity.description']).toBe('Conscripts.\nPoorly trained.')
     })
+
+    test('worded differently, with dashes and questions on their own lines', () => {
+        const text = [
+            'Name of faction – Takistani National Army',
+            'Combat style - Conventional infantry',
+            'Command and Control',
+            'Command structure?',
+            'Centralised',
+            'Training standard: Poor',
+            'Reconnaissance ability - Low',
+        ].join('\n')
+        const { values } = parseDoctrineText(text, EMPTY_VALUES)
+        expect(values.fields['identity.name']).toBe('Takistani National Army')
+        expect(values.fields['identity.combatStyle']).toBeTruthy()
+        expect(values.fields['command.structure']).toBe('Centralised')
+        expect(values.fields['quality.training']).toBeTruthy()
+        expect(values.fields['recon.capability']).toBeTruthy()
+    })
 })

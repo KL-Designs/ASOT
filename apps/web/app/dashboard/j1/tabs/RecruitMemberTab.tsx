@@ -573,8 +573,8 @@ export default function RecruitMemberTab({ displayName }: RecruitMemberTabProps)
 
     const connectSessionWs = useCallback((id: string, token: string) => {
         if (sessionWsRef.current?.readyState === WebSocket.OPEN) return
-        const urls = recruitSessionWsUrls()
-        const ws = new WebSocket(`${urls[sessionAttempt.current % urls.length]}?id=${id}&role=recruiter&token=${token}`)
+        const urls = recruitSessionWsUrls({ id, role: 'recruiter', token })
+        const ws = new WebSocket(urls[sessionAttempt.current % urls.length])
         sessionWsRef.current = ws
 
         ws.onmessage = (event) => {

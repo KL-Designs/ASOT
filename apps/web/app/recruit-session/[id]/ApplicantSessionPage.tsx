@@ -50,8 +50,8 @@ export default function ApplicantSessionPage({ sessionId, initialStep, initialRa
 
     function connect() {
         if (wsRef.current?.readyState === WebSocket.OPEN) return
-        const urls = recruitSessionWsUrls()
-        const ws = new WebSocket(`${urls[attempt.current % urls.length]}?id=${sessionId}&role=applicant`)
+        const urls = recruitSessionWsUrls({ id: sessionId, role: 'applicant' })
+        const ws = new WebSocket(urls[attempt.current % urls.length])
         wsRef.current = ws
 
         ws.onopen = () => {

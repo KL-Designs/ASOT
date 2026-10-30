@@ -613,17 +613,19 @@ const httpServer = createServer((req, res) => {
 })
 
 httpServer.on('upgrade', (request, socket, head) => {
-    const { pathname } = parse(request.url)
-    if (pathname === '/collab') {
-        wss.handleUpgrade(request, socket, head, (ws) => {
-            wss.emit('connection', ws, request)
-        })
-    } else if (pathname === '/recruit-session' || pathname === '/collab/recruit-session') {
-        // Also under /collab/: the reverse proxy in front of live forwards
-        // WebSocket upgrades for /collab and its sub-paths only, so that is
-        // the address the follow-along link uses.
+    const { pathname, query } = parse(request.url, true)
+    // The recruit follow-along socket rides on /collab with ?recruit-session=1:
+    // the reverse proxy in front of live upgrades only that exact path. The
+    // direct paths stay for setups that forward them.
+    const recruit = (pathname === '/collab' && query['recruit-session'] === '1')
+        || pathname === '/recruit-session' || pathname === '/collab/recruit-session'
+    if (recruit) {
         recruitSessionWss.handleUpgrade(request, socket, head, (ws) => {
             recruitSessionWss.emit('connection', ws, request)
+        })
+    } else if (pathname === '/collab') {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request)
         })
     }
     // Other paths (e.g. /_next/webpack-hmr) are handled by Next.js itself
