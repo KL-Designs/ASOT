@@ -296,7 +296,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                 },
             }}
         >
-            <DialogTitle style={{ padding: '16px 20px', borderBottom: '1px solid var(--line-2)' }}>
+            <DialogTitle data-tour='j1-app-dialog' style={{ padding: '16px 20px', borderBottom: '1px solid var(--line-2)' }}>
                 <div className='flex items-center justify-between'>
                     <div>
                         <div style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>
@@ -516,6 +516,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                         </div>
                         <div className='flex flex-col gap-3'>
                             <TextField
+                                data-tour='j1-app-notes'
                                 label='Notes'
                                 value={notes}
                                 onChange={e => setNotes(e.target.value)}
@@ -676,6 +677,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
                                     )}
 
                                     {/* Action buttons — context-sensitive based on role and application state */}
+                                    <div data-tour='j1-app-actions'>
                                     {(() => {
                                         const hasRecruiter = !!app.assignedReviewerId
                                         const j4Override = !hasRecruiter && isJ4 && !isLead
@@ -901,6 +903,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
 
                                         return null
                                     })()}
+                                    </div>
                                 </div>
                             )}
 
@@ -1004,6 +1007,7 @@ function ApplicationModal({ app, members, isJ4, isLead, userId, onClose, onUpdat
 
                             <div className='flex items-center gap-3 mt-1'>
                                 <Button
+                                    data-tour='j1-app-save'
                                     variant='contained'
                                     size='small'
                                     onClick={handleSave}
@@ -1195,7 +1199,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
     return (
         <div className='flex flex-col gap-0'>
             {/* Filter bar */}
-            <div className='flex items-center gap-0 flex-wrap px-4 pt-4 pb-0'>
+            <div data-tour='j1-app-filters' className='flex items-center gap-0 flex-wrap px-4 pt-4 pb-0'>
                 {FILTERS.map(f => (
                     <button
                         key={f}
@@ -1278,6 +1282,7 @@ export default function ApplicationsTab({ isJ4 = false, isLead = false, userId =
                     {paginated.map(app => (
                         <div
                             key={app._id}
+                            data-tour={app._id.startsWith('tutorial-') ? 'tutorial-practice-row' : undefined}
                             className='grid gap-3 px-4 py-3 cursor-pointer transition-colors'
                             style={{ gridTemplateColumns: '1fr 1fr 40px 80px 1fr 100px', borderBottom: '1px solid var(--line-2)' }}
                             onClick={() => setSelected(app)}

@@ -52,7 +52,7 @@ export default function DeptSettingsView({
     return (
         <div className='flex flex-col flex-1 min-h-0'>
             {shown.length > 0 && (
-                <div className='mx-6 mt-4 flex flex-wrap gap-2' role='tablist' aria-label='Admin tools'>
+                <div data-tour='dept-admin-sections' className='mx-6 mt-4 flex flex-wrap gap-2' role='tablist' aria-label='Admin tools'>
                     <button type='button' role='tab' aria-selected={!current} style={pillSx(!current)} onClick={() => onSelect?.(MEMBERS_KEY)}>
                         Members &amp; Links
                     </button>

@@ -79,6 +79,7 @@ Full inventory of every page, API route, and `lib`/`types`/`components` file in 
 | Optionals (mod list manager) | G (`app/optionals/**` — route handlers live directly under `app/optionals/*/route.ts`, not `app/api`) |
 | Cron jobs | D (`/api/cron/**`), H (`server.mjs` scheduler section, `lib/cron-auth.ts`) |
 | Event-loop diagnostics / watchdog (production stall detection, in-flight request/job tracking) | H (`lib/diagnostics.mjs`, `server.mjs` §6) |
+| Guided tutorials, tutorial mode / sandbox, `data-tour` attributes, Tutorial button | H (`lib/tutorial/**`, `components/tutorial/**`, `types/tutorial.d.ts`; start with `lib/tutorial/README.md`), D (`/api/tutorials/progress`) |
 | Impersonation ("Login As") | A (`/api/admin/impersonate[/return]`), G (`members/MemberList.tsx`) |
 | Dashboard service status icons (Website/Database/Backups/Discord/TeamSpeak connectivity + dev-mode) | D (`/api/dashboard/status`), F (`DashboardOverview.tsx` `ServiceStatusIcons`) |
 | Known gaps / flagged issues | `POST /api/admin/discord-bot-test` has no auth check (A); `/api/dev/grant-all-roles` and `/api/dev/test-application` lack a `NODE_ENV` guard (D); `app/dashboard/retired/page.tsx` has no page-level permission gate (F) |

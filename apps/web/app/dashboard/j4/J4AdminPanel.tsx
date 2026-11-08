@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import TutorialButton from '@/components/tutorial/TutorialButton'
 import { useState, useEffect } from 'react'
 import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, MenuItem, FormControl, InputLabel, CircularProgress, Tabs, Tab } from '@mui/material'
 import { CalendarMonth, HistoryEdu, Settings } from '@mui/icons-material'
@@ -1162,6 +1163,7 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <TutorialButton />
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                         </button>

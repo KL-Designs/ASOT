@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import TutorialButton from '@/components/tutorial/TutorialButton'
 import { Typography, Tabs, Tab } from '@mui/material'
 import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
@@ -91,6 +92,7 @@ export default function J2Panel({
                     </Typography>
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                    <TutorialButton />
                     <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                         <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                     </button>

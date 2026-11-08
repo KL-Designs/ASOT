@@ -145,6 +145,10 @@ const DbInterface = {
     // ── Member Induction (row 213) ────────────────────────────────────────────
     /** One new member's progress through the website induction. Config lives in siteSettings ('inductionPack'). */
     inductionProgress: db.collection('induction_progress') as MongoCollection<InductionProgress>,
+
+    // ── Guided tutorials ──────────────────────────────────────────────────────
+    /** Which guided tutorials each member has finished (one doc per member + tutorial). Tutorials themselves never write anything else. */
+    tutorialProgress: db.collection('tutorial_progress') as MongoCollection<TutorialProgress>,
     /** Row 384: physical award preference per member, and the awards waiting to be posted. LT GEN Thomas only. */
     awardPostagePrefs: db.collection('award_postage_prefs') as MongoCollection<AwardPostagePref>,
     awardPostageItems: db.collection('award_postage_items') as MongoCollection<AwardPostageItem>,

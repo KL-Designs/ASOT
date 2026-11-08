@@ -1,5 +1,6 @@
 'use client'
 
+import TutorialButton from '@/components/tutorial/TutorialButton'
 import { Typography, Tabs, Tab } from '@mui/material'
 import { Settings, HistoryEdu } from '@mui/icons-material'
 import { Construction } from '@mui/icons-material'
@@ -105,6 +106,7 @@ export default function J3Panel({ displayName, userId, canManageMembers, canMana
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <TutorialButton />
                         <button style={{ ...btnSx(view === 'activity'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'activity' ? 'dept' : 'activity')}>
                             <HistoryEdu sx={{ fontSize: '0.85rem' }} />Activity Logs
                         </button>

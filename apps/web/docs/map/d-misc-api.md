@@ -155,6 +155,9 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 #### /api/me/induction
 - **GET** — the signed-in member's induction (row 213): welcome, links, steps from `Db.siteSettings` `inductionPack`, steps done, completion, Selection interest, next Selection. Marks `openedAt` the first time for a member who was sent the pack. **POST** — `{ action: 'step', stepId, done }` ticks or unticks a step (completion is recorded once, when every current step is done); `{ action: 'selection-interest' }` registers interest in the next Selection (Q4: interest only, J3 adds the candidate), notifies the J3 leads (`selection_interest`) and logs `j3.selection.interest`. Auth: any authenticated user. Collections: `Db.inductionProgress`.
 
+#### /api/tutorials/progress
+- **GET** — the caller's user id and `completed` (tutorial id -> ISO time last finished), for the Tutorial button's ticks and the tutorial's practice data. **POST** — `{ tutorialId }` (must be in `lib/tutorial/registry.ts`): records that the caller finished it (upsert; `runs` counts replays). The only write a guided tutorial makes; sent through the sandbox's `realFetch`. Auth: any authenticated user. Collections: `Db.tutorialProgress`.
+
 #### /api/me/roles
 - **GET** — `?has=role1,role2` checks whether current user holds any of the given Discord roles. Auth: any authenticated user.
 

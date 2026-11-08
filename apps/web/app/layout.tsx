@@ -11,6 +11,7 @@ import Navbar from './navbar'
 import Footer from "./footer"
 import CustomCursor from '@/components/cursor'
 import StrayTextGuard from '@/components/StrayTextGuard'
+import TutorialProvider from '@/components/tutorial/TutorialProvider'
 
 
 const montserrat = Montserrat({ subsets: ["latin"] })
@@ -62,6 +63,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 				<CustomCursor />
 				<StrayTextGuard />
 				<ThemeProvider theme={UnitTheme}>
+				<TutorialProvider>
 					<div className="h-full flex flex-col">
 
 						{/* Above the footer, not level with it. Both were zIndex 1, so DOM
@@ -82,6 +84,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 						</div>
 
 					</div>
+				</TutorialProvider>
 				</ThemeProvider>
 			</body>
 		</html>

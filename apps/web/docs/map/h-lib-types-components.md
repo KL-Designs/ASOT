@@ -780,6 +780,12 @@ All declare into `declare global { ... }` (imports become no-ops via `export {}`
 - `CommunityTicket` — the big ticket document interface, with per-category optional field groups (request/bug/mission-campaign/unit-feedback/complaint/award fields), `statuses[]` multi-status support, `ticketTags[]`, `activityLog`.
 - `CommunityTicketTask`, `CampaignPhase`, `CommunityTicketComment`, `CommunityTicketActivity`.
 
+### lib/tutorial/ + components/tutorial/ (guided tutorials)
+- Read `lib/tutorial/README.md` first. `sandbox.ts`: while a tutorial runs, patches `fetch`, XHR, `sendBeacon` and WebSocket `send` so no write leaves the browser (default-deny; handlers only shape fake answers and add practice records to real reads); `realFetch` for the progress save. `registry.ts`: `TUTORIAL_DEFINITIONS`, `TUTORIALS` (listable summaries), `getTutorial`, `tutorialsForPath`, `TUTORIAL_START_EVENT`. `paths.ts`: `pathMatches`. `tutorials/j1-applications.ts`, `tutorials/dept-tickets.ts`. Components: `TutorialProvider` (root layout; `useTutorials()`; starts on `?tutorial=`, the `asot:tutorial-start` event, or the button; reloads the page when a tutorial ends), `TutorialOverlay`, `TutorialButton` (in every J-department header). Tests: `lib/tutorial/sandbox.test.ts`, `tests/tutorial.spec.ts`.
+
+### types/tutorial.d.ts
+- `TutorialProgress` (`tutorial_progress`, one per member + tutorial: first/last completed, runs).
+
 ### types/induction.d.ts
 - `SelectionCountdownConfig` (row 212, `site_settings` `_id: 'selectionCountdown'`: enabled, channel, title, text, image, override, posted message id/channel/fingerprint, last error), `InductionStep`, `InductionPackConfig` (row 213, `_id: 'inductionPack'`), `InductionProgress` (`induction_progress`, one per member: sent, opened, steps done, completed, Selection interest). `J1Application.inductionPack` (`types/j1.d.ts`) records who sent it and how often.
 
