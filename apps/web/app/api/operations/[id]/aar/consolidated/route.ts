@@ -72,5 +72,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
             targetName: c.targetName, wording: c.wording, createdAt: c.createdAt, mine: c.authorId === me.id,
         })),
         canDeleteAnyCommendation: ctx.standing.canManageAll || ctx.standing.isJ4 || ctx.standing.isMissionMaker,
+        seesMissionMakerSummary: seesComments,
     })
 }
