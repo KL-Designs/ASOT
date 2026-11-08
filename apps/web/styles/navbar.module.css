@@ -1241,7 +1241,9 @@ a.amb:hover {
 
 .toTop {
     position: fixed;
-    bottom: 28px;
+    /* Stacked above the help wiki's "?" launcher, which takes the corner
+       (styles/help.module.css .launcher). */
+    bottom: 78px;
     right: 28px;
     z-index: 50;
     width: 40px;

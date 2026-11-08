@@ -173,6 +173,14 @@ const DbInterface = {
     trainingVideoProgress: db.collection('training_video_progress') as MongoCollection<TrainingVideoProgress>,
 
     eraOptions: db.collection('era_options') as MongoCollection<EraOption>,
+
+    // ── Help wiki (the "?" button, /help, J7's review tab) ────────────────────
+    /** Articles edited or added by J7; overlay the built-in ones in lib/help/articles.ts by slug. */
+    helpArticles:    db.collection('help_articles')    as MongoCollection<HelpArticle>,
+    /** Edit suggestions, new-article ideas, bug reports and questions sent in from the wiki. */
+    helpSuggestions: db.collection('help_suggestions') as MongoCollection<HelpSuggestion>,
+    /** The previous copy of an article each time it changes. */
+    helpRevisions:   db.collection('help_revisions')   as MongoCollection<HelpRevision>,
 }
 
 export default DbInterface

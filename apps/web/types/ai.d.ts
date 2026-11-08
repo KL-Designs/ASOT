@@ -7,6 +7,7 @@ type AiFeature =
     | 'text.general'
     | 'aar.summary'
     | 'doctrine.import'
+    | 'help.ask'
 
 type AiImageQuality = 'standard' | 'hd'
 

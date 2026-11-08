@@ -248,6 +248,21 @@ export const NOTIFICATION_TYPES: NotifTypeMeta[] = [
         category: 'Board',
     },
 
+    // ── Help wiki ─────────────────────────────────────────────────────────────
+    {
+        type: 'help_suggestion_submitted',
+        label: 'Help wiki suggestion sent in',
+        description: 'When someone suggests an edit, reports a bug or asks a question from the help wiki (J7).',
+        category: 'Help wiki',
+        requiresAny: ['J7 - Community Development'],
+    },
+    {
+        type: 'help_suggestion_reviewed',
+        label: 'Your help wiki suggestion was reviewed',
+        description: 'When J7 approves or rejects something you sent in from the help wiki.',
+        category: 'Help wiki',
+    },
+
     // ── General ───────────────────────────────────────────────────────────────
     {
         type: 'system',

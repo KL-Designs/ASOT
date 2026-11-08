@@ -564,6 +564,7 @@ export default function StaffSidebar({
                     label: '[J7] Development', href: '/dashboard/j7', visible: permissions.canSeeJ7, icon: <Code sx={{ fontSize: 14 }} />,
                     tabs: [
                         { label: 'Board', tab: 0 },
+                        { label: 'Help Wiki', tab: 3 },
                         { label: 'Admin', tab: -1, admin: true },
                     ],
                 },
