@@ -1461,6 +1461,24 @@ const PERMISSIONS = {
         },
     },
 
+    help: {
+        /**
+         * Review what readers send in from the help wiki (edit suggestions,
+         * new-article ideas, bug reports, questions), approve or reject it, and
+         * edit, add, hide or restore articles directly.
+         *
+         * Checked as the legacy role list **or** the granted key, so J7 holds it
+         * from the start and it can be granted to anyone else in the Roles
+         * Manager without touching this file.
+         *
+         * Used by:
+         *  - `lib/help/viewer.ts` (`canReview`)
+         *  - `app/api/help/suggestions/**`, `app/api/help/articles/**`
+         *  - `app/dashboard/j7/tabs/HelpWikiTab.tsx` (via the routes above)
+         */
+        review: ['J7 - Community Development'],
+    },
+
     ai: {
         /**
          * Manage AI configuration — budgets, caps, provider settings,

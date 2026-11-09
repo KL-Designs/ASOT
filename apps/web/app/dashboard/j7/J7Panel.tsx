@@ -12,6 +12,7 @@ import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import BoardTab from './tabs/BoardTab'
+import HelpWikiTab from './tabs/HelpWikiTab'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
 /** Old main-tab numbers of the tools that now live under Admin (row 84). */
@@ -103,6 +104,8 @@ export default function J7Panel({
                             sx={{ minHeight: 40 }}
                         >
                             <Tab label={<PinTabLabel label='Board'    pinLabel='J7 — Board'    href='/dashboard/j7' tabIndex={0} />} sx={tabSx} />
+                            {/* 3, not 1: tabs 1 and 2 are the old numbers of Meetings and Tickets, which MOVED_TABS sends to Admin. */}
+                            <Tab value={3} label={<PinTabLabel label='Help Wiki' pinLabel='J7 — Help Wiki' href='/dashboard/j7' tabIndex={3} />} sx={tabSx} />
                             <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>
                     </div>
@@ -114,6 +117,7 @@ export default function J7Panel({
                     {view === 'dept' && (
                         <div className='flex-1 min-h-0 mt-0'>
                             {tab === 0 && <BoardTab department='j7' canManageColumns={canManageMembers || isJ4} />}
+                            {tab === 3 && <HelpWikiTab />}
                         </div>
                     )}
                 </>

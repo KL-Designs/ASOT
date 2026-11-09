@@ -12,6 +12,7 @@ import Footer from "./footer"
 import CustomCursor from '@/components/cursor'
 import StrayTextGuard from '@/components/StrayTextGuard'
 import TutorialProvider from '@/components/tutorial/TutorialProvider'
+import HelpLauncher from '@/components/help/HelpLauncher'
 
 
 const montserrat = Montserrat({ subsets: ["latin"] })
@@ -84,6 +85,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 						</div>
 
 					</div>
+
+					{/* The help wiki's "?" button and side panel, on every page. */}
+					<HelpLauncher />
 				</TutorialProvider>
 				</ThemeProvider>
 			</body>

@@ -9,6 +9,31 @@ Covers `app/api/{teamspeak,cron,applications,me,gallery,community,uploads,miniga
 
 ---
 
+### help (6 files) — the site-wide help wiki
+
+All gates come from `resolveHelpViewer()` (`lib/help/viewer.ts`): signed-out readers are `level: 'public'`, members (`ai.use` role or dashboard access) `'member'`, staff and reviewers `'staff'`; `canAsk` is `PERMISSIONS.ai.use`; `canReview` is `PERMISSIONS.help.review` (J7) **or** the granted `help.review` key. Collections: `helpArticles`, `helpSuggestions`, `helpRevisions`, plus the built-in articles in `lib/help/articles.ts`.
+
+#### /api/help
+- **GET** — public. The whole wiki the reader may see (built-in articles overlaid by `help_articles`, filtered by audience; reviewers also get hidden ones) plus `viewer` flags, in one `no-store` response. The client searches it locally.
+
+#### /api/help/ask
+- **POST** `{question, pathname?, history?}` — signed in + `ai.use`. Picks the relevant articles the asker may read (`pickArticles`), calls `callText` with feature `help.ask` (budgets, the J4 master switch and usage logging apply), returns `{answer, sources}`. 503 `{unavailable: true}` when AI is off or over budget. Stores nothing.
+
+#### /api/help/suggestions
+- **GET** `?status=pending|approved|rejected|all&mine=1` — reviewers get every author's (plus pending `counts` by kind); anyone else only their own.
+- **POST** — any signed-in reader: `kind` `edit` (needs `articleSlug`, carries `baseVersion`) | `new` | `bug` | `question`, with `pagePath`. Max 15 pending per author. Notifies `PERMISSIONS.help.review` roles (`help_suggestion_submitted`).
+
+#### /api/help/suggestions/[id]
+- **PATCH** `{action: 'approve'|'reject', note?, fields?, slug?, force?}` — reviewer. Approving `edit` publishes the proposal (409 `stale` if the article moved on, unless `force`); approving `new` creates the article under `slug`; `bug`/`question` are just marked handled. `fields` lets the reviewer tidy before publishing. Notifies the author (`help_suggestion_reviewed`), logs `help.suggestion.approved|rejected` (category `system`, department `j7`).
+
+#### /api/help/articles/[slug]
+- **PUT** `{...fields, baseVersion?, create?}` — reviewer. Edits (409 on a stale `baseVersion`) or creates (`create: true`) an article; hiding is the `hidden` field. Logs `help.article.edit|create`.
+
+#### /api/help/articles/[slug]/revisions
+- **GET** — reviewer; earlier copies, newest first. **POST** `{revisionId}` — restore one (itself a new version). Logs `help.article.restore`.
+
+---
+
 ### aar-reports (2 files)
 
 #### /api/aar-reports

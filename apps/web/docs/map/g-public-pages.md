@@ -245,6 +245,13 @@ list from `/api/community/retired`, and on plaque click fetches a discharge snap
 
 ---
 
+### /help — the help wiki
+#### app/help/page.tsx, app/help/[slug]/page.tsx
+Public. Both render `components/help/HelpWikiPage.tsx`: topic sidebar with search, the guide (or the topic index) in the main column, Ask / Suggest buttons that open the "?" side panel's tabs via `openHelp()`. What a reader sees comes from `GET /api/help` (audience-filtered), so the server pages hold no data; `[slug]`'s metadata title only names built-in public guides. The "?" launcher button itself is hidden on `/help` (its panel still opens).
+
+#### "?" launcher (every page)
+`components/help/HelpLauncher.tsx`, mounted once in `app/layout.tsx` after the footer: a fixed bottom-right button (the navbar's scroll-to-top button sits above it at 78px), the `?` key outside text fields, and a `window` `asot:help-open` event (`openHelp({slug?, tab?, suggest?})`). Opens a right-hand MUI Drawer with Guide (search, "On this page" from article `paths`, topics, article view), Ask (AI) and Suggest tabs. Hidden on `/recruit-session/*`, `/operations/*/map` and `/help`.
+
 ### /credits, /donate, /partnerships, /preferences, /support, /thomo — Static/Utility Pages
 #### app/(landing)/credits/page.tsx
 Server page: `getCreditsData()` from `@/lib/credits` builds contributor cards (avatar, ORBAT

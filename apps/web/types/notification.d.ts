@@ -80,6 +80,8 @@ type NotificationType =
     | 'gallery_callsign_submission'     // Section staff: something was filed under your callsign and awaits review
     | 'gallery_submission_accepted'     // Submitter: your gallery submission was published
     | 'gallery_submission_rejected'     // Submitter: your gallery submission was rejected, with a reason
+    | 'help_suggestion_submitted'       // J7: someone sent an edit, bug or question in from the help wiki
+    | 'help_suggestion_reviewed'        // Author: J7 approved or rejected what you sent in from the help wiki
     | 'system'
 
 type TaskType = 'manual' | 'attendance' | 'application_review' | 'j4_returning_review' | 'extension_review' | 'quiz_assigned' | 'dev_check' | 'orders_check' | 'mission_check' | 'doctrine_review'
