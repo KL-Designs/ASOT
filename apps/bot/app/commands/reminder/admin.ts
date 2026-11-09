@@ -4,11 +4,9 @@ import Db from 'lib/mongo.ts'
 import { escapeRegex } from 'lib/escapeRegex.ts'
 import { formatReminderTime } from 'lib/reminderDate.ts'
 
-const ADMIN_ROLE = 'J4-Administration'
-
 export default {
     name: 'admin',
-    description: 'View and manage all reminders (J4-Administration only)',
+    description: 'View and manage all reminders (admin role only)',
     type: ApplicationCommandOptionType.Subcommand,
 
     options: [
@@ -22,7 +20,11 @@ export default {
 
     async execute(interaction) {
         const member = interaction.member as Discord.GuildMember
-        if (!member.roles.cache.some(r => r.name === ADMIN_ROLE)) {
+        // Gated on DISCORD_ADMIN_ROLE_ID rather than a role name: it used to match
+        // the name "J4-Administration" exactly, which locked out admins whose role
+        // is spelled differently (e.g. "J4 - Administration").
+        const adminRole = App.config.adminRole
+        if (!adminRole || !member.roles.cache.has(adminRole)) {
             return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true })
         }
 
