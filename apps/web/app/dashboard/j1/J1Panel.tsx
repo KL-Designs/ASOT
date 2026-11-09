@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import TutorialButton from '@/components/tutorial/TutorialButton'
 import { Typography, Tabs, Tab } from '@mui/material'
 import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
 import { Construction } from '@mui/icons-material'
@@ -109,6 +110,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, canMana
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <TutorialButton />
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                         </button>
@@ -139,7 +141,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, canMana
                             sx={{ minHeight: 40 }}
                         >
                             <Tab label={<PinTabLabel label='Recruit Member' pinLabel='J1 — Recruit Member' href='/dashboard/j1' tabIndex={0} />} sx={tabSx} />
-                            <Tab label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/dashboard/j1' tabIndex={1} />} sx={tabSx} />
+                            <Tab data-tour='j1-tab-applications' label={<PinTabLabel label='Applications'   pinLabel='J1 — Applications'   href='/dashboard/j1' tabIndex={1} />} sx={tabSx} />
                             <Tab label={<PinTabLabel label='Mastersheet'    pinLabel='J1 — Mastersheet'    href='/dashboard/j1' tabIndex={2} />} sx={tabSx} />
                             <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>

@@ -121,7 +121,7 @@ export default function DeptTicketsTab({ department, canManage, isJ4 = false, re
         <div style={{ display: 'flex', flex: 1, minHeight: 0, flexDirection: 'column' }}>
 
             {/* Filter bar */}
-            <div style={{ display: 'flex', gap: 6, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.01)', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div data-tour='dept-tickets-filters' style={{ display: 'flex', gap: 6, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.01)', flexWrap: 'wrap', alignItems: 'center' }}>
 
                 <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} style={selectSx}>
                     <option value='all'>All Categories</option>
@@ -213,6 +213,7 @@ function TicketRow({ t, canManage, isJ4, department, updatingId, transferOpen, t
     return (
         <>
             <tr
+                data-tour={t._id.startsWith('tutorial-') ? 'tutorial-practice-ticket' : undefined}
                 style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: t.isDeleted ? 'rgba(219,0,29,0.03)' : undefined, opacity: t.isDeleted ? 0.6 : 1 }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.025)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = t.isDeleted ? 'rgba(219,0,29,0.03)' : 'transparent' }}
@@ -268,6 +269,7 @@ function TicketRow({ t, canManage, isJ4, department, updatingId, transferOpen, t
                             <CircularProgress size={13} style={{ color: 'rgba(219,0,29,0.5)' }} />
                         ) : (
                             <button
+                                data-tour='dept-ticket-transfer-btn'
                                 onClick={() => isTransferOpen ? onTransferClose() : onTransferOpen(t._id)}
                                 style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.06em', color: isTransferOpen ? 'rgba(0,195,255,0.9)' : 'rgba(0,195,255,0.55)', padding: '2px 7px', border: `1px solid ${isTransferOpen ? 'rgba(0,195,255,0.4)' : 'rgba(0,195,255,0.2)'}`, background: isTransferOpen ? 'rgba(0,195,255,0.08)' : 'transparent' }}
                             >
@@ -286,7 +288,7 @@ function TicketRow({ t, canManage, isJ4, department, updatingId, transferOpen, t
 
             {/* Inline transfer row */}
             {isTransferOpen && canManage && (
-                <tr style={{ background: 'rgba(0,195,255,0.04)', borderBottom: '1px solid rgba(0,195,255,0.15)' }}>
+                <tr data-tour='dept-ticket-transfer' style={{ background: 'rgba(0,195,255,0.04)', borderBottom: '1px solid rgba(0,195,255,0.15)' }}>
                     <td colSpan={99} style={{ padding: '8px 12px' }}>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '0.6rem', fontWeight: 700, color: 'rgba(0,195,255,0.7)', letterSpacing: '0.1em' }}>TRANSFER TO:</span>

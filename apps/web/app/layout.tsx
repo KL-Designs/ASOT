@@ -11,6 +11,7 @@ import Navbar from './navbar'
 import Footer from "./footer"
 import CustomCursor from '@/components/cursor'
 import StrayTextGuard from '@/components/StrayTextGuard'
+import TutorialProvider from '@/components/tutorial/TutorialProvider'
 import HelpLauncher from '@/components/help/HelpLauncher'
 
 
@@ -63,6 +64,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 				<CustomCursor />
 				<StrayTextGuard />
 				<ThemeProvider theme={UnitTheme}>
+				<TutorialProvider>
 					<div className="h-full flex flex-col">
 
 						{/* Above the footer, not level with it. Both were zIndex 1, so DOM
@@ -86,6 +88,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 
 					{/* The help wiki's "?" button and side panel, on every page. */}
 					<HelpLauncher />
+				</TutorialProvider>
 				</ThemeProvider>
 			</body>
 		</html>

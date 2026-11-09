@@ -229,6 +229,10 @@ Video submissions transcode through **ffmpeg**, a runtime dependency present in 
 
 `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` (optional, `.env.template`) enable real Twitch clip/VOD thumbnails via Helix — Twitch's public oEmbed is gone. Without them, Twitch embeds still work end-to-end but fall back to a generated placeholder poster. YouTube posters need no credentials.
 
+### Guided tutorials
+
+The **Tutorial** pill in each department header walks a member through a page with practice records, and nothing they do is saved: `lib/tutorial/sandbox.ts` answers every non-GET request (and XHR, `sendBeacon`, collab WebSocket sends) in the browser while a tutorial runs, and the page reloads when it ends. The help wiki starts one with `?tutorial=<id>` or the `asot:tutorial-start` window event. **Read `lib/tutorial/README.md` before writing a tutorial.** Steps point at elements by `data-tour` attributes, so renaming or removing an element that carries one can break a tutorial without breaking the build — grep for the attribute's value in `lib/tutorial/tutorials/` first.
+
 ### TypeScript Types
 
 All global types live in `types/*.d.ts` and are declared in `global` scope — no imports needed. Key files: `operation.d.ts` (operations, ProseMirror nodes), `notification.d.ts` (`Notification`, `Task`, `NotificationType`, `TaskStatus`), `attendance.d.ts`, `tickets.d.ts`, `training.d.ts`, `logs.d.ts` (`ActionLog`, `ActionCategory`).
