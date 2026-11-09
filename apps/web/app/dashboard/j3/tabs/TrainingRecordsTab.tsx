@@ -63,6 +63,7 @@ const COLUMNS: Col[] = [
     { key: 'staffCount',         label: 'Staff',         width: '72px'  },
     { key: 'passedCount',        label: 'Passed',        width: '72px'  },
     { key: 'failedCount',        label: 'Failed',        width: '72px'  },
+    { key: 'documentCount',      label: 'Documents',     width: '84px'  },
     { key: 'updatedAt',          label: 'Last Updated',  width: '110px' },
 ]
 
@@ -96,7 +97,7 @@ export default function TrainingRecordsTab({ userId: _userId, canManageMembers: 
     const [sort, setSort]               = useState('startDate')
     const [order, setOrder]             = useState<'asc' | 'desc'>('desc')
 
-    const [records, setRecords]         = useState<CourseInstance[]>([])
+    const [records, setRecords]         = useState<(CourseInstance & { documentCount?: number })[]>([])
     const [loading, setLoading]         = useState(true)
     const [statusOpen, setStatusOpen]   = useState(false)
     const statusRef                     = useRef<HTMLDivElement>(null)
@@ -146,6 +147,7 @@ export default function TrainingRecordsTab({ userId: _userId, canManageMembers: 
     }, [statusOpen])
 
     function handleSort(key: string) {
+        if (key === 'documentCount') return // counted per page, not a stored field
         if (sort === key) setOrder(o => o === 'asc' ? 'desc' : 'asc')
         else { setSort(key); setOrder('desc') }
     }
@@ -391,6 +393,14 @@ export default function TrainingRecordsTab({ userId: _userId, canManageMembers: 
                             <Num val={rec.staffCount} />
                             <Num val={rec.passedCount} />
                             <Num val={rec.failedCount} />
+                            {/* Row 372: the instance's assessment documents, on the Assessment Orders page */}
+                            {rec.documentCount ? (
+                                <button type='button'
+                                    onClick={e => { e.stopPropagation(); router.push(`/dashboard/unit/training-hub/assessment/${rec.trainingTypeId}?session=instance:${String(rec._id)}&from=records`) }}
+                                    style={{ justifySelf: 'start', padding: '1px 7px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.35)', color: 'rgb(245,158,11)', fontSize: '0.6rem', fontWeight: 700, fontFamily: 'monospace', cursor: 'pointer' }}>
+                                    {rec.documentCount}
+                                </button>
+                            ) : <Num val={0} />}
                             <span style={{ fontSize: '0.58rem', color: 'rgba(237,237,237,0.35)', fontFamily: 'monospace' }}>
                                 {formatDate(rec.updatedAt as unknown as string)}
                             </span>

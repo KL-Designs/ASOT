@@ -6,6 +6,8 @@ import { setGuildNickname } from '@/lib/discord/bot'
 import { buildNickname } from '@/lib/buildNickname'
 import { rankNameFromAbbr } from '@asot/lib'
 import { queueMemberTeamspeakSync } from '@/lib/orbat/member-sync'
+import { addedAwards } from '@/lib/military/award-postage'
+import { onAwardsAdded } from '@/lib/military/award-postage-db'
 
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ username: string }> }) {
@@ -92,7 +94,17 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (Object.keys(update).length === 0) return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
 
+    // Row 384 needs to know which awards are new, and the update replaces the whole list.
+    const previous = update['milpac.awards']
+        ? await Db.users.findOne({ username }, { projection: { id: 1, 'milpac.awards': 1 } })
+        : null
+
     const result = await Db.users.updateOne({ username }, { $set: update })
+
+    if (previous?.id) {
+        const added = addedAwards(previous.milpac?.awards, update['milpac.awards'] as { name: string; type: string; date: string }[])
+        await onAwardsAdded(previous.id, added)
+    }
     if (result.matchedCount === 0) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
 
     Db.users.findOne({ username }).then(updated => {

@@ -427,6 +427,8 @@ export default function ClassicPage({
                         const _seenIds = new Set<string>()
                         const contentPages = (operation.pages ?? []).filter(pg => {
                             if (pg.pageType === 'zeus' || pg.pageType === 'ocap') return false
+                            if (pg.pageType === 'doctrine' && !canZeus) return false
+                            if (pg.pageType === 'aar' && !access.aar) return false
                             if (_seenIds.has(pg.id)) return false
                             _seenIds.add(pg.id)
                             return true
@@ -446,6 +448,10 @@ export default function ClassicPage({
                                 let color: string | undefined
                                 if (pg.pageType === 'intel') {
                                     color = 'rgba(245,158,11,0.8)'
+                                } else if (pg.pageType === 'intel_report') {
+                                    color = 'rgba(99,102,241,0.85)'
+                                } else if (pg.pageType === 'aar') {
+                                    color = 'rgba(249,115,22,0.8)'
                                 } else if (pg.pageType === 'orders') {
                                     color = `rgba(${r},${g},${b},0.8)`
                                 } else if (pg.pageColor) {
@@ -526,6 +532,7 @@ export default function ClassicPage({
                     {/* Multi-page view */}
                     {operation.pages && operation.pages.length > 1 && (
                         <PagedView
+                            canAar={access.aar}
                             pages={operation.pages}
                             sectionsByPage={{ main: operation.sections ?? [], ...(operation.extraPageSections ?? {}) }}
                             operationTitle={operation.title}

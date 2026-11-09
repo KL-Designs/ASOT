@@ -4,6 +4,7 @@ import client from '@/lib/discord'
 import PERMISSIONS from '@/lib/permissions'
 import Db from '@/lib/mongo'
 import { logAction } from '@/lib/logAction'
+import { rescheduleCourseReminders } from '@/lib/training/scheduleReminders'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +31,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         $unset: { deletedAt: '', deletedById: '', deletedByName: '' },
         $set: { updatedAt: new Date() },
     })
+    if (['planning', 'active', 'in_progress'].includes(instance.status)) {
+        rescheduleCourseReminders(instance as CourseInstance & { _id: ObjectId }).catch(console.error)
+    }
     const name = me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || ''
     await logAction({
         action: 'course.restore',

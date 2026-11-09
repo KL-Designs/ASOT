@@ -52,6 +52,12 @@ export type OperationCapability =
     | 'aar.view'
     | 'aar.write'
     | 'aar.manage'
+    | 'intel.add'
+    | 'intel.assess'
+    | 'intel.manage'
+    | 'doctrine.view'
+    | 'doctrine.edit'
+    | 'doctrine.approve'
 
 interface Rule {
     /** The dot-path key in `PERMISSIONS` this capability really is. */
@@ -215,6 +221,42 @@ const RULES: Record<OperationCapability, Rule> = {
         key: 'operations.aar.manage',
         legacyKeys: ['attendance.manage'],
         legacyRoles: [PERMISSIONS.attendance.manage, PERMISSIONS.admin.manageOrbat],
+    },
+
+    /* Rows 331, 332: the Intelligence Report. The positional arms (staff on the
+       night, the operation's owner) are in `intelStanding`, not here. */
+    'intel.add': {
+        key: 'intel.report.add',
+        legacyRoles: [PERMISSIONS.departments.j2, PERMISSIONS.operations.zeus],
+    },
+
+    'intel.assess': {
+        key: 'intel.report.assess',
+        legacyRoles: [PERMISSIONS.departments.j2, PERMISSIONS.operations.zeus],
+    },
+
+    'intel.manage': {
+        key: 'intel.report.manage',
+        legacyRoles: [PERMISSIONS.departmentLeads.j2],
+    },
+
+    /* Rows 334, 335: Enemy Doctrine. Zeus-facing; never on a baseline. */
+    'doctrine.view': {
+        key: 'operations.doctrine.view',
+        legacyKeys: ['operations.zeus', 'departmentLeads.j2'],
+        legacyRoles: [PERMISSIONS.departments.j2, PERMISSIONS.operations.zeus, PERMISSIONS.pages.operationsEdit],
+    },
+
+    'doctrine.edit': {
+        key: 'operations.doctrine.edit',
+        legacyKeys: ['departmentLeads.j2'],
+        legacyRoles: [PERMISSIONS.departments.j2, PERMISSIONS.operations.write],
+    },
+
+    'doctrine.approve': {
+        key: 'operations.doctrine.approve',
+        legacyKeys: ['departmentLeads.j2'],
+        legacyRoles: [PERMISSIONS.departmentLeads.j2],
     },
 }
 

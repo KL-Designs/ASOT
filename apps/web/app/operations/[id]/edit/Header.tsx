@@ -133,7 +133,7 @@ export default function Header({
         }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flexShrink: 1 }}>
                 <Link
-                    href={fromTemplates ? '/dashboard/j2?tab=9' : fromJ2 ? '/dashboard/j2' : '/operations'}
+                    href={fromTemplates ? '/dashboard/j2?view=settings&admin=templates' : fromJ2 ? '/dashboard/j2' : '/operations'}
                     style={{ fontSize: '0.68rem', fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink-3)', textDecoration: 'none', flexShrink: 0 }}
                 >
                     {fromTemplates ? '← J2 Templates' : fromJ2 ? '← J2 Operations' : '← Back'}

@@ -45,6 +45,10 @@ interface TrainingType {
     sortOrder?: number
     // Course type — only set for Selection / Reinforcement Cycle categories
     courseType?: 'selection' | 'reinforcement_cycle'
+    /** Row 372: the course's document areas. Unset means the defaults (`lib/training/document-slots.ts`). */
+    documentSlots?: import('@/lib/training/document-slots').DocumentSlot[]
+    /** Selection / Reinforcement Cycle: default session names and runtimes. Unset means `lib/training/course-sessions.ts`. */
+    sessionTemplate?: import('@/lib/training/course-sessions').SessionTemplateItem[]
     createdAt: Date
     updatedAt: Date
 }
@@ -87,6 +91,9 @@ interface TrainingEvent {
      *  without the training's prerequisites. Per session, not per member: a
      *  waiver for one night is not a standing exemption. */
     prerequisiteWaivers?: { memberId: string; memberName: string; byId: string; byName: string; at: Date }[]
+    /** Minutes before the start that reminders go out (row 213). Unset on
+     *  events saved before this existed, which keep the old 60 and 15. */
+    reminderOffsets?: number[]
     createdAt: Date
     updatedAt: Date
     deletedAt?: Date
@@ -174,7 +181,9 @@ interface TrainingReminderRecord {
     _id?: import('mongodb').ObjectId
     eventId: string
     eventTitle: string
-    minutesBefore: number      // 60 or 15
+    minutesBefore: number      // see lib/training/reminder-offsets.ts
+    /** 'course' = a Selection / Reinforcement Cycle Session 1 reminder; eventId is then `course:{instanceId}`. Unset = a training event. */
+    kind?: 'event' | 'course'
     fireAt: Date
     firedAt?: Date
     createdAt: Date

@@ -10,6 +10,7 @@ import { stripDischargedMember } from '@/lib/orbat/discharge-cleanup'
 import { clearBctAvailabilityIfDone } from '@/lib/training/bct-availability'
 import { logAction } from '@/lib/logAction'
 import { queueMemberTeamspeakSync } from '@/lib/orbat/member-sync'
+import { onAwardsAdded } from '@/lib/military/award-postage-db'
 
 // PATCH /api/admin/tickets/[id] — approve or reject a ticket
 /**
@@ -154,6 +155,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
                     } as any,
                 },
             })
+            // Row 384: queue it for posting, or ask the member whether they want it.
+            await onAwardsAdded(ticket.targetUserId!, [{ name: ticket.awardName!, type: ticket.awardType!, date: now.toISOString().split('T')[0] }], now)
             // Awards drive the ribbon block and the medal box.
             await regenerateMilpac(ticket.targetUserId)
             // And the award's TeamSpeak group, where it has one.

@@ -6,6 +6,8 @@ import PERMISSIONS from '@/lib/permissions'
 import { createNotificationForRole } from '@/lib/notifications'
 import { logAction } from '@/lib/logAction'
 import { hasDashboardAccess } from '@/lib/orbat/hasDashboardAccess'
+import { approveTrainingEvent } from '@/lib/training/approve'
+import { sanitiseOffsets } from '@/lib/training/reminder-offsets'
 
 export async function GET() {
     const me = await client.fetchMe().catch(() => null)
@@ -85,6 +87,15 @@ export async function POST(req: NextRequest) {
     const scheduledDate = new Date(scheduledAt)
     if (isNaN(scheduledDate.getTime())) return NextResponse.json({ error: 'Invalid date' }, { status: 400 })
 
+    // Optional explicit end (the Training Calendar's Add Event sends one): it
+    // sets the duration, so the calendar entry ends where the creator said.
+    let finishDate: Date | undefined
+    if (body.endsAt !== undefined) {
+        finishDate = new Date(body.endsAt)
+        if (isNaN(finishDate.getTime()) || finishDate <= scheduledDate) return NextResponse.json({ error: 'End must be after the start' }, { status: 400 })
+    }
+    const reminderOffsets = sanitiseOffsets(body.reminderOffsets) ?? undefined
+
     const trainingType = await Db.trainingTypes.findOne({ _id: new ObjectId(trainingTypeId) })
     if (!trainingType) return NextResponse.json({ error: 'Training type not found' }, { status: 404 })
 
@@ -100,7 +111,11 @@ export async function POST(req: NextRequest) {
         title: title.trim(),
         description: description?.trim() || undefined,
         scheduledAt: scheduledDate,
-        durationMinutes: Math.max(15, Math.floor(Number(durationMinutes)) || 60),
+        durationMinutes: finishDate
+            ? Math.max(15, Math.round((finishDate.getTime() - scheduledDate.getTime()) / 60_000))
+            : Math.max(15, Math.floor(Number(durationMinutes)) || 60),
+        ...(finishDate ? { estimatedFinishAt: finishDate } : {}),
+        ...(reminderOffsets ? { reminderOffsets } : {}),
         server: body.server?.trim() || trainingType.server || undefined,
         requiredMods: Array.isArray(body.requiredMods) ? body.requiredMods.filter(Boolean) : trainingType.requiredMods,
         location: location?.trim() || undefined,
@@ -130,8 +145,12 @@ export async function POST(req: NextRequest) {
         updatedAt: now,
     })
 
+    // A J3 lead scheduling from the Training Calendar approves on save: they
+    // are the people who would approve it anyway (row 213).
+    const approveNow = body.approveNow === true && client.hasRoles(me, PERMISSIONS.training.manage)
+
     const J3_LEAD_ROLES = ['J3 - Department Leader', 'J3 - Head Trainer', 'J3 - Assistant Head Trainer']
-    await Promise.all(J3_LEAD_ROLES.map(role =>
+    if (!approveNow) await Promise.all(J3_LEAD_ROLES.map(role =>
         createNotificationForRole(role, {
             type: 'training_event_submitted',
             title: 'Training Request Pending',
@@ -152,6 +171,11 @@ export async function POST(req: NextRequest) {
         actionUrl: '/dashboard/unit/training-docs',
         target: title.trim(),
     }).catch(console.error)
+
+    if (approveNow) {
+        const pending = await Db.trainingEvents.findOne({ _id: result.insertedId })
+        if (pending) await approveTrainingEvent(pending as TrainingEvent & { _id: ObjectId }, { id: me.id, name: trainerName })
+    }
 
     const created = await Db.trainingEvents.findOne({ _id: result.insertedId })
     return NextResponse.json(created, { status: 201 })

@@ -5,6 +5,7 @@ import PERMISSIONS from '@/lib/permissions'
 import { hasPermission } from '@/lib/orbat/hasPermission'
 import { hasDepartmentPermission } from '@/lib/orbat/hasDepartmentPermission'
 import { DEPT_LINKS_MANAGE_KEY } from '@/lib/dept-links/keys'
+import { canManagePostage } from '@/lib/military/award-postage'
 import J4AdminPanel from './J4AdminPanel'
 
 export default async function Page() {
@@ -28,6 +29,7 @@ export default async function Page() {
             canManageLinks={canManageLinks}
             canBackupManage={canBackupManage}
             canBackupRestore={canBackupRestore}
+            canAwardPostage={canManagePostage(me.id)}
         />
     )
 }

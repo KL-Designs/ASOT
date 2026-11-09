@@ -5,7 +5,7 @@ import { Typography, Dialog, DialogContent, Autocomplete, TextField, Select, Men
 import { CalendarMonth, HistoryEdu, Settings } from '@mui/icons-material'
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
-import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
+import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import PinTabLabel from '@/app/dashboard/_components/PinTabLabel'
 import CornerBrackets from '@/app/dashboard/_components/CornerBrackets'
 import { useTabState } from '@/app/dashboard/_components/useTabState'
@@ -21,6 +21,7 @@ import RolesManagerPanel from '@/app/dashboard/orbat/RolesManagerPanel'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 import { Badge, SectionLabel, Switch, ToolCard, ToolGrid } from '@/components/dashboard'
 import { defaultRejoinStatus, REJOIN_LABEL, REJOIN_STATUSES, type RejoinStatus } from '@/lib/j1/rejoin'
+import AwardPostageTab from './tabs/AwardPostageTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -1061,15 +1062,27 @@ function TestNotificationModal({ open, onClose, selfId }: { open: boolean; onClo
     )
 }
 
-export default function J4AdminPanel({ userId, displayName, canManageLinks, canBackupManage, canBackupRestore }: { userId: string; displayName: string; canManageLinks: boolean; canBackupManage: boolean; canBackupRestore: boolean }) {
-    const { tab: requestedTab, setTab, view, setView } = useTabState(0, 'dept')
-    // Backups is tab 3, but its <Tab> is only rendered for backups.manage
-    // holders. The active tab comes straight off the URL (?tab=3), which
-    // survives in bookmarks and pinned sidebar links, so a viewer without the
-    // permission can land on a tab with no matching child — MUI warns about a
-    // Tabs value that matches nothing and the body renders empty. Fall back to
-    // the first tab instead.
-    const tab = requestedTab === 3 && !canBackupManage ? 0 : requestedTab
+/** Old main-tab numbers of the tools that now live under Admin (row 84). */
+const MOVED_TABS: Record<number, string> = { 2: 'meetings', 3: 'backups', 4: 'teamspeak', 6: 'ai-admin' }
+
+export default function J4AdminPanel({ userId, displayName, canManageLinks, canBackupManage, canBackupRestore, canAwardPostage }: { userId: string; displayName: string; canManageLinks: boolean; canBackupManage: boolean; canBackupRestore: boolean; canAwardPostage: boolean }) {
+    const { tab, setTab, view, setView, adminTab, setAdminTab } = useTabState(0, 'dept', MOVED_TABS)
+
+    // Backups (the sidebar's "Snapshots") stays gated on backups.manage: a
+    // viewer without it who follows an old ?tab=3 link lands on Admin's
+    // Members & Links instead, because a hidden section is never selected.
+    const adminSections: DeptAdminSection[] = [
+        { key: 'meetings',  label: 'Meetings',  render: () => <J4MeetingsTab userId={userId} /> },
+        { key: 'backups',   label: 'Backups',   visible: canBackupManage, render: () => <BackupsTab canRestore={canBackupRestore} /> },
+        { key: 'teamspeak', label: 'TeamSpeak', render: () => (
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <TeamspeakTab />
+            </div>
+        ) },
+        { key: 'ai-admin',  label: 'AI Admin',  render: () => <AIAdminTab /> },
+        // Row 384: LT GEN Thomas only (plus OVERRIDE), not every J4 member. The API enforces the same.
+        { key: 'award-postage', label: 'Awards and Citation Postage', visible: canAwardPostage, render: () => <AwardPostageTab /> },
+    ]
     const [dischargeOpen, setDischargeOpen] = useState(false)
     const [reinstateOpen, setReinstateOpen] = useState(false)
     const [testNotifOpen, setTestNotifOpen] = useState(false)
@@ -1149,9 +1162,6 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
-                            <Settings sx={{ fontSize: '0.85rem' }} />Management
-                        </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                         </button>
@@ -1161,191 +1171,183 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
                     </div>
             </div>
 
-            {view === 'settings'     && <DeptSettingsView department='j4' displayName={displayName} userId={userId} canManage={true} canManageLinks={canManageLinks} isJ4={true} />}
             {view === 'calendar'     && <DeptCalendarTab department='j4' userId={userId} isJ4={true} />}
             {view === 'logs' && (
                 <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', margin: '8px 0 0' }}>
                     <LogsTab />
                 </div>
             )}
-            {view === 'dept' && (
+            {(view === 'dept' || view === 'settings') && (
                 <>
-                    <DeptLinksRail department='j4' canManage={canManageLinks} onManage={() => setView('settings')} />
+                    {view === 'dept' && <DeptLinksRail department='j4' canManage={canManageLinks} onManage={() => setView('settings')} />}
 
                     {/* Tabs */}
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                         <Tabs
-                            value={tab}
-                            onChange={(_, v) => setTab(v)}
+                            value={view === 'settings' ? 'admin' : tab}
+                            onChange={(_, v) => v === 'admin' ? setView('settings') : setTab(v)}
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
                             <Tab value={0} label={<PinTabLabel label='Mastersheet'  pinLabel='J4 — Mastersheet'  href='/dashboard/j4' tabIndex={0} />} sx={tabSx} />
                             <Tab value={1} label={<PinTabLabel label='Tickets'      pinLabel='J4 — Tickets'      href='/dashboard/j4' tabIndex={1} />} sx={tabSx} />
-                            <Tab value={2} label={<PinTabLabel label='Meetings'     pinLabel='J4 — Meetings'     href='/dashboard/j4' tabIndex={2} />} sx={tabSx} />
-                            {canBackupManage && (
-                                <Tab value={3} label={<PinTabLabel label='Backups' pinLabel='J4 — Backups' href='/dashboard/j4' tabIndex={3} />} sx={tabSx} />
-                            )}
-                            <Tab value={4} label={<PinTabLabel label='Teamspeak'    pinLabel='J4 — Teamspeak'    href='/dashboard/j4' tabIndex={4} />} sx={tabSx} />
                             <Tab value={5} label={<PinTabLabel label='Tools'        pinLabel='J4 — Tools'        href='/dashboard/j4' tabIndex={5} />} sx={tabSx} />
-                            <Tab value={6} label={<PinTabLabel label='AI Admin'     pinLabel='J4 — AI Admin'     href='/dashboard/j4' tabIndex={6} />} sx={tabSx} />
+                            <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>
                     </div>
 
-                    <div className='flex-1 min-h-0 mt-0' style={{ display: 'flex', flexDirection: 'column' }}>
-                        {tab === 0 && (
-                            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                                <MasterSheetTab />
-                            </div>
-                        )}
-                        {tab === 1 && (
-                            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-                                <CommunityTicketsTab />
-                            </div>
-                        )}
-                        {tab === 2 && <J4MeetingsTab userId={userId} />}
-                        {tab === 3 && canBackupManage && <BackupsTab canRestore={canBackupRestore} />}
-                        {tab === 4 && (
-                            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-                                <TeamspeakTab />
-                            </div>
-                        )}
-                        {tab === 6 && <AIAdminTab />}
-                        {tab === 5 && (
-                            <div className='p-6 md:p-10 flex flex-col gap-8 overflow-y-auto'>
+                    {view === 'settings' && (
+                        <DeptSettingsView department='j4' displayName={displayName} userId={userId} canManage={true} canManageLinks={canManageLinks} isJ4={true}
+                            sections={adminSections} active={adminTab} onSelect={setAdminTab} />
+                    )}
+                    {view === 'dept' && (
+                        <div className='flex-1 min-h-0 mt-0' style={{ display: 'flex', flexDirection: 'column' }}>
+                            {tab === 0 && (
+                                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                                    <MasterSheetTab />
+                                </div>
+                            )}
+                            {tab === 1 && (
+                                <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                                    <CommunityTicketsTab />
+                                </div>
+                            )}
+                            {tab === 5 && (
+                                <div className='p-6 md:p-10 flex flex-col gap-8 overflow-y-auto'>
 
-                        {/*
-                           Tools, grouped by what they cost you if you are wrong.
+                            {/*
+                               Tools, grouped by what they cost you if you are wrong.
 
-                           These were nine identical rectangles: DISCHARGE MEMBER
-                           and CPU PROFILE sat side by side in the same red box,
-                           with nothing between them to slow a hand down. Tier and
-                           grouping now do that work — everyday tools first,
-                           environment switches next, and the two that change a
-                           member's standing under their own heading at the end.
-                        */}
-                        <div className='flex flex-col gap-4'>
-                            <SectionLabel>Everyday</SectionLabel>
-                            <ToolGrid>
-                                <ToolCard
-                                    href='/dashboard/j4/import'
-                                    title='Import Panel'
-                                    description='Bulk-load milpacs, trainings and J1 records from a sheet.'
-                                />
-                                <ToolCard
-                                    onClick={() => setTab(0)}
-                                    title='HQ Mastersheet'
-                                    description='Billet points, leaving notices and discipline in one table.'
-                                />
-                                <ToolCard
-                                    onClick={() => setRolesManagerOpen(true)}
-                                    title='ORBAT Roles'
-                                    description='Create, rename and reorder the roles positions are filled from.'
-                                />
-                                <ToolCard
-                                    href='/dashboard/j4/website-settings'
-                                    icon={<Settings sx={{ fontSize: 20 }} />}
-                                    title='Website Settings'
-                                    description='Public-site copy, links and feature switches.'
-                                />
-                            </ToolGrid>
+                               These were nine identical rectangles: DISCHARGE MEMBER
+                               and CPU PROFILE sat side by side in the same red box,
+                               with nothing between them to slow a hand down. Tier and
+                               grouping now do that work — everyday tools first,
+                               environment switches next, and the two that change a
+                               member's standing under their own heading at the end.
+                            */}
+                            <div className='flex flex-col gap-4'>
+                                <SectionLabel>Everyday</SectionLabel>
+                                <ToolGrid>
+                                    <ToolCard
+                                        href='/dashboard/j4/import'
+                                        title='Import Panel'
+                                        description='Bulk-load milpacs, trainings and J1 records from a sheet.'
+                                    />
+                                    <ToolCard
+                                        onClick={() => setTab(0)}
+                                        title='HQ Mastersheet'
+                                        description='Billet points, leaving notices and discipline in one table.'
+                                    />
+                                    <ToolCard
+                                        onClick={() => setRolesManagerOpen(true)}
+                                        title='ORBAT Roles'
+                                        description='Create, rename and reorder the roles positions are filled from.'
+                                    />
+                                    <ToolCard
+                                        href='/dashboard/j4/website-settings'
+                                        icon={<Settings sx={{ fontSize: 20 }} />}
+                                        title='Website Settings'
+                                        description='Public-site copy, links and feature switches.'
+                                    />
+                                </ToolGrid>
+                            </div>
+
+                            <div className='flex flex-col gap-4'>
+                                <SectionLabel right={<span style={{ fontSize: '0.62rem', letterSpacing: '0.1em', color: 'rgba(237,237,237,0.3)', textTransform: 'uppercase' }}>Affects live integrations</span>}>
+                                    Environment
+                                </SectionLabel>
+                                <ToolGrid>
+                                    {/* A card whose job is to host a switch is not
+                                        itself clickable — one tile, one meaning. */}
+                                    <ToolCard
+                                        tier={devMode ? 'caution' : 'standard'}
+                                        title='Discord Dev Mode'
+                                        description='Blocks the bot from sending any message to the guild.'
+                                        flag={
+                                            <Switch
+                                                on={!!devMode}
+                                                onChange={() => { if (!devModeLoading && devMode !== null) toggleDevMode() }}
+                                                label='Discord developer mode'
+                                            />
+                                        }
+                                        footer={
+                                            devMode === null
+                                                ? <Badge tone='muted'>Loading…</Badge>
+                                                : devMode
+                                                    ? <Badge tone='warn' dot>Active — messages blocked</Badge>
+                                                    : <Badge tone='muted' dot>Inactive</Badge>
+                                        }
+                                    />
+                                    <ToolCard
+                                        tier={tsDevMode ? 'caution' : 'standard'}
+                                        title='TeamSpeak Dev Mode'
+                                        description='Blocks channel and permission changes on the TeamSpeak server.'
+                                        flag={
+                                            <Switch
+                                                on={!!tsDevMode}
+                                                onChange={() => { if (!tsDevModeLoading && tsDevMode !== null) toggleTsDevMode() }}
+                                                label='TeamSpeak developer mode'
+                                            />
+                                        }
+                                        footer={
+                                            tsDevMode === null
+                                                ? <Badge tone='muted'>Loading…</Badge>
+                                                : tsDevMode
+                                                    ? <Badge tone='warn' dot>Active — changes blocked</Badge>
+                                                    : <Badge tone='muted' dot>Inactive</Badge>
+                                        }
+                                    />
+                                    <ToolCard
+                                        onClick={() => setTestNotifOpen(true)}
+                                        title='Test Notification'
+                                        description='Send yourself one of any notification type.'
+                                        footer={<Badge tone='muted'>Delivers to you only</Badge>}
+                                    />
+                                    <ToolCard
+                                        onClick={() => setCpuProfileOpen(true)}
+                                        tier='caution'
+                                        title='CPU Profile'
+                                        description='Capture and download a V8 profile from the running server.'
+                                        footer={<Badge tone='warn'>Slows the server while capturing</Badge>}
+                                    />
+                                    {/* Caution, not standard: it writes to a public
+                                        surface, and the guard means there is no
+                                        second run to correct it in — the repair is
+                                        J5's Featured tab. The dialog runs the dry
+                                        pass first and shows every match. */}
+                                    <ToolCard
+                                        onClick={() => setFeaturedOrderOpen(true)}
+                                        tier='caution'
+                                        title='Featured Rail Order'
+                                        description='Gives the public featured rail its order, crediting the archive original where one matches.'
+                                        footer={<Badge tone='warn'>Runs once — then J5 curates</Badge>}
+                                    />
+                                </ToolGrid>
+                            </div>
+
+                            <div className='flex flex-col gap-4'>
+                                <SectionLabel>Member standing</SectionLabel>
+                                <ToolGrid>
+                                    <ToolCard
+                                        onClick={() => setDischargeOpen(true)}
+                                        tier='danger'
+                                        title='Discharge Member'
+                                        description='Ends a member&rsquo;s service and records the discharge type on their record.'
+                                        footer={<Badge tone='alert' dot>Files an HQ ticket for approval</Badge>}
+                                    />
+                                    <ToolCard
+                                        onClick={() => setReinstateOpen(true)}
+                                        tier='safe'
+                                        title='Reinstate Member'
+                                        description='Returns a discharged member to the roster with their record intact.'
+                                        footer={<Badge tone='live' dot>Reversible</Badge>}
+                                    />
+                                </ToolGrid>
+                            </div>
+                                </div>
+                            )}
                         </div>
-
-                        <div className='flex flex-col gap-4'>
-                            <SectionLabel right={<span style={{ fontSize: '0.62rem', letterSpacing: '0.1em', color: 'rgba(237,237,237,0.3)', textTransform: 'uppercase' }}>Affects live integrations</span>}>
-                                Environment
-                            </SectionLabel>
-                            <ToolGrid>
-                                {/* A card whose job is to host a switch is not
-                                    itself clickable — one tile, one meaning. */}
-                                <ToolCard
-                                    tier={devMode ? 'caution' : 'standard'}
-                                    title='Discord Dev Mode'
-                                    description='Blocks the bot from sending any message to the guild.'
-                                    flag={
-                                        <Switch
-                                            on={!!devMode}
-                                            onChange={() => { if (!devModeLoading && devMode !== null) toggleDevMode() }}
-                                            label='Discord developer mode'
-                                        />
-                                    }
-                                    footer={
-                                        devMode === null
-                                            ? <Badge tone='muted'>Loading…</Badge>
-                                            : devMode
-                                                ? <Badge tone='warn' dot>Active — messages blocked</Badge>
-                                                : <Badge tone='muted' dot>Inactive</Badge>
-                                    }
-                                />
-                                <ToolCard
-                                    tier={tsDevMode ? 'caution' : 'standard'}
-                                    title='TeamSpeak Dev Mode'
-                                    description='Blocks channel and permission changes on the TeamSpeak server.'
-                                    flag={
-                                        <Switch
-                                            on={!!tsDevMode}
-                                            onChange={() => { if (!tsDevModeLoading && tsDevMode !== null) toggleTsDevMode() }}
-                                            label='TeamSpeak developer mode'
-                                        />
-                                    }
-                                    footer={
-                                        tsDevMode === null
-                                            ? <Badge tone='muted'>Loading…</Badge>
-                                            : tsDevMode
-                                                ? <Badge tone='warn' dot>Active — changes blocked</Badge>
-                                                : <Badge tone='muted' dot>Inactive</Badge>
-                                    }
-                                />
-                                <ToolCard
-                                    onClick={() => setTestNotifOpen(true)}
-                                    title='Test Notification'
-                                    description='Send yourself one of any notification type.'
-                                    footer={<Badge tone='muted'>Delivers to you only</Badge>}
-                                />
-                                <ToolCard
-                                    onClick={() => setCpuProfileOpen(true)}
-                                    tier='caution'
-                                    title='CPU Profile'
-                                    description='Capture and download a V8 profile from the running server.'
-                                    footer={<Badge tone='warn'>Slows the server while capturing</Badge>}
-                                />
-                                {/* Caution, not standard: it writes to a public
-                                    surface, and the guard means there is no
-                                    second run to correct it in — the repair is
-                                    J5's Featured tab. The dialog runs the dry
-                                    pass first and shows every match. */}
-                                <ToolCard
-                                    onClick={() => setFeaturedOrderOpen(true)}
-                                    tier='caution'
-                                    title='Featured Rail Order'
-                                    description='Gives the public featured rail its order, crediting the archive original where one matches.'
-                                    footer={<Badge tone='warn'>Runs once — then J5 curates</Badge>}
-                                />
-                            </ToolGrid>
-                        </div>
-
-                        <div className='flex flex-col gap-4'>
-                            <SectionLabel>Member standing</SectionLabel>
-                            <ToolGrid>
-                                <ToolCard
-                                    onClick={() => setDischargeOpen(true)}
-                                    tier='danger'
-                                    title='Discharge Member'
-                                    description='Ends a member&rsquo;s service and records the discharge type on their record.'
-                                    footer={<Badge tone='alert' dot>Files an HQ ticket for approval</Badge>}
-                                />
-                                <ToolCard
-                                    onClick={() => setReinstateOpen(true)}
-                                    tier='safe'
-                                    title='Reinstate Member'
-                                    description='Returns a discharged member to the roster with their record intact.'
-                                    footer={<Badge tone='live' dot>Reversible</Badge>}
-                                />
-                            </ToolGrid>
-                        </div>
-                            </div>
-                        )}
-                    </div>
+                    )}
                 </>
             )}
 

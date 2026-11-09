@@ -33,6 +33,8 @@ export default async function Image({ params }: { params: Promise<{ id: string }
     try {
         operation = await Db.operations.findOne({ _id: new ObjectId(id) })
     } catch { /* invalid id */ }
+    // A trainee's private assessment copy (row 373) previews as nothing.
+    if (operation?.assessment) operation = null
 
     const accent = operation?.themeColor || '#db001d'
     const { r, g, b } = hexToRgb(accent)

@@ -55,7 +55,7 @@ WORKDIR /app/apps/web
 # Next's own incremental build cache (SWC/webpack) — also persisted across builds via
 # a cache mount, so unrelated code changes don't force a full from-scratch recompile.
 RUN --mount=type=cache,target=/app/apps/web/.next/cache \
-    NODE_OPTIONS="--max-old-space-size=2048" npm run build
+    NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
 EXPOSE 3000
 CMD ["npm", "start"]

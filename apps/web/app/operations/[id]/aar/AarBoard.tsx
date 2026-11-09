@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import dayjs from 'dayjs'
 import { rgbTriplet } from '@/lib/colour'
 import HideSiteNav from '@/components/HideSiteNav'
@@ -9,6 +9,8 @@ import {
     SELECTABLE_STATUSES, attendanceStatus, RATING_ASPECTS, RATING_SCALE,
     type AttendanceStatus, type RatingAspectKey,
 } from '@/lib/operations/aar'
+import Consolidated from './Consolidated'
+import IntelBlock from './IntelBlock'
 import s from './aar.module.css'
 
 interface Props {
@@ -17,9 +19,23 @@ interface Props {
     status?: string
     themeColor?: string
     date: string | null
-    /** Whether the operation has actually finished. */
+    /** Whether the operation has actually finished. Ignored when `embedded`: the report says. */
     open: boolean
+    /**
+     * Shown as a page of the operation document rather than its own tab: no
+     * operation bar, and whether it is open comes from the report itself.
+     */
+    embedded?: boolean
+    /**
+     * Before the operation finishes, show the report as it will look instead
+     * of "Not yet", with saving switched off (rows 328 to 330). For the people
+     * building the document; members still see "Not yet".
+     */
+    allowPreview?: boolean
 }
+
+/** True inside a preview: every save is a no-op that says so. */
+const PreviewContext = createContext(false)
 
 interface Aar { fix: string; sustain: string; improve: string; writtenByName: string | null }
 
@@ -47,8 +63,14 @@ interface Payload {
     canManageAll: boolean
     mySections: string[]
     mine: Aar | null
-    feedback: { server: number | null; combat: number | null; story: number | null; comment: string } | null
+    feedback: { server: number | null; combat: number | null; story: number | null; enjoyment: number | null; comment: string } | null
     sections: Section[]
+    /** Row 328: whether the consolidated view is open to this viewer yet. */
+    unlocked: boolean
+    bypass: boolean
+    viewableSections: string[]
+    canCommend: boolean
+    missionAar: { enabled: boolean; canToggle: boolean; scope: 'campaign' | 'operation' }
 }
 
 const EMPTY_AAR: Aar = { fix: '', sustain: '', improve: '', writtenByName: null }
@@ -56,9 +78,9 @@ const EMPTY_AAR: Aar = { fix: '', sustain: '', improve: '', writtenByName: null 
 /** What each box is actually asking for. Three narrow questions get answered
  *  where one wide one gets skipped. */
 const AAR_FIELDS = [
-    { key: 'sustain' as const, label: 'Sustain', hint: 'What worked and should happen again next time.' },
-    { key: 'improve' as const, label: 'Improve', hint: 'What was fine but could be sharper.' },
     { key: 'fix' as const, label: 'Fix', hint: 'What went wrong and needs to be different.' },
+    { key: 'improve' as const, label: 'Improve', hint: 'What was fine but could be sharper.' },
+    { key: 'sustain' as const, label: 'Sustain', hint: 'What worked and should happen again next time.' },
 ]
 
 /**
@@ -73,7 +95,7 @@ const AAR_FIELDS = [
  * their feedback and closes the tab has saved their feedback; nothing here
  * makes them finish the whole page to keep any of it.
  */
-export default function AarBoard({ operationId, title, status, themeColor, date, open }: Props) {
+export default function AarBoard({ operationId, title, status, themeColor, date, open: openProp, embedded, allowPreview }: Props) {
     const accent = themeColor || '#db001d'
     const [data, setData] = useState<Payload | null>(null)
     const [failed, setFailed] = useState(false)
@@ -85,29 +107,37 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
             .catch(() => setFailed(true))
     }, [operationId])
 
-    useEffect(() => { if (open) load() }, [open, load])
+    useEffect(() => { if (openProp || embedded) load() }, [openProp, embedded, load])
+
+    const open = embedded ? !!data?.open : openProp
+    const preview = !!embedded && !!allowPreview && !!data && !data.open
 
     return (
+        <PreviewContext.Provider value={preview}>
         <div
             className='command'
             style={{
                 ['--acc' as string]: accent,
                 ['--acc-rgb' as string]: rgbTriplet(accent),
-                display: 'flex', flexDirection: 'column', minHeight: '100%', background: 'var(--bg)',
+                display: 'flex', flexDirection: 'column', minHeight: embedded ? undefined : '100%', background: embedded ? 'transparent' : 'var(--bg)',
             }}
         >
-            <HideSiteNav />
-            <OperationBar
-                operationId={operationId}
-                title={title}
-                status={status}
-                themeColor={themeColor}
-                active='aar'
-                canEdit={false}
-                access={{ attendance: true, aar: true }}
-            />
+            {!embedded && <HideSiteNav />}
+            {!embedded && (
+                <OperationBar
+                    operationId={operationId}
+                    title={title}
+                    status={status}
+                    themeColor={themeColor}
+                    active='aar'
+                    canEdit={false}
+                    access={{ attendance: true, aar: true }}
+                />
+            )}
 
-            {!open ? (
+            {embedded && !data && !failed ? (
+                <p className={s.loading}>Loading…</p>
+            ) : !open && !preview ? (
                 <div className={s.notice}>
                     <p className={s.noticeTitle}>Not yet</p>
                     <p className={s.noticeBody}>
@@ -124,6 +154,14 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                 <p className={s.loading}>Loading…</p>
             ) : (
                 <div className={s.page}>
+                    {preview && (
+                        <div className={s.notice} style={{ borderColor: 'rgba(245,158,11,0.4)' }}>
+                            <p className={s.noticeTitle}>Preview</p>
+                            <p className={s.noticeBody}>
+                                This is the After Action Report as members will see it once the operation finishes. Try it out: nothing here is saved until then.
+                            </p>
+                        </div>
+                    )}
                     <header className={s.head}>
                         <p className={s.eyebrow}>After Action Report</p>
                         <h1 className={s.title}>{title || 'Operation'}</h1>
@@ -138,15 +176,21 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                         <FeedbackCard
                             operationId={operationId}
                             initial={data.feedback}
+                            onSaved={load}
                         />
                     )}
 
                     <AarCard
-                        heading='Your report'
+                        heading='Call Sign After Action Report'
                         note={data.mine?.writtenByName ? `Written by ${data.mine.writtenByName}` : undefined}
                         operationId={operationId}
                         initial={data.mine ?? EMPTY_AAR}
+                        onSaved={load}
                     />
+
+                    {/* Row 331: staff only; renders nothing for anyone else. A preview
+                        leaves it out: what it adds goes straight into the Intelligence Report. */}
+                    {!preview && <IntelBlock operationId={operationId} />}
 
                     {data.sections.map(section => (
                         <SectionCard
@@ -156,22 +200,52 @@ export default function AarBoard({ operationId, title, status, themeColor, date,
                             onSaved={load}
                         />
                     ))}
+
+                    {/* Row 328: everyone else's side of the night, once yours is in. */}
+                    {preview ? (
+                        <div className={s.notice}>
+                            <p className={s.noticeTitle}>Mission AAR</p>
+                            <p className={s.noticeBody}>
+                                Once the operation has run and members have written theirs up, every call sign&apos;s report,
+                                the feedback averages and the commendations appear here.
+                            </p>
+                        </div>
+                    ) : data.unlocked ? (
+                        <Consolidated
+                            operationId={operationId}
+                            missionAar={data.missionAar}
+                            canCommend={data.canCommend}
+                            sections={data.viewableSections.length ? data.viewableSections : data.sections.map(x => x.title)}
+                            onToggled={load}
+                        />
+                    ) : (
+                        <div className={s.notice}>
+                            <p className={s.noticeTitle}>Mission AAR</p>
+                            <p className={s.noticeBody}>
+                                Save your own report{data.attended ? ' and your feedback' : ''} above to open the Mission AAR,
+                                the feedback averages and the commendations.
+                            </p>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
+        </PreviewContext.Provider>
     )
 }
 
 /* ── How the night went ─────────────────────────────────────────────────── */
 
-function FeedbackCard({ operationId, initial }: {
+function FeedbackCard({ operationId, initial, onSaved }: {
     operationId: string
     initial: Payload['feedback']
+    onSaved?: () => void
 }) {
     const [scores, setScores] = useState<Record<RatingAspectKey, number | null>>({
         server: initial?.server ?? null,
         combat: initial?.combat ?? null,
         story: initial?.story ?? null,
+        enjoyment: initial?.enjoyment ?? null,
     })
     const [comment, setComment] = useState(initial?.comment ?? '')
     const { state, save } = useSave()
@@ -228,7 +302,7 @@ function FeedbackCard({ operationId, initial }: {
 
                 <div className={s.field} style={{ marginTop: 22 }}>
                     <span className={s.fieldLabel}>Anything else</span>
-                    <span className={s.fieldHint}>Optional. Whatever the three scales could not carry.</span>
+                    <span className={s.fieldHint}>Optional. Whatever the scales could not carry.</span>
                     <textarea
                         className={s.textarea}
                         value={comment}
@@ -244,7 +318,7 @@ function FeedbackCard({ operationId, initial }: {
                         disabled={state === 'saving'}
                         onClick={() => save(`/api/operations/${operationId}/aar`, {
                             feedback: { ...scores, comment },
-                        })}
+                        }).then(ok => { if (ok) onSaved?.() })}
                     >
                         {state === 'saving' ? 'Saving…' : 'Save feedback'}
                     </button>
@@ -579,7 +653,7 @@ function countPresent(statuses: Record<string, string>): number {
 
 /* ── Saving ─────────────────────────────────────────────────────────────── */
 
-type SaveStateValue = 'idle' | 'saving' | 'saved' | 'failed'
+type SaveStateValue = 'idle' | 'saving' | 'saved' | 'failed' | 'preview'
 
 /**
  * One save, per card.
@@ -590,8 +664,10 @@ type SaveStateValue = 'idle' | 'saving' | 'saved' | 'failed'
  */
 function useSave() {
     const [state, setState] = useState<SaveStateValue>('idle')
+    const preview = useContext(PreviewContext)
 
     const save = useCallback(async (url: string, body: unknown, method: 'PUT' | 'POST' = 'PUT') => {
+        if (preview) { setState('preview'); return false }
         setState('saving')
         try {
             const res = await fetch(url, {
@@ -606,13 +682,14 @@ function useSave() {
             setState('failed')
             return false
         }
-    }, [])
+    }, [preview])
 
     return { state, save }
 }
 
 function SaveState({ state }: { state: SaveStateValue }) {
     if (state === 'saved') return <span className={`${s.state} ${s.stateOk}`}>Saved</span>
+    if (state === 'preview') return <span className={s.state}>Preview: not saved</span>
     if (state === 'failed') return <span className={`${s.state} ${s.stateBad}`}>Not saved — try again</span>
     return null
 }

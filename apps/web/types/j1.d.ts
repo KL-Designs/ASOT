@@ -62,4 +62,12 @@ interface J1Application {
     j4ReviewedByName?: string
     j4ReviewNote?: string
     j4GDNotified?: boolean // true when recruiter optionally notified J4 for a GD returning member
+    /** Row 213: the Induction Pack DM, sent from the recruit wizard or the application. Progress lives in `induction_progress`. */
+    inductionPack?: {
+        sentAt: Date
+        sentById: string
+        sentByName: string
+        recipientId: string
+        sendCount: number
+    }
 }

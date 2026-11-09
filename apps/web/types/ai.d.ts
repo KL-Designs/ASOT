@@ -5,6 +5,9 @@ type AiFeature =
     | 'intel.image_edit'
     | 'training.answer_review'
     | 'text.general'
+    | 'aar.summary'
+    | 'doctrine.import'
+    | 'help.ask'
 
 type AiImageQuality = 'standard' | 'hd'
 

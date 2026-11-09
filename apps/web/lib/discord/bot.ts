@@ -18,6 +18,7 @@
  * 3. Call logDiscordAction() for both the blocked and sent paths.
  */
 
+import { reminderSentence } from '@/lib/training/reminder-offsets'
 import { logDiscord } from '@/lib/logs'
 
 const BASE = 'https://discord.com/api'
@@ -32,11 +33,14 @@ export interface DiscordEmbed {
     footer?: { text: string; icon_url?: string }
     timestamp?: string      // ISO 8601
     thumbnail?: { url: string }
+    image?: { url: string }
 }
 
 export interface MessagePayload {
     content?: string
     embeds?: DiscordEmbed[]
+    /** Action rows of buttons, as Discord's API takes them. */
+    components?: unknown[]
 }
 
 // ─── Core HTTP helper (exported for reuse in index.ts) ────────────────────────
@@ -91,7 +95,7 @@ async function openDMChannel(userId: string): Promise<string> {
 let devModeCache: { enabled: boolean; ts: number } | null = null
 const DEV_MODE_TTL_MS = 30_000 // 30 seconds
 
-async function isDevModeEnabled(): Promise<boolean> {
+export async function isDevModeEnabled(): Promise<boolean> {
     const now = Date.now()
     if (devModeCache && now - devModeCache.ts < DEV_MODE_TTL_MS) {
         return devModeCache.enabled
@@ -456,10 +460,9 @@ export async function sendTrainingReminderDM(
     scheduledAt: string,
     actionUrl?: string,
 ): Promise<void> {
-    const label = minutesBefore <= 15 ? `in ${minutesBefore} minutes` : 'in 1 hour'
     const embed: DiscordEmbed = {
         title: '⏰ Training Reminder',
-        description: `**${eventTitle}** starts ${label}.`,
+        description: reminderSentence(`**${eventTitle}**`, minutesBefore),
         color: 0xf59e0b,
         fields: [{ name: 'Scheduled', value: scheduledAt, inline: true }],
         footer: { text: 'ASOT Dashboard' },
@@ -1130,7 +1133,8 @@ export async function upsertChannelPost(args: {
     /** Set to edit that message; absent to create one. */
     messageId?: string
     payload: Record<string, unknown> & { embeds?: DiscordEmbed[] }
-    file: { name: string; data: Buffer; contentType: string }
+    /** Optional attachment. Without one the message is sent as plain JSON. */
+    file?: { name: string; data: Buffer; contentType: string }
     messageType?: string
 }): Promise<string | null> {
     const { channelId, messageId, payload, file, messageType = 'raw' } = args
@@ -1157,17 +1161,23 @@ export async function upsertChannelPost(args: {
     const token = process.env.DISCORD_BOT_TOKEN
     if (!token) throw new Error('[discord/bot] DISCORD_BOT_TOKEN is not set')
 
-    const form = new FormData()
-    form.set('payload_json', JSON.stringify(payload))
-    form.set('files[0]', new Blob([new Uint8Array(file.data)], { type: file.contentType }), file.name)
+    let body: FormData | string
+    if (file) {
+        const form = new FormData()
+        form.set('payload_json', JSON.stringify(payload))
+        form.set('files[0]', new Blob([new Uint8Array(file.data)], { type: file.contentType }), file.name)
+        body = form
+    } else {
+        body = JSON.stringify(payload)
+    }
 
     const path = messageId ? `/channels/${channelId}/messages/${messageId}` : `/channels/${channelId}/messages`
     try {
         const res = await fetch(`${BASE}${path}`, {
             method: messageId ? 'PATCH' : 'POST',
-            // No content-type: fetch sets the multipart boundary itself.
-            headers: { authorization: `Bot ${token}` },
-            body: form,
+            // Multipart: no content-type, fetch sets the boundary itself.
+            headers: file ? { authorization: `Bot ${token}` } : { authorization: `Bot ${token}`, 'content-type': 'application/json' },
+            body,
             cache: 'no-store',
         })
         if (!res.ok) {

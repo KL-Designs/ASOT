@@ -240,7 +240,7 @@ export const RATING_SCALE: RatingStep[] = [
     { value: 5, label: 'Much better', offset: 2 },
 ]
 
-export type RatingAspectKey = 'server' | 'combat' | 'story'
+export type RatingAspectKey = 'server' | 'combat' | 'story' | 'enjoyment'
 
 export interface RatingAspect {
     key: RatingAspectKey
@@ -263,7 +263,17 @@ export const RATING_ASPECTS: RatingAspect[] = [
     {
         key: 'story',
         label: 'Story and immersion',
-        hint: 'Whether you could follow what was going on, and whether you enjoyed it.',
+        hint: 'Whether you could follow what was going on, and whether it landed.',
+    },
+    /*
+     * Row 328 (Q7). Added on the same scale until the unit's Saturday and
+     * Sunday feedback sheets are seen; whether stars should replace the
+     * diverging scale is still an open question.
+     */
+    {
+        key: 'enjoyment',
+        label: 'Enjoyment',
+        hint: 'How much you enjoyed the night overall.',
     },
 ]
 

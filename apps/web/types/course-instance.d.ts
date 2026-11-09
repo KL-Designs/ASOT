@@ -26,6 +26,8 @@ interface CourseInstance {
     lockedByName?: string
     notes?: string
     calendarEventIds?: string[]
+    /** Minutes before Session 1 that enrolled candidates are reminded (row 213). */
+    reminderOffsets?: number[]
     createdById: string
     createdByName: string
     createdAt: Date

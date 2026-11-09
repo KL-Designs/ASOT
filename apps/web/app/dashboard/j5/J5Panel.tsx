@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Typography, Tabs, Tab } from '@mui/material'
 import { Settings, CalendarMonth, HistoryEdu } from '@mui/icons-material'
-import DeptSettingsView from '@/app/dashboard/DeptSettingsView'
+import DeptSettingsView, { type DeptAdminSection } from '@/app/dashboard/DeptSettingsView'
 import DeptCalendarTab from '@/app/dashboard/unit/calendar/DeptCalendarTab'
 import GalleryOperationsTab from '@/app/dashboard/j5/tabs/GalleryOperationsTab'
 import MediaTab from '@/app/dashboard/j5/tabs/media/MediaTab'
@@ -38,7 +38,8 @@ export default function J5Panel({
     canManageGalleryTags: boolean
     canManageGallery: boolean
 }) {
-    const { tab, setTab, view, setView } = useTabState(0, 'dept')
+    const { tab, setTab, view, setView, adminTab, setAdminTab } = useTabState(0, 'dept')
+    const isLead = canManageMembers || isJ4
 
     /* How many submissions are waiting, for the Submissions tab's badge.
 
@@ -81,10 +82,16 @@ export default function J5Panel({
         { key: 'featured', label: 'Featured', pinLabel: 'J5 — Featured', visible: true, render: () => <FeaturedTab /> },
         { key: 'sotm', label: 'Screenshot of month', pinLabel: 'J5 — SOTM', visible: true, render: () => <SotmTab canManage={canManageMembers} /> },
         { key: 'tags', label: 'Tags', pinLabel: 'J5 — Tags', visible: canManageGalleryTags, render: () => <GalleryTagsTab /> },
-        { key: 'meetings', label: 'Meetings', pinLabel: 'J5 — Meetings', visible: true, render: () => <MeetingsTab department='j5' userId={userId} isLead={canManageMembers || isJ4} /> },
-        { key: 'tickets', label: 'Tickets', pinLabel: 'J5 — Tickets', visible: true, render: () => <DeptTicketsTab department='j5' canManage={canManageMembers || isJ4} isJ4={isJ4} /> },
     ]
     const visibleTabs = allTabs.filter(t => t.visible)
+
+    // Moved under Admin (row 84). Their old tab numbers depended on which gated
+    // tabs a member could see, so an old pin is not redirected; it is clamped
+    // to the last tab below like any other out-of-range index.
+    const adminSections: DeptAdminSection[] = [
+        { key: 'meetings', label: 'Meetings', render: () => <MeetingsTab department='j5' userId={userId} isLead={isLead} /> },
+        { key: 'tickets',  label: 'Tickets',  render: () => <DeptTicketsTab department='j5' canManage={isLead} isJ4={isJ4} /> },
+    ]
 
     // A pinned/bookmarked tab index from the old FIXED_TABS ordering (or one
     // that predates a permission grant/revoke shrinking this list) can point
@@ -134,9 +141,6 @@ export default function J5Panel({
                     </Typography>
                     </div>
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                        <button style={{ ...btnSx(view === 'settings'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'settings' ? 'dept' : 'settings')}>
-                            <Settings sx={{ fontSize: '0.85rem' }} />Management
-                        </button>
                         <button style={{ ...btnSx(view === 'calendar'), display: 'flex', alignItems: 'center', gap: 5 }} onClick={() => setView(view === 'calendar' ? 'dept' : 'calendar')}>
                             <CalendarMonth sx={{ fontSize: '0.85rem' }} />Calendar
                         </button>
@@ -146,9 +150,6 @@ export default function J5Panel({
                     </div>
             </div>
 
-            {view === 'settings' && (
-                <DeptSettingsView department='j5' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4} />
-            )}
             {view === 'calendar' && (
                 <DeptCalendarTab department='j5' userId={userId} isJ4={isJ4} />
             )}
@@ -157,14 +158,14 @@ export default function J5Panel({
                     <ActivityLogTab department='j5' />
                 </div>
             )}
-            {view === 'dept' && (
+            {(view === 'dept' || view === 'settings') && (
                 <>
-                    <DeptLinksRail department='j5' canManage={canManageLinks} onManage={() => setView('settings')} />
+                    {view === 'dept' && <DeptLinksRail department='j5' canManage={canManageLinks} onManage={() => setView('settings')} />}
 
                     <div className='mx-6 mt-4' style={{ borderBottom: '1px solid var(--line-2)' }}>
                         <Tabs
-                            value={activeTab}
-                            onChange={(_, v) => setTab(v)}
+                            value={view === 'settings' ? 'admin' : activeTab}
+                            onChange={(_, v) => v === 'admin' ? setView('settings') : setTab(v)}
                             TabIndicatorProps={{ style: { background: 'var(--red)', height: 2 } }}
                             sx={{ minHeight: 40 }}
                         >
@@ -201,12 +202,19 @@ export default function J5Panel({
                                     sx={tabSx}
                                 />
                             ))}
+                            <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>
                     </div>
 
-                    <div className='flex-1 min-h-0 mt-0'>
-                        {visibleTabs[activeTab]?.render()}
-                    </div>
+                    {view === 'settings' && (
+                        <DeptSettingsView department='j5' displayName={displayName} userId={userId} canManage={canManageMembers} canManageLinks={canManageLinks} isJ4={isJ4}
+                            sections={adminSections} active={adminTab} onSelect={setAdminTab} />
+                    )}
+                    {view === 'dept' && (
+                        <div className='flex-1 min-h-0 mt-0'>
+                            {visibleTabs[activeTab]?.render()}
+                        </div>
+                    )}
                 </>
             )}
         </div>

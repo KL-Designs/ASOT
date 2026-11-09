@@ -2,12 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import ApplicantPageView from '@/app/recruit-session/ApplicantPageView'
+import { recruitSessionWsUrls, SESSION_GONE } from '@/lib/recruitment/session-ws'
 import { type IntroProgress, type LivePreview } from '@/app/recruit-session/StepContent'
 import TeamSpeakCard from '@/app/dashboard/profile/_components/TeamSpeakCard'
-
-const WS_URL = (process.env.NEXT_PUBLIC_BASEURL ?? '')
-    .replace(/^http/, 'ws')
-    .replace(/^https/, 'wss') + '/recruit-session'
 
 interface Props {
     sessionId: string
@@ -31,6 +28,8 @@ export default function ApplicantSessionPage({ sessionId, initialStep, initialRa
     const [meData, setMeData] = useState<{ tsLink?: { cldbid: number; linkedAt: number } | null } | null>(null)
 
     const wsRef = useRef<WebSocket | null>(null)
+    const attempt = useRef(0)
+    const [ended, setEnded] = useState<string | null>(null)
     const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
     const activeTimer = useRef<ReturnType<typeof setInterval> | null>(null)
     const lastCursorSend = useRef(0)
@@ -51,7 +50,8 @@ export default function ApplicantSessionPage({ sessionId, initialStep, initialRa
 
     function connect() {
         if (wsRef.current?.readyState === WebSocket.OPEN) return
-        const ws = new WebSocket(`${WS_URL}?id=${sessionId}&role=applicant`)
+        const urls = recruitSessionWsUrls({ id: sessionId, role: 'applicant' })
+        const ws = new WebSocket(urls[attempt.current % urls.length])
         wsRef.current = ws
 
         ws.onopen = () => {
@@ -133,8 +133,11 @@ export default function ApplicantSessionPage({ sessionId, initialStep, initialRa
             }
         }
 
-        ws.onclose = () => {
+        ws.onclose = (e) => {
             setConnected(false)
+            // The session has ended or the link is wrong: say so rather than retry for ever.
+            if (e.code === SESSION_GONE) { setEnded(e.reason || 'This session has ended.'); return }
+            attempt.current++
             reconnectTimer.current = setTimeout(connect, 3000)
         }
 
@@ -203,6 +206,7 @@ export default function ApplicantSessionPage({ sessionId, initialStep, initialRa
 
     return (
         <ApplicantPageView
+            ended={ended}
             step={step}
             raisedHand={raisedHand}
             connected={connected}

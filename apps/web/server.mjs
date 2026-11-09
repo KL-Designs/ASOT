@@ -142,7 +142,7 @@ const collab = new Hocuspocus({
 
     async onLoadDocument({ documentName, document }) {
         console.log(`[collab] >> load        doc=${documentName}`)
-        if (documentName.startsWith('sop-') || documentName.startsWith('ws-') || documentName.startsWith('att-')) return  // SOPs, workspace docs + attendance boards don't use activity tracking
+        if (documentName.startsWith('sop-') || documentName.startsWith('ws-') || documentName.startsWith('att-') || documentName.startsWith('maar-')) return  // SOPs, workspace docs + attendance boards don't use activity tracking
         const existing = activityState.get(documentName)
         if (existing?.timer) {
             clearTimeout(existing.timer)
@@ -156,7 +156,7 @@ const collab = new Hocuspocus({
     },
 
     async onChange({ documentName, document, context }) {
-        if (documentName.startsWith('sop-') || documentName.startsWith('ws-') || documentName.startsWith('att-')) return  // SOPs, workspace docs + attendance boards don't use activity tracking
+        if (documentName.startsWith('sop-') || documentName.startsWith('ws-') || documentName.startsWith('att-') || documentName.startsWith('maar-')) return  // SOPs, workspace docs + attendance boards don't use activity tracking
         let state = activityState.get(documentName)
         if (!state) {
             state = { lastFlushedText: extractSectionTexts(document), timer: null, lastUser: null }
@@ -184,6 +184,9 @@ const collab = new Hocuspocus({
                 // is not already in Mongo. Clients refetch the board from the
                 // API on connect, so there is no state worth reloading.
                 if (documentName.startsWith('att-')) return null
+                // Mission AAR presence — "maar-{operationId}". Same as att-: a
+                // revision and who is looking; the blocks themselves are in Mongo.
+                if (documentName.startsWith('maar-')) return null
                 try {
                     // SOP documents — prefixed "sop-{sopId}"
                     if (documentName.startsWith('sop-')) {
@@ -237,7 +240,7 @@ const collab = new Hocuspocus({
             },
 
             store: async ({ documentName, state, document }) => {
-                if (documentName.startsWith('att-')) return
+                if (documentName.startsWith('att-') || documentName.startsWith('maar-')) return
                 console.log(`[collab] DB store     doc=${documentName}  (${state.length} bytes) — attempting…`)
                 try {
                     // SOP documents — just persist the raw Yjs state and update timestamp
@@ -610,14 +613,19 @@ const httpServer = createServer((req, res) => {
 })
 
 httpServer.on('upgrade', (request, socket, head) => {
-    const { pathname } = parse(request.url)
-    if (pathname === '/collab') {
-        wss.handleUpgrade(request, socket, head, (ws) => {
-            wss.emit('connection', ws, request)
-        })
-    } else if (pathname === '/recruit-session') {
+    const { pathname, query } = parse(request.url, true)
+    // The recruit follow-along socket rides on /collab with ?recruit-session=1:
+    // the reverse proxy in front of live upgrades only that exact path. The
+    // direct paths stay for setups that forward them.
+    const recruit = (pathname === '/collab' && query['recruit-session'] === '1')
+        || pathname === '/recruit-session' || pathname === '/collab/recruit-session'
+    if (recruit) {
         recruitSessionWss.handleUpgrade(request, socket, head, (ws) => {
             recruitSessionWss.emit('connection', ws, request)
+        })
+    } else if (pathname === '/collab') {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit('connection', ws, request)
         })
     }
     // Other paths (e.g. /_next/webpack-hmr) are handled by Next.js itself
@@ -775,6 +783,54 @@ async function triggerTaskRemindersCron() {
 
 setInterval(triggerTaskRemindersCron, 60 * 1000)
 triggerTaskRemindersCron()
+
+// ── Selection countdown post (every 5 minutes) ───────────────────────────────
+// Row 212: keeps the Want to Join channel's "next Selection" post current.
+// Does nothing while J3 has it switched off.
+
+async function triggerSelectionCountdownCron() {
+    await trackJob('cron:selection-countdown', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/selection-countdown`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            if (!res.ok) {
+                console.error(`[cron/selection-countdown] HTTP ${res.status} — check CRON_SECRET`)
+                return
+            }
+            const data = await res.json()
+            if (data.result === 'post' || data.result === 'edit' || data.result === 'failed') {
+                console.log(`[cron/selection-countdown] tick — ${data.result}`)
+            }
+        } catch (e) {
+            console.error('[cron/selection-countdown] Error:', e.message)
+        }
+    })
+}
+
+setInterval(triggerSelectionCountdownCron, 5 * 60 * 1000)
+triggerSelectionCountdownCron()
+
+// ── Award postage cron (every 5 minutes) ─────────────────────────────────────
+// Row 384: carries unsent awards into the new month and sends the physical
+// awards preference DMs that are due (first ask, then every two weeks).
+
+async function triggerAwardPostageCron() {
+    await trackJob('cron:award-postage', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/award-postage`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            if (!res.ok) {
+                console.error(`[cron/award-postage] HTTP ${res.status} — check CRON_SECRET`)
+                return
+            }
+            const data = await res.json()
+            if (data.sent || data.failed) console.log(`[cron/award-postage] tick — ${data.sent} DM(s) sent, ${data.failed} failed`)
+        } catch (e) {
+            console.error('[cron/award-postage] error:', e)
+        }
+    })
+}
+
+setInterval(triggerAwardPostageCron, 5 * 60 * 1000)
+triggerAwardPostageCron()
 
 // ── Operations cron (every 1 minute) ─────────────────────────────────────────
 

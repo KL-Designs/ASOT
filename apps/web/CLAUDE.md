@@ -39,6 +39,13 @@ or renaming a route, since `typedRoutes: true` only regenerates its route union 
 changing `next.config.ts`; touching anything in `serverExternalPackages`). For everything else,
 `npx tsc --noEmit` and the vitest suites are the fast checks — use those, or just make the change.
 
+**The typed route union is at TypeScript's size limit.** With ~540 routes (API routes count), any
+expression that combines two `Route` values — `cond ? routeA : routeB`, `href ?? \`/x/${y}\`` —
+fails the build with TS2590 "union type that is too complex to represent", and adding a route can
+tip an existing line over. `npx tsc --noEmit` only sees it after `npx next typegen` refreshes
+`.next/types`. The fix is to widen each side to `string` and cast the result back once:
+`(cond ? a as string : b as string) as Route` (see `app/operations/[id]/OperationTabs.tsx`).
+
 **Never run `npm run build` while a dev server is up.** `next build` and `next dev` share this app's
 `.next/` directory, and running the build against a live dev server corrupts it in both directions:
 the build fails collecting page data (`Cannot find module for page: /_not-found`) and the dev server

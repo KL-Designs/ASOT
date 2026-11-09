@@ -4,6 +4,9 @@ import client from '@/lib/discord'
 import Db from '@/lib/mongo'
 import { can } from '@/lib/operations/permissions'
 import { toBoardUser } from '@/lib/attendance/board-user'
+import { logAction } from '@/lib/logAction'
+import { canCommend, viewableSections } from '@/lib/operations/aar-access'
+import { actorName, loadAarContext } from '@/lib/operations/aar-context'
 import {
     aarOpen, canWriteSection, didAttend, sectionLead, validRating, writableSections,
 } from '@/lib/operations/aar'
@@ -126,18 +129,29 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     }))
 
     const mine = aarByUser.get(me.id) ?? null
-    const feedback = await Db.operationFeedback.findOne({ operationId, userId: me.id })
+    const ctx = await loadAarContext(operationId, me)
+    const feedback = ctx.feedback
 
     return NextResponse.json({
         open,
         attended,
         canManageAll,
         mySections,
+        // Row 328: the consolidated view, and who may skip "write yours first".
+        unlocked: ctx.unlocked,
+        bypass: ctx.bypass,
+        viewableSections: viewableSections(roster, me.id, ctx.standing),
+        canCommend: canCommend(roster, me.id, ctx.standing),
+        missionAar: {
+            enabled: ctx.missionAarEnabled,
+            canToggle: ctx.standing.isMissionMaker || ctx.standing.isJ4,
+            scope: ctx.hasCampaign ? 'campaign' : 'operation',
+        },
         mine: mine
             ? { fix: mine.fix, sustain: mine.sustain, improve: mine.improve, writtenByName: mine.writtenByName }
             : null,
         feedback: feedback
-            ? { server: feedback.server, combat: feedback.combat, story: feedback.story, comment: feedback.comment }
+            ? { server: feedback.server, combat: feedback.combat, story: feedback.story, enjoyment: feedback.enjoyment ?? null, comment: feedback.comment }
             : null,
         sections,
     })
@@ -223,6 +237,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
             },
             { upsert: true },
         )
+        // Row 328: somebody else's report is changed on the record.
+        if (byAnother) {
+            await logAction({
+                action: 'operations.aar.editOther',
+                category: 'operation',
+                performedBy: me.id,
+                performedByName: actorName(me),
+                entityType: 'operationAar',
+                entityId: id,
+                actionUrl: `/operations/${id}/aar`,
+                target: targetId,
+                details: { section },
+            })
+        }
     }
 
     /* ── How the night went ─────────────────────────────────────────────── */
@@ -244,6 +272,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
                     server: score(body.feedback.server),
                     combat: score(body.feedback.combat),
                     story: score(body.feedback.story),
+                    enjoyment: score(body.feedback.enjoyment),
                     comment: typeof body.feedback.comment === 'string' ? body.feedback.comment.slice(0, 4000) : '',
                     updatedAt: now,
                 },
