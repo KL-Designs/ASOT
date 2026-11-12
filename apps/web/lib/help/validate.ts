@@ -18,6 +18,8 @@ export const LIMITS = {
     question: 600,
 }
 
+export const DEPARTMENT_CODES = ['j1', 'j2', 'j3', 'j4', 'j5', 'j6', 'j7']
+
 export const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 export function slugFromTitle(title: string): string {
@@ -54,11 +56,13 @@ export function parseArticleFields(body: unknown): { fields: ArticleFields } | {
     const paths = list(b.paths, LIMITS.paths, LIMITS.path).map(cleanPath).filter((p): p is string => !!p)
     const keywords = list(b.keywords, LIMITS.keywords, LIMITS.keyword).map(k => k.toLowerCase())
     const tutorial = str(b.tutorial, 60)
+    const departments = list(b.departments, 7, 4).map(d => d.toLowerCase()).filter(d => DEPARTMENT_CODES.includes(d))
     const order = typeof b.order === 'number' && Number.isFinite(b.order) ? Math.max(0, Math.min(999, Math.round(b.order))) : undefined
     return {
         fields: {
             title, summary, body: text, category, audience, paths, keywords,
             tutorial: tutorial && SLUG_RE.test(tutorial) ? tutorial : undefined,
+            departments: departments.length ? departments : undefined,
             order,
             hidden: b.hidden === true ? true : undefined,
         },

@@ -1,6 +1,6 @@
 import Db from '@/lib/mongo'
 import { BUILT_IN_ARTICLES } from './articles'
-import { canRead, type HelpArticleView } from './search'
+import { canSee, type HelpArticleView, type HelpReaderScope } from './search'
 
 /**
  * Reading and writing the help wiki's articles. The built-in copies in
@@ -20,6 +20,7 @@ function toView(a: Omit<HelpArticle, 'version'> & { version?: number }, builtIn:
         paths: a.paths ?? [],
         keywords: a.keywords ?? [],
         tutorial: a.tutorial || undefined,
+        departments: a.departments?.length ? a.departments : undefined,
         order: a.order,
         hidden: a.hidden || undefined,
         version: a.version ?? 0,
@@ -42,10 +43,11 @@ export async function loadAllArticles(): Promise<HelpArticleView[]> {
     return out
 }
 
-/** The articles a reader at `level` may see. Reviewers also get hidden ones. */
-export async function loadVisibleArticles(level: HelpAudience, includeHidden = false): Promise<HelpArticleView[]> {
+/** The articles a reader may see. Reviewers (`includeHidden`) get every article, hidden ones too. */
+export async function loadVisibleArticles(reader: HelpReaderScope, includeHidden = false): Promise<HelpArticleView[]> {
     const all = await loadAllArticles()
-    return all.filter(a => (includeHidden || !a.hidden) && (includeHidden || canRead(a.audience, level)))
+    if (includeHidden) return all
+    return all.filter(a => !a.hidden && canSee(a, reader))
 }
 
 export async function loadArticle(slug: string): Promise<HelpArticleView | null> {
@@ -55,7 +57,7 @@ export async function loadArticle(slug: string): Promise<HelpArticleView | null>
     return seed ? toView(seed, true) : null
 }
 
-export type ArticleFields = Pick<HelpArticleView, 'title' | 'category' | 'summary' | 'body' | 'audience' | 'paths' | 'keywords' | 'tutorial' | 'order' | 'hidden'>
+export type ArticleFields = Pick<HelpArticleView, 'title' | 'category' | 'summary' | 'body' | 'audience' | 'paths' | 'keywords' | 'tutorial' | 'departments' | 'order' | 'hidden'>
 
 export interface SaveBy { id: string; name: string }
 
@@ -84,6 +86,7 @@ export async function saveArticle(
             paths: current.paths,
             keywords: current.keywords,
             tutorial: current.tutorial,
+            departments: current.departments,
             hidden: current.hidden,
             savedAt: now,
             savedById: by.id,
@@ -102,6 +105,7 @@ export async function saveArticle(
         paths: fields.paths,
         keywords: fields.keywords,
         ...(fields.tutorial ? { tutorial: fields.tutorial } : {}),
+        ...(fields.departments?.length ? { departments: fields.departments } : {}),
         ...(fields.order !== undefined ? { order: fields.order } : {}),
         ...(fields.hidden ? { hidden: true } : {}),
         version: (current?.version ?? 0) + 1,
@@ -116,6 +120,6 @@ export async function saveArticle(
 export function fieldsOf(a: HelpArticleView): ArticleFields {
     return {
         title: a.title, category: a.category, summary: a.summary, body: a.body, audience: a.audience,
-        paths: a.paths, keywords: a.keywords, tutorial: a.tutorial, order: a.order, hidden: a.hidden,
+        paths: a.paths, keywords: a.keywords, tutorial: a.tutorial, departments: a.departments, order: a.order, hidden: a.hidden,
     }
 }

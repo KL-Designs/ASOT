@@ -5,10 +5,13 @@ import { articlesForPath, canRead, CATEGORY_KEYS, pathSpecificity, searchArticle
 import { buildAskSystemPrompt, citedSlugs, pickArticles, sanitiseHistory } from './ai'
 import { cleanPath, parseArticleFields, parseSuggestion, slugFromTitle, SLUG_RE } from './validate'
 import { diffLines, diffStats } from './diff'
+import { TUTORIALS } from '@/lib/tutorial/registry'
+
+const TUTORIAL_IDS = TUTORIALS.map(t => t.id)
 
 const views: HelpArticleView[] = BUILT_IN_ARTICLES.map(a => ({
     slug: a._id, title: a.title, category: a.category, summary: a.summary, body: a.body, audience: a.audience,
-    paths: a.paths, keywords: a.keywords, tutorial: a.tutorial, order: a.order, version: 0, builtIn: true,
+    paths: a.paths, keywords: a.keywords, tutorial: a.tutorial, departments: a.departments, order: a.order, version: 0, builtIn: true,
 }))
 
 describe('built-in articles', () => {
@@ -37,6 +40,21 @@ describe('built-in articles', () => {
                 if (bySlug.get(l)!.audience !== 'public') expect.soft(`${a._id} links member-only ${l}`).toBe('')
             }
         }
+    })
+
+    it("never link a guide to a department's guide its readers may not see", () => {
+        const bySlug = new Map(BUILT_IN_ARTICLES.map(a => [a._id, a]))
+        for (const a of BUILT_IN_ARTICLES) {
+            for (const l of articleLinks(a.body)) {
+                const target = bySlug.get(l)!.departments ?? []
+                const own = a.departments ?? []
+                if (target.length) expect(own.length && own.every(d => target.includes(d)), `${a._id} links ${l} (${target})`).toBeTruthy()
+            }
+        }
+    })
+
+    it('only name walkthroughs that exist', () => {
+        for (const a of BUILT_IN_ARTICLES.filter(x => x.tutorial)) expect(TUTORIAL_IDS, a._id).toContain(a.tutorial)
     })
 
     it('pass their own validation', () => {

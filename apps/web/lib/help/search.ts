@@ -17,6 +17,8 @@ export interface HelpArticleView {
     paths: string[]
     keywords: string[]
     tutorial?: string
+    /** Department codes whose members may read it; absent for everyone the audience allows. */
+    departments?: string[]
     order?: number
     hidden?: boolean
     version: number
@@ -26,15 +28,32 @@ export interface HelpArticleView {
     updatedByName?: string
 }
 
-export const HELP_CATEGORIES: { key: HelpCategory; label: string; blurb: string }[] = [
-    { key: 'getting-started', label: 'Getting started', blurb: 'Joining, signing in and finding your way round' },
-    { key: 'operations', label: 'Operations', blurb: 'Missions, RSVPs, attendance and maps' },
-    { key: 'community', label: 'Community', blurb: 'The ORBAT, MILPACS, kits, gallery and more' },
-    { key: 'profile', label: 'Your profile', blurb: 'Your record, preferences and notifications' },
-    { key: 'training', label: 'Training', blurb: 'Courses, qualifications, SOPs and guides' },
-    { key: 'tickets', label: 'Tickets & feedback', blurb: 'Requests, bug reports, awards and complaints' },
-    { key: 'departments', label: 'Staff & departments', blurb: 'The staff dashboard and J1 to J7' },
-    { key: 'faq', label: 'FAQ', blurb: 'Quick answers to common questions' },
+export type HelpGroup = 'start' | 'site' | 'departments' | 'faq'
+
+export const HELP_GROUPS: { key: HelpGroup; label: string }[] = [
+    { key: 'start', label: 'Start here' },
+    { key: 'site', label: 'Using the site' },
+    { key: 'departments', label: 'Departments' },
+    { key: 'faq', label: 'Questions' },
+]
+
+export const HELP_CATEGORIES: { key: HelpCategory; label: string; blurb: string; group: HelpGroup }[] = [
+    { key: 'getting-started', label: 'Getting started', blurb: 'Joining, signing in and finding your way round', group: 'start' },
+    { key: 'operations', label: 'Operations', blurb: 'Missions, RSVPs, attendance, AARs and maps', group: 'site' },
+    { key: 'community', label: 'Community', blurb: 'The ORBAT, MILPACS, kits, gallery and more', group: 'site' },
+    { key: 'profile', label: 'Your profile', blurb: 'Your record, preferences and notifications', group: 'site' },
+    { key: 'training', label: 'Training', blurb: 'Courses, qualifications, SOPs and guides', group: 'site' },
+    { key: 'tickets', label: 'Tickets & feedback', blurb: 'Requests, bug reports, awards and complaints', group: 'site' },
+    { key: 'dashboard', label: 'Dashboard & staff tools', blurb: 'Calendar, tasks, meetings, personnel and the ORBAT manager', group: 'site' },
+    { key: 'departments', label: 'Departments overview', blurb: 'What J1 to J7 do', group: 'departments' },
+    { key: 'j1', label: 'J1 Recruitment', blurb: 'Applications, recruit sessions and induction', group: 'departments' },
+    { key: 'j2', label: 'J2 Mission Making', blurb: 'Operations, checks, doctrine and intel', group: 'departments' },
+    { key: 'j3', label: 'J3 Training', blurb: 'Training events, tickets, records and Selection', group: 'departments' },
+    { key: 'j4', label: 'J4 Administration', blurb: 'Mastersheet, tickets, awards, backups and tools', group: 'departments' },
+    { key: 'j5', label: 'J5 Media', blurb: 'Gallery media, submissions and features', group: 'departments' },
+    { key: 'j6', label: 'J6 Game Masters', blurb: 'Zeus notes and running missions', group: 'departments' },
+    { key: 'j7', label: 'J7 Community Development', blurb: 'The board and this help wiki', group: 'departments' },
+    { key: 'faq', label: 'FAQ', blurb: 'Quick answers to common questions', group: 'faq' },
 ]
 
 export const CATEGORY_KEYS = HELP_CATEGORIES.map(c => c.key)
@@ -46,6 +65,22 @@ const AUDIENCE_RANK: Record<HelpAudience, number> = { public: 0, member: 1, staf
 /** Whether a reader at `level` may read an article written for `audience`. */
 export function canRead(audience: HelpAudience, level: HelpAudience): boolean {
     return AUDIENCE_RANK[audience] <= AUDIENCE_RANK[level]
+}
+
+/** What decides which guides a reader sees. */
+export interface HelpReaderScope {
+    level: HelpAudience
+    /** Department codes the reader belongs to. */
+    departments: string[]
+    /** J7 reviewers and J4 administration: every department's guides. */
+    allDepartments: boolean
+}
+
+/** Whether a reader may see a guide (or FAQ entry) with this audience and department limit. */
+export function canSee(item: { audience: HelpAudience; departments?: string[] }, reader: HelpReaderScope): boolean {
+    if (!canRead(item.audience, reader.level)) return false
+    if (!item.departments?.length || reader.allDepartments) return true
+    return item.departments.some(d => reader.departments.includes(d))
 }
 
 /**
@@ -173,4 +208,21 @@ export function searchArticles(articles: HelpArticleView[], query: string, limit
         hits.push({ article, score, snippet: bodyOnly ? makeSnippet(bodyText, terms) : undefined })
     }
     return hits.sort((a, b) => b.score - a.score || byOrder(a.article, b.article)).slice(0, limit)
+}
+
+const SITE_SUFFIX = /\s*[|·–—-]\s*(Australian Special Operations Taskforce|ASOT)\s*$/i
+const SITE_ONLY = /^(Australian Special Operations Taskforce|ASOT)$/i
+
+/**
+ * A name for the page the reader is on, for "Ask about this page" and the
+ * assistant's prompt: the page's own title when it sets one, otherwise its
+ * path in words (`/dashboard/j1` → "Dashboard › J1"), skipping ids.
+ */
+export function pageLabel(pathname: string, docTitle?: string): string {
+    const t = docTitle?.replace(SITE_SUFFIX, '').trim()
+    if (t && !SITE_ONLY.test(t)) return t.slice(0, 80)
+    const segs = (pathname.split('?')[0].split('#')[0]).split('/').filter(Boolean)
+        .filter(seg => !/^[0-9a-f]{24}$/i.test(seg) && !/^\d+$/.test(seg) && !(seg.length > 12 && /\d/.test(seg)))
+    if (!segs.length) return 'Home'
+    return segs.map(seg => /^j[1-7]$/i.test(seg) ? seg.toUpperCase() : seg.replace(/[-_]+/g, ' ').replace(/^\w/, c => c.toUpperCase())).join(' › ')
 }

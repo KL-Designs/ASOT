@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     const by = { id: viewer.id, name: viewer.name ?? viewer.id }
     const article = await saveArticle(slug, {
         title: rev.title, summary: rev.summary, body: rev.body, category: rev.category, audience: rev.audience,
-        paths: rev.paths, keywords: rev.keywords, tutorial: rev.tutorial, order: current?.order, hidden: rev.hidden,
+        paths: rev.paths, keywords: rev.keywords, tutorial: rev.tutorial, departments: rev.departments, order: current?.order, hidden: rev.hidden,
     }, by, 'restore')
     await logAction({
         action: 'help.article.restore',

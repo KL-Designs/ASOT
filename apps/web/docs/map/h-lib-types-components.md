@@ -122,20 +122,21 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 - UI: `components/j2/ObjectiveSuggestions.tsx`, mounted editable as the J2 dashboard's *Objective Suggestions* tab (explicit value 8) and with `mirror` (read-only, re-read every 15s) as the fourth tab of `app/dashboard/personnel/all-staff/AllStaffPanel.tsx`.
 
 ### lib/help/ — the site-wide help wiki
-- `articles.ts` — the built-in starter guides (`BUILT_IN_ARTICLES`). A `help_articles` document with the same slug replaces one from its first edit, so changing text here only reaches never-edited guides.
-- `store.ts` — `loadAllArticles` / `loadVisibleArticles(level, includeHidden)` / `loadArticle` merge built-ins with `Db.helpArticles`; `saveArticle` copies the replaced version to `Db.helpRevisions` and bumps `version`.
-- `viewer.ts` — `resolveHelpViewer()`: `level` (public/member/staff), `canSuggest`, `canAsk` (`ai.use`), `canReview` (`PERMISSIONS.help.review` or granted `help.review`).
-- `search.ts` (pure) — `HelpArticleView`, `HELP_CATEGORIES`, `canRead`, `pathSpecificity` (prefix match by segments, `*` wildcard), `articlesForPath`, `searchArticles` (weighted title > keywords > summary > body, crude stemming, whole-word phrase bonus).
-- `markdown.ts` (pure) — the wiki's small Markdown dialect to blocks; no raw HTML ever, links limited to `/path`, `#`, `http(s)`; `[[slug]]` article links.
+- `articles.ts` + `articles-site.ts` — the built-in guides (`BUILT_IN_ARTICLES`, the starters then `SITE_ARTICLES`: dashboard, every department, member pages). Department guides set `departments` and audience `member`. A `help_articles` document with the same slug replaces one from its first edit, so changing text here only reaches never-edited guides.
+- `store.ts` — `loadAllArticles` / `loadVisibleArticles(reader, includeHidden)` / `loadArticle` merge built-ins with `Db.helpArticles`; `saveArticle` copies the replaced version to `Db.helpRevisions` and bumps `version`.
+- `viewer.ts` — `resolveHelpViewer()`: `level` (public/member/staff), `canSuggest`, `canAsk` (`ai.use`), `canReview` (`PERMISSIONS.help.review` or granted `help.review`), `departments` / `allDepartments` (a `HelpReaderScope`).
+- `search.ts` (pure) — `HelpArticleView`, `HELP_GROUPS`, `HELP_CATEGORIES` (each in a group), `canRead`, `canSee` (audience + department), `pageLabel`, `pathSpecificity` (prefix match by segments, `*` wildcard), `articlesForPath`, `searchArticles` (weighted title > keywords > summary > body, crude stemming, whole-word phrase bonus).
+- `markdown.ts` (pure) — the wiki's small Markdown dialect to blocks; no raw HTML ever, links limited to `/path`, `#`, `http(s)`; `[[slug]]` article links; `articleChapters` for the /help contents.
+- `questions.ts` (pure) — the living FAQ: `questionTokens`/`matchQuestion` (Jaccard ≥ 0.6, exact for ≤2 words), `pageKey`, `parseAskReply`, `answerScope`, `suggestionToRaise`, `faqVisible`, `sortFaq`, `faqForPath`, `toQuestionView`, `HELP_ASSISTANT_ID`. `questions-db.ts` — `recordQuestion` (fold into `Db.helpQuestions`, raise with J7), `loadFaq`.
 - `ai.ts` (pure) — `pickArticles`, `buildAskSystemPrompt` (answer only from the given articles), `sanitiseHistory`, `citedSlugs`.
 - `validate.ts` (pure) — `parseArticleFields`, `parseSuggestion`, `cleanPath`, `slugFromTitle`, limits. `diff.ts` (pure) — line diff for J7's review cards. `suggestions.ts` — `HelpSuggestionView`.
-- Tests: `help.test.ts` (also checks every built-in `[[slug]]` link resolves and public guides don't link member-only ones).
+- Tests: `help.test.ts` (also checks every built-in `[[slug]]` link resolves, public guides don't link member-only ones, guides don't link department guides their readers can't see, and walkthrough ids exist), `questions.test.ts`.
 
 ### components/help/
-`HelpLauncher.tsx` (the "?" button + drawer, see part G), `HelpWikiPage.tsx` (`/help`), `HelpViews.tsx` (search box, lists, topic grid, `ArticleView`), `HelpAsk.tsx`, `HelpSuggest.tsx`, `HelpMarkdown.tsx` (renderer; dead `[[slug]]` links render struck through), `useHelpData.ts` (one shared `/api/help` fetch, `reloadHelp`, `openHelp`, `startTutorial` — fires `asot:tutorial-start` for the guided walkthroughs). Styles: `styles/help.module.css`.
+`HelpLauncher.tsx` (the "?" button + drawer, see part G), `HelpWikiPage.tsx` (`/help`), `HelpViews.tsx` (search box, lists, grouped topic grid, `FaqList`, `AskAboutPage`, the page-first `HelpHome`, `ArticleView`), `HelpAsk.tsx`, `HelpSuggest.tsx`, `HelpMarkdown.tsx` (renderer; dead `[[slug]]` links render struck through), `useHelpData.ts` (one shared `/api/help` fetch, `reloadHelp`, `openHelp`, `startTutorial` — fires `asot:tutorial-start` for the guided walkthroughs). Styles: `styles/help.module.css`.
 
 ### types/help.d.ts
-`HelpArticle`, `HelpSuggestion`, `HelpRevision`, `HelpAudience`, `HelpCategory`, `HelpSuggestionKind/Status`.
+`HelpArticle`, `HelpSuggestion`, `HelpRevision`, `HelpQuestion` (`help_questions`), `HelpAudience`, `HelpCategory`, `HelpSuggestionKind/Status`.
 
 ### lib/mods/mod-database.ts + access.ts
 - The Mod Database (`Db.modDatabase`, type `ModEntry`): one entry per mod — name, Workshop link, status (approved / testing / known issues / rejected), notes, who tested it and when. `mod-database.ts` is pure and tested (`sanitiseMod` with a `partial` mode for edits, `cleanModUrl`, `normaliseModUrl` for spotting a mod already listed, `matchesModSearch`). `access.ts` — `canEditMods(me)` (J2 or J7) and `toModView`.

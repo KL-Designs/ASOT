@@ -140,3 +140,14 @@ export function articleLinks(src: string): string[] {
     const outsideCode = src.replace(/`[^`]*`/g, '')
     return [...new Set([...outsideCode.matchAll(/\[\[([a-z0-9-]+)(?:\|[^\]]+)?\]\]/g)].map(m => m[1]))]
 }
+
+/** An article's chapters (its headings), for the table of contents. */
+export function articleChapters(src: string): { id: string; level: 1 | 2 | 3; text: string }[] {
+    return parseHelpMarkdown(src)
+        .filter((b): b is Extract<HelpBlock, { type: 'heading' }> => b.type === 'heading')
+        .map(b => ({ id: b.id, level: b.level, text: helpMarkdownToText(inlineText(b.text)) }))
+}
+
+function inlineText(nodes: HelpInline[]): string {
+    return nodes.map(n => 'children' in n ? inlineText(n.children) : 'text' in n && n.text ? n.text : 'slug' in n ? n.slug : '').join('')
+}

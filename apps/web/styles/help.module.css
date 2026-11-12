@@ -453,3 +453,63 @@
 @media (max-width: 900px) {
     .compare { grid-template-columns: 1fr; }
 }
+
+/* ── Page first: "You're on", ask about this page ─────────────────── */
+.here { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line-1); border-left: 2px solid var(--red); background: var(--ink-2); }
+.hereTitle { font-family: var(--font-cond); font-weight: 600; font-size: 1.05rem; letter-spacing: 0.04em; margin: 2px 0 8px; }
+.pageAsk { display: flex; flex-direction: column; gap: 6px; }
+.pageAskBox { display: flex; gap: 6px; }
+.pageAskBox input {
+    flex: 1; min-width: 0; padding: 7px 10px; background: var(--ink-1); border: 1px solid var(--line-2);
+    color: var(--txt-1); font: inherit; font-size: 0.85rem; outline: none;
+}
+.pageAskBox input:focus { border-color: rgba(224, 35, 60, 0.6); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+    padding: 3px 9px; border: 1px solid var(--line-2); background: transparent; color: var(--txt-2);
+    font: inherit; font-size: 0.72rem; cursor: pointer; text-align: left;
+}
+.chip:hover { color: var(--txt-1); border-color: rgba(224, 35, 60, 0.45); }
+
+/* ── Living FAQ ───────────────────────────────────────────────────── */
+.faq { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.faqItem { border: 1px solid var(--line-1); background: var(--ink-2); }
+.faqOpen { border-color: var(--line-2); }
+.faqQ {
+    width: 100%; display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: none; border: 0;
+    color: var(--txt-1); font: inherit; font-size: 0.85rem; font-weight: 600; text-align: left; cursor: pointer;
+}
+.faqQ:hover { background: var(--ink-3); }
+.faqText { flex: 1; min-width: 0; }
+.faqCount { font-family: var(--font-mono); font-size: 0.62rem; color: var(--txt-3); }
+.faqChevron { color: var(--txt-3); transition: transform 0.15s; }
+.faqOpen .faqChevron { transform: rotate(180deg); }
+.faqA { padding: 2px 12px 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.faqA .md { font-size: 0.85rem; }
+.raised { margin-top: 8px; font-size: 0.74rem; color: var(--txt-2); padding: 6px 8px; border: 1px dashed var(--line-2); }
+
+.catGroup { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.catGroupLabel { font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--txt-3); }
+
+/* ── /help table of contents ──────────────────────────────────────── */
+.toc { display: flex; flex-direction: column; gap: 2px; }
+.tocGroup { font-family: var(--font-mono); font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--txt-3); margin: 10px 0 2px; }
+.tocCat {
+    display: flex; align-items: center; gap: 4px; width: 100%; padding: 4px 4px; background: none; border: 0;
+    color: var(--txt-1); font-family: var(--font-cond); font-weight: 600; font-size: 0.8rem; letter-spacing: 0.06em;
+    text-transform: uppercase; cursor: pointer; text-align: left;
+}
+.tocCat:hover { color: var(--red-hi); }
+.tocCat svg { color: var(--txt-3); transition: transform 0.15s; }
+.tocCatClosed svg { transform: rotate(-90deg); }
+.tocCount { margin-left: auto; font-family: var(--font-mono); font-size: 0.58rem; color: var(--txt-3); }
+.tocList { display: flex; flex-direction: column; gap: 1px; margin-left: 8px; border-left: 1px solid var(--line-1); }
+.tocChapters { display: flex; flex-direction: column; margin: 2px 0 4px 14px; }
+.tocChapter { font-size: 0.72rem; color: var(--txt-3); padding: 2px 6px; text-decoration: none; }
+.tocChapter:hover { color: var(--txt-1); }
+.tocChapterSub { padding-left: 16px; }
+.sideToggle { display: none; }
+@media (max-width: 900px) {
+    .sideToggle { display: inline-flex; }
+    .sideCollapsed .toc { display: none; }
+}

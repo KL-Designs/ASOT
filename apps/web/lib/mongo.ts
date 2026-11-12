@@ -185,6 +185,8 @@ const DbInterface = {
     helpSuggestions: db.collection('help_suggestions') as MongoCollection<HelpSuggestion>,
     /** The previous copy of an article each time it changes. */
     helpRevisions:   db.collection('help_revisions')   as MongoCollection<HelpRevision>,
+    /** Every question asked on the help assistant, rewordings folded together: the living FAQ. */
+    helpQuestions:   db.collection('help_questions')   as MongoCollection<HelpQuestion>,
 }
 
 export default DbInterface

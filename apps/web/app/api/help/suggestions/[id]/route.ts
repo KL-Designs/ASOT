@@ -7,16 +7,25 @@ import { LIMITS, parseArticleFields, slugFromTitle, SLUG_RE } from '@/lib/help/v
 import { toSuggestionView } from '@/lib/help/suggestions'
 import { createNotification } from '@/lib/notifications'
 import { logAction } from '@/lib/logAction'
+import { HELP_ASSISTANT_ID } from '@/lib/help/questions'
+
+/** Askers told when a question they asked gets a guide; more than this and the guide speaks for itself. */
+const MAX_ASKERS_TOLD = 50
 
 /**
- * PATCH `/api/help/suggestions/[id]` `{ action: 'approve' | 'reject', note?, fields?, slug? }`
+ * PATCH `/api/help/suggestions/[id]` `{ action: 'approve' | 'reject', note?, fields?, slug?, articleSlug? }`
  * — J7 settles one suggestion.
  *
  * Approving an **edit** publishes the proposed title and text onto the article
  * (or `fields`, when the reviewer tidied it first); approving a **new** idea
  * creates the article under `slug` (default: from its title). Either way the
  * replaced copy goes to `help_revisions`. Approving a **bug** or **question**
- * only marks it handled. The author is notified with the reviewer's note.
+ * only marks it handled (`articleSlug` names the guide that answers it). The author is notified with the reviewer's note.
+ *
+ * Suggestions the help assistant raised itself (`questionId` set) have no
+ * member to notify; instead, when one is approved, the question in
+ * `help_questions` is linked to the new guide and the people who asked it
+ * are told their question now has an answer.
  *
  * An edit written against an older version of the article is refused unless
  * `force: true`, so approving it cannot silently undo a change made since.
@@ -78,6 +87,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         publishedSlug = slug
     }
 
+    // A question or bug answered by a guide J7 wrote (or already had): link it.
+    if (action === 'approve' && !publishedSlug && (suggestion.kind === 'question' || suggestion.kind === 'bug')
+        && typeof body?.articleSlug === 'string' && SLUG_RE.test(body.articleSlug) && await loadArticle(body.articleSlug)) {
+        publishedSlug = body.articleSlug
+    }
+
     const now = new Date()
     const status: HelpSuggestionStatus = action === 'approve' ? 'approved' : 'rejected'
     await Db.helpSuggestions.updateOne({ _id }, {
@@ -87,7 +102,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             reviewedByName: by.name,
             reviewedAt: now,
             ...(note ? { reviewNote: note } : {}),
-            ...(publishedSlug && suggestion.kind === 'new' ? { articleSlug: publishedSlug } : {}),
+            ...(publishedSlug && suggestion.kind !== 'edit' ? { articleSlug: publishedSlug } : {}),
         },
     })
 
@@ -107,7 +122,25 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const outcome = action === 'approve'
         ? (suggestion.kind === 'bug' || suggestion.kind === 'question' ? 'has been dealt with' : 'was approved and is live')
         : 'was not accepted'
-    await createNotification({
+    if (suggestion.questionId && ObjectId.isValid(suggestion.questionId) && action === 'approve') {
+        const qid = new ObjectId(suggestion.questionId)
+        const question = await Db.helpQuestions.findOne({ _id: qid })
+        if (question) {
+            if (publishedSlug) await Db.helpQuestions.updateOne({ _id: qid }, { $set: { articleSlug: publishedSlug } })
+            for (const userId of question.askerIds.slice(-MAX_ASKERS_TOLD)) {
+                await createNotification({
+                    userId,
+                    type: 'help_suggestion_reviewed',
+                    title: publishedSlug ? 'A question you asked now has a help guide' : 'J7 looked into a question you asked',
+                    body: note ? `"${question.question.slice(0, 100)}" ${by.name}: ${note}` : `"${question.question.slice(0, 140)}"`,
+                    actionUrl: publishedSlug ? `/help/${publishedSlug}` : '/help',
+                    relatedId: id,
+                }).catch(() => undefined)
+            }
+        }
+    }
+
+    if (suggestion.authorId !== HELP_ASSISTANT_ID) await createNotification({
         userId: suggestion.authorId,
         type: 'help_suggestion_reviewed',
         title: `Your help wiki ${what} ${outcome}`,

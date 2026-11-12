@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import type { HelpArticleView } from '@/lib/help/search'
+import type { FaqEntry } from '@/lib/help/questions'
 
 export interface HelpViewerInfo {
     signedIn: boolean
@@ -14,6 +15,8 @@ export interface HelpViewerInfo {
 export interface HelpData {
     viewer: HelpViewerInfo
     articles: HelpArticleView[]
+    /** The living FAQ: questions people asked the assistant, most asked first. */
+    faq: FaqEntry[]
 }
 
 /*
@@ -31,6 +34,7 @@ function load(force = false): Promise<HelpData> {
     inflight = fetch('/api/help', { cache: 'no-store' })
         .then(r => r.json())
         .then((d: HelpData) => {
+            d.faq ??= []
             cache = d
             inflight = null
             listeners.forEach(fn => fn(d))
@@ -64,6 +68,8 @@ export interface HelpOpenDetail {
     tab?: 'guide' | 'ask' | 'suggest'
     /** Open the Suggest tab with this filled in. */
     suggest?: { kind: HelpSuggestionKind; slug?: string; body?: string }
+    /** Open the Ask tab and ask this straight away. */
+    ask?: string
 }
 
 /** Open the help panel from anywhere: `openHelp({ slug: 'rsvp-to-an-operation' })`. */

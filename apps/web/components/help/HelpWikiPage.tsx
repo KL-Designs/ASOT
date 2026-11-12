@@ -1,18 +1,21 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { QuestionAnswer, EditNote } from '@mui/icons-material'
+import { QuestionAnswer, EditNote, ExpandMore, MenuBook } from '@mui/icons-material'
 import { useHelpData, openHelp, startTutorial } from './useHelpData'
-import { ArticleList, ArticleView, CATEGORY_LABEL, SearchBox } from './HelpViews'
-import { HELP_CATEGORIES, articlesInCategory, searchArticles } from '@/lib/help/search'
+import { ArticleList, ArticleView, CATEGORY_LABEL, FaqList, SearchBox } from './HelpViews'
+import { HELP_CATEGORIES, HELP_GROUPS, articlesInCategory, searchArticles } from '@/lib/help/search'
+import { articleChapters } from '@/lib/help/markdown'
 import s from '@/styles/help.module.css'
 
 /**
- * `/help` and `/help/[slug]`: the help wiki with room to read. Topics down the
- * side, the guide (or the topic index) in the middle. Asking and suggesting
- * open the same side panel the "?" button does, so there is one of each.
+ * `/help` and `/help/[slug]`: the help wiki with room to read. A table of
+ * contents down the side (sections, then topics, then every guide the reader
+ * may see, with the open guide's chapters under it), the guide (or the index
+ * and the living FAQ) in the middle. Asking and suggesting open the same side
+ * panel the "?" button does, so there is one of each.
  */
 export default function HelpWikiPage({ slug }: { slug?: string }) {
     const router = useRouter()
@@ -23,28 +26,78 @@ export default function HelpWikiPage({ slug }: { slug?: string }) {
     const hits = useMemo(() => query.trim() ? searchArticles(articles, query) : [], [articles, query])
     const article = slug ? articles.find(a => a.slug === slug) : undefined
 
+    const chapters = useMemo(() => article ? articleChapters(article.body) : [], [article])
+    const faq = useMemo(() => data?.faq ?? [], [data])
+    const titles = useMemo(() => new Map(articles.map(a => [a.slug, a.title])), [articles])
+
+    // Every topic starts open on the index; on a guide, only its own topic.
+    const [closed, setClosed] = useState<Set<HelpCategory>>(new Set())
+    useEffect(() => {
+        setClosed(article ? new Set(HELP_CATEGORIES.map(c => c.key).filter(k => k !== article.category)) : new Set())
+    }, [article])
+    const [tocHidden, setTocHidden] = useState(true)
+    const toggle = (k: HelpCategory) => setClosed(prev => {
+        const next = new Set(prev)
+        if (next.has(k)) next.delete(k); else next.add(k)
+        return next
+    })
+
     const side = (
-        <aside className={s.side}>
+        <aside className={`${s.side} ${tocHidden ? s.sideCollapsed : ''}`}>
             <SearchBox value={query} onChange={setQuery} />
             <div className={s.row}>
                 <button type='button' className={`${s.btn} ${s.btnSmall}`} onClick={() => openHelp({ tab: 'ask' })}><QuestionAnswer sx={{ fontSize: 14 }} />Ask</button>
                 <button type='button' className={`${s.btn} ${s.btnSmall}`} onClick={() => openHelp({ suggest: { kind: 'new' } })}><EditNote sx={{ fontSize: 14 }} />Suggest a guide</button>
+                <button type='button' className={`${s.btn} ${s.btnSmall} ${s.sideToggle}`} onClick={() => setTocHidden(h => !h)} aria-expanded={!tocHidden}>
+                    <MenuBook sx={{ fontSize: 14 }} />{tocHidden ? 'Contents' : 'Hide contents'}
+                </button>
             </div>
-            {HELP_CATEGORIES.map(c => {
-                const list = articlesInCategory(articles, c.key)
-                if (!list.length) return null
-                return (
-                    <div key={c.key} className={s.sideGroup}>
-                        <span className={s.kicker} style={{ marginBottom: 2 }}>{c.label}</span>
-                        {list.map(a => (
-                            <Link key={a.slug} href={`/help/${a.slug}` as never}
-                                className={`${s.sideLink} ${a.slug === slug ? s.sideLinkActive : ''}`}>
-                                {a.title}
-                            </Link>
-                        ))}
-                    </div>
-                )
-            })}
+            <nav className={s.toc} aria-label='Help contents'>
+                <Link href='/help' className={`${s.sideLink} ${!slug ? s.sideLinkActive : ''}`}>All guides{faq.length ? ' & questions' : ''}</Link>
+                {HELP_GROUPS.map(g => {
+                    const cats = HELP_CATEGORIES.filter(c => c.group === g.key)
+                        .map(c => ({ c, list: articlesInCategory(articles, c.key) }))
+                        .filter(x => x.list.length || (x.c.key === 'faq' && faq.length))
+                    if (!cats.length) return null
+                    return (
+                        <React.Fragment key={g.key}>
+                            <div className={s.tocGroup}>{g.label}</div>
+                            {cats.map(({ c, list }) => {
+                                const isClosed = closed.has(c.key)
+                                return (
+                                    <div key={c.key}>
+                                        <button type='button' className={`${s.tocCat} ${isClosed ? s.tocCatClosed : ''}`} aria-expanded={!isClosed} onClick={() => toggle(c.key)}>
+                                            <ExpandMore sx={{ fontSize: 16 }} />{c.label}
+                                            <span className={s.tocCount}>{list.length + (c.key === 'faq' ? faq.length : 0)}</span>
+                                        </button>
+                                        {!isClosed && (
+                                            <div className={s.tocList}>
+                                                {c.key === 'faq' && faq.length > 0 && (
+                                                    <Link href={'/help#most-asked' as never} className={s.sideLink}>Most asked questions</Link>
+                                                )}
+                                                {list.map(a => (
+                                                    <React.Fragment key={a.slug}>
+                                                        <Link href={`/help/${a.slug}` as never} className={`${s.sideLink} ${a.slug === slug ? s.sideLinkActive : ''}`}>
+                                                            {a.title}
+                                                        </Link>
+                                                        {a.slug === slug && chapters.length > 0 && (
+                                                            <div className={s.tocChapters}>
+                                                                {chapters.map(ch => (
+                                                                    <a key={ch.id} href={`#${ch.id}`} className={`${s.tocChapter} ${ch.level > 2 ? s.tocChapterSub : ''}`}>{ch.text}</a>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </React.Fragment>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            })}
+                        </React.Fragment>
+                    )
+                })}
+            </nav>
         </aside>
     )
 
@@ -91,19 +144,32 @@ export default function HelpWikiPage({ slug }: { slug?: string }) {
     } else {
         main = (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-                {HELP_CATEGORIES.map(c => {
-                    const list = articlesInCategory(articles, c.key)
-                    if (!list.length) return null
-                    return (
-                        <section key={c.key}>
-                            <div className={s.sectionHead}>
-                                <span className={s.kicker}>{CATEGORY_LABEL[c.key]}</span>
-                                <span className={s.hint}>{c.blurb}</span>
-                            </div>
-                            <ArticleList articles={list} hrefFor={sl => `/help/${sl}`} />
-                        </section>
-                    )
-                })}
+                {faq.length > 0 && (
+                    <section id='most-asked'>
+                        <div className={s.sectionHead}>
+                            <span className={s.kicker}>Most asked questions</span>
+                            <span className={s.hint}>What people ask the assistant, most asked first</span>
+                        </div>
+                        <FaqList entries={faq.slice(0, 15)} titles={titles} open />
+                    </section>
+                )}
+                {HELP_GROUPS.map(g => (
+                    <React.Fragment key={g.key}>
+                        {HELP_CATEGORIES.filter(c => c.group === g.key).map(c => {
+                            const list = articlesInCategory(articles, c.key)
+                            if (!list.length) return null
+                            return (
+                                <section key={c.key} id={`topic-${c.key}`}>
+                                    <div className={s.sectionHead}>
+                                        <span className={s.kicker}>{CATEGORY_LABEL[c.key]}</span>
+                                        <span className={s.hint}>{c.blurb}</span>
+                                    </div>
+                                    <ArticleList articles={list} hrefFor={sl => `/help/${sl}`} />
+                                </section>
+                            )
+                        })}
+                    </React.Fragment>
+                ))}
             </div>
         )
     }

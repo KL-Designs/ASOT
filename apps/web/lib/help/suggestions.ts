@@ -15,6 +15,8 @@ export interface HelpSuggestionView {
     status: HelpSuggestionStatus
     authorId: string
     authorName: string
+    /** Set when the help assistant raised it from an asked question. */
+    questionId?: string
     createdAt: string
     reviewedByName?: string
     reviewedAt?: string
@@ -36,6 +38,7 @@ export function toSuggestionView(s: HelpSuggestion & { _id?: ObjectId }): HelpSu
         status: s.status,
         authorId: s.authorId,
         authorName: s.authorName,
+        questionId: s.questionId,
         createdAt: new Date(s.createdAt).toISOString(),
         reviewedByName: s.reviewedByName,
         reviewedAt: s.reviewedAt ? new Date(s.reviewedAt).toISOString() : undefined,

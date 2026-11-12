@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { Drawer } from '@mui/material'
 import { Close, ArrowBack } from '@mui/icons-material'
@@ -8,6 +8,8 @@ import { useHelpData, startTutorial, type HelpOpenDetail } from './useHelpData'
 import { ArticleView, HelpHome } from './HelpViews'
 import HelpAsk, { type AskMessage } from './HelpAsk'
 import HelpSuggest, { type SuggestDraft } from './HelpSuggest'
+import { pageLabel } from '@/lib/help/search'
+import { faqForPath } from '@/lib/help/questions'
 import s from '@/styles/help.module.css'
 
 type Tab = 'guide' | 'ask' | 'suggest'
@@ -21,9 +23,10 @@ const HIDDEN_ON = [/^\/recruit-session\//, /^\/operations\/[^/]+\/map/, /^\/help
  * text box), and on `openHelp()` from `useHelpData.ts` — the `/help` page's
  * Ask and Suggest buttons use that.
  *
- * The panel's state (where you were, your Ask conversation, a half-written
- * suggestion) lives here rather than in the drawer, so closing and reopening
- * it doesn't lose anything.
+ * The panel's state (your Ask conversation, a half-written suggestion) lives
+ * here rather than in the drawer, so closing and reopening it doesn't lose
+ * anything. It opens on the page you're on: an article opened on another page
+ * is put away when the "?" opens it somewhere new.
  */
 export default function HelpLauncher() {
     const pathname = usePathname() || '/'
@@ -36,15 +39,31 @@ export default function HelpLauncher() {
     const [category, setCategory] = useState<HelpCategory | null>(null)
     const [messages, setMessages] = useState<AskMessage[]>([])
     const [draft, setDraft] = useState<SuggestDraft>({ kind: 'bug' })
+    const [pending, setPending] = useState<string | null>(null)
+    const [label, setLabel] = useState('this page')
     const { data, error, reload } = useHelpData(everOpened)
+
+    // The page the panel last showed. Opening it on a different page starts on that page.
+    const shownOn = useRef<string | null>(null)
+    const pathRef = useRef(pathname)
+    pathRef.current = pathname
+
+    const openRef = useRef(open)
+    openRef.current = open
 
     const show = useCallback((detail?: HelpOpenDetail) => {
         setEverOpened(true)
         setOpen(true)
+        setLabel(pageLabel(pathRef.current, document.title))
+        const fresh = !detail?.slug && !detail?.tab && !detail?.suggest && !detail?.ask
+        if (fresh && shownOn.current !== pathRef.current) { setSlug(null); setTab('guide'); setQuery(''); setCategory(null) }
+        shownOn.current = pathRef.current
         if (detail?.slug) { setSlug(detail.slug); setTab('guide') }
         if (detail?.tab) setTab(detail.tab)
         if (detail?.suggest) { setDraft({ ...detail.suggest }); setTab('suggest') }
+        if (detail?.ask) { setPending(detail.ask); setTab('ask') }
     }, [])
+    const clearPending = useCallback(() => setPending(null), [])
 
     useEffect(() => {
         const onOpen = (e: Event) => show((e as CustomEvent).detail)
@@ -53,8 +72,8 @@ export default function HelpLauncher() {
             const t = e.target as HTMLElement | null
             if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return
             e.preventDefault()
-            setEverOpened(true)
-            setOpen(o => !o)
+            if (openRef.current) setOpen(false)
+            else show()
         }
         window.addEventListener('asot:help-open', onOpen)
         window.addEventListener('keydown', onKey)
@@ -64,10 +83,20 @@ export default function HelpLauncher() {
         }
     }, [show])
 
-    // The article being read stays put across navigation (its links are usually
-    // the way to the page it describes, and the reader wants it beside them).
-    // A category list doesn't, so the front page's "On this page" shows instead.
-    useEffect(() => { setCategory(null) }, [pathname])
+    // While the panel is open, the article being read stays put across
+    // navigation (its links are usually the way to the page it describes). A
+    // category list doesn't, so the front page shows the new page instead.
+    useEffect(() => {
+        setCategory(null)
+        if (!open) return
+        shownOn.current = pathname
+        // Next sets the new page's title just after the path changes.
+        const t = setTimeout(() => setLabel(pageLabel(pathname, document.title)), 50)
+        return () => clearTimeout(t)
+    }, [pathname, open])
+
+    const askedHere = useMemo(() => data ? faqForPath(data.faq, pathname, 4).map(e => e.question) : [], [data, pathname])
+    const askAbout = (q: string) => { setPending(q); setTab('ask') }
 
     const hidden = HIDDEN_ON.some(re => re.test(pathname))
 
@@ -147,7 +176,12 @@ export default function HelpLauncher() {
                             ) : (
                                 <HelpHome
                                     articles={data.articles}
+                                    faq={data.faq}
                                     pathname={pathname}
+                                    label={label}
+                                    onAsk={askAbout}
+                                    onNavigate={onNavigate}
+                                    canAsk={data.viewer.canAsk}
                                     query={query}
                                     setQuery={setQuery}
                                     category={category}
@@ -162,6 +196,10 @@ export default function HelpLauncher() {
                                 setMessages={setMessages}
                                 articles={data.articles}
                                 pathname={pathname}
+                                pageTitle={label}
+                                pending={pending}
+                                clearPending={clearPending}
+                                suggestions={askedHere.length ? askedHere : ['What can I do on this page?', `How do I use ${label}?`]}
                                 signedIn={data.viewer.signedIn}
                                 canAsk={data.viewer.canAsk}
                                 onArticle={openArticle}

@@ -9,8 +9,11 @@
  * with `[text](/path)` and other articles with `[[slug]]`.
  */
 
+import { SITE_ARTICLES } from './articles-site'
+
 type Seed = Omit<HelpArticle, 'version' | 'updatedAt' | 'updatedById' | 'updatedByName'>
 
+/** Every built-in guide: the starters below, then the rest of the site (`articles-site.ts`). */
 export const BUILT_IN_ARTICLES: Seed[] = [
 
     // ── Getting started ───────────────────────────────────────────────────────
@@ -23,17 +26,27 @@ export const BUILT_IN_ARTICLES: Seed[] = [
         order: 1,
         summary: 'How the ? button works, how to search, ask a question, and suggest a fix.',
         paths: ['/help'],
-        keywords: ['help', 'wiki', 'guide', 'question mark', 'search', 'suggest', 'edit', 'bug', 'ask', 'ai'],
+        keywords: ['help', 'wiki', 'guide', 'question mark', 'search', 'suggest', 'edit', 'bug', 'ask', 'ai', 'faq', 'contents', 'this page'],
         body: `The **?** button in the bottom-right corner of every page opens this guide. You can also press the **?** key anywhere on the site (when you aren't typing in a box).
 
+## It starts with the page you're on
+When you open it, the panel shows:
+- **You're on**: the page you're looking at, with a box to **ask about this page**.
+- **Guides for this page**: the guides written about it.
+- **Common questions on this page**: what other people have asked here, with the answers.
+- **Most asked**: the questions asked most across the whole site.
+
 ## Finding an answer
-- **On this page** lists the guides about the page you're looking at, so start there.
-- **Search** looks through every guide's title, keywords and text as you type.
-- **Browse** shows every guide grouped by topic.
-- Links inside a guide take you straight to the page they talk about. Open [the full wiki](/help) when you want more room to read.
+- **Search** looks through every guide's title, keywords and text, and questions asked before, as you type.
+- **Browse topics** shows every guide grouped by section.
+- Open [the full wiki](/help) for a contents list of everything down the left, with each guide's chapters.
+
+You only see guides for what you have access to. Department guides show to that department's members.
 
 ## Asking a question
-Signed-in members can use the **Ask** tab to put a question to the site's AI assistant. It answers from these guides and links the ones it used. When it can't find the answer, press **Send to J7** so the question reaches a person and the missing guide gets written.
+Signed-in members can use the **Ask** tab to put a question to the site's AI assistant. It answers from the guides you can read and links the ones it used. "This page" means the page you're on.
+
+Every question asked goes into the **living FAQ**: questions many people ask rise to the top. If the assistant can't answer, or your question sounds like something on the site is broken, it passes it to J7 by itself and says so. You can still press **Send to J7** for anything else.
 
 > **Note:** The assistant can be switched off or reach its budget. When it is, the Ask tab says so, and you can still send your question to J7.
 
@@ -404,7 +417,7 @@ Whichever you use, say what you did, what you expected, and what happened instea
     {
         _id: 'staff-dashboard',
         title: 'Getting around the staff dashboard',
-        category: 'departments',
+        category: 'dashboard',
         audience: 'member',
         order: 1,
         summary: 'The sidebar, pinned tabs, the calendar and tasks.',
@@ -447,9 +460,10 @@ Interested in joining a department? Talk to its leads or raise a ticket.`,
     {
         _id: 'j1-recruitment',
         title: 'J1: reviewing applications and recruiting',
-        category: 'departments',
-        audience: 'staff',
-        order: 10,
+        category: 'j1',
+        audience: 'member',
+        departments: ['j1'],
+        order: 1,
         summary: 'Applications, the recruit wizard and the master sheet.',
         paths: ['/dashboard/j1'],
         keywords: ['j1', 'application', 'applications', 'recruit', 'recruiting', 'recruit session', 'mastersheet', 'returning member', 'quiz', 'bct'],
@@ -459,14 +473,17 @@ Interested in joining a department? Talk to its leads or raise a ticket.`,
 - **Applications** lists incoming applications. Open one to review it, then accept or deny it. Returning members are flagged so J4 can check their history.
 - **Mastersheet** is J1's record of applicants and their progress.
 
-The **Admin** area holds meetings, tickets and department settings for J1 leads.`,
+The **Admin** area holds meetings, tickets and department settings for J1 leads.
+
+More detail: [[j1-recruit-member]], [[j1-applications]], [[j1-induction-pack]] and [[j1-admin-tools]].`,
     },
     {
         _id: 'j2-mission-making',
         title: 'J2: writing and publishing operations',
-        category: 'departments',
-        audience: 'staff',
-        order: 11,
+        category: 'j2',
+        audience: 'member',
+        departments: ['j2'],
+        order: 1,
         summary: 'Creating an operation, the editor, mission checks and publishing.',
         paths: ['/dashboard/j2', '/operations/*/edit'],
         keywords: ['j2', 'mission', 'mission making', 'operation', 'create', 'editor', 'publish', 'campaign', 'mission check', 'workspace', 'doctrine', 'orders'],
@@ -478,18 +495,21 @@ The **Admin** area holds meetings, tickets and department settings for J1 leads.
 4. **Request a mission check** before it goes live. J2 leads confirm and work through it.
 5. **Publish** to move it to Upcoming. RSVPs then open on schedule.
 
-The **Members Workspace** holds your own drafts and files. The **Mission Bible** and **Objective Suggestions** tabs collect the unit's lore and ideas.`,
+The **Members Workspace** holds your own drafts and files. The **Mission Bible** and **Objective Suggestions** tabs collect the unit's lore and ideas.
+
+More detail: [[j2-operations-board]], [[operation-editor-tabs]], [[j2-mission-checks]] and [[j2-workspace-and-lore]].`,
     },
     {
         _id: 'j7-help-wiki-review',
         title: 'J7: reviewing help wiki suggestions',
-        category: 'departments',
-        audience: 'staff',
-        order: 17,
+        category: 'j7',
+        audience: 'member',
+        departments: ['j7'],
+        order: 2,
         summary: 'Approving edits, answering questions and keeping the wiki current.',
         paths: ['/dashboard/j7'],
-        keywords: ['j7', 'wiki', 'help', 'review', 'approve', 'reject', 'suggestion', 'edit', 'article', 'revision', 'restore'],
-        body: `J7 owns this wiki. Everything readers send in lands in the **Help Wiki** tab of the [J7 dashboard](/dashboard/j7).
+        keywords: ['j7', 'wiki', 'help', 'review', 'approve', 'reject', 'suggestion', 'edit', 'article', 'revision', 'restore', 'faq', 'asked questions', 'assistant', 'pin'],
+        body: `J7 owns this wiki. Everything readers send in, and everything the help assistant notices, lands in the **Help Wiki** tab of the [J7 dashboard](/dashboard/j7).
 
 ## The queue
 - **Edit suggestions** show the current text beside the proposed text. **Approve** publishes the proposed version straight away. You can tidy it first with **Edit, then approve**.
@@ -498,8 +518,22 @@ The **Members Workspace** holds your own drafts and files. The **Mission Bible**
 
 If an article has changed since someone wrote their edit, the card warns you so you don't overwrite someone else's change.
 
+## What the assistant raises
+Suggestions from **Help assistant (AI)** come from questions people asked on the Ask tab:
+- a question it **couldn't answer** from the guides: write a guide for it with **Write a guide for it**;
+- a **possible fault**: the question sounded like something on the site isn't working. Check it, and pass it to whoever can fix it;
+- a **FAQ draft**: three or more people asked the same thing, so it drafted a guide from its own answer. Check the answer before approving.
+
+When you approve one, everyone who asked that question is told, with a link to the guide.
+
+## Asked questions
+**Asked questions** lists every question people have asked, rewordings folded together, most asked first. An answered question asked by two or more people shows in the FAQ, to readers who can see the guides its answer came from. For each one you can:
+- **Pin** it so it always shows, or **Hide** it;
+- **Edit** the wording or write your own answer;
+- **Turn it into a guide**.
+
 ## Editing directly
-The **Articles** view lets you edit, add, hide or restore any article. Every save keeps the previous copy under **History**, and you can restore any of them.
+The **Guides** view lets you edit, add, hide or restore any guide. Tick **Departments** to limit a guide to those departments' members. Every save keeps the previous copy under **History**, and you can restore any of them.
 
 ## Writing style
 Write for someone who has never used the page. Lead with the answer, use numbered steps for anything done in order, and link the pages you mention with \`[text](/path)\`. Link other guides with \`[[slug]]\`.`,
@@ -536,4 +570,6 @@ No. Donations help cover the running costs and are always appreciated. See [Dona
 
 More in the full [FAQ](/about/faq).`,
     },
+
+    ...SITE_ARTICLES,
 ]

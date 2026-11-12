@@ -1,13 +1,14 @@
 'use client'
 
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Search, ArrowBack, OpenInNew, EditNote, BugReport, PlayCircleOutline, Close } from '@mui/icons-material'
+import { Search, ArrowBack, OpenInNew, EditNote, BugReport, PlayCircleOutline, Close, Send, ExpandMore } from '@mui/icons-material'
 import HelpMarkdown from './HelpMarkdown'
 import {
-    HELP_CATEGORIES, articlesForPath, articlesInCategory, searchArticles,
+    HELP_CATEGORIES, HELP_GROUPS, articlesForPath, articlesInCategory, searchArticles,
     type HelpArticleView,
 } from '@/lib/help/search'
+import { faqForPath, type FaqEntry } from '@/lib/help/questions'
 import type { HelpViewerInfo } from './useHelpData'
 import s from '@/styles/help.module.css'
 
@@ -76,72 +77,200 @@ export function ArticleList({ articles, onOpen, hrefFor, snippets }: {
     )
 }
 
-export function CategoryGrid({ articles, onPick }: { articles: HelpArticleView[]; onPick: (c: HelpCategory) => void }) {
+export function CategoryGrid({ articles, faqCount = 0, onPick }: { articles: HelpArticleView[]; faqCount?: number; onPick: (c: HelpCategory) => void }) {
     return (
-        <div className={s.categories}>
-            {HELP_CATEGORIES.map(c => {
-                const n = articles.filter(a => a.category === c.key).length
-                if (!n) return null
+        <>
+            {HELP_GROUPS.map(g => {
+                const cats = HELP_CATEGORIES.filter(c => c.group === g.key)
+                    .map(c => ({ c, n: articles.filter(a => a.category === c.key).length + (c.key === 'faq' ? faqCount : 0) }))
+                    .filter(x => x.n > 0)
+                if (!cats.length) return null
                 return (
-                    <button key={c.key} type='button' className={s.category} onClick={() => onPick(c.key)}>
-                        <div className={s.row}>
-                            <span className={s.categoryLabel}>{c.label}</span>
-                            <span className={s.spacer} />
-                            <span className={s.categoryCount}>{n}</span>
+                    <div key={g.key} className={s.catGroup}>
+                        <span className={s.catGroupLabel}>{g.label}</span>
+                        <div className={s.categories}>
+                            {cats.map(({ c, n }) => (
+                                <button key={c.key} type='button' className={s.category} onClick={() => onPick(c.key)}>
+                                    <div className={s.row}>
+                                        <span className={s.categoryLabel}>{c.label}</span>
+                                        <span className={s.spacer} />
+                                        <span className={s.categoryCount}>{n}</span>
+                                    </div>
+                                    <div className={s.categoryBlurb}>{c.blurb}</div>
+                                </button>
+                            ))}
                         </div>
-                        <div className={s.categoryBlurb}>{c.blurb}</div>
-                    </button>
+                    </div>
                 )
             })}
+        </>
+    )
+}
+
+/**
+ * Questions people asked the assistant, each opening to its answer. Most
+ * asked first (the caller's order). `titles` resolves `[[slug]]` links.
+ */
+export function FaqList({ entries, titles, onArticle, onNavigate, open: openFirst }: {
+    entries: FaqEntry[]
+    titles: Map<string, string>
+    onArticle?: (slug: string) => void
+    onNavigate?: () => void
+    /** Start with the first entry open. */
+    open?: boolean
+}) {
+    const [openId, setOpenId] = useState<string | null>(openFirst ? entries[0]?.id ?? null : null)
+    return (
+        <ul className={s.faq}>
+            {entries.map(e => {
+                const isOpen = openId === e.id
+                return (
+                    <li key={e.id} className={`${s.faqItem} ${isOpen ? s.faqOpen : ''}`}>
+                        <button type='button' className={s.faqQ} aria-expanded={isOpen} onClick={() => setOpenId(isOpen ? null : e.id)}>
+                            <span className={s.faqText}>{e.question}</span>
+                            {e.pinned
+                                ? <span className={`${s.tag} ${s.tagLive}`}>J7 pick</span>
+                                : <span className={s.faqCount} title={`${e.askers} people asked this`}>{e.askers}×</span>}
+                            <ExpandMore sx={{ fontSize: 18 }} className={s.faqChevron} />
+                        </button>
+                        {isOpen && (
+                            <div className={s.faqA}>
+                                <HelpMarkdown source={e.answer} onArticle={onArticle} onNavigate={onNavigate} titles={titles} />
+                                {e.articleSlug && titles.has(e.articleSlug) && (
+                                    onArticle
+                                        ? <button type='button' className={`${s.btn} ${s.btnSmall}`} onClick={() => onArticle(e.articleSlug!)}>Read the full guide</button>
+                                        : <Link className={`${s.btn} ${s.btnSmall}`} href={`/help/${e.articleSlug}` as never}>Read the full guide</Link>
+                                )}
+                            </div>
+                        )}
+                    </li>
+                )
+            })}
+        </ul>
+    )
+}
+
+/** "Ask about this page": a one-line box that hands the question to the Ask tab. */
+export function AskAboutPage({ label, onAsk, suggestions }: { label: string; onAsk: (q: string) => void; suggestions?: string[] }) {
+    const [q, setQ] = useState('')
+    const send = (text: string) => { const t = text.trim(); if (t) { onAsk(t); setQ('') } }
+    return (
+        <div className={s.pageAsk}>
+            <form className={s.pageAskBox} onSubmit={e => { e.preventDefault(); send(q) }}>
+                <input value={q} onChange={e => setQ(e.target.value)} maxLength={600}
+                    placeholder={`Ask about ${label}…`} aria-label='Ask the assistant about this page' />
+                <button type='submit' className={`${s.btn} ${s.btnPrimary} ${s.btnSmall}`} disabled={!q.trim()} aria-label='Ask'><Send sx={{ fontSize: 14 }} /></button>
+            </form>
+            {!!suggestions?.length && (
+                <div className={s.chips}>
+                    {suggestions.map(t => <button key={t} type='button' className={s.chip} onClick={() => send(t)}>{t}</button>)}
+                </div>
+            )}
         </div>
     )
 }
 
 /**
- * The panel's front page: search results while there's a query; otherwise the
- * guides about the current page, then every category (or one category's list).
+ * The panel's front page. With a query, search results. Otherwise it starts
+ * with the page the reader is on: what it is, a box to ask about it, the
+ * guides written for it and what people most often ask there. Then the most
+ * asked questions site-wide, then every topic.
  */
-export function HelpHome({ articles, pathname, query, setQuery, category, setCategory, onOpen, autoFocus }: {
+export function HelpHome({ articles, faq, pathname, label, query, setQuery, category, setCategory, onOpen, onAsk, onNavigate, canAsk, autoFocus }: {
     articles: HelpArticleView[]
+    faq: FaqEntry[]
     pathname: string
+    /** What to call the current page. */
+    label: string
     query: string
     setQuery: (q: string) => void
     category: HelpCategory | null
     setCategory: (c: HelpCategory | null) => void
     onOpen: (slug: string) => void
+    /** Ask the assistant (switches to the Ask tab). */
+    onAsk?: (q: string) => void
+    onNavigate?: () => void
+    canAsk?: boolean
     autoFocus?: boolean
 }) {
     const hits = useMemo(() => query.trim() ? searchArticles(articles, query) : [], [articles, query])
     const here = useMemo(() => articlesForPath(articles, pathname), [articles, pathname])
+    const askedHere = useMemo(() => faqForPath(faq, pathname, 5), [faq, pathname])
+    const titles = useMemo(() => new Map(articles.map(a => [a.slug, a.title])), [articles])
+    const faqHits = useMemo(() => {
+        const t = query.trim().toLowerCase()
+        if (!t) return []
+        const words = t.split(/\s+/).filter(w => w.length > 2)
+        return faq.filter(e => words.length && words.every(w => e.question.toLowerCase().includes(w))).slice(0, 5)
+    }, [faq, query])
+    const topAsked = useMemo(() => faq.filter(e => !askedHere.some(h => h.id === e.id)).slice(0, 5), [faq, askedHere])
 
     return (
         <>
-            <SearchBox value={query} onChange={setQuery} autoFocus={autoFocus} />
+            <SearchBox value={query} onChange={setQuery} autoFocus={autoFocus} placeholder='Search the guides and questions…' />
 
             {query.trim() ? (
                 <div className={s.section} style={{ marginTop: 14 }}>
-                    <div className={s.sectionHead}><span className={s.kicker}>{hits.length} result{hits.length === 1 ? '' : 's'}</span></div>
+                    <div className={s.sectionHead}><span className={s.kicker}>{hits.length} guide{hits.length === 1 ? '' : 's'}</span></div>
                     {hits.length
                         ? <ArticleList articles={hits.map(h => h.article)} onOpen={onOpen} snippets={new Map(hits.map(h => [h.article.slug, h.snippet]))} />
-                        : <div className={s.empty}>No guide matches that yet. Try other words, or ask on the <strong>Ask</strong> tab, or send the question to J7 on the <strong>Suggest</strong> tab.</div>}
+                        : <div className={s.empty}>No guide matches that yet. Try other words{onAsk && canAsk ? <>, or <button type='button' className={`${s.btn} ${s.btnSmall}`} onClick={() => onAsk(query.trim())}>ask the assistant</button></> : ''}.</div>}
+                    {faqHits.length > 0 && (
+                        <div className={s.section}>
+                            <div className={s.sectionHead}><span className={s.kicker}>Asked before</span></div>
+                            <FaqList entries={faqHits} titles={titles} onArticle={onOpen} onNavigate={onNavigate} />
+                        </div>
+                    )}
                 </div>
             ) : category ? (
                 <div className={s.section} style={{ marginTop: 14 }}>
                     <button type='button' className={s.back} onClick={() => setCategory(null)}><ArrowBack sx={{ fontSize: 15 }} />All topics</button>
                     <div className={s.sectionHead}><span className={s.kicker}>{CATEGORY_LABEL[category]}</span></div>
+                    {category === 'faq' && faq.length > 0 && (
+                        <>
+                            <div className={s.hint} style={{ marginBottom: 8 }}>What people ask the assistant, most asked first.</div>
+                            <FaqList entries={faq} titles={titles} onArticle={onOpen} onNavigate={onNavigate} />
+                            {articlesInCategory(articles, 'faq').length > 0 && <div className={s.sectionHead} style={{ marginTop: 16 }}><span className={s.kicker}>FAQ guides</span></div>}
+                        </>
+                    )}
                     <ArticleList articles={articlesInCategory(articles, category)} onOpen={onOpen} />
                 </div>
             ) : (
                 <>
-                    {here.length > 0 && (
-                        <div className={s.section} style={{ marginTop: 16 }}>
-                            <div className={s.sectionHead}><span className={s.kicker}>On this page</span></div>
-                            <ArticleList articles={here} onOpen={onOpen} />
+                    <div className={s.here}>
+                        <span className={s.kicker}>You&apos;re on</span>
+                        <div className={s.hereTitle}>{label}</div>
+                        {onAsk && canAsk && <AskAboutPage label='this page' onAsk={onAsk} suggestions={askedHere.length ? [] : ['What can I do on this page?']} />}
+                    </div>
+
+                    <div className={s.section} style={{ marginTop: 14 }}>
+                        <div className={s.sectionHead}><span className={s.kicker}>Guides for this page</span></div>
+                        {here.length
+                            ? <ArticleList articles={here} onOpen={onOpen} />
+                            : <div className={s.hint}>No guide is written for this page yet{canAsk ? ', but you can still ask about it above' : ''}.</div>}
+                    </div>
+
+                    {askedHere.length > 0 && (
+                        <div className={s.section}>
+                            <div className={s.sectionHead}><span className={s.kicker}>Common questions on this page</span></div>
+                            <FaqList entries={askedHere} titles={titles} onArticle={onOpen} onNavigate={onNavigate} />
                         </div>
                     )}
+
+                    {topAsked.length > 0 && (
+                        <div className={s.section}>
+                            <div className={s.sectionHead}>
+                                <span className={s.kicker}>Most asked</span>
+                                <span className={s.spacer} />
+                                {faq.length > topAsked.length && <button type='button' className={`${s.btn} ${s.btnSmall} ${s.btnGhost}`} onClick={() => setCategory('faq')}>All {faq.length}</button>}
+                            </div>
+                            <FaqList entries={topAsked} titles={titles} onArticle={onOpen} onNavigate={onNavigate} />
+                        </div>
+                    )}
+
                     <div className={s.section}>
                         <div className={s.sectionHead}><span className={s.kicker}>Browse topics</span></div>
-                        <CategoryGrid articles={articles} onPick={setCategory} />
+                        <CategoryGrid articles={articles} faqCount={faq.length} onPick={setCategory} />
                     </div>
                 </>
             )}

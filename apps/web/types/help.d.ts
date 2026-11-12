@@ -18,7 +18,9 @@ declare global {
         | 'profile'
         | 'training'
         | 'tickets'
+        | 'dashboard'
         | 'departments'
+        | 'j1' | 'j2' | 'j3' | 'j4' | 'j5' | 'j6' | 'j7'
         | 'faq'
 
     /**
@@ -43,6 +45,12 @@ declare global {
          */
         paths: string[]
         keywords: string[]
+        /**
+         * Department codes (`'j1'`…`'j7'`) whose members may read it. Empty or
+         * absent: no department limit (the audience still applies). J7
+         * reviewers and J4 administration read everything.
+         */
+        departments?: string[]
         /** Id of a guided walkthrough this article can launch, when one exists. */
         tutorial?: string
         /** Order within its category; lower first. */
@@ -78,8 +86,11 @@ declare global {
         /** The page the reader was on when they sent it. */
         pagePath?: string
         status: HelpSuggestionStatus
+        /** `HELP_ASSISTANT_ID` when the help assistant raised it itself (`lib/help/questions.ts`). */
         authorId: string
         authorName: string
+        /** The asked question this came from, when the assistant raised it. */
+        questionId?: string
         createdAt: Date
         reviewedById?: string
         reviewedByName?: string
@@ -100,6 +111,7 @@ declare global {
         paths: string[]
         keywords: string[]
         tutorial?: string
+        departments?: string[]
         hidden?: boolean
         savedAt: Date
         savedById?: string
@@ -107,5 +119,48 @@ declare global {
         /** What replaced it: a direct edit, an approved suggestion, or a restore. */
         reason: 'edit' | 'suggestion' | 'restore'
         suggestionId?: string
+    }
+
+    /**
+     * One question people asked the help assistant, with every rewording of it
+     * folded in (`lib/help/questions.ts` matches them by shared words). Drives
+     * the living FAQ (most-asked first) and the assistant's suggestions to J7.
+     */
+    interface HelpQuestion {
+        _id?: ObjectId
+        /** The wording shown in the FAQ: the first asking, or J7's edit. */
+        question: string
+        /** Stemmed words of `question`, for matching new askings. */
+        tokens: string[]
+        askCount: number
+        /** Up to 200 distinct askers; `distinctAskers` keeps counting past that. */
+        askerIds: string[]
+        distinctAskers: number
+        firstAskedAt: Date
+        lastAskedAt: Date
+        /** Pages it was asked from, with counts, for "Common questions on this page". */
+        pages: { path: string; count: number }[]
+        /** The assistant's latest answer, and the guides it cited. */
+        answer?: string
+        sources?: string[]
+        /** What the assistant made of it last time: answered, couldn't answer, or a fault on the site. */
+        outcome: 'answered' | 'unanswered' | 'site-issue'
+        issue?: string
+        /**
+         * Who may see this entry in the FAQ: the highest audience and any
+         * department limit among the guides the assistant was shown, so an
+         * answer drawn from a staff or J1 guide is only shown to those readers.
+         */
+        audience: HelpAudience
+        departments?: string[]
+        /** J7: always show (pinned) or never show (hidden), and their own wording/answer. */
+        pinned?: boolean
+        hidden?: boolean
+        editedAnswer?: string
+        /** The suggestion the assistant raised for J7 from this question, if any. */
+        suggestionId?: string
+        suggestionKind?: HelpSuggestionKind
+        /** The guide that now answers it, once J7 approved one. */
+        articleSlug?: string
     }
 }
