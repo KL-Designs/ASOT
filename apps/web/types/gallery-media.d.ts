@@ -113,6 +113,14 @@ declare global {
         processingError?: string
         /** Groups one member's items from one visit to the submit page. */
         batchId?: string
+        /**
+         * Set on a J5 direct upload (the Media tab's Upload, or SOTM's "Upload
+         * new"): the id of the staff member who uploaded it. The queue
+         * publishes the item itself the moment processing succeeds, instead of
+         * parking it at `pending` for review, and then unsets this. A failed
+         * transcode still lands in the review queue like any other.
+         */
+        publishOnProcess?: string
 
         up: number
         down: number

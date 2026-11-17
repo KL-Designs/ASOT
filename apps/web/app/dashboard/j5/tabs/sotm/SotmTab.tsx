@@ -5,6 +5,8 @@ import { Typography, LinearProgress } from '@mui/material'
 
 import TacticalSkeleton from '@/app/dashboard/_components/TacticalSkeleton'
 import { Field } from '@/app/dashboard/j5/controls/Field'
+import { Select, type SelectOption } from '@/app/dashboard/j5/controls/Select'
+import { ACCEPTED_IMAGE_MIME, checkFile } from '@/lib/gallery/limits'
 import FocalPicker from './FocalPicker'
 import mc from '@/styles/media-console.module.css'
 import s from '@/styles/j5-console.module.css'
@@ -48,6 +50,18 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
     const [libraryLoading, setLibraryLoading] = useState(false)
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [credit, setCredit] = useState('')
+
+    /* Upload-a-new-one, the other way to replace the pick. The upload becomes
+       a library item first (POST /api/gallery/sotm), so it lands in the
+       archive and in Past Winners like any picked one. */
+    const [uploadOpen, setUploadOpen] = useState(false)
+    const [uploadFile, setUploadFile] = useState<File | null>(null)
+    const [uploadPreview, setUploadPreview] = useState<string | null>(null)
+    const [uploadError, setUploadError] = useState<string | null>(null)
+    const [uploadCredit, setUploadCredit] = useState('')
+    const [uploadCaption, setUploadCaption] = useState('')
+    const [uploadOperation, setUploadOperation] = useState('')
+    const [operations, setOperations] = useState<{ id: string, title: string, date: string | null }[] | null>(null)
 
     const [saving, setSaving] = useState(false)
     const [clearing, setClearing] = useState(false)
@@ -107,8 +121,93 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
         setSelectedId(null)
         setCredit('')
         setLibraryPage(0)
+        setUploadOpen(false)
         setPickerOpen(true)
     }, [])
+
+    // The operation list is the gallery's own (/api/gallery/operations), gated
+    // on the gallery.* keys rather than departmentLeads.j5. A lead without
+    // any of those just doesn't get the Operation field; the upload files
+    // under Unknown and J5 can move it from the Media tab.
+    useEffect(() => {
+        if (!uploadOpen || operations !== null) return
+        fetch('/api/gallery/operations')
+            .then(r => (r.ok ? r.json() : null))
+            .then(data => setOperations(Array.isArray(data?.operations) ? data.operations : []))
+            .catch(() => setOperations([]))
+    }, [uploadOpen, operations])
+
+    // Revoke the object URL when it is replaced or the tab unmounts.
+    useEffect(() => () => { if (uploadPreview) URL.revokeObjectURL(uploadPreview) }, [uploadPreview])
+
+    function resetUpload() {
+        setUploadFile(null)
+        setUploadPreview(null)
+        setUploadError(null)
+        setUploadCredit('')
+        setUploadCaption('')
+        setUploadOperation('')
+    }
+
+    function openUpload() {
+        resetUpload()
+        setPickerOpen(false)
+        setUploadOpen(true)
+    }
+
+    function closeUpload() {
+        setUploadOpen(false)
+        resetUpload()
+    }
+
+    function chooseFile(file: File | null | undefined) {
+        if (!file) return
+        const failure = checkFile({ mime: file.type, bytes: file.size })
+        const notStill = !failure && !ACCEPTED_IMAGE_MIME.has(file.type)
+        if (failure || notStill) {
+            setUploadFile(null)
+            setUploadPreview(null)
+            setUploadError(notStill ? 'Only still images can be the screenshot of the month.' : failure!.message)
+            return
+        }
+        setUploadError(null)
+        setUploadFile(file)
+        setUploadPreview(URL.createObjectURL(file))
+    }
+
+    async function handleUpload() {
+        if (!uploadFile || !uploadCredit.trim()) return
+        setSaving(true)
+        try {
+            const body = new FormData()
+            body.set('file', uploadFile)
+            body.set('credit', uploadCredit.trim())
+            if (uploadCaption.trim()) body.set('caption', uploadCaption.trim())
+            if (uploadOperation) body.set('operationId', uploadOperation)
+            const res = await fetch('/api/gallery/sotm', { method: 'POST', body })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok) {
+                showFeedback('error', data.error ?? 'Could not upload the screenshot.')
+            } else {
+                showFeedback('success', 'Uploaded and set as Screenshot of the Month. It is in the gallery archive too.')
+                closeUpload()
+                await Promise.all([loadCurrent(), loadHistory()])
+            }
+        } catch {
+            showFeedback('error', 'Network error. Please try again.')
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    const operationOptions: SelectOption[] = [
+        { value: '', label: 'Unknown' },
+        ...(operations ?? []).map(op => ({
+            value: op.id,
+            label: op.title,
+            note: op.date ? String(new Date(op.date).getFullYear()) : undefined,
+        })),
+    ]
 
     const closePicker = useCallback(() => {
         setPickerOpen(false)
@@ -180,6 +279,9 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                         <>
                             <button type='button' className={`${c.btn} ${pickerOpen ? c.btnGhost : ''}`} onClick={pickerOpen ? closePicker : openPicker}>
                                 {pickerOpen ? 'Cancel' : 'Replace from library'}
+                            </button>
+                            <button type='button' className={`${c.btn} ${uploadOpen ? c.btnGhost : ''}`} onClick={uploadOpen ? closeUpload : openUpload}>
+                                {uploadOpen ? 'Cancel upload' : 'Upload new'}
                             </button>
                             {sotm && (
                                 <button type='button' className={`${c.btn} ${c.btnDanger}`} disabled={clearing} onClick={handleClear}>
@@ -283,6 +385,55 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                         >
                             {saving ? 'Saving…' : 'Set as SOTM'}
                         </button>
+                    </div>
+                </section>
+            )}
+
+            {/* Replace by uploading */}
+            {canManage && uploadOpen && (
+                <section className={s.zone}>
+                    <div className={s.zoneHead}>
+                        <Typography className={s.zoneTitle}>Upload a replacement</Typography>
+                        <span className={s.zoneNote} style={{ marginLeft: 'auto' }}>A still image up to 20 MB. It is added to the gallery archive and becomes the new pick.</span>
+                    </div>
+
+                    <div className='flex flex-col md:flex-row gap-5'>
+                        <label
+                            className={mc.preview}
+                            style={{ maxWidth: 420, width: '100%', minHeight: 200, flexShrink: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                            onDragOver={e => e.preventDefault()}
+                            onDrop={e => { e.preventDefault(); chooseFile(e.dataTransfer.files?.[0]) }}
+                        >
+                            {uploadPreview
+                                ? <img src={uploadPreview} alt='Upload preview' />
+                                : <span style={{ fontSize: '0.8rem', color: 'rgba(237,237,237,0.6)', padding: 16, textAlign: 'center' }}>Drop an image here, or click to choose one.</span>}
+                            <input
+                                type='file'
+                                accept={[...ACCEPTED_IMAGE_MIME].join(',')}
+                                hidden
+                                onChange={e => { chooseFile(e.target.files?.[0]); e.target.value = '' }}
+                            />
+                        </label>
+
+                        <div className='flex flex-col gap-3' style={{ flex: 1, minWidth: 240 }}>
+                            {uploadFile && <Typography sx={{ fontSize: '0.75rem', color: 'rgba(237,237,237,0.6)' }}>{uploadFile.name}</Typography>}
+                            {uploadError && <Typography sx={{ fontSize: '0.75rem', color: 'var(--red-hi)' }}>{uploadError}</Typography>}
+                            <Field label='Credit (photographer)' value={uploadCredit} onChange={setUploadCredit} placeholder='e.g. Cpl. Smith' />
+                            <Field label='Caption (optional)' value={uploadCaption} onChange={setUploadCaption} />
+                            {operations && operations.length > 0 && (
+                                <Select label='Operation (optional)' searchable value={uploadOperation} onChange={setUploadOperation} options={operationOptions} />
+                            )}
+                            <div>
+                                <button
+                                    type='button'
+                                    className={`${c.btn} ${c.btnPrimary}`}
+                                    disabled={saving || !uploadFile || !uploadCredit.trim()}
+                                    onClick={handleUpload}
+                                >
+                                    {saving ? 'Uploading…' : 'Upload and set as SOTM'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </section>
             )}

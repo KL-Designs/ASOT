@@ -64,11 +64,12 @@ export async function runUploads(opts: {
     return { uploaded, failed }
 }
 
-/** The real sender. Separated from `runUploads` so the orchestration above can
- *  be exercised without a network. */
-export const sendOverXhr: SendFn = (job, onProgress) => new Promise((resolve, reject) => {
+/** The real sender, for a given endpoint. Separated from `runUploads` so the
+ *  orchestration above can be exercised without a network. The J5 Media tab's
+ *  direct upload posts to /api/gallery/admin/upload through the same code. */
+export const sendOverXhrTo = (url: string): SendFn => (job, onProgress) => new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', '/api/gallery/submissions')
+    xhr.open('POST', url)
 
     // The only reason this is not fetch.
     xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(e.loaded / e.total) }
@@ -89,3 +90,6 @@ export const sendOverXhr: SendFn = (job, onProgress) => new Promise((resolve, re
         xhr.send(JSON.stringify(job.body.json))
     }
 })
+
+/** The member submit page's sender. */
+export const sendOverXhr: SendFn = sendOverXhrTo('/api/gallery/submissions')

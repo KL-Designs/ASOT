@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ObjectId, type Filter } from 'mongodb'
+import { ObjectId, type Filter, type WithId } from 'mongodb'
 import fs from 'fs'
 import path from 'path'
 import client from '@/lib/discord'
@@ -7,6 +7,9 @@ import { hasPermission } from '@/lib/orbat/hasPermission'
 import { resolveStorageKey } from '@/lib/gallery/paths'
 import db from '@/lib/mongo'
 import { clampFocal } from '@/lib/gallery/focal'
+import { stageDirectUpload } from '@/lib/gallery/direct-upload'
+import { processNow } from '@/lib/gallery/queue'
+import { logAction } from '@/lib/logAction'
 
 const SOTM_DIR = path.resolve('../../storage/gallery/sotm')
 const SETTING_ID = 'screenshotOfMonth'
@@ -167,7 +170,8 @@ export async function GET(request: NextRequest) {
  * kept purely as that truthy signal and as a download name.
  */
 export async function PUT(request: NextRequest) {
-    if (!await checkAuth()) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const me = await checkAuth()
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json().catch(() => null)
     const mediaId = str(body?.mediaId)
@@ -184,12 +188,21 @@ export async function PUT(request: NextRequest) {
     // GalleryBanner.tsx and the join page would each render it in an <img>.
     // One accepted write, three broken public mastheads.
     const media = await db.galleryMedia.findOne({ _id: new ObjectId(mediaId), status: 'live', kind: 'image', source: 'upload' })
-    if (!media?.storageKey) return NextResponse.json({ error: 'Media not found' }, { status: 404 })
+    if (!media) return NextResponse.json({ error: 'Media not found' }, { status: 404 })
 
+    return pointSotmAt(media, credit, me.id)
+}
+
+/**
+ * Make one live library still the screenshot of the month. Shared by PUT (pick
+ * from the library) and POST (upload a new one, which becomes a library item
+ * first). The caller has already checked status/kind/source.
+ */
+async function pointSotmAt(media: WithId<GalleryMedia>, credit: string, setBy: string): Promise<NextResponse> {
+    if (!media.storageKey) return NextResponse.json({ error: 'Media not found' }, { status: 404 })
     const resolved = resolveStorageKey(media.storageKey)
     if (!resolved) return NextResponse.json({ error: 'Media not found' }, { status: 404 })
 
-    const me = await client.fetchMe().catch(() => null)
     const now = new Date()
 
     // Read the outgoing pointer before it is overwritten — after the write
@@ -198,11 +211,11 @@ export async function PUT(request: NextRequest) {
     await stampOutgoingLegacyWinner(outgoing)
 
     const record: Record<string, unknown> = {
-        mediaId,
+        mediaId: media._id.toString(),
         filename: path.basename(resolved),
         credit,
         setAt: now.toISOString(),
-        setBy: me?.id ?? 'unknown',
+        setBy,
     }
     // A focal point belongs to the photograph it was marked on. Carried over
     // to a new pick it would anchor every crop on a spot chosen for a
@@ -251,6 +264,74 @@ export async function PUT(request: NextRequest) {
     )
 
     return NextResponse.json({ success: true })
+}
+
+/**
+ * POST — replace the current pick by uploading a new still. Multipart: `file`,
+ * `credit` (required), optional `operationId` and `caption`.
+ *
+ * The upload becomes an ordinary library item first — staged, processed and
+ * filed into the content tree exactly like the Media tab's Upload, under the
+ * uploader's name — and the pointer is then set to it through the same path
+ * PUT uses. So an uploaded winner is in the archive, in Past Winners, and
+ * pickable again later, rather than a dedicated copy in sotm/ like the old
+ * upload this tab replaced.
+ *
+ * Processed in this request (processNow), not behind the queue: it is one
+ * still, which sharp handles in well under a second, and the answer has to say
+ * whether the homepage now shows it. If processing fails the item is left in
+ * the review queue carrying its reason, as any failed upload is, and the
+ * current pick is untouched.
+ */
+export const maxDuration = 120
+
+export async function POST(request: NextRequest) {
+    const me = await checkAuth()
+    if (!me) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const form = await request.formData().catch(() => null)
+    const file = form?.get('file')
+    if (!form || !(file instanceof File)) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+
+    const credit = str(form.get('credit'))?.trim() ?? ''
+    if (!credit) return NextResponse.json({ error: 'credit is required' }, { status: 400 })
+
+    const uploaderName = me.guild?.displayName || me.globalName || me.username
+    const staged = await stageDirectUpload({
+        file,
+        uploader: { id: me.id, name: uploaderName },
+        operationId: str(form.get('operationId')),
+        caption: str(form.get('caption')),
+        imagesOnly: true,
+    })
+    if (!staged.ok) return NextResponse.json({ error: staged.error }, { status: staged.status })
+
+    await processNow(staged.id)
+
+    const media = await db.galleryMedia.findOne({ _id: new ObjectId(staged.id), status: 'live', kind: 'image', source: 'upload' })
+    if (!media) {
+        const failed = await db.galleryMedia.findOne({ _id: new ObjectId(staged.id) }, { projection: { processingError: 1 } })
+        return NextResponse.json({
+            error: failed?.processingError
+                ? `The upload could not be processed: ${failed.processingError}`
+                : 'The upload could not be processed. It is waiting in the review queue.',
+        }, { status: 500 })
+    }
+
+    await logAction({
+        action: 'gallery.media.upload',
+        category: 'gallery',
+        performedBy: me.id,
+        performedByName: uploaderName,
+        department: 'j5',
+        entityType: 'gallery_media',
+        entityId: staged.id,
+        actionUrl: '/dashboard/j5',
+        target: file.name,
+        details: { sotm: true },
+    })
+
+    return pointSotmAt(media, credit, me.id)
 }
 
 /**

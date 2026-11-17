@@ -251,7 +251,7 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 
 #### /api/gallery/sotm
 - **GET** — returns SOTM metadata (filename, dateTaken, credit, operation link) sans `_id`. Auth: public/no auth. Collections: `Db.siteSettings`.
-- **POST** — uploads a new SOTM image (multipart: `file`, `dateTaken`, `credit`, optional `operationId`/`operationTitle`); validates MIME type, sanitises filename, deletes old file if replaced, upserts `Db.siteSettings`. Auth: `await hasPermission(me, 'departmentLeads.j5')`.
+- **PUT** — points SOTM at a live library still (`{ mediaId, credit }`); writes the flat siteSettings record plus `sotmAt`/`sotmCredit` on the media doc. **POST** — uploads a new still instead (multipart: `file`, `credit`, optional `caption`/`operationId`): staged through `lib/gallery/direct-upload.ts`, processed in-request via `processNow`, published into the content tree, then pointed at through the same code as PUT, so an uploaded winner is an ordinary archive item. Images only. Logs `gallery.media.upload`. Auth: `await hasPermission(me, 'departmentLeads.j5')`. Collections: `Db.siteSettings`, `Db.galleryMedia`.
 - **PATCH** — sets (`{ focalX, focalY }`, percentages) or clears (`{ focalX: null }`) the current pick's focal point; cleared automatically when a new image is picked. Auth: `departmentLeads.j5`. Collections: `Db.siteSettings`.
 - **DELETE** — clears current SOTM (deletes file + doc). Auth: `await hasPermission(me, 'departmentLeads.j5')`.
 
@@ -260,6 +260,9 @@ Public J1 recruitment/application flow (unauthenticated except `dev-login`).
 ### gallery/admin (4 files catalogued here)
 
 The rest of `app/api/gallery/admin/**` — the J5 media console's facets/tree/bulk/health endpoints — is not yet catalogued in any part file; this section holds the ones that are.
+
+#### /api/gallery/admin/upload
+- **POST** — J5 direct upload from the Media tab, one file per request (multipart: `file`, optional `operationId`, `caption`, `tags` JSON, `batchId`). Same limits/staging/facets as a member submission (`lib/gallery/direct-upload.ts`) but sets `publishOnProcess`, so the queue publishes it as soon as it is processed instead of parking it for review; a failed transcode still lands in the review queue. Progress is polled through `/api/gallery/submissions/status?batch=`. Logs `gallery.media.upload`. Auth: `gallery.manage`. Collections: `Db.galleryMedia`, `Db.galleryTags`, `Db.actionLogs`.
 
 #### /api/gallery/admin/media/[id]
 - **PATCH** — edits one archive item: `caption`, `tags`, the author PAIR (`authorId` + `authorName`, resolved through `lib/gallery/author.ts` so the two can never name different people), `mission`, `operationId`, and `featured`. **Reassigning the operation moves the file on disk** via `relocateMedia`, and whether that happens is derived from the REQUEST, never from the document: an unlinked archive item (folder-derived `operation`/`opLabel`/`year`/`mission`, no `operationId`) relocates only when the payload actually asks to change its operation, because relocateMedia would otherwise resolve `Unknown/` and erase all four. **`featured` is deliberately outside that condition** — it is rail membership, not filing. Featuring appends (`featuredOrder` = current highest + 1, re-stating the existing slot rather than re-appending when the item is already in the rail, so a curated position survives a double click); unfeaturing `$unset`s the field, because the rail's query is `featuredOrder: { $exists: true }` and any sentinel number would still be in it. Refuses at `MAX_FEATURED` (`lib/gallery/featured.ts`), the same cap the order route enforces. Auth: `hasPermission(me, 'gallery.manage')`. Collections: `Db.galleryMedia`, `Db.galleryTags`, `Db.users`, `Db.operations`.

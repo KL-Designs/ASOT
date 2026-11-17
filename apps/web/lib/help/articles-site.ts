@@ -806,10 +806,10 @@ Edits are held as **pending changes** until you review and commit them together,
         keywords: ['j5', 'media', 'gallery', 'submissions', 'review', 'featured', 'screenshot of the month', 'sotm', 'tags', 'caption', 'operation', 'upload'],
         body: `The [J5 page](/dashboard/j5) runs the [gallery](/gallery).
 
-- **Media**: the whole library, browsable by year, campaign, operation and mission. Saved views find what needs work: not linked to an operation, no caption, videos. Select items to caption, tag or move them in bulk; double-click to view one full size.
+- **Media**: the whole library, browsable by year, campaign, operation and mission. Saved views find what needs work: not linked to an operation, no caption, videos. **Upload** adds photos or video straight to the gallery, filed under the operation you pick, without going through review. Select items to caption, tag or move them in bulk; double-click to view one full size.
 - **Submissions**: what members send in. Accept, correct or reject each one; the member is told.
 - **Featured**: choose and order the photographs on the public featured rail.
-- **Screenshot of month**: set this month's screenshot, with credit and operation.
+- **Screenshot of month**: set this month's screenshot and its credit, either by picking one already in the library or by uploading a new image (which is added to the gallery too).
 - **Tags**: the tag list members and J5 choose from.
 
 Submitting and reviewing are separate permissions, granted in the Roles Manager.`,

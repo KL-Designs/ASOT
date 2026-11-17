@@ -5,6 +5,8 @@ import path from 'path'
 import Db from '@/lib/mongo'
 import { MEDIA_DIR, STAGING_DIR, mediaKey, posterKey } from './paths'
 import { processStill, processVideo } from './process'
+import { relocateMedia } from './relocate'
+import { galleryDeps } from './deps'
 
 /**
  * One transcode at a time, in this process.
@@ -103,9 +105,52 @@ async function processOne(id: string): Promise<void> {
             // would grow the staging directory without bound.
             try { unlinkSync(staged) } catch { /* already gone */ }
         }
+
+        // A J5 direct upload skips review. Outside the transcode's try on
+        // purpose: by here the item is a good, reviewable `pending` document,
+        // and a failure to file it must leave it exactly that rather than be
+        // reported as a failed transcode.
+        if (doc.publishOnProcess) {
+            try {
+                await publishProcessed(_id, doc.publishOnProcess)
+            } catch (err) {
+                console.error('[gallery/queue] processed but could not publish direct upload', id, err)
+                await Db.galleryMedia.updateOne({ _id }, {
+                    $set: { processingError: 'Uploaded directly by J5 but could not be filed into the archive. Publish it from the review queue.' },
+                    $unset: { publishOnProcess: '' },
+                }).catch(() => { })
+            }
+        }
     } catch (err) {
         await fail(_id, err instanceof Error ? err.message : 'Processing failed.')
     }
+}
+
+/**
+ * Process one item now, in the caller's request, rather than behind the queue.
+ *
+ * For a single still the caller needs live before it can answer — the SOTM
+ * upload has to point the homepage at it in the same request. Never for video:
+ * the queue's concurrency of 1 exists to keep ffmpeg off every core at once,
+ * and a request-path encode is exactly what the queue was built to avoid.
+ * sharp on one still is sub-second and safe to run alongside the queue.
+ */
+export async function processNow(mediaId: string): Promise<void> {
+    await processOne(mediaId)
+}
+
+/**
+ * pending -> live for a processed upload, without a reviewer: file the bytes
+ * into the content tree, then flip the status. Same order and reasoning as the
+ * review route's accept (submissions/[id]/route.ts): relocate first, so a
+ * throw publishes nothing.
+ */
+export async function publishProcessed(_id: ObjectId, publishedBy: string): Promise<void> {
+    await relocateMedia(galleryDeps(), _id)
+    await Db.galleryMedia.updateOne({ _id, status: 'pending' }, {
+        $set: { status: 'live', publishedAt: new Date(), publishedBy },
+        $unset: { processingError: '', publishOnProcess: '' },
+    })
 }
 
 /**
@@ -130,7 +175,9 @@ async function processOne(id: string): Promise<void> {
  */
 async function fail(_id: ObjectId, message: string): Promise<void> {
     try {
-        await Db.galleryMedia.updateOne({ _id }, { $set: { status: 'pending', processingError: message } })
+        // publishOnProcess goes too: a failed direct upload is a reviewer's
+        // call now, the same as any other failure.
+        await Db.galleryMedia.updateOne({ _id }, { $set: { status: 'pending', processingError: message }, $unset: { publishOnProcess: '' } })
     } catch (err) {
         console.error('[gallery/queue] failed to record a processing failure for', _id.toString(), err)
     }

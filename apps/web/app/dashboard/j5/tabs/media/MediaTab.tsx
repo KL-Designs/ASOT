@@ -15,6 +15,7 @@ import LibraryRail from './LibraryRail'
 import MediaGrid from './MediaGrid'
 import MediaTable from './MediaTable'
 import Viewer from './Viewer'
+import UploadPanel from './UploadPanel'
 import { useLibrary } from './useLibrary'
 import s from '@/styles/media-console.module.css'
 import c from '@/styles/j5-controls.module.css'
@@ -66,6 +67,8 @@ export default function MediaTab() {
        resolves to -1 below and closes the viewer, which is the honest
        outcome. */
     const [viewing, setViewing] = useState<string | null>(null)
+    /* The direct-upload panel, which takes the inspector column while open. */
+    const [uploadOpen, setUploadOpen] = useState(false)
 
     /* The console's height, measured rather than guessed.
 
@@ -467,6 +470,14 @@ export default function MediaTab() {
                                 Clear filters
                             </button>
                         </div>
+                        <button
+                            type='button'
+                            className={`${c.btn} ${uploadOpen ? '' : c.btnPrimary}`}
+                            aria-pressed={uploadOpen}
+                            onClick={() => setUploadOpen(o => !o)}
+                        >
+                            Upload
+                        </button>
                         {/* Last in the row, and last in the tab order with it,
                             so the filter inputs and the actions that undo them
                             run uninterrupted from the left and the row ends on
@@ -561,7 +572,14 @@ export default function MediaTab() {
                     )}
                 </div>
 
-                {selected.size === 1
+                {uploadOpen ? (
+                    <UploadPanel
+                        operations={operations}
+                        tags={tagVocab}
+                        onClose={() => setUploadOpen(false)}
+                        onFinished={summary => { setNote(summary); refresh() }}
+                    />
+                ) : selected.size === 1
                     ? (() => {
                         // `shown`, not `items`: a caption the table saved is
                         // not in the server state yet, and the inspector
