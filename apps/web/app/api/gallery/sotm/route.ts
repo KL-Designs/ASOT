@@ -22,14 +22,11 @@ const LIBRARY_PAGE_SIZE = 60
 async function checkAuth() {
     const me = await client.fetchMe().catch(() => null)
     if (!me) return null
-    // Deliberately departmentLeads.j5, not gallery.manage — every other
-    // gallery admin route uses gallery.manage, but this one has always
-    // gated on the department-lead flag instead. That is a real
-    // inconsistency, not a mistake to quietly fix here: widening who can
-    // set the screenshot of the month is a chain-of-command decision, not a
-    // refactor. See the task report for the consequence this has on the
-    // library picker below.
-    if (!(await hasPermission(me, 'departmentLeads.j5'))) return null
+    // Either key. This used to be departmentLeads.j5 alone, which left
+    // gallery managers who were not J5 leads looking at the tab with no
+    // controls at all (reported by Dakoda, 2026-11-17). gallery.manage
+    // already gates every other write in the J5 console, so it gates this too.
+    if (!(await hasPermission(me, 'departmentLeads.j5')) && !(await hasPermission(me, 'gallery.manage'))) return null
     return me
 }
 

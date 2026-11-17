@@ -81,7 +81,7 @@ export default function J5Panel({
         { key: 'media', label: 'Media', pinLabel: 'J5 — Media', visible: true, render: () => (canManageGallery ? <MediaTab /> : <GalleryOperationsTab />) },
         { key: 'submissions', label: 'Submissions', pinLabel: 'J5 — Submissions', visible: canReviewGallery, badge: pending ?? undefined, render: () => <SubmissionsTab onPendingChange={setPending} /> },
         { key: 'featured', label: 'Featured', pinLabel: 'J5 — Featured', visible: true, render: () => <FeaturedTab /> },
-        { key: 'sotm', label: 'Screenshot of month', pinLabel: 'J5 — SOTM', visible: true, render: () => <SotmTab canManage={canManageMembers} /> },
+        { key: 'sotm', label: 'Screenshot of month', pinLabel: 'J5 — SOTM', visible: true, render: () => <SotmTab canManage={canManageMembers || canManageGallery} /> },
         { key: 'tags', label: 'Tags', pinLabel: 'J5 — Tags', visible: canManageGalleryTags, render: () => <GalleryTagsTab /> },
     ]
     const visibleTabs = allTabs.filter(t => t.visible)

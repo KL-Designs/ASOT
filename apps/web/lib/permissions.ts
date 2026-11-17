@@ -747,7 +747,7 @@ const PERMISSIONS = {
          *  - `app/api/gallery/admin/folder/route.ts`
          *  - `app/api/gallery/admin/images/route.ts`
          *  - `app/api/gallery/admin/featured/route.ts`
-         *  - `app/api/gallery/sotm/route.ts` (Shot of the Month — uses departmentLeads.j5)
+         *  - `app/api/gallery/sotm/route.ts` (Shot of the Month — departmentLeads.j5 OR gallery.manage)
          */
         manage: ['J5 - Media'],
 
