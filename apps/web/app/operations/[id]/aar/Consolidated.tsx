@@ -30,6 +30,8 @@ interface Data {
     feedback: { responses: number; averages: Record<string, number | null>; comments: string[] | null }
     commendations: { id: string; authorName: string; authorSection: string; targetType: 'member' | 'callsign'; targetName: string; wording: string; createdAt: string; mine: boolean }[]
     canDeleteAnyCommendation: boolean
+    /** Row 342: the mission maker, J4, `aar.manage` and company HQ. */
+    seesMissionMakerSummary: boolean
 }
 
 export interface ConsolidatedProps {
@@ -138,6 +140,8 @@ export default function Consolidated({ operationId, missionAar, canCommend, sect
                 </div>
             </section>
 
+            {data.seesMissionMakerSummary && <MissionMakerSummary operationId={operationId} />}
+
             <Commendations operationId={operationId} items={data.commendations} canCommend={canCommend} sections={sections}
                 canDeleteAny={data.canDeleteAnyCommendation} onChange={load} />
         </>
@@ -164,6 +168,69 @@ function CallSignPoints({ section, entries }: Data['callSigns'][number]) {
                     </div>
                 )))}
         </div>
+    )
+}
+
+interface MmSummary { text: string; generatedAt: string; generatedByName: string; stale: boolean }
+
+/**
+ * Row 342: the AI's read of what members said about the mission and the
+ * zeusing, pulled out of every AAR and feedback comment of the operation.
+ */
+function MissionMakerSummary({ operationId }: { operationId: string }) {
+    const [state, setState] = useState<{ aiEnabled: boolean; hasInput: boolean; summary: MmSummary | null } | null>(null)
+    const [busy, setBusy] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        fetch(`/api/operations/${operationId}/aar/mission-maker`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => d && setState(d))
+            .catch(() => null)
+    }, [operationId])
+
+    async function generate(force: boolean) {
+        setBusy(true); setError(null)
+        const res = await fetch(`/api/operations/${operationId}/aar/mission-maker`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force }),
+        }).catch(() => null)
+        const d = await res?.json().catch(() => null)
+        setBusy(false)
+        if (!res?.ok) { setError(d?.error ?? 'The summary could not be made'); return }
+        setState(st => st && { ...st, summary: d })
+    }
+
+    if (!state) return null
+    const sum = state.summary
+
+    return (
+        <section className={s.card}>
+            <div className={s.cardHead}>
+                <h2 className={s.cardTitle}>Mission Maker Summary</h2>
+                <span className={s.cardNote}>The mission and the zeusing only, not how call signs played</span>
+            </div>
+            <div className={s.cardBody}>
+                {!state.aiEnabled && !sum && <p className={s.fieldHint}>AI is switched off, so there is no summary. The comments and call sign points above are as written.</p>}
+                {state.aiEnabled && !state.hasInput && !sum && <p className={s.fieldHint}>No reports or feedback comments to summarise yet.</p>}
+                {sum && (
+                    <>
+                        <span className={s.fieldHint}>
+                            {sum.generatedByName} · {new Date(sum.generatedAt).toLocaleDateString('en-AU')}
+                            {sum.stale && ' · out of date, reports have changed since'}
+                        </span>
+                        <div style={{ whiteSpace: 'pre-wrap', fontSize: 13, lineHeight: 1.55, marginTop: 8 }}>{sum.text}</div>
+                    </>
+                )}
+                {state.aiEnabled && state.hasInput && (
+                    <div className={s.actions}>
+                        <button type='button' className={s.save} disabled={busy} onClick={() => generate(!!sum && !sum.stale)}>
+                            {busy ? 'Summarising…' : !sum ? 'Summarise for the mission maker' : sum.stale ? 'Update summary' : 'Regenerate'}
+                        </button>
+                        {error && <span className={`${s.state} ${s.stateBad}`}>{error}</span>}
+                    </div>
+                )}
+            </div>
+        </section>
     )
 }
 
