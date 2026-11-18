@@ -368,9 +368,15 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                                         className={`${mc.tile} ${selectedId === item.id ? mc.tileOn : ''}`}
                                         onClick={() => pick(item)}
                                     >
-                                        <img src={item.src} alt='' loading='lazy' decoding='async' />
-                                        {selectedId === item.id && <span className={mc.badge}>Selected</span>}
-                                        <span className={mc.cap}>{item.caption || item.opLabel || 'Untitled'}</span>
+                                        {/* .tileBox is the positioned box the caption
+                                            and badge anchor to. Without it they anchored
+                                            to the page, and the last caption painted a
+                                            full-width bar over the Set as SOTM button. */}
+                                        <span className={mc.tileBox}>
+                                            <img src={item.src} alt='' loading='lazy' decoding='async' />
+                                            {selectedId === item.id && <span className={mc.badges}><span className={mc.badge}>Selected</span></span>}
+                                            <span className={mc.cap}>{item.caption || item.opLabel || 'Untitled'}</span>
+                                        </span>
                                     </button>
                                 ))}
                             </div>
@@ -472,8 +478,10 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                         <div className={mc.grid}>
                             {history.map(item => (
                                 <div key={item.id} className={mc.tile}>
-                                    <img src={item.src} alt='' loading='lazy' decoding='async' />
-                                    <span className={mc.cap}>{fmtDate(item.sotmAt)}{item.sotmCredit ? ` — ${item.sotmCredit}` : ''}</span>
+                                    <span className={mc.tileBox}>
+                                        <img src={item.src} alt='' loading='lazy' decoding='async' />
+                                        <span className={mc.cap}>{fmtDate(item.sotmAt)}{item.sotmCredit ? ` — ${item.sotmCredit}` : ''}</span>
+                                    </span>
                                 </div>
                             ))}
                         </div>
