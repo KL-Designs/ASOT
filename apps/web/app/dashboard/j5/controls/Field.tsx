@@ -12,7 +12,7 @@ import f from '@/styles/j5-fields.module.css'
  * different application from the dashboard around it.
  */
 
-export function Field({ label, value, onChange, placeholder, type = 'text', prefix, clearable, error, disabled, autoFocus, onKeyDown, onBlur, className }: {
+export function Field({ label, value, onChange, placeholder, type = 'text', prefix, clearable, error, disabled, autoFocus, autoComplete, onKeyDown, onBlur, className }: {
     label?: string
     value: string
     onChange: (value: string) => void
@@ -24,6 +24,11 @@ export function Field({ label, value, onChange, placeholder, type = 'text', pref
     error?: string
     disabled?: boolean
     autoFocus?: boolean
+    /** 'off' for a field the browser has no business filling. Chrome's
+     *  autofill PREVIEW draws a suggestion in the box without firing an input
+     *  event, so the box looks filled while `value` is still '' — which on
+     *  the SOTM picker left "Set as SOTM" disabled with a credit visibly in it. */
+    autoComplete?: string
     onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void
     onBlur?: () => void
     className?: string
@@ -43,6 +48,7 @@ export function Field({ label, value, onChange, placeholder, type = 'text', pref
                     placeholder={placeholder}
                     disabled={disabled}
                     autoFocus={autoFocus}
+                    autoComplete={autoComplete}
                     aria-invalid={error ? true : undefined}
                     aria-errormessage={error ? `${id}-err` : undefined}
                     onChange={e => onChange(e.target.value)}

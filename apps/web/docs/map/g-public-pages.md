@@ -321,7 +321,7 @@ tick this"; `sortPhotos`, `groupByOperation`, `archiveStats`.
 - `PhotoGrid.tsx` — masonry / contact sheet / grouped-by-operation. Masonry spans are computed
   from the measured column width and each image's real `naturalWidth/naturalHeight`; plain
   lazy `<img>` rather than `next/image` (thousands of files, and the ratio is needed).
-- `Lightbox.tsx` — generic over archive photo / featured shot / SOTM. Download + copy link.
+- `Lightbox.tsx` — generic over archive photo / featured shot / SOTM. Download + copy link. Viewers holding `gallery.manage` also get a two-step **Delete** (archive and featured items, not SOTM) that calls `DELETE /api/gallery/admin/media/[id]` — removes the record, its file and poster, and its votes — via `useGalleryData`'s `deleteItem`.
 - `icons.tsx` — the line icon set, kept off MUI so the toolbar reads as one kit.
 
 #### Callsign galleries
