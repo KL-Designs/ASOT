@@ -101,6 +101,7 @@ export default function DocBody({ content, themeColor = '#db001d', pageTheme = '
         .op-doc img { max-width: 100%; border: 1px solid rgba(255,255,255,0.08); }
         .op-doc strong { color: rgba(237,237,237,0.95); font-weight: 700; }
         .op-doc code { font-family: "Courier New", monospace; font-size: 0.85em; background: rgba(255,255,255,0.06); padding: 1px 5px; }
+        .op-doc table th { background: ${c(0.06)}; color: rgba(237,237,237,0.9); }
     `
     } else if (pageTheme === 'oldfashioned') {
         themeCSS = `
@@ -121,6 +122,7 @@ export default function DocBody({ content, themeColor = '#db001d', pageTheme = '
         .op-doc img { max-width: 100%; border: 1px solid rgba(160,120,50,0.25); }
         .op-doc strong { color: #d4b870; font-weight: 700; }
         .op-doc code { font-family: "Courier New", Courier, monospace; font-size: 0.88em; background: rgba(160,120,50,0.08); padding: 1px 5px; border: 1px solid rgba(160,120,50,0.2); color: #c8a850; }
+        .op-doc table th { background: rgba(160,120,50,0.08); color: #d4b870; }
     `
     } else if (pageTheme === 'scifi') {
         themeCSS = `
@@ -140,6 +142,7 @@ export default function DocBody({ content, themeColor = '#db001d', pageTheme = '
         .op-doc img { max-width: 100%; border: 1px solid ${c(0.35)}; box-shadow: 0 0 12px ${c(0.15)}; }
         .op-doc strong { color: #d0ecf8; font-weight: 700; text-shadow: 0 0 4px ${c(0.2)}; }
         .op-doc code { font-family: "Courier New", monospace; font-size: 0.88em; background: ${c(0.1)}; padding: 1px 5px; border: 1px solid ${c(0.25)}; color: ${c(1)}; }
+        .op-doc table th { background: ${c(0.07)}; color: ${c(1)}; text-shadow: 0 0 6px ${c(0.4)}; }
     `
     }
 

@@ -108,6 +108,30 @@ const br: TemplateNode = { type: 'hardBreak' }
 
 const doc = (...content: TemplateNode[]): TemplateNode => ({ type: 'doc', content })
 
+/** A table with one header row and body rows. */
+const table = (headerCells: string[], ...rows: string[][]): TemplateNode => ({
+    type: 'table',
+    attrs: { borderColor: '#4a5060', borderWidth: 1, tableWidth: '100%' },
+    content: [
+        {
+            type: 'tableRow',
+            content: headerCells.map(text => ({
+                type: 'tableHeader',
+                attrs: { colspan: 1, rowspan: 1, colwidth: null },
+                content: [p(t(text, bold))],
+            })),
+        },
+        ...rows.map(cells => ({
+            type: 'tableRow',
+            content: cells.map(text => ({
+                type: 'tableCell',
+                attrs: { colspan: 1, rowspan: 1, colwidth: null },
+                content: [p(text)],
+            })),
+        })),
+    ],
+})
+
 // ── The document ──────────────────────────────────────────────────────────────
 
 /**
@@ -197,13 +221,13 @@ export function buildTemplateDocument(): TemplatePage[] {
                 {
                     title: 'Command & Signal',
                     content: doc(
-                        pre(
-                            'COMMS PLAN\n'
-                            + '  COMPANY    50.0 MHz  LR\n'
-                            + '  1-1        51.0 MHz  SR\n'
-                            + '  1-2        52.0 MHz  SR\n'
-                            + '  1-3        53.0 MHz  SR\n'
-                            + '  ZEUS       69.0 MHz  LR  (admin only)',
+                        table(
+                            ['Callsign', 'Frequency', 'Net'],
+                            ['COMPANY', '50.0 MHz', 'Company LR'],
+                            ['1-1', '51.0 MHz', 'Platoon SR'],
+                            ['1-2', '52.0 MHz', 'Platoon SR'],
+                            ['1-3', '53.0 MHz', 'Platoon SR'],
+                            ['ZEUS', '69.0 MHz', 'Admin only'],
                         ),
                         p(
                             'Company commander moves with 1-1. Second in command with 1-2. Full signals annex on the ',

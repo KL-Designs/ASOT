@@ -459,7 +459,7 @@ select option {
 
 .op-editor strong { font-weight: 700; color: rgba(237, 237, 237, 0.95); }
 
-.op-editor a { color: rgba(219, 0, 29, 0.85); text-decoration: underline; text-underline-offset: 3px; }
+.op-editor a { color: rgba(219, 0, 29, 0.85); text-decoration: underline; text-underline-offset: 3px; pointer-events: none; }
 .op-editor a:hover { color: rgba(237, 237, 237, 0.9); }
 
 .op-editor code {
@@ -470,6 +470,72 @@ select option {
     font-size: 0.85em;
     font-family: monospace;
 }
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+/* Border color and width are set via CSS custom properties on the <table>
+   element (--tbl-bc / --tbl-bw) from the node's inline style attribute, so
+   cell borders can be controlled table-wide without per-cell inline styles.
+   The defaults here apply when no attrs have been set (e.g. a table that was
+   pasted in). */
+
+.op-editor .tableWrapper,
+.op-doc .tableWrapper {
+    overflow-x: auto;
+    margin: 1em 0;
+}
+
+.op-editor table,
+.op-doc table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    min-width: 60px;
+}
+
+.op-editor table td,
+.op-editor table th,
+.op-doc table td,
+.op-doc table th {
+    border: var(--tbl-bw, 1px) solid var(--tbl-bc, #4a5060);
+    padding: 6px 10px;
+    min-width: 1em;
+    vertical-align: top;
+    box-sizing: border-box;
+    position: relative;
+}
+
+.op-editor table th,
+.op-doc table th {
+    background: rgba(255, 255, 255, 0.05);
+    font-weight: 700;
+    font-size: 0.8em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+/* Column-resize drag handle — injected by TipTap when resizable:true */
+.op-editor .column-resize-handle {
+    background-color: var(--acc, #db001d);
+    bottom: -2px;
+    pointer-events: none;
+    position: absolute;
+    right: -2px;
+    top: 0;
+    width: 3px;
+    z-index: 20;
+}
+
+/* Selected-cell overlay (TipTap table selection) */
+.op-editor .selectedCell::after {
+    background: rgba(219, 0, 29, 0.1);
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Resize cursor while hovering a column handle */
+.op-editor.resize-cursor { cursor: col-resize; }
 
 
 /* ── Viewer (theme colors injected inline by DocBody) ─────────────────────── */
