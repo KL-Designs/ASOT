@@ -250,9 +250,134 @@ function buildCursorExtension(provider: HocuspocusProvider, user: PresenceUser) 
     })
 }
 
+// ─── Caption-aware formatting dispatch ────────────────────────────────────────
+// These helpers let the shared toolbar dispatch formatting to a focused image
+// caption (a plain contenteditable, not a TipTap editor) instead of the main
+// editor, by checking data-caption-editable on document.activeElement.
+
+function captionCmd(cmd: string, value?: string): boolean {
+    const el = document.activeElement as HTMLElement | null
+    if (el?.dataset?.captionEditable !== 'true') return false
+    el.focus()
+    document.execCommand('styleWithCSS', false, 'true')
+    document.execCommand(cmd, false, value ?? '')
+    return true
+}
+
+function captionFontSizeCmd(px: string): boolean {
+    const el = document.activeElement as HTMLElement | null
+    if (el?.dataset?.captionEditable !== 'true') return false
+    el.focus()
+    const sel = window.getSelection()
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return true
+    const range = sel.getRangeAt(0)
+    const text = range.toString()
+    if (text) document.execCommand('insertHTML', false, `<span style="font-size:${px}">${text}</span>`)
+    return true
+}
+
+function captionColorCmd(color: string): boolean {
+    const el = document.activeElement as HTMLElement | null
+    if (el?.dataset?.captionEditable !== 'true') return false
+    el.focus()
+    document.execCommand('styleWithCSS', false, 'true')
+    document.execCommand('foreColor', false, color)
+    return true
+}
+
 // ─── Resizable image node view ────────────────────────────────────────────────
 
 type ImgPosition = 'break' | 'wrap-left' | 'wrap-right' | 'inline'
+
+type CropDraft = { l: number; t: number; r: number; b: number }
+
+function CropOverlay({
+    draft, onChange, onApply, onCancel, containerRef, c,
+}: {
+    draft: CropDraft
+    onChange: React.Dispatch<React.SetStateAction<CropDraft>>
+    onApply: () => void
+    onCancel: () => void
+    containerRef: React.RefObject<HTMLDivElement | null>
+    c: (a: number) => string
+}) {
+    function startDrag(handle: string, e: React.MouseEvent) {
+        e.preventDefault()
+        e.stopPropagation()
+        const rect = containerRef.current?.getBoundingClientRect()
+        if (!rect) return
+        const onMove = (ev: MouseEvent) => {
+            const rx = Math.max(0, Math.min(1, (ev.clientX - rect.left) / rect.width))
+            const ry = Math.max(0, Math.min(1, (ev.clientY - rect.top)  / rect.height))
+            onChange(d => {
+                const n = { ...d }
+                if (handle.includes('l')) n.l = Math.min(rx, d.r - 0.05)
+                if (handle.includes('r')) n.r = Math.max(rx, d.l + 0.05)
+                if (handle.includes('t')) n.t = Math.min(ry, d.b - 0.05)
+                if (handle.includes('b')) n.b = Math.max(ry, d.t + 0.05)
+                return n
+            })
+        }
+        const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+        window.addEventListener('mousemove', onMove)
+        window.addEventListener('mouseup', onUp)
+    }
+
+    const handles: { id: string; style: React.CSSProperties }[] = [
+        { id: 'tl', style: { top: 0,    left: 0,    transform: 'translate(-50%,-50%)', cursor: 'nw-resize' } },
+        { id: 'tc', style: { top: 0,    left: '50%',transform: 'translate(-50%,-50%)', cursor: 'n-resize'  } },
+        { id: 'tr', style: { top: 0,    right: 0,   transform: 'translate(50%,-50%)',  cursor: 'ne-resize' } },
+        { id: 'ml', style: { top: '50%',left: 0,    transform: 'translate(-50%,-50%)', cursor: 'w-resize'  } },
+        { id: 'mr', style: { top: '50%',right: 0,   transform: 'translate(50%,-50%)',  cursor: 'e-resize'  } },
+        { id: 'bl', style: { bottom: 0, left: 0,    transform: 'translate(-50%,50%)',  cursor: 'sw-resize' } },
+        { id: 'bc', style: { bottom: 0, left: '50%',transform: 'translate(-50%,50%)',  cursor: 's-resize'  } },
+        { id: 'br', style: { bottom: 0, right: 0,   transform: 'translate(50%,50%)',   cursor: 'se-resize' } },
+    ]
+
+    return (
+        <div
+            data-crop-overlay='true'
+            style={{ position: 'absolute', inset: 0, zIndex: 30, userSelect: 'none' }}
+            onMouseDown={e => { e.preventDefault(); e.stopPropagation() }}
+        >
+            {/* Dark mask outside crop rect */}
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${draft.t * 100}%`, background: 'rgba(0,0,0,0.55)' }} />
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, top: `${draft.b * 100}%`, background: 'rgba(0,0,0,0.55)' }} />
+            <div style={{ position: 'absolute', top: `${draft.t * 100}%`, bottom: `${(1 - draft.b) * 100}%`, left: 0, width: `${draft.l * 100}%`, background: 'rgba(0,0,0,0.55)' }} />
+            <div style={{ position: 'absolute', top: `${draft.t * 100}%`, bottom: `${(1 - draft.b) * 100}%`, right: 0, left: `${draft.r * 100}%`, background: 'rgba(0,0,0,0.55)' }} />
+
+            {/* Crop rect border + rule-of-thirds + handles */}
+            <div style={{
+                position: 'absolute',
+                left: `${draft.l * 100}%`, top: `${draft.t * 100}%`,
+                width: `${(draft.r - draft.l) * 100}%`, height: `${(draft.b - draft.t) * 100}%`,
+                border: '1px solid rgba(255,255,255,0.85)', boxSizing: 'border-box',
+            }}>
+                <div style={{ position: 'absolute', top: '33.3%', left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.25)' }} />
+                <div style={{ position: 'absolute', top: '66.7%', left: 0, right: 0, height: 1, background: 'rgba(255,255,255,0.25)' }} />
+                <div style={{ position: 'absolute', left: '33.3%', top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,0.25)' }} />
+                <div style={{ position: 'absolute', left: '66.7%', top: 0, bottom: 0, width: 1, background: 'rgba(255,255,255,0.25)' }} />
+                {handles.map(({ id, style }) => (
+                    <div key={id} onMouseDown={e => startDrag(id, e)}
+                        style={{ position: 'absolute', width: 10, height: 10, background: 'white', border: `1.5px solid ${c(0.7)}`, borderRadius: 2, zIndex: 1, ...style }}
+                    />
+                ))}
+            </div>
+
+            {/* Apply / Cancel buttons */}
+            <div style={{ position: 'absolute', bottom: -34, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6, whiteSpace: 'nowrap' }}>
+                <button type='button' onMouseDown={e => e.stopPropagation()} onClick={onApply}
+                    style={{ padding: '3px 10px', borderRadius: 3, cursor: 'pointer', background: c(0.85), border: 'none', color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em' }}>
+                    Apply
+                </button>
+                <button type='button' onMouseDown={e => e.stopPropagation()} onClick={onCancel}
+                    style={{ padding: '3px 8px', borderRadius: 3, cursor: 'pointer', background: 'rgba(30,30,30,0.9)', border: '1px solid rgba(255,255,255,0.18)', color: 'rgba(237,237,237,0.7)', fontSize: 11 }}>
+                    Cancel
+                </button>
+            </div>
+        </div>
+    )
+}
 
 function ResizableImageView({ node, selected, updateAttributes }: {
     node: any; selected: boolean; updateAttributes: (attrs: Record<string, any>) => void
@@ -260,11 +385,110 @@ function ResizableImageView({ node, selected, updateAttributes }: {
     const themeColor = useContext(ThemeContext)
     const { r, g, b } = hexToRgb(themeColor)
     const c = (a: number) => `rgba(${r},${g},${b},${a})`
-    const { src, alt, title, width, align, position, borderStyle, borderColor: imgBorderColor, borderWidth } = node.attrs as { src: string; alt: string; title: string; width: number | null; align: string; position: ImgPosition; borderStyle: string; borderColor: string; borderWidth: number }
-    const containerRef = useRef<HTMLDivElement>(null)
-    const startXRef = useRef(0)
-    const startWRef = useRef(0)
+    const { src, alt, title, width, align, position, borderStyle, borderColor: imgBorderColor, borderWidth,
+        caption, captionPosition: captionPositionAttr,
+        cropLeft, cropTop, cropRight, cropBottom } = node.attrs as {
+        src: string; alt: string; title: string; width: number | null; align: string;
+        position: ImgPosition; borderStyle: string; borderColor: string; borderWidth: number;
+        caption: string; captionPosition: string;
+        cropLeft: number; cropTop: number; cropRight: number; cropBottom: number;
+    }
+    const containerRef        = useRef<HTMLDivElement>(null)
+    const captionRef          = useRef<HTMLDivElement>(null)
+    const startXRef           = useRef(0)
+    const startWRef           = useRef(0)
+    const captionDragTargetRef = useRef<string | null>(null)
 
+    const [captionFocused,    setCaptionFocused]    = useState(false)
+    const [captionHovered,    setCaptionHovered]    = useState(false)
+    const [captionDragTarget, setCaptionDragTarget] = useState<string | null>(null)
+    const [isCropping,    setIsCropping]    = useState(false)
+    const [cropDraft,     setCropDraft]     = useState<CropDraft>({ l: 0, t: 0, r: 1, b: 1 })
+    const [naturalAspect, setNaturalAspect] = useState<number | null>(null)
+
+    const hasCrop = cropLeft > 0.001 || cropTop > 0.001 || cropRight < 0.999 || cropBottom < 0.999
+    const cw = cropRight - cropLeft
+    const ch = cropBottom - cropTop
+
+    // Sync caption from node attrs when not actively editing
+    useEffect(() => {
+        if (captionRef.current && !captionFocused) {
+            if (captionRef.current.innerHTML !== (caption || '')) {
+                captionRef.current.innerHTML = caption || ''
+            }
+        }
+    // captionPositionAttr included so the sync re-runs after a position change
+    // in case the DOM element was rebuilt by a React tree-slot change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [caption, captionFocused, captionPositionAttr])
+
+    function onCaptionBlur() {
+        setCaptionFocused(false)
+        const html = captionRef.current?.innerHTML || ''
+        const isEmpty = !html || html === '<br>' || html.replace(/<[^>]*>/g, '').trim() === ''
+        updateAttributes({ caption: isEmpty ? '' : html })
+        if (isEmpty && captionRef.current) captionRef.current.innerHTML = ''
+    }
+
+    // ── Snap-position detection ───────────────────────────────────────────────
+    // 8 snap zones: bottom-left/center/right, top-left/center/right,
+    // left-center, right-center. The normalised dx/dy determines which axis
+    // dominates (top/bottom vs left/right); within top/bottom the x-thirds
+    // give left/center/right.
+    function detectSnapPos(mx: number, my: number, rect: DOMRect): string {
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top  + rect.height / 2
+        const normDx = (mx - cx) / (rect.width  / 2)
+        const normDy = (my - cy) / (rect.height / 2)
+        if (Math.abs(normDy) >= Math.abs(normDx)) {
+            const side = normDy < 0 ? 'top' : 'bottom'
+            const relX = Math.max(0, Math.min(1, (mx - rect.left) / rect.width))
+            const sub  = relX < 0.2 ? 'far-left'
+                       : relX < 0.4 ? 'near-left'
+                       : relX > 0.8 ? 'far-right'
+                       : relX > 0.6 ? 'near-right'
+                       : 'center'
+            return `${side}-${sub}`
+        }
+        const side = normDx < 0 ? 'left' : 'right'
+        const relY = Math.max(0, Math.min(1, (my - rect.top) / rect.height))
+        const sub  = relY < 0.2 ? 'far-top'
+                   : relY < 0.4 ? 'near-top'
+                   : relY > 0.8 ? 'far-bottom'
+                   : relY > 0.6 ? 'near-bottom'
+                   : 'center'
+        return `${side}-${sub}`
+    }
+
+    function onCaptionDragStart(e: React.MouseEvent) {
+        e.preventDefault()
+        e.stopPropagation()
+        const imgRect = containerRef.current?.getBoundingClientRect()
+        if (!imgRect) return
+        const onMove = (ev: MouseEvent) => {
+            const t = detectSnapPos(ev.clientX, ev.clientY, imgRect)
+            captionDragTargetRef.current = t
+            setCaptionDragTarget(t)
+        }
+        const onUp = () => {
+            const finalPos = captionDragTargetRef.current
+            if (finalPos) {
+                // Save caption text before committing position so ProseMirror
+                // can't lose it if the NodeView briefly remounts.
+                const html = captionRef.current?.innerHTML || ''
+                const captionVal = (!html || html === '<br>') ? '' : html
+                updateAttributes({ caption: captionVal, captionPosition: finalPos })
+            }
+            captionDragTargetRef.current = null
+            setCaptionDragTarget(null)
+            window.removeEventListener('mousemove', onMove)
+            window.removeEventListener('mouseup', onUp)
+        }
+        window.addEventListener('mousemove', onMove)
+        window.addEventListener('mouseup', onUp)
+    }
+
+    // ── Resize ────────────────────────────────────────────────────────────────
     function onResizeStart(e: React.MouseEvent) {
         e.preventDefault()
         e.stopPropagation()
@@ -282,93 +506,302 @@ function ResizableImageView({ node, selected, updateAttributes }: {
         document.addEventListener('mouseup', onUp)
     }
 
+    // ── Layout calculations ───────────────────────────────────────────────────
     const justifyMap: Record<string, string> = { left: 'flex-start', center: 'center', right: 'flex-end' }
 
+    // Always use the committed position for layout — drag preview must not
+    // reflow the image position; snap zone is shown as text in the handle instead.
+    const captionPos      = captionPositionAttr || 'bottom-center'
+    const [captionSide, ...captionSubParts] = captionPos.split('-')
+    const captionSubAlign = captionSubParts.join('-') || 'center'
+    const isRowLayout     = captionSide === 'left' || captionSide === 'right'
+    const captionBeforeImg = captionSide === 'top' || captionSide === 'left'
+    const isSnappingToCenter = !!captionDragTarget?.includes('center')
+
+    // Text-align inside the caption editable
+    const captionTextAlign: 'left' | 'center' | 'right' = isRowLayout
+        ? (captionSide === 'left' ? 'right' : 'left')
+        : (captionSubAlign.endsWith('left')  ? 'left'
+         : captionSubAlign.endsWith('right') ? 'right'
+         : 'center')
+
+    // Flex align-items for the inner layout wrapper — controls the IMAGE only;
+    // captionEl uses its own alignSelf so its position is independent.
+    const innerAlignItems = isRowLayout ? 'center'
+        : align === 'left'  ? 'flex-start'
+        : align === 'right' ? 'flex-end'
+        : 'center'
+
+    // Caption element position: alignSelf + inset margins for 5 positions per axis.
+    // Legacy 3-position values (left/right, top/bottom) map to their far-* equivalents.
+    // order keeps captionEl at the end of the DOM always — CSS order property
+    // handles visual position so React never unmounts/remounts the element
+    // when captionBeforeImg changes, which would wipe the contenteditable text.
+    const captionOrder = captionBeforeImg ? 0 : 2
+    const captionElPositionStyle: React.CSSProperties = isRowLayout
+        ? (() => {
+            const base: React.CSSProperties = { width: 150, flexShrink: 0, order: captionOrder }
+            if (captionSubAlign === 'far-top'    || captionSubAlign === 'top')    return { ...base, alignSelf: 'flex-start', marginTop:    '5%'  }
+            if (captionSubAlign === 'near-top')                                   return { ...base, alignSelf: 'flex-start', marginTop:    '20%' }
+            if (captionSubAlign === 'near-bottom')                                return { ...base, alignSelf: 'flex-end',   marginBottom: '20%' }
+            if (captionSubAlign === 'far-bottom' || captionSubAlign === 'bottom') return { ...base, alignSelf: 'flex-end',   marginBottom: '5%'  }
+            return { ...base, alignSelf: 'center' }
+          })()
+        : (() => {
+            const base: React.CSSProperties = { order: captionOrder }
+            if (captionSubAlign === 'far-left'   || captionSubAlign === 'left')   return { ...base, alignSelf: 'flex-start', marginLeft:  '5%'  }
+            if (captionSubAlign === 'near-left')                                  return { ...base, alignSelf: 'flex-start', marginLeft:  '25%' }
+            if (captionSubAlign === 'near-right')                                 return { ...base, alignSelf: 'flex-end',   marginRight: '25%' }
+            if (captionSubAlign === 'far-right'  || captionSubAlign === 'right')  return { ...base, alignSelf: 'flex-end',   marginRight: '5%'  }
+            return { ...base, alignSelf: 'stretch' }  // center
+          })()
+
+    // Outer NodeViewWrapper — handles block/wrap/inline positioning in the doc
     const wrapperStyle: React.CSSProperties = position === 'wrap-left'
-        ? { display: 'block', float: 'left', margin: '0 1.2em 0.6em 0', lineHeight: 0, clear: 'left' }
+        ? { display: 'block', float: 'left',  margin: '0 1.2em 0.6em 0', clear: 'left'  }
         : position === 'wrap-right'
-        ? { display: 'block', float: 'right', margin: '0 0 0.6em 1.2em', lineHeight: 0, clear: 'right' }
+        ? { display: 'block', float: 'right', margin: '0 0 0.6em 1.2em', clear: 'right' }
         : position === 'inline'
-        ? { display: 'inline-flex', margin: '0 4px', verticalAlign: 'middle', lineHeight: 0 }
-        : { display: 'flex', justifyContent: justifyMap[align] || 'center', margin: '1.5em 0', lineHeight: 0 }
+        ? { display: 'inline-flex', margin: '0 4px', verticalAlign: 'top' }
+        : { display: 'flex', justifyContent: justifyMap[align] || 'center', margin: '1.5em 0' }
+
+    // Inner layout — stacks/rows image and caption
+    const innerLayoutStyle: React.CSSProperties = {
+        display: 'flex',
+        flexDirection: isRowLayout ? 'row' : 'column',
+        alignItems: innerAlignItems,
+        gap: isRowLayout ? 10 : 2,
+        // For block-break column layout, fill the full block width so the image
+        // centering (justifyContent on the outer wrapper) works correctly.
+        ...(position === 'break' && !isRowLayout ? { width: '100%' } : {}),
+    }
 
     const POSITION_OPTS: { key: ImgPosition; label: string; title: string }[] = [
-        { key: 'break',      label: 'BRK', title: 'Block — full line break'     },
+        { key: 'break',      label: 'BRK', title: 'Block — full line break'      },
         { key: 'wrap-left',  label: '⇐W',  title: 'Wrap Left — text wraps right' },
         { key: 'wrap-right', label: 'W⇒',  title: 'Wrap Right — text wraps left' },
-        { key: 'inline',     label: 'INL', title: 'Inline — flows with text'     },
+        { key: 'inline',     label: 'INL', title: 'Inline — flows with text'      },
     ]
+
+    // ── Caption element ───────────────────────────────────────────────────────
+    const captionEl = (
+        <div
+            data-pmignore='true'
+            style={{
+                lineHeight: 'normal', position: 'relative',
+                ...captionElPositionStyle,
+            }}
+            onMouseEnter={() => setCaptionHovered(true)}
+            onMouseLeave={() => setCaptionHovered(false)}
+        >
+            {/* Drag handle — appears on hover/focus */}
+            {(captionHovered || captionFocused || !!captionDragTarget) && (
+                <div
+                    onMouseDown={onCaptionDragStart}
+                    title='Drag to reposition caption'
+                    style={{
+                        position: 'absolute', zIndex: 10,
+                        cursor: captionDragTarget ? 'grabbing' : 'grab',
+                        userSelect: 'none',
+                        background: 'rgba(0,0,0,0.65)',
+                        borderRadius: 2, padding: '1px 5px',
+                        fontSize: 11, lineHeight: 1.2,
+                        color: isSnappingToCenter ? c(0.9) : 'rgba(237,237,237,0.5)',
+                        // Snap-to-center accent ring
+                        ...(isSnappingToCenter ? { boxShadow: `0 0 0 1px ${c(0.6)}` } : {}),
+                        // Position the handle between caption and image; x follows text alignment
+                        ...(isRowLayout
+                            ? { top: '50%', transform: 'translateY(-50%)',
+                                [captionSide === 'left' ? 'right' : 'left']: -22 }
+                            : {
+                                ...(captionSide === 'top'
+                                    ? { top: '100%', marginTop: 2 }
+                                    : { bottom: '100%', marginBottom: 2 }),
+                                ...(captionSubAlign.endsWith('left')
+                                    ? { left: 4 }
+                                    : captionSubAlign.endsWith('right')
+                                    ? { right: 4 }
+                                    : { left: '50%', transform: 'translateX(-50%)' }),
+                            }
+                        ),
+                    }}
+                >{captionDragTarget ? captionDragTarget.replace(/-/g, ' ') : '⠿'}</div>
+            )}
+
+            {/* Contenteditable caption */}
+            <div
+                ref={captionRef}
+                contentEditable
+                suppressContentEditableWarning
+                data-caption-editable='true'
+                onFocus={() => setCaptionFocused(true)}
+                onBlur={onCaptionBlur}
+                onInput={() => updateAttributes({ caption: captionRef.current?.innerHTML || '' })}
+                onMouseDown={e => e.stopPropagation()}
+                onKeyDown={e => { if (e.key === 'Escape') captionRef.current?.blur() }}
+                style={{
+                    outline: 'none', minHeight: '1.2em',
+                    position: 'relative', zIndex: 1,
+                    textAlign: captionTextAlign,
+                    color: 'rgba(237,237,237,0.85)',
+                    fontSize: '0.75rem', fontStyle: 'italic',
+                    letterSpacing: '0.02em', lineHeight: 1.5,
+                    padding: '2px 0', cursor: 'text', wordBreak: 'break-word',
+                    borderBottom: captionFocused
+                        ? '1px solid rgba(255,255,255,0.14)'
+                        : '1px solid transparent',
+                    // Accent outline when snapping to a center position
+                    ...(isSnappingToCenter
+                        ? { outline: `1px solid ${c(0.5)}`, outlineOffset: '3px' }
+                        : {}),
+                }}
+            />
+
+            {/* Placeholder overlay — React-rendered, not CSS ::before */}
+            {!caption && !captionFocused && (
+                <div style={{
+                    position: 'absolute', top: 0, left: 0, right: 0,
+                    zIndex: 0, pointerEvents: 'none',
+                    textAlign: captionTextAlign,
+                    color: 'rgba(237,237,237,0.85)',
+                    fontSize: '0.75rem', fontStyle: 'italic',
+                    letterSpacing: '0.02em', lineHeight: 1.5, padding: '2px 0',
+                }}>Add a caption…</div>
+            )}
+        </div>
+    )
 
     return (
         <NodeViewWrapper style={wrapperStyle as any}>
-            <div ref={containerRef} style={{ position: 'relative', display: 'inline-block', width: width ? `${width}px` : (position === 'break' ? '100%' : undefined), maxWidth: '100%' }}>
-                {selected && (
-                    <div
-                        onMouseDown={e => e.preventDefault()}
-                        style={{ position: 'absolute', top: -38, left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '3px 5px', zIndex: 20, whiteSpace: 'nowrap', flexWrap: 'wrap', maxWidth: 400 }}
-                    >
-                        {/* Alignment (break mode only) */}
-                        {position !== 'inline' && position !== 'wrap-left' && position !== 'wrap-right' && (['left', 'center', 'right'] as const).map(a => (
-                            <button key={a} type='button' title={`Align ${a}`}
-                                onMouseDown={e => { e.preventDefault(); updateAttributes({ align: a }) }}
-                                style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', background: align === a ? c(0.2) : 'transparent', border: align === a ? `1px solid ${c(0.4)}` : '1px solid transparent', color: align === a ? c(0.9) : 'rgba(237,237,237,0.5)' }}
-                            >
-                                {a === 'left' && <FormatAlignLeft style={{ fontSize: 14 }} />}
-                                {a === 'center' && <FormatAlignCenter style={{ fontSize: 14 }} />}
-                                {a === 'right' && <FormatAlignRight style={{ fontSize: 14 }} />}
-                            </button>
-                        ))}
-                        {position === 'break' && <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />}
-                        {/* FIT button */}
-                        <button type='button' title='Reset to full width'
-                            onMouseDown={e => { e.preventDefault(); updateAttributes({ width: null }) }}
-                            style={{ padding: '3px 6px', borderRadius: 2, cursor: 'pointer', background: !width ? c(0.2) : 'transparent', border: !width ? `1px solid ${c(0.4)}` : '1px solid transparent', color: 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em' }}
+            <div style={innerLayoutStyle}>
+                {/* Image container — order 1 when caption is before it, 0 otherwise.
+                    CSS order keeps the caption DOM node stable so its ref never drops. */}
+                <div
+                    ref={containerRef}
+                    style={{
+                        position: 'relative', display: 'inline-block', lineHeight: 0,
+                        order: captionBeforeImg ? 1 : 0,
+                        ...(hasCrop && !isCropping && naturalAspect !== null ? {
+                            overflow: 'hidden',
+                            height: 0,
+                            paddingBottom: `${ch / (cw * naturalAspect) * 100}%`,
+                        } : {}),
+                        width: width
+                            ? `${width}px`
+                            : (position === 'break' && !isRowLayout ? '100%' : undefined),
+                        maxWidth: '100%',
+                        ...(isRowLayout ? { flex: 1, minWidth: 0 } : {}),
+                    }}
+                >
+                    {selected && !isCropping && (
+                        <div
+                            onMouseDown={e => e.preventDefault()}
+                            style={{ position: 'absolute', ...(captionSide === 'top' ? { bottom: -38 } : { top: -38 }), left: '50%', transform: 'translateX(-50%)', display: 'flex', alignItems: 'center', gap: 2, background: 'rgba(10,10,10,0.92)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 4, padding: '3px 5px', zIndex: 20, whiteSpace: 'nowrap', flexWrap: 'wrap', maxWidth: 400 }}
                         >
-                            FIT
-                        </button>
-                        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
-                        {/* Position buttons */}
-                        {POSITION_OPTS.map(p => (
-                            <button key={p.key} type='button' title={p.title}
-                                onMouseDown={e => { e.preventDefault(); updateAttributes({ position: p.key }) }}
-                                style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', background: position === p.key ? 'rgba(245,158,11,0.2)' : 'transparent', border: position === p.key ? '1px solid rgba(245,158,11,0.5)' : '1px solid transparent', color: position === p.key ? 'rgba(245,185,11,0.9)' : 'rgba(237,237,237,0.45)', fontSize: 9, fontWeight: 800, letterSpacing: '0.04em' }}
-                            >
-                                {p.label}
-                            </button>
-                        ))}
-                        <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
-                        {/* Border controls */}
-                        {(['none', 'solid', 'dashed', 'dotted'] as const).map(bs => (
-                            <button key={bs} type='button' title={`Border: ${bs}`}
-                                onMouseDown={e => { e.preventDefault(); updateAttributes({ borderStyle: bs }) }}
-                                style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', background: borderStyle === bs ? 'rgba(80,200,120,0.2)' : 'transparent', border: borderStyle === bs ? '1px solid rgba(80,200,120,0.5)' : '1px solid transparent', color: borderStyle === bs ? 'rgba(80,200,120,0.9)' : 'rgba(237,237,237,0.45)', fontSize: 9, fontWeight: 800, letterSpacing: '0.04em' }}
-                            >
-                                {bs === 'none' ? 'NO BDR' : bs.toUpperCase().slice(0, 4)}
-                            </button>
-                        ))}
-                        {borderStyle !== 'none' && (<>
-                            {([1, 2, 3, 4] as const).map(w => (
-                                <button key={w} type='button' title={`Border width ${w}px`}
-                                    onMouseDown={e => { e.preventDefault(); updateAttributes({ borderWidth: w }) }}
-                                    style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', background: borderWidth === w ? 'rgba(80,200,120,0.15)' : 'transparent', border: borderWidth === w ? '1px solid rgba(80,200,120,0.4)' : '1px solid transparent', color: 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800 }}
-                                >{w}px</button>
+                            {/* Alignment (break mode only) */}
+                            {position !== 'inline' && position !== 'wrap-left' && position !== 'wrap-right' && (['left', 'center', 'right'] as const).map(a => (
+                                <button key={a} type='button' title={`Align ${a}`}
+                                    onMouseDown={e => { e.preventDefault(); updateAttributes({ align: a }) }}
+                                    style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', display: 'flex', alignItems: 'center', background: align === a ? c(0.2) : 'transparent', border: align === a ? `1px solid ${c(0.4)}` : '1px solid transparent', color: align === a ? c(0.9) : 'rgba(237,237,237,0.5)' }}
+                                >
+                                    {a === 'left'   && <FormatAlignLeft   style={{ fontSize: 14 }} />}
+                                    {a === 'center' && <FormatAlignCenter style={{ fontSize: 14 }} />}
+                                    {a === 'right'  && <FormatAlignRight  style={{ fontSize: 14 }} />}
+                                </button>
                             ))}
-                            <input type='color' value={imgBorderColor}
-                                onMouseDown={e => e.stopPropagation()}
-                                onChange={e => updateAttributes({ borderColor: e.target.value })}
-                                style={{ width: 18, height: 18, padding: 0, border: '1px solid rgba(255,255,255,0.2)', borderRadius: 2, cursor: 'pointer', background: 'none' }}
-                            />
-                        </>)}
-                    </div>
-                )}
-                <img src={src} alt={alt || ''} title={title || ''} draggable={false}
-                    style={{ display: 'block', width: width ? `${width}px` : '100%', maxWidth: '100%', height: 'auto', border: borderStyle !== 'none' ? `${borderWidth}px ${borderStyle} ${imgBorderColor}` : selected ? `2px solid ${c(0.6)}` : '1px solid rgba(255,255,255,0.06)' }}
-                />
-                {selected && (
-                    <div onMouseDown={onResizeStart}
-                        style={{ position: 'absolute', bottom: 4, right: 4, width: 12, height: 12, background: c(0.85), border: '2px solid rgba(255,255,255,0.7)', borderRadius: 2, cursor: 'se-resize', zIndex: 10 }}
+                            {position === 'break' && <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />}
+                            {/* FIT button */}
+                            <button type='button' title='Reset to full width'
+                                onMouseDown={e => { e.preventDefault(); updateAttributes({ width: null }) }}
+                                style={{ padding: '3px 6px', borderRadius: 2, cursor: 'pointer', background: !width ? c(0.2) : 'transparent', border: !width ? `1px solid ${c(0.4)}` : '1px solid transparent', color: 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em' }}
+                            >FIT</button>
+                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+                            <button type='button' title={hasCrop ? 'Edit crop' : 'Crop image'}
+                                onMouseDown={e => { e.preventDefault(); setCropDraft({ l: cropLeft, t: cropTop, r: cropRight, b: cropBottom }); setIsCropping(true) }}
+                                style={{ padding: '3px 6px', borderRadius: 2, cursor: 'pointer', background: hasCrop ? 'rgba(80,200,120,0.2)' : 'transparent', border: hasCrop ? '1px solid rgba(80,200,120,0.5)' : '1px solid transparent', color: hasCrop ? 'rgba(80,200,120,0.9)' : 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em' }}
+                            >CROP</button>
+                            {hasCrop && (
+                                <button type='button' title='Remove crop'
+                                    onMouseDown={e => { e.preventDefault(); updateAttributes({ cropLeft: 0, cropTop: 0, cropRight: 1, cropBottom: 1 }) }}
+                                    style={{ padding: '3px 6px', borderRadius: 2, cursor: 'pointer', background: 'transparent', border: '1px solid transparent', color: 'rgba(237,237,237,0.4)', fontSize: 9, fontWeight: 800, letterSpacing: '0.06em' }}
+                                >✕CRP</button>
+                            )}
+                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+                            {/* Position buttons */}
+                            {POSITION_OPTS.map(p => (
+                                <button key={p.key} type='button' title={p.title}
+                                    onMouseDown={e => { e.preventDefault(); updateAttributes({ position: p.key }) }}
+                                    style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', background: position === p.key ? 'rgba(245,158,11,0.2)' : 'transparent', border: position === p.key ? '1px solid rgba(245,158,11,0.5)' : '1px solid transparent', color: position === p.key ? 'rgba(245,185,11,0.9)' : 'rgba(237,237,237,0.45)', fontSize: 9, fontWeight: 800, letterSpacing: '0.04em' }}
+                                >{p.label}</button>
+                            ))}
+                            <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 2px' }} />
+                            {/* Border controls */}
+                            {(['none', 'solid', 'dashed', 'dotted'] as const).map(bs => (
+                                <button key={bs} type='button' title={`Border: ${bs}`}
+                                    onMouseDown={e => { e.preventDefault(); updateAttributes({ borderStyle: bs }) }}
+                                    style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', background: borderStyle === bs ? 'rgba(80,200,120,0.2)' : 'transparent', border: borderStyle === bs ? '1px solid rgba(80,200,120,0.5)' : '1px solid transparent', color: borderStyle === bs ? 'rgba(80,200,120,0.9)' : 'rgba(237,237,237,0.45)', fontSize: 9, fontWeight: 800, letterSpacing: '0.04em' }}
+                                >{bs === 'none' ? 'NO BDR' : bs.toUpperCase().slice(0, 4)}</button>
+                            ))}
+                            {borderStyle !== 'none' && (<>
+                                {([1, 2, 3, 4] as const).map(w => (
+                                    <button key={w} type='button' title={`Border width ${w}px`}
+                                        onMouseDown={e => { e.preventDefault(); updateAttributes({ borderWidth: w }) }}
+                                        style={{ padding: '3px 5px', borderRadius: 2, cursor: 'pointer', background: borderWidth === w ? 'rgba(80,200,120,0.15)' : 'transparent', border: borderWidth === w ? '1px solid rgba(80,200,120,0.4)' : '1px solid transparent', color: 'rgba(237,237,237,0.5)', fontSize: 9, fontWeight: 800 }}
+                                    >{w}px</button>
+                                ))}
+                                <input type='color' value={imgBorderColor}
+                                    onMouseDown={e => e.stopPropagation()}
+                                    onChange={e => updateAttributes({ borderColor: e.target.value })}
+                                    style={{ width: 18, height: 18, padding: 0, border: '1px solid rgba(255,255,255,0.2)', borderRadius: 2, cursor: 'pointer', background: 'none' }}
+                                />
+                            </>)}
+                        </div>
+                    )}
+
+                    <img src={src} alt={alt || ''} title={title || ''} draggable={false}
+                        onLoad={e => {
+                            const img = e.currentTarget
+                            if (img.naturalWidth && img.naturalHeight)
+                                setNaturalAspect(img.naturalWidth / img.naturalHeight)
+                        }}
+                        style={{
+                            display: 'block',
+                            ...(hasCrop && !isCropping && naturalAspect !== null ? {
+                                position: 'absolute',
+                                width: `${100 / cw}%`,
+                                height: 'auto',
+                                left: `${-cropLeft / cw * 100}%`,
+                                top: `${-cropTop / (cw * naturalAspect) * 100}%`,
+                            } : {
+                                width: width ? `${width}px` : '100%',
+                                maxWidth: '100%',
+                                height: 'auto',
+                            }),
+                            border: borderStyle !== 'none' ? `${borderWidth}px ${borderStyle} ${imgBorderColor}` : selected ? `2px solid ${c(0.6)}` : '1px solid rgba(255,255,255,0.06)',
+                        }}
                     />
-                )}
+                    {isCropping && (
+                        <CropOverlay
+                            draft={cropDraft}
+                            onChange={setCropDraft}
+                            onApply={() => {
+                                updateAttributes({ cropLeft: cropDraft.l, cropTop: cropDraft.t, cropRight: cropDraft.r, cropBottom: cropDraft.b })
+                                setIsCropping(false)
+                            }}
+                            onCancel={() => setIsCropping(false)}
+                            containerRef={containerRef}
+                            c={c}
+                        />
+                    )}
+                    {selected && !isCropping && (
+                        <div onMouseDown={onResizeStart}
+                            style={{ position: 'absolute', bottom: 4, right: 4, width: 12, height: 12, background: c(0.85), border: '2px solid rgba(255,255,255,0.7)', borderRadius: 2, cursor: 'se-resize', zIndex: 10 }}
+                        />
+                    )}
+                </div>
+
+                {/* Caption — always rendered here; visual position is CSS order above */}
+                {captionEl}
             </div>
         </NodeViewWrapper>
     )
@@ -724,6 +1157,9 @@ function ActiveEditor({ ydoc, provider, user, operationId, uploadUrl, defaultSec
                                                 // leaves both the document and the toolbar.
                                                 const related = event.relatedTarget as Node | null
                                                 if (related && toolbarRef.current?.contains(related)) return
+                                                // Caption editables live inside the editor DOM; focusing
+                                                // one must keep the toolbar active so formatting works.
+                                                if ((related as HTMLElement | null)?.dataset?.captionEditable === 'true') return
                                                 setActiveEditor(prev => (prev === editor ? null : prev))
                                                 setActiveSectionId(prev => (prev === id ? null : prev))
                                             }}
@@ -898,9 +1334,36 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
     const [linkPopover, setLinkPopover] = useState(false)
     const [linkUrl, setLinkUrl] = useState('')
     const [linkText, setLinkText] = useState('')
+    const [linkViewMode, setLinkViewMode] = useState(false)
+    const [linkCopied, setLinkCopied] = useState(false)
+    const [colorPopoverOpen, setColorPopoverOpen] = useState(false)
+    const colorTriggerRef = useRef<HTMLButtonElement>(null)
+    const customColorInputRef = useRef<HTMLInputElement>(null)
     const imageInputRef = useRef<HTMLInputElement>(null)
     const linkUrlInputRef = useRef<HTMLInputElement>(null)
     const linkTextInputRef = useRef<HTMLInputElement>(null)
+    const [insertTableOpen, setInsertTableOpen] = useState(false)
+    const [tableGridHover, setTableGridHover] = useState<{ r: number; c: number } | null>(null)
+    const insertTableTriggerRef = useRef<HTMLDivElement>(null)
+    const insertTableMenuRef = useRef<HTMLDivElement>(null)
+    const [tableBorderOpen, setTableBorderOpen] = useState(false)
+    const tableBorderTriggerRef = useRef<HTMLButtonElement>(null)
+    const tableBorderMenuRef = useRef<HTMLDivElement>(null)
+    const tableCustomColorInputRef = useRef<HTMLInputElement>(null)
+
+    // Re-render whenever the cursor moves so currentFontSize / currentHeadingLevel
+    // always reflect the actual selection rather than staying stale after a click.
+    const [, forceSelectionUpdate] = useState(0)
+    useEffect(() => {
+        if (!editor) return
+        const tick = () => forceSelectionUpdate(v => v + 1)
+        editor.on('selectionUpdate', tick)
+        editor.on('transaction', tick)
+        return () => {
+            editor.off('selectionUpdate', tick)
+            editor.off('transaction', tick)
+        }
+    }, [editor])
 
     useEffect(() => {
         if (!linkPopover) return
@@ -910,6 +1373,43 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
     }, [linkPopover])
+
+    useEffect(() => {
+        if (!colorPopoverOpen) return
+        const close = (e: MouseEvent) => {
+            // Check the whole container div (parent of trigger + popover), not
+            // just the trigger button — otherwise the document listener fires
+            // before React's synthetic stopPropagation and closes the popover
+            // while the rainbow swatch button is still awaiting its onClick.
+            const container = colorTriggerRef.current?.parentElement
+            if (container?.contains(e.target as Node)) return
+            setColorPopoverOpen(false)
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [colorPopoverOpen])
+
+    useEffect(() => {
+        if (!insertTableOpen) return
+        const close = (e: MouseEvent) => {
+            if (insertTableTriggerRef.current?.contains(e.target as Node)) return
+            if (insertTableMenuRef.current?.contains(e.target as Node)) return
+            setInsertTableOpen(false)
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [insertTableOpen])
+
+    useEffect(() => {
+        if (!tableBorderOpen) return
+        const close = (e: MouseEvent) => {
+            if (tableBorderTriggerRef.current?.contains(e.target as Node)) return
+            if (tableBorderMenuRef.current?.contains(e.target as Node)) return
+            setTableBorderOpen(false)
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [tableBorderOpen])
 
     async function handleImageUpload(file: File) {
         if (!editor || uploadingImage) return
@@ -945,7 +1445,46 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
     // 0 means "plain paragraph", matching whichever of H1/H2/H3 (if any) the
     // focused section's cursor is currently in.
     const currentHeadingLevel = editor ? (([1, 2, 3] as const).find(l => editor.isActive('heading', { level: l })) ?? 0) : 0
-    const currentFontSize = (editor?.getAttributes('textStyle').fontSize as string | undefined) || ''
+    const explicitFontSize = (editor?.getAttributes('textStyle').fontSize as string | undefined) || ''
+    const currentFontSize = explicitFontSize || (() => {
+        if (typeof window === 'undefined' || !editor) return ''
+        try {
+            const { from } = editor.state.selection
+            const docSize = editor.state.doc.content.size
+            const domInfo = editor.view.domAtPos(Math.min(from, Math.max(0, docSize - 1)))
+            const el = (domInfo.node instanceof HTMLElement ? domInfo.node : domInfo.node?.parentElement) as HTMLElement | null
+            if (!el) return ''
+            const px = parseFloat(window.getComputedStyle(el).fontSize)
+            if (isNaN(px)) return ''
+            const nearest = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48]
+                .reduce((a, b) => Math.abs(b - px) < Math.abs(a - px) ? b : a)
+            return `${nearest}px`
+        } catch { return '' }
+    })()
+
+    const COLOR_PRESETS = [
+        { hex: '', label: 'Default' },
+        { hex: '#ffffff', label: 'White' },
+        { hex: '#cccccc', label: 'Light gray' },
+        { hex: '#db001d', label: 'Red' },
+        { hex: '#f97316', label: 'Orange' },
+        { hex: '#ffd700', label: 'Yellow' },
+        { hex: '#22c55e', label: 'Green' },
+        { hex: '#06b6d4', label: 'Cyan' },
+        { hex: '#3b82f6', label: 'Blue' },
+    ]
+
+    const currentTextColor = (editor?.getAttributes('textStyle') as any)?.color as string | undefined
+
+    function applyTextColor(hex: string) {
+        if (captionColorCmd(hex || '#ffffff')) return
+        if (!editor) return
+        if (!hex) {
+            ;(editor.chain().focus() as any).unsetColor().run()
+        } else {
+            ;(editor.chain().focus() as any).setColor(hex).run()
+        }
+    }
 
     // Same nine groups, same order, as the previous always-inline toolbar —
     // just named and grouped now so `useToolbarOverflow` can measure and
@@ -972,6 +1511,7 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                 <ToolbarDropdown title='Text size' disabled={disabled} minWidth={52}
                     value={currentFontSize} options={FONT_SIZE_OPTIONS}
                     onSelect={v => {
+                        if (v && captionFontSizeCmd(v)) return
                         if (!editor) return
                         if (v) (editor.chain().focus() as any).setFontSize(v).run()
                         else (editor.chain().focus() as any).unsetFontSize().run()
@@ -981,14 +1521,91 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
         ) },
         { key: 'marks', node: (
             <>
-                <TLabel title='Bold' disabled={disabled} active={!!editor?.isActive('bold')} onClick={() => editor?.chain().focus().toggleBold().run()}>B</TLabel>
-                <TLabel title='Italic' disabled={disabled} active={!!editor?.isActive('italic')} onClick={() => editor?.chain().focus().toggleItalic().run()}>I</TLabel>
-                <TLabel title='Underline' disabled={disabled} active={!!editor?.isActive('underline')} onClick={() => editor?.chain().focus().toggleUnderline().run()}>U</TLabel>
-                <TIconBtn title='Strikethrough' disabled={disabled} active={!!editor?.isActive('strike')} onClick={() => editor?.chain().focus().toggleStrike().run()}><IconStrikethrough /></TIconBtn>
+                <TLabel title='Bold' disabled={disabled} active={!!editor?.isActive('bold')} onClick={() => { if (!captionCmd('bold')) editor?.chain().focus().toggleBold().run() }}>B</TLabel>
+                <TLabel title='Italic' disabled={disabled} active={!!editor?.isActive('italic')} onClick={() => { if (!captionCmd('italic')) editor?.chain().focus().toggleItalic().run() }}>I</TLabel>
+                <TLabel title='Underline' disabled={disabled} active={!!editor?.isActive('underline')} onClick={() => { if (!captionCmd('underline')) editor?.chain().focus().toggleUnderline().run() }}>U</TLabel>
+                <TIconBtn title='Strikethrough' disabled={disabled} active={!!editor?.isActive('strike')} onClick={() => { if (!captionCmd('strikeThrough')) editor?.chain().focus().toggleStrike().run() }}><IconStrikethrough /></TIconBtn>
             </>
         ) },
         { key: 'highlight', node: (
-            <TIconBtn title='Highlight' disabled={disabled} active={!!editor?.isActive('highlight')} onClick={() => editor?.chain().focus().toggleHighlight().run()}><IconHighlight /></TIconBtn>
+            <TIconBtn title='Highlight' disabled={disabled} active={!!editor?.isActive('highlight')} onClick={() => { if (!captionCmd('backColor', 'rgba(253,224,71,0.5)')) editor?.chain().focus().toggleHighlight().run() }}><IconHighlight /></TIconBtn>
+        ) },
+        { key: 'color', node: (
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+                {/* Hidden input for custom colour — opened programmatically so the popover doesn't interfere */}
+                <input
+                    type='color'
+                    ref={customColorInputRef}
+                    defaultValue='#a855f7'
+                    onChange={e => applyTextColor(e.target.value)}
+                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', top: 0, left: 0 }}
+                />
+                <button
+                    ref={colorTriggerRef}
+                    type='button'
+                    title='Text Color'
+                    disabled={disabled}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => setColorPopoverOpen(v => !v)}
+                    style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        justifyContent: 'center', gap: 1,
+                        width: 26, height: 26, padding: 0,
+                        background: colorPopoverOpen ? 'rgba(var(--acc-rgb),0.14)' : 'transparent',
+                        border: colorPopoverOpen ? '1px solid rgba(var(--acc-rgb),0.3)' : '1px solid transparent',
+                        borderRadius: 'var(--r)', cursor: 'pointer',
+                        color: 'var(--ink-2)',
+                    }}
+                >
+                    <span style={{ fontWeight: 700, fontSize: 11, lineHeight: 1 }}>A</span>
+                    <span style={{ display: 'block', height: 2, width: 13, background: currentTextColor || 'rgba(237,237,237,0.6)', borderRadius: 1 }} />
+                </button>
+                {colorPopoverOpen && (
+                    <div
+                        onMouseDown={e => e.stopPropagation()}
+                        style={{
+                            position: 'absolute', top: '110%', left: 0, zIndex: 50,
+                            background: 'var(--s2)', border: '1px solid var(--line-2)',
+                            borderRadius: 'var(--r)', padding: 8,
+                            display: 'grid', gridTemplateColumns: 'repeat(5, 20px)', gap: 4,
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+                        }}
+                    >
+                        {COLOR_PRESETS.map(({ hex, label }) => (
+                            <button
+                                key={hex || 'default'}
+                                type='button'
+                                title={label}
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => { applyTextColor(hex); setColorPopoverOpen(false) }}
+                                style={{
+                                    width: 20, height: 20, padding: 0, borderRadius: 3, cursor: 'pointer',
+                                    background: hex || 'transparent',
+                                    border: hex ? '1px solid rgba(255,255,255,0.15)' : '1px dashed rgba(255,255,255,0.3)',
+                                    position: 'relative',
+                                    ...(currentTextColor === hex ? { outline: '2px solid var(--acc)', outlineOffset: 1 } : {}),
+                                }}
+                            >
+                                {!hex && (
+                                    <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'rgba(237,237,237,0.5)', lineHeight: 1 }}>✕</span>
+                                )}
+                            </button>
+                        ))}
+                        {/* Custom colour — rainbow swatch closes popover then opens native picker */}
+                        <button
+                            type='button'
+                            title='Custom colour'
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => { setColorPopoverOpen(false); customColorInputRef.current?.click() }}
+                            style={{
+                                width: 20, height: 20, padding: 0, borderRadius: 3, cursor: 'pointer', flexShrink: 0,
+                                background: 'conic-gradient(red 0deg, yellow 60deg, lime 120deg, cyan 180deg, blue 240deg, magenta 300deg, red 360deg)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                            }}
+                        />
+                    </div>
+                )}
+            </div>
         ) },
         { key: 'align', node: (
             <>
@@ -1017,6 +1634,60 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                 >
                     <IconFlow />
                 </TIconBtn>
+                <div ref={insertTableTriggerRef} style={{ position: 'relative', flexShrink: 0 }}>
+                    <TIconBtn
+                        title='Insert Table'
+                        disabled={disabled}
+                        active={insertTableOpen}
+                        onClick={() => setInsertTableOpen(v => !v)}
+                    >
+                        <IconTable />
+                    </TIconBtn>
+                    {insertTableOpen && createPortal(
+                        <div
+                            ref={insertTableMenuRef}
+                            onMouseDown={e => e.stopPropagation()}
+                            style={{
+                                position: 'fixed',
+                                top: (insertTableTriggerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                                left: insertTableTriggerRef.current?.getBoundingClientRect().left ?? 0,
+                                zIndex: 9999,
+                                background: 'var(--s2)', border: '1px solid var(--line-2)',
+                                borderRadius: 'var(--r)', padding: 10,
+                                boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+                            }}
+                        >
+                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 8, textAlign: 'center' }}>
+                                {tableGridHover ? `${tableGridHover.c} × ${tableGridHover.r}` : 'Insert Table'}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 16px)', gap: 2 }}>
+                                {Array.from({ length: 60 }, (_, i) => {
+                                    const row = Math.floor(i / 10) + 1
+                                    const col = (i % 10) + 1
+                                    const lit = tableGridHover && row <= tableGridHover.r && col <= tableGridHover.c
+                                    return (
+                                        <div
+                                            key={i}
+                                            onMouseEnter={() => setTableGridHover({ r: row, c: col })}
+                                            onMouseLeave={() => setTableGridHover(null)}
+                                            onClick={() => {
+                                                editor?.chain().focus().insertTable({ rows: row, cols: col, withHeaderRow: true }).run()
+                                                setInsertTableOpen(false)
+                                                setTableGridHover(null)
+                                            }}
+                                            style={{
+                                                width: 16, height: 16, borderRadius: 2, cursor: 'pointer',
+                                                background: lit ? 'rgba(var(--acc-rgb),0.35)' : 'rgba(255,255,255,0.07)',
+                                                border: `1px solid ${lit ? 'rgba(var(--acc-rgb),0.6)' : 'rgba(255,255,255,0.12)'}`,
+                                            }}
+                                        />
+                                    )
+                                })}
+                            </div>
+                        </div>,
+                        document.body
+                    )}
+                </div>
             </>
         ) },
         { key: 'insert', node: (
@@ -1050,15 +1721,23 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                     )}
                 </div>
                 <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <TIconBtn title={editor?.isActive('link') ? 'Edit Link' : 'Insert Link'} disabled={disabled} active={!!editor?.isActive('link')}
+                    <TIconBtn title={editor?.isActive('link') ? 'Link Options' : 'Insert Link'} disabled={disabled} active={!!editor?.isActive('link')}
                         onClick={() => {
                             if (!editor) return
                             const existing = editor.getAttributes('link').href || ''
-                            setLinkUrl(existing)
-                            setLinkText('')
-                            setLinkPopover(v => !v)
-                            const noSel = editor.state.selection.empty
-                            setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
+                            if (editor.isActive('link')) {
+                                setLinkUrl(existing)
+                                setLinkViewMode(true)
+                                setLinkCopied(false)
+                                setLinkPopover(v => !v)
+                            } else {
+                                setLinkUrl('')
+                                setLinkText('')
+                                setLinkViewMode(false)
+                                setLinkPopover(v => !v)
+                                const noSel = editor.state.selection.empty
+                                setTimeout(() => (noSel ? linkTextInputRef.current : linkUrlInputRef.current)?.focus(), 40)
+                            }
                         }}
                     >
                         <IconLink />
@@ -1067,24 +1746,51 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                         <div data-shared-link-popover onMouseDown={e => e.stopPropagation()}
                             style={{ position: 'absolute', top: '110%', left: 0, zIndex: 50, background: 'var(--s2)', border: '1px solid var(--line-2)', borderRadius: 'var(--r)', padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 280, boxShadow: '0 4px 20px rgba(0,0,0,0.6)' }}
                         >
-                            {editor.state.selection.empty && (
-                                <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
-                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
-                                    style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                                />
+                            {linkViewMode ? (
+                                <>
+                                    <div style={{ fontSize: '0.72rem', color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 260, padding: '0 2px' }}
+                                        title={linkUrl}>{linkUrl}</div>
+                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                        <button type='button' onMouseDown={e => e.preventDefault()}
+                                            onClick={() => { window.open(linkUrl, '_blank', 'noopener,noreferrer'); setLinkPopover(false) }}
+                                            style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', background: 'var(--s3)', border: '1px solid var(--line-2)', borderRadius: 4, cursor: 'pointer', padding: '4px 8px' }}
+                                        >Open</button>
+                                        <button type='button' onMouseDown={e => e.preventDefault()}
+                                            onClick={() => { navigator.clipboard.writeText(linkUrl); setLinkCopied(true); setTimeout(() => setLinkCopied(false), 1500) }}
+                                            style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: linkCopied ? 'var(--acc)' : 'var(--ink-2)', background: 'var(--s3)', border: '1px solid var(--line-2)', borderRadius: 4, cursor: 'pointer', padding: '4px 8px' }}
+                                        >{linkCopied ? 'Copied!' : 'Copy'}</button>
+                                        <button type='button' onMouseDown={e => e.preventDefault()}
+                                            onClick={() => { setLinkViewMode(false); setTimeout(() => linkUrlInputRef.current?.focus(), 40) }}
+                                            style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--ink-2)', background: 'var(--s3)', border: '1px solid var(--line-2)', borderRadius: 4, cursor: 'pointer', padding: '4px 8px' }}
+                                        >Edit</button>
+                                        <button type='button' onMouseDown={e => e.preventDefault()}
+                                            onClick={() => { editor.chain().focus().unsetLink().run(); setLinkPopover(false) }}
+                                            style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--danger, #e55)', background: 'var(--s3)', border: '1px solid var(--line-2)', borderRadius: 4, cursor: 'pointer', padding: '4px 8px' }}
+                                        >Remove</button>
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {editor.state.selection.empty && (
+                                        <input ref={linkTextInputRef} value={linkText} onChange={e => setLinkText(e.target.value)} placeholder='Display text'
+                                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); linkUrlInputRef.current?.focus() } if (e.key === 'Escape') setLinkPopover(false) }}
+                                            style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                                        />
+                                    )}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') { e.preventDefault(); applyLink() }
+                                                if (e.key === 'Escape') setLinkPopover(false)
+                                            }}
+                                            style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
+                                        />
+                                        <button type='button' onMouseDown={e => e.preventDefault()} onClick={applyLink}
+                                            style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--acc)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
+                                        >Apply</button>
+                                    </div>
+                                </>
                             )}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <input ref={linkUrlInputRef} value={linkUrl} onChange={e => setLinkUrl(e.target.value)} placeholder='https://…'
-                                    onKeyDown={e => {
-                                        if (e.key === 'Enter') { e.preventDefault(); applyLink() }
-                                        if (e.key === 'Escape') setLinkPopover(false)
-                                    }}
-                                    style={{ flex: 1, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', letterSpacing: '0.02em', outline: 'none', padding: '3px 2px' }}
-                                />
-                                <button type='button' onMouseDown={e => e.preventDefault()} onClick={applyLink}
-                                    style={{ fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--acc)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px', flexShrink: 0 }}
-                                >Apply</button>
-                            </div>
                         </div>
                     )}
                 </div>
@@ -1094,6 +1800,153 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
         { key: 'clear', node: (
             <TIconBtn title='Clear Formatting' disabled={disabled} onClick={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()}><IconClear /></TIconBtn>
         ) },
+        ...(editor?.isActive('table') ? [{
+            key: 'table',
+            node: (
+                <>
+                    <TIconBtn title='Insert Row Above' disabled={disabled} onClick={() => editor.chain().focus().addRowBefore().run()}><IconRowBefore /></TIconBtn>
+                    <TIconBtn title='Insert Row Below' disabled={disabled} onClick={() => editor.chain().focus().addRowAfter().run()}><IconRowAfter /></TIconBtn>
+                    <TIconBtn title='Delete Row' disabled={disabled} onClick={() => editor.chain().focus().deleteRow().run()}><IconRowDelete /></TIconBtn>
+                    <TIconBtn title='Insert Column Left' disabled={disabled} onClick={() => editor.chain().focus().addColumnBefore().run()}><IconColBefore /></TIconBtn>
+                    <TIconBtn title='Insert Column Right' disabled={disabled} onClick={() => editor.chain().focus().addColumnAfter().run()}><IconColAfter /></TIconBtn>
+                    <TIconBtn title='Delete Column' disabled={disabled} onClick={() => editor.chain().focus().deleteColumn().run()}><IconColDelete /></TIconBtn>
+                    <TIconBtn title='Merge / Split Cells' disabled={disabled} onClick={() => (editor.chain().focus() as any).mergeOrSplit().run()}><IconMergeCell /></TIconBtn>
+                    <TIconBtn title='Toggle Header Row' disabled={disabled} active={!!editor.isActive('tableHeader')} onClick={() => editor.chain().focus().toggleHeaderRow().run()}><IconTableHeader /></TIconBtn>
+                    <TIconBtn title='Delete Table' disabled={disabled} onClick={() => editor.chain().focus().deleteTable().run()}><IconTableDelete /></TIconBtn>
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <button
+                            ref={tableBorderTriggerRef}
+                            type='button'
+                            title='Table Border Style'
+                            disabled={disabled}
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => setTableBorderOpen(v => !v)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                padding: '0 6px', height: 26, flexShrink: 0,
+                                background: tableBorderOpen ? 'rgba(var(--acc-rgb),0.16)' : 'transparent',
+                                border: tableBorderOpen ? '1px solid rgba(var(--acc-rgb),0.35)' : '1px solid transparent',
+                                borderRadius: 'var(--r)', cursor: 'pointer',
+                                color: tableBorderOpen ? 'var(--acc)' : 'var(--ink-2)',
+                            }}
+                        >
+                            <div style={{
+                                width: 12, height: 12, borderRadius: 2,
+                                background: (editor.getAttributes('table').borderColor as string | undefined) || '#4a5060',
+                                border: '1px solid rgba(255,255,255,0.25)',
+                            }} />
+                            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Border</span>
+                            <IconChevronDown />
+                        </button>
+                        {tableBorderOpen && createPortal(
+                            <div
+                                ref={tableBorderMenuRef}
+                                onMouseDown={e => e.stopPropagation()}
+                                style={{
+                                    position: 'fixed',
+                                    top: (tableBorderTriggerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
+                                    left: tableBorderTriggerRef.current?.getBoundingClientRect().left ?? 0,
+                                    zIndex: 9999,
+                                    background: 'var(--s2)', border: '1px solid var(--line-2)',
+                                    borderRadius: 'var(--r)', padding: '10px 12px',
+                                    boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+                                    display: 'flex', flexDirection: 'column', gap: 10, minWidth: 220,
+                                }}
+                            >
+                                {/* Border color */}
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>Border Color</div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                        {[
+                                            { hex: '#4a5060', label: 'Default' },
+                                            { hex: '#ffffff', label: 'White' },
+                                            { hex: '#cccccc', label: 'Light gray' },
+                                            { hex: '#888888', label: 'Gray' },
+                                            { hex: '#444444', label: 'Dark gray' },
+                                            { hex: '#000000', label: 'Black' },
+                                            { hex: '#db001d', label: 'Red' },
+                                            { hex: '#f97316', label: 'Orange' },
+                                            { hex: '#ffd700', label: 'Yellow' },
+                                            { hex: '#22c55e', label: 'Green' },
+                                            { hex: '#06b6d4', label: 'Cyan' },
+                                            { hex: '#3b82f6', label: 'Blue' },
+                                        ].map(({ hex, label }) => {
+                                            const current = (editor.getAttributes('table').borderColor as string | undefined) || '#4a5060'
+                                            return (
+                                                <button key={hex} type='button' title={label}
+                                                    onMouseDown={e => e.preventDefault()}
+                                                    onClick={() => editor.chain().focus().updateAttributes('table', { borderColor: hex }).run()}
+                                                    style={{
+                                                        width: 20, height: 20, borderRadius: 3, cursor: 'pointer',
+                                                        background: hex, border: current === hex ? '2px solid var(--acc)' : '1px solid rgba(255,255,255,0.2)',
+                                                        padding: 0,
+                                                    }}
+                                                />
+                                            )
+                                        })}
+                                        <button type='button' title='Custom color'
+                                            onMouseDown={e => e.preventDefault()}
+                                            onClick={() => { setTableBorderOpen(false); tableCustomColorInputRef.current?.click() }}
+                                            style={{ width: 20, height: 20, borderRadius: 3, cursor: 'pointer', border: '1px solid rgba(255,255,255,0.2)', padding: 0, background: 'conic-gradient(red 0deg,yellow 60deg,lime 120deg,cyan 180deg,blue 240deg,magenta 300deg,red 360deg)' }}
+                                        />
+                                    </div>
+                                </div>
+                                {/* Border width */}
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>
+                                        Border Width — {(editor.getAttributes('table').borderWidth as number | undefined) ?? 1}px
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 4 }}>
+                                        {[0, 1, 2, 3, 4, 5].map(w => {
+                                            const current = (editor.getAttributes('table').borderWidth as number | undefined) ?? 1
+                                            return (
+                                                <button key={w} type='button' title={w === 0 ? 'None' : `${w}px`}
+                                                    onMouseDown={e => e.preventDefault()}
+                                                    onClick={() => editor.chain().focus().updateAttributes('table', { borderWidth: w }).run()}
+                                                    style={{
+                                                        width: 32, height: 26, borderRadius: 3, cursor: 'pointer',
+                                                        background: current === w ? 'rgba(var(--acc-rgb),0.2)' : 'var(--s3)',
+                                                        border: current === w ? '1px solid rgba(var(--acc-rgb),0.5)' : '1px solid var(--line-2)',
+                                                        color: 'var(--ink-2)', fontSize: 10, fontWeight: 700,
+                                                    }}
+                                                >{w === 0 ? '—' : `${w}`}</button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                                {/* Table width */}
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 6 }}>Table Width</div>
+                                    <div style={{ display: 'flex', gap: 4 }}>
+                                        {['25%', '50%', '75%', '100%'].map(w => {
+                                            const current = (editor.getAttributes('table').tableWidth as string | undefined) || '100%'
+                                            return (
+                                                <button key={w} type='button' title={w}
+                                                    onMouseDown={e => e.preventDefault()}
+                                                    onClick={() => editor.chain().focus().updateAttributes('table', { tableWidth: w }).run()}
+                                                    style={{
+                                                        flex: 1, height: 26, borderRadius: 3, cursor: 'pointer',
+                                                        background: current === w ? 'rgba(var(--acc-rgb),0.2)' : 'var(--s3)',
+                                                        border: current === w ? '1px solid rgba(var(--acc-rgb),0.5)' : '1px solid var(--line-2)',
+                                                        color: 'var(--ink-2)', fontSize: 10, fontWeight: 700,
+                                                    }}
+                                                >{w}</button>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            </div>,
+                            document.body
+                        )}
+                    </div>
+                    <input ref={tableCustomColorInputRef} type='color'
+                        defaultValue='#4a5060'
+                        onChange={e => editor?.chain().focus().updateAttributes('table', { borderColor: e.target.value }).run()}
+                        style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', top: 0, left: 0 }}
+                    />
+                </>
+            ),
+        }] : []),
     ]
 
     const { visibleCount, setGroupRef } = useToolbarOverflow(groups.map(g => g.key), containerRef)
@@ -1387,6 +2240,159 @@ function ToolbarDropdown({ value, options, onSelect, disabled, title, minWidth =
     )
 }
 
+// ─── Link preview bubble ───────────────────────────────────────────────────────
+
+function getLinkExtent(editor: Editor): { from: number; to: number } | null {
+    const { from } = editor.state.selection
+    const mark = editor.schema.marks['link']
+    if (!mark) return null
+    const $pos = editor.state.doc.resolve(from)
+    if (!$pos.marks().some(m => m.type === mark)) return null
+    let start = from
+    let end   = from
+    const docSize = editor.state.doc.content.size
+    while (start > 1) {
+        const $p = editor.state.doc.resolve(start - 1)
+        if (!$p.marks().some(m => m.type === mark)) break
+        start--
+    }
+    while (end < docSize - 1) {
+        const $p = editor.state.doc.resolve(end + 1)
+        if (!$p.marks().some(m => m.type === mark)) break
+        end++
+    }
+    return { from: start, to: end }
+}
+
+function LinkPreviewBubble({ editor }: { editor: Editor }) {
+    const [, forceUpdate]   = useState(0)
+    const [copied, setCopied] = useState(false)
+    const [editing, setEditing] = useState(false)
+    const [editHref, setEditHref]   = useState('')
+    const [editText, setEditText]   = useState('')
+    const [pos, setPos]     = useState<{ top: number; left: number } | null>(null)
+    const [href, setHref]   = useState('')
+    const hrefInputRef      = useRef<HTMLInputElement>(null)
+
+    useEffect(() => {
+        const tick = () => forceUpdate(v => v + 1)
+        editor.on('selectionUpdate', tick)
+        editor.on('transaction', tick)
+        return () => { editor.off('selectionUpdate', tick); editor.off('transaction', tick) }
+    }, [editor])
+
+    useEffect(() => {
+        if (!editor.isActive('link')) { setPos(null); setEditing(false); return }
+        const h = (editor.getAttributes('link').href as string) || ''
+        setHref(h)
+        try {
+            const { from } = editor.state.selection
+            const docSize = editor.state.doc.content.size
+            const domInfo = editor.view.domAtPos(Math.min(from, Math.max(0, docSize - 1)))
+            const node = domInfo.node
+            const el = (node.nodeType === Node.TEXT_NODE ? node.parentElement : node) as HTMLElement | null
+            const link = el?.closest('a') ?? el
+            if (link) {
+                const rect = link.getBoundingClientRect()
+                setPos({ top: rect.bottom + 6, left: rect.left })
+            } else {
+                const coords = editor.view.coordsAtPos(Math.min(from, Math.max(0, docSize - 1)))
+                setPos({ top: coords.bottom + 6, left: coords.left })
+            }
+        } catch { setPos(null) }
+    }, [editor, editor.state.selection])  // eslint-disable-line react-hooks/exhaustive-deps
+
+    function startEdit() {
+        const extent = getLinkExtent(editor)
+        const currentText = extent
+            ? editor.state.doc.textBetween(extent.from, extent.to)
+            : ''
+        setEditHref(href)
+        setEditText(currentText)
+        setEditing(true)
+        setTimeout(() => hrefInputRef.current?.focus(), 40)
+    }
+
+    function applyEdit() {
+        if (!editHref.trim()) return
+        const extent = getLinkExtent(editor)
+        if (extent && editText.trim()) {
+            editor.chain().focus()
+                .setTextSelection(extent)
+                .insertContent({ type: 'text', text: editText.trim(), marks: [{ type: 'link', attrs: { href: editHref.trim() } }] })
+                .run()
+        } else {
+            editor.chain().focus().setLink({ href: editHref.trim() }).run()
+        }
+        setEditing(false)
+    }
+
+    if (!pos || !href) return null
+
+    const btnStyle = (danger?: boolean, accent?: boolean): React.CSSProperties => ({
+        fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+        color: danger ? 'var(--danger, #e55)' : accent ? 'var(--acc)' : 'var(--ink-2)',
+        background: 'var(--s3)', border: '1px solid var(--line-2)', borderRadius: 4,
+        cursor: 'pointer', padding: '3px 7px', flexShrink: 0,
+    })
+
+    return (
+        <div
+            onMouseDown={e => {
+                // Allow inputs/buttons to receive focus normally; only prevent
+                // default for clicks on the inert container so the editor
+                // doesn't lose its selection when the bubble itself is clicked.
+                const tag = (e.target as HTMLElement).tagName
+                if (tag !== 'INPUT' && tag !== 'BUTTON' && tag !== 'SELECT' && tag !== 'TEXTAREA') {
+                    e.preventDefault()
+                }
+            }}
+            style={{
+                position: 'fixed', top: pos.top, left: pos.left, zIndex: 200,
+                background: 'var(--s2)', border: '1px solid var(--line-2)',
+                borderRadius: 'var(--r)', padding: '8px 10px',
+                display: 'flex', flexDirection: 'column', gap: 6,
+                boxShadow: '0 4px 20px rgba(0,0,0,0.65)', minWidth: 260, maxWidth: 360,
+            }}
+        >
+            {editing ? (
+                <>
+                    <div style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)' }}>Edit Link</div>
+                    <input
+                        ref={hrefInputRef}
+                        value={editHref}
+                        onChange={e => setEditHref(e.target.value)}
+                        placeholder='https://…'
+                        onKeyDown={e => { if (e.key === 'Enter') applyEdit(); if (e.key === 'Escape') setEditing(false) }}
+                        style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', outline: 'none', padding: '3px 2px', width: '100%' }}
+                    />
+                    <input
+                        value={editText}
+                        onChange={e => setEditText(e.target.value)}
+                        placeholder='Display text (optional)'
+                        onKeyDown={e => { if (e.key === 'Enter') applyEdit(); if (e.key === 'Escape') setEditing(false) }}
+                        style={{ background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', color: 'var(--ink)', fontSize: '0.78rem', outline: 'none', padding: '3px 2px', width: '100%' }}
+                    />
+                    <div style={{ display: 'flex', gap: 4 }}>
+                        <button type='button' onMouseDown={e => e.preventDefault()} onClick={applyEdit} style={{ ...btnStyle(false, true) }}>Apply</button>
+                        <button type='button' onMouseDown={e => e.preventDefault()} onClick={() => setEditing(false)} style={{ ...btnStyle() }}>Cancel</button>
+                    </div>
+                </>
+            ) : (
+                <>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={href}>{href}</div>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                        <button type='button' onMouseDown={e => e.preventDefault()} onClick={() => window.open(href, '_blank', 'noopener,noreferrer')} style={btnStyle()}>Open</button>
+                        <button type='button' onMouseDown={e => e.preventDefault()} onClick={() => { navigator.clipboard.writeText(href); setCopied(true); setTimeout(() => setCopied(false), 1500) }} style={btnStyle(false, copied)}>{copied ? 'Copied!' : 'Copy'}</button>
+                        <button type='button' onMouseDown={e => e.preventDefault()} onClick={startEdit} style={btnStyle()}>Edit</button>
+                        <button type='button' onMouseDown={e => e.preventDefault()} onClick={() => editor.chain().focus().unsetLink().run()} style={btnStyle(true)}>Remove</button>
+                    </div>
+                </>
+            )}
+        </div>
+    )
+}
+
 // ─── Section Editor ────────────────────────────────────────────────────────────
 
 interface SectionEditorProps {
@@ -1555,7 +2561,7 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
             buildCursorExtension(provider, user),
         ],
         editorProps: {
-            attributes: { class: `op-editor op-editor-${sectionId}` },
+            attributes: { class: `op-editor op-editor-${sectionId}`, lang: 'en-GB', spellcheck: 'false' },
             handlePaste(_view, event) {
                 const items = event.clipboardData?.items
                 if (!items) return false
@@ -1598,6 +2604,22 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
         trySeek()
         return () => { provider.off('synced', trySeek) }
     }, [editor, provider, seedContent])
+
+    // Prevent anchor navigation inside the editor — capture-phase listener
+    // beats Chrome's default link-click behaviour, which fires before TipTap's
+    // handleDOMEvents handler and can't be stopped from there reliably.
+    useEffect(() => {
+        if (!editor) return
+        const dom = editor.view.dom
+        const preventLinkNav = (e: MouseEvent) => {
+            if ((e.target as HTMLElement).closest('a[href]')) {
+                e.preventDefault()
+                e.stopPropagation()
+            }
+        }
+        dom.addEventListener('click', preventLinkNav, true)
+        return () => dom.removeEventListener('click', preventLinkNav, true)
+    }, [editor])
 
     function onHeightDragStart(e: React.MouseEvent) {
         e.preventDefault()
@@ -1764,6 +2786,8 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
                 height (spec §2). */}
             <EditorContent editor={editor} style={isLast ? { flex: 1, display: 'flex', flexDirection: 'column' } : undefined} />
 
+            {!readOnly && <LinkPreviewBubble editor={editor} />}
+
             {!readOnly && (
                 <div onMouseDown={onHeightDragStart}
                     style={{ height: 8, cursor: 'ns-resize', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.015)', borderTop: '1px solid rgba(255,255,255,0.04)' }}
@@ -1862,3 +2886,13 @@ const IconUnlink = () => <Svg><path d='M9.5 14.5a4.5 4.5 0 0 1-1.15-4.4' /><path
 const IconClear = () => <Svg><path d='M18 5H8.5L4 9.5 12.5 18H18' /><path d='m13.5 9.5-4.5 4.5' /><line x1='9' y1='21' x2='19' y2='21' /></Svg>
 const IconChevronDown = () => <Svg size={11}><path d='M6 9l6 6 6-6' /></Svg>
 const IconMoreHoriz = () => <Svg><circle cx='5' cy='12' r='1.6' fill='currentColor' stroke='none' /><circle cx='12' cy='12' r='1.6' fill='currentColor' stroke='none' /><circle cx='19' cy='12' r='1.6' fill='currentColor' stroke='none' /></Svg>
+const IconTable = () => <Svg><rect x='3' y='3' width='18' height='18' rx='1'/><path d='M3 9h18M3 15h18M9 3v18M15 3v18'/></Svg>
+const IconRowBefore = () => <Svg><rect x='3' y='12' width='18' height='9' rx='1'/><path d='M12 3v6M9 6h6'/></Svg>
+const IconRowAfter = () => <Svg><rect x='3' y='3' width='18' height='9' rx='1'/><path d='M12 15v6M9 18h6'/></Svg>
+const IconRowDelete = () => <Svg><rect x='3' y='7' width='18' height='10' rx='1' strokeDasharray='3 1.5'/><line x1='9' y1='12' x2='15' y2='12'/></Svg>
+const IconColBefore = () => <Svg><rect x='12' y='3' width='9' height='18' rx='1'/><path d='M3 12h6M6 9v6'/></Svg>
+const IconColAfter = () => <Svg><rect x='3' y='3' width='9' height='18' rx='1'/><path d='M15 12h6M18 9v6'/></Svg>
+const IconColDelete = () => <Svg><rect x='7' y='3' width='10' height='18' rx='1' strokeDasharray='3 1.5'/><line x1='12' y1='9' x2='12' y2='15'/></Svg>
+const IconMergeCell = () => <Svg><rect x='3' y='3' width='18' height='18' rx='1'/><path d='M3 9h7M14 9h7M3 15h7M14 15h7M10 6l2 3 2-3M10 18l2-3 2 3'/></Svg>
+const IconTableHeader = () => <Svg><rect x='3' y='3' width='18' height='18' rx='1'/><rect x='3' y='3' width='18' height='7' rx='1' fill='currentColor' stroke='none' opacity='0.35'/><path d='M3 10h18'/></Svg>
+const IconTableDelete = () => <Svg><rect x='3' y='3' width='18' height='18' rx='1'/><path d='M9 9l6 6M15 9l-6 6'/></Svg>

@@ -19,6 +19,7 @@ import EraOptionsTab from '@/app/dashboard/j2/tabs/EraOptionsTab'
 import MissionBibleTab from './tabs/MissionBibleTab'
 import DoctrineTab from './tabs/DoctrineTab'
 import TemplatesTab from './tabs/TemplatesTab'
+import ImportPanel from '@/app/dashboard/j2/import/ImportPanel'
 import ObjectiveSuggestions from '@/components/j2/ObjectiveSuggestions'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 
@@ -47,6 +48,7 @@ export default function J2Panel({
         { key: 'intel-images', label: 'Intel Images', render: () => <IntelImagesTab /> },
         { key: 'era-options',  label: 'ERA Options',  visible: canManageMembers, render: () => <EraOptionsTab /> },
         { key: 'templates',    label: 'Templates',    render: () => <TemplatesTab /> },
+        { key: 'import',       label: 'Import',       render: () => <ImportPanel /> },
     ]
 
     const tabSx = {

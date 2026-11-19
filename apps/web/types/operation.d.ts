@@ -267,6 +267,9 @@ declare global {
          */
         assessment?: { id: string; traineeId: string; traineeName: string; trainingTypeId: string }
 
+        // Historical import metadata — set when this operation was created via the importer
+        importMetadata?: OperationImportMetadata
+
         // Soft delete
         deletedAt?: Date
         deletedBy?: string       // Discord user ID
