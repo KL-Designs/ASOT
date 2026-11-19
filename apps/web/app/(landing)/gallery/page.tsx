@@ -49,7 +49,7 @@ import s from '@/styles/gallery.module.css'
 const PAGE_SIZE: Record<GridView, number> = { masonry: 48, uniform: 48, grouped: 8 }
 
 export default function Page() {
-    const { items, featured, sotm, tags, canSubmit, canReviewCallsign, applyVote, toLightboxItem } = useGalleryData()
+    const { items, featured, sotm, tags, canSubmit, canReviewCallsign, canManage, applyVote, deleteItem, toLightboxItem } = useGalleryData()
 
     const [filters, setFilters] = useState<Filters>(emptyFilters)
 
@@ -213,9 +213,10 @@ export default function Page() {
             caption: item.caption,
             authorName: null,
             tags: [],
+            manageId: canManage ? item.id : null,
             vote: null,
         })
-    }, [featured])
+    }, [featured, canManage])
 
     const openSotm = useCallback(() => {
         if (!sotm) return
@@ -241,6 +242,9 @@ export default function Page() {
             caption: null,
             authorName: null,
             tags: [],
+            // The screenshot of the month is its own record, cleared from
+            // the J5 SOTM tab — not a gallery item to delete from here.
+            manageId: null,
             vote: null,
         })
     }, [sotm])
@@ -296,6 +300,14 @@ export default function Page() {
                     onStep={step}
                     onTagClick={filterByTag}
                     onVote={applyVote}
+                    onDelete={async mediaId => {
+                        const error = await deleteItem(mediaId)
+                        // The lightbox holds a snapshot of the list it was
+                        // opened on, so it closes rather than stepping to a
+                        // neighbour that snapshot still thinks is the deleted one.
+                        if (!error) closeLightbox()
+                        return error
+                    }}
                 />
             )}
         </div>

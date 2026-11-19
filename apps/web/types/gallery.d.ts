@@ -50,6 +50,8 @@ declare global {
         opLabel: string | null
         sotmAt: string | null
         sotmCredit: string | null
+        /** The item's credited author, if any — prefills the picker's Credit. */
+        authorName: string | null
     }
 
     /** One piece of media, as the gallery page receives it. Everything is

@@ -1311,6 +1311,31 @@
     min-width: 120px;
 }
 
+/* Manager-only delete, kept apart from Download/Copy link so it is not one
+   stray click away from them. */
+.lbDelete {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(219, 0, 29, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.lbDeleteWarn {
+    font-size: 12px;
+    color: #ff6b6b;
+}
+
+.lbDeleteBtns {
+    display: flex;
+    gap: 8px;
+}
+
+.lbDeleteBtns>* {
+    flex: 1;
+}
+
 /* ---------- submit page ---------------------------------------------------- */
 
 /*

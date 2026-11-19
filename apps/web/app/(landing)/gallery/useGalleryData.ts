@@ -54,6 +54,10 @@ export function useGalleryData() {
     const [canSubmit, setCanSubmit] = useState(false)
     // Section staff with a callsign queue. J5 have their dashboard tab.
     const [canReviewCallsign, setCanReviewCallsign] = useState(false)
+    /* gallery.manage — the same key the J5 Media tab's Delete and
+       DELETE /api/gallery/admin/media/[id] check. Only decides whether the
+       lightbox offers Delete; the route re-checks it either way. */
+    const [canManage, setCanManage] = useState(false)
 
     useEffect(() => {
         fetch('/api/gallery')
@@ -89,6 +93,11 @@ export function useGalleryData() {
             .then(json => setCanReviewCallsign(!!json && !json.all && json.callsigns?.length > 0))
             .catch(() => { })
 
+        fetch('/api/me/permission?key=gallery.manage')
+            .then(res => res.ok ? res.json() : null)
+            .then(json => setCanManage(!!json?.access))
+            .catch(() => { })
+
         fetch('/api/me/permission?key=gallery.submit')
             .then(async res => {
                 setCanVote(res.ok)
@@ -117,6 +126,24 @@ export function useGalleryData() {
             }
             return { ...prev, [mediaId]: next.mine }
         })
+    }, [])
+
+    /* Deletes the record and its file (the route removes both, plus its
+       votes), then drops it from every list this page renders it in. Answers
+       an error message to show, or null on success. */
+    const deleteItem = useCallback(async (mediaId: string): Promise<string | null> => {
+        try {
+            const res = await fetch(`/api/gallery/admin/media/${mediaId}`, { method: 'DELETE' })
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                return typeof data.error === 'string' ? data.error : 'Could not delete.'
+            }
+        } catch {
+            return 'Could not reach the server.'
+        }
+        setItems(prev => prev.filter(p => p.id !== mediaId))
+        setFeatured(prev => prev.filter(f => f.id !== mediaId))
+        return null
     }, [])
 
     /* The tag vocabulary lives here (as `tags`), not in gallery-data.ts — a
@@ -154,12 +181,13 @@ export function useGalleryData() {
             authorName: p.authorName,
             tags: p.tags.map(slug => ({ slug, label: tags.find(t => t.slug === slug)?.label ?? slug })),
 
+            manageId: canManage ? p.id : null,
             vote: { mediaId: p.id, up: p.up, down: p.down, mine: votes[p.id] ?? null, canVote },
         }
-    }, [tags, votes, canVote])
+    }, [tags, votes, canVote, canManage])
 
     // `votes` and `canVote` are deliberately not returned: nothing outside
     // this hook needs the raw state, only what `toLightboxItem` builds from
     // it, and returning them anyway would be an API surface with no caller.
-    return { items, featured, sotm, tags, canSubmit, canReviewCallsign, applyVote, toLightboxItem }
+    return { items, featured, sotm, tags, canSubmit, canReviewCallsign, canManage, applyVote, deleteItem, toLightboxItem }
 }

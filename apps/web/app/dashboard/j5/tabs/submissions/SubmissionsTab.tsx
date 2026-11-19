@@ -62,6 +62,7 @@ function toLightboxItem(item: PendingItem, tags: Tag[]): LightboxItem {
         authorName: item.authorName,
         tags: item.tags.map(slug => ({ slug, label: tags.find(t => t.slug === slug)?.label ?? slug })),
 
+        manageId: null,
         vote: null,
     }
 }

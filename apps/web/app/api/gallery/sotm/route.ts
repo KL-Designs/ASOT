@@ -86,6 +86,7 @@ function toTile(m: GalleryMedia): SotmMediaTileAPI {
         opLabel: m.opLabel ?? null,
         sotmAt: m.sotmAt ? m.sotmAt.toISOString() : null,
         sotmCredit: m.sotmCredit ?? null,
+        authorName: m.authorName ?? null,
     }
 }
 

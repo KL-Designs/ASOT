@@ -50,6 +50,10 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
     const [libraryLoading, setLibraryLoading] = useState(false)
     const [selectedId, setSelectedId] = useState<string | null>(null)
     const [credit, setCredit] = useState('')
+    // Shown beside the Set button rather than in the feedback line at the top
+    // of the tab, which is a full library grid's scroll away from the button
+    // that caused it — an error up there read as the button doing nothing.
+    const [setError, setSetError] = useState<string | null>(null)
 
     /* Upload-a-new-one, the other way to replace the pick. The upload becomes
        a library item first (POST /api/gallery/sotm), so it lands in the
@@ -120,6 +124,7 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
     const openPicker = useCallback(() => {
         setSelectedId(null)
         setCredit('')
+        setSetError(null)
         setLibraryPage(0)
         setUploadOpen(false)
         setPickerOpen(true)
@@ -215,8 +220,18 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
         setCredit('')
     }, [])
 
+    function pick(item: SotmMediaTileAPI) {
+        setSelectedId(item.id)
+        setSetError(null)
+        // Prefill from the item's own author, but never over a credit J5
+        // already typed — a different pick should not erase it.
+        if (!credit.trim() && item.authorName) setCredit(item.authorName)
+    }
+
     async function handleSet() {
-        if (!selectedId || !credit.trim()) return
+        if (!selectedId) { setSetError('Pick a screenshot from the library first.'); return }
+        if (!credit.trim()) { setSetError('Enter who took it in Credit (photographer) first.'); return }
+        setSetError(null)
         setSaving(true)
         try {
             const res = await fetch('/api/gallery/sotm', {
@@ -226,14 +241,14 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
             })
             const data = await res.json()
             if (!res.ok) {
-                showFeedback('error', data.error ?? 'Could not set the screenshot of the month.')
+                setSetError(data.error ?? 'Could not set the screenshot of the month.')
             } else {
                 showFeedback('success', 'Screenshot of the Month updated.')
                 closePicker()
                 await Promise.all([loadCurrent(), loadHistory()])
             }
         } catch {
-            showFeedback('error', 'Network error. Please try again.')
+            setSetError('Network error. Please try again.')
         } finally {
             setSaving(false)
         }
@@ -351,11 +366,17 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                                         type='button'
                                         key={item.id}
                                         className={`${mc.tile} ${selectedId === item.id ? mc.tileOn : ''}`}
-                                        onClick={() => setSelectedId(item.id)}
+                                        onClick={() => pick(item)}
                                     >
-                                        <img src={item.src} alt='' loading='lazy' decoding='async' />
-                                        {selectedId === item.id && <span className={mc.badge}>Selected</span>}
-                                        <span className={mc.cap}>{item.caption || item.opLabel || 'Untitled'}</span>
+                                        {/* .tileBox is the positioned box the caption
+                                            and badge anchor to. Without it they anchored
+                                            to the page, and the last caption painted a
+                                            full-width bar over the Set as SOTM button. */}
+                                        <span className={mc.tileBox}>
+                                            <img src={item.src} alt='' loading='lazy' decoding='async' />
+                                            {selectedId === item.id && <span className={mc.badges}><span className={mc.badge}>Selected</span></span>}
+                                            <span className={mc.cap}>{item.caption || item.opLabel || 'Untitled'}</span>
+                                        </span>
                                     </button>
                                 ))}
                             </div>
@@ -373,18 +394,23 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                         <Field
                             label='Credit (photographer)'
                             value={credit}
-                            onChange={setCredit}
+                            onChange={v => { setCredit(v); setSetError(null) }}
                             placeholder='e.g. Cpl. Smith'
+                            autoComplete='off'
                             className='min-w-[240px]'
                         />
+                        {/* Enabled whenever it is not mid-save: a disabled
+                            button gives no reason, and that is how it came to
+                            look broken. handleSet says what is missing. */}
                         <button
                             type='button'
                             className={`${c.btn} ${c.btnPrimary}`}
-                            disabled={saving || !selectedId || !credit.trim()}
+                            disabled={saving}
                             onClick={handleSet}
                         >
                             {saving ? 'Saving…' : 'Set as SOTM'}
                         </button>
+                        {setError && <Typography sx={{ fontSize: '0.75rem', color: 'var(--red-hi)', alignSelf: 'center' }}>{setError}</Typography>}
                     </div>
                 </section>
             )}
@@ -452,8 +478,10 @@ export default function SotmTab({ canManage }: { canManage: boolean }) {
                         <div className={mc.grid}>
                             {history.map(item => (
                                 <div key={item.id} className={mc.tile}>
-                                    <img src={item.src} alt='' loading='lazy' decoding='async' />
-                                    <span className={mc.cap}>{fmtDate(item.sotmAt)}{item.sotmCredit ? ` — ${item.sotmCredit}` : ''}</span>
+                                    <span className={mc.tileBox}>
+                                        <img src={item.src} alt='' loading='lazy' decoding='async' />
+                                        <span className={mc.cap}>{fmtDate(item.sotmAt)}{item.sotmCredit ? ` — ${item.sotmCredit}` : ''}</span>
+                                    </span>
                                 </div>
                             ))}
                         </div>

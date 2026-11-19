@@ -46,12 +46,16 @@ export type LightboxItem = {
      *  show something a member wrote, not something J5 typed into a slug. */
     tags: { slug: string, label: string }[]
 
+    /** The gallery_media id, set only when the viewer holds gallery.manage
+     *  and the item is a gallery record — what makes Delete appear. */
+    manageId: string | null
+
     /** Null for the featured strip and the screenshot of the month — neither
      *  is an archive item, so neither carries a score. */
     vote: { mediaId: string, up: number, down: number, mine: 1 | -1 | null, canVote: boolean } | null
 }
 
-export default function Lightbox({ item, index, count, onClose, onStep, onTagClick, onVote }: {
+export default function Lightbox({ item, index, count, onClose, onStep, onTagClick, onVote, onDelete }: {
     item: LightboxItem
     /** 0-based, or null when the item has no neighbours. */
     index: number | null
@@ -62,10 +66,25 @@ export default function Lightbox({ item, index, count, onClose, onStep, onTagCli
      *  is no "filter panel inside the lightbox" to update instead. */
     onTagClick?: (slug: string) => void
     onVote?: (mediaId: string, next: { up: number, down: number, mine: 1 | -1 | null }) => void
+    /** Answers an error to show, or null once the item is gone. */
+    onDelete?: (mediaId: string) => Promise<string | null>
 }) {
     const [copied, setCopied] = useState(false)
+    const [confirmDelete, setConfirmDelete] = useState(false)
+    const [deleting, setDeleting] = useState(false)
+    const [deleteError, setDeleteError] = useState<string | null>(null)
 
-    useEffect(() => { setCopied(false) }, [item.src])
+    // Stepping to another item must not carry an armed confirmation with it.
+    useEffect(() => { setCopied(false); setConfirmDelete(false); setDeleteError(null) }, [item.src, item.manageId])
+
+    async function remove() {
+        if (!item.manageId || !onDelete) return
+        setDeleting(true)
+        setDeleteError(null)
+        const error = await onDelete(item.manageId)
+        setDeleting(false)
+        if (error) setDeleteError(error)
+    }
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
@@ -235,6 +254,27 @@ export default function Lightbox({ item, index, count, onClose, onStep, onTagCli
                         <LinkIcon /> {copied ? 'Copied' : 'Copy link'}
                     </Button>
                 </div>
+
+                {/* Managers only. Two clicks, because it removes the file from
+                    storage as well as the record and there is no undo. */}
+                {item.manageId && onDelete && (
+                    <div className={s.lbDelete}>
+                        {confirmDelete ? (
+                            <>
+                                <span className={s.lbDeleteWarn}>Delete this item and its file for good? This cannot be undone.</span>
+                                <div className={s.lbDeleteBtns}>
+                                    <Button variant='red' size='sm' disabled={deleting} onClick={remove}>
+                                        {deleting ? 'Deleting…' : 'Delete for good'}
+                                    </Button>
+                                    <Button variant='ghost' size='sm' disabled={deleting} onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                                </div>
+                            </>
+                        ) : (
+                            <Button variant='ghost' size='sm' onClick={() => setConfirmDelete(true)}>Delete</Button>
+                        )}
+                        {deleteError && <span className={s.lbDeleteWarn}>{deleteError}</span>}
+                    </div>
+                )}
             </aside>
         </div>
     )

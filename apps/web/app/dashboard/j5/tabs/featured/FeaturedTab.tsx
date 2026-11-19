@@ -58,6 +58,8 @@ function RotationTile({ item, index, onRemove }: {
             }}
         >
             <div className={mc.tile}>
+                {/* .tileBox anchors the absolute badge, button and caption. */}
+                <div className={mc.tileBox}>
                 {/* The same 800px thumbnail the public rail renders, not the
                     original — a rotation is up to sixty tiles, and this
                     archive's originals are 4K screenshots averaging 3.8MB.
@@ -74,6 +76,7 @@ function RotationTile({ item, index, onRemove }: {
                     <Close sx={{ fontSize: 13 }} />
                 </button>
                 {(item.caption || item.opLabel) && <span className={mc.cap}>{item.caption || item.opLabel}</span>}
+                </div>
             </div>
         </div>
     )
@@ -271,11 +274,13 @@ export default function FeaturedTab() {
                         <div className={mc.grid}>
                             {libraryVisible.map(item => (
                                 <div key={item.id} className={mc.tile}>
-                                    {(item.poster ?? item.src) && <img src={item.poster ?? item.src ?? ''} alt='' loading='lazy' decoding='async' />}
-                                    <button type='button' className={s.addBtn} onClick={() => addToRotation(item.id)}>
-                                        <Add sx={{ fontSize: 12, verticalAlign: 'middle' }} /> Add
-                                    </button>
-                                    <span className={mc.cap}>{item.caption || item.opLabel || 'Untitled'}</span>
+                                    <div className={mc.tileBox}>
+                                        {(item.poster ?? item.src) && <img src={item.poster ?? item.src ?? ''} alt='' loading='lazy' decoding='async' />}
+                                        <button type='button' className={s.addBtn} onClick={() => addToRotation(item.id)}>
+                                            <Add sx={{ fontSize: 12, verticalAlign: 'middle' }} /> Add
+                                        </button>
+                                        <span className={mc.cap}>{item.caption || item.opLabel || 'Untitled'}</span>
+                                    </div>
                                 </div>
                             ))}
                         </div>
