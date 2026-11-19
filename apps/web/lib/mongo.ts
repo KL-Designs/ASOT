@@ -129,6 +129,10 @@ const DbInterface = {
     trainingReminders: db.collection('training_reminders') as MongoCollection<TrainingReminderRecord>,
     trainingImportRecords: db.collection('training_import_records') as MongoCollection<Document>,
 
+    // ── Operations import ─────────────────────────────────────────────────────
+    operationImports:       db.collection('operation_imports')        as MongoCollection<OperationImport>,
+    operationImportBatches: db.collection('operation_import_batches') as MongoCollection<OperationImportBatch>,
+
     // ── AI service ────────────────────────────────────────────────────────────
     aiUsage:           db.collection('ai_usage')            as MongoCollection<AiUsageRecord>,
     aiBudgets:         db.collection('ai_budgets')          as MongoCollection<AiBudgetConfig>,

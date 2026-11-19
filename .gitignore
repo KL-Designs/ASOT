@@ -16,6 +16,10 @@
 /storage/*
 !/storage/README.md
 
+# local backup snapshots — never tracked
+/_j3_backup_*/
+/_recruitment_backup_*/
+
 # per-app ignores live in apps/*/.gitignore
 
 # Subagent-driven-development scratch workspace (ledgers, briefs, review packages)

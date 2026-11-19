@@ -9,6 +9,7 @@ type AiFeature =
     | 'aar.missionMaker'
     | 'doctrine.import'
     | 'help.ask'
+    | 'operations.import'
 
 type AiImageQuality = 'standard' | 'hd'
 
