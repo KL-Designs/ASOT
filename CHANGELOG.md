@@ -5,6 +5,31 @@ Dates reflect when changes were merged to `main` and deployed.
 
 ---
 
+## 2026-11-20
+
+### Editor — Table grid picker
+- Selected cells now highlight white so the selection is clearly visible
+- Dimension label (e.g. "5 × 4") is now white on the dark background
+
+### Editor — Font size display
+- Font size selector now shows the current computed size on any line, not only empty paragraphs
+- Falls back to 16 px (the editor default) when no explicit size is set
+
+### Editor — Table column resize
+- Dragging an inner column border no longer pushes the rightmost edge of the table off-page
+- Outer table width is now capped at the container boundary at all times
+
+### Editor — Text color + bold
+- Bold text with a colour mark now renders in the correct colour
+- Previously, the CSS rule for `strong` overrode any inherited text colour, making coloured bold text appear white
+
+### J2 — Importer formatting fidelity
+- Imported DOCX documents now preserve per-run formatting: bold, italic, underline, strikethrough, text colour, font size, and hyperlinks are carried across at the character level, not just the paragraph level
+- Tables in imported documents are now inserted as proper editor tables (header row, bordered cells) rather than pipe-separated plain text
+- Highlighted text (background colour) is preserved as a highlight mark
+
+---
+
 ## 2026-11-19
 
 ### Editor — Tables

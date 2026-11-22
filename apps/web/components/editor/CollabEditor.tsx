@@ -1447,19 +1447,26 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
     const currentHeadingLevel = editor ? (([1, 2, 3] as const).find(l => editor.isActive('heading', { level: l })) ?? 0) : 0
     const explicitFontSize = (editor?.getAttributes('textStyle').fontSize as string | undefined) || ''
     const currentFontSize = explicitFontSize || (() => {
-        if (typeof window === 'undefined' || !editor) return ''
-        try {
-            const { from } = editor.state.selection
-            const docSize = editor.state.doc.content.size
-            const domInfo = editor.view.domAtPos(Math.min(from, Math.max(0, docSize - 1)))
-            const el = (domInfo.node instanceof HTMLElement ? domInfo.node : domInfo.node?.parentElement) as HTMLElement | null
-            if (!el) return ''
-            const px = parseFloat(window.getComputedStyle(el).fontSize)
-            if (isNaN(px)) return ''
-            const nearest = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48]
-                .reduce((a, b) => Math.abs(b - px) < Math.abs(a - px) ? b : a)
-            return `${nearest}px`
-        } catch { return '' }
+        if (typeof window === 'undefined' || !editor) return '16px'
+        const SIZES = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48]
+        const snap = (px: number) => `${SIZES.reduce((a, b) => Math.abs(b - px) < Math.abs(a - px) ? b : a)}px`
+        const tryPos = (pos: number): string => {
+            try {
+                const domInfo = editor.view.domAtPos(pos)
+                const el = (domInfo.node instanceof HTMLElement ? domInfo.node : domInfo.node?.parentElement) as HTMLElement | null
+                if (!el) return ''
+                const px = parseFloat(window.getComputedStyle(el).fontSize)
+                return (!isNaN(px) && px > 0) ? snap(px) : ''
+            } catch { return '' }
+        }
+        const { from, $from } = editor.state.selection
+        const docSize = editor.state.doc.content.size
+        const clamp = (p: number) => Math.min(Math.max(p, 1), Math.max(1, docSize - 1))
+        // Try cursor position, one step back (catches end-of-text-node), then block start
+        return tryPos(clamp(from))
+            || tryPos(clamp(from - 1))
+            || tryPos(clamp($from.start($from.depth) + 1))
+            || '16px'
     })()
 
     const COLOR_PRESETS = [
@@ -1657,7 +1664,7 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
                             }}
                         >
-                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 8, textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#ffffff', marginBottom: 8, textAlign: 'center' }}>
                                 {tableGridHover ? `${tableGridHover.c} × ${tableGridHover.r}` : 'Insert Table'}
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 16px)', gap: 2 }}>
@@ -1677,8 +1684,8 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                                             }}
                                             style={{
                                                 width: 16, height: 16, borderRadius: 2, cursor: 'pointer',
-                                                background: lit ? 'rgba(var(--acc-rgb),0.35)' : 'rgba(255,255,255,0.07)',
-                                                border: `1px solid ${lit ? 'rgba(var(--acc-rgb),0.6)' : 'rgba(255,255,255,0.12)'}`,
+                                                background: lit ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.07)',
+                                                border: `1px solid ${lit ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)'}`,
                                             }}
                                         />
                                     )
