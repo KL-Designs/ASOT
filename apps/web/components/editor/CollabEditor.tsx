@@ -1339,6 +1339,9 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
     const [colorPopoverOpen, setColorPopoverOpen] = useState(false)
     const colorTriggerRef = useRef<HTMLButtonElement>(null)
     const customColorInputRef = useRef<HTMLInputElement>(null)
+    const [highlightPopoverOpen, setHighlightPopoverOpen] = useState(false)
+    const highlightTriggerRef = useRef<HTMLButtonElement>(null)
+    const customHighlightInputRef = useRef<HTMLInputElement>(null)
     const imageInputRef = useRef<HTMLInputElement>(null)
     const linkUrlInputRef = useRef<HTMLInputElement>(null)
     const linkTextInputRef = useRef<HTMLInputElement>(null)
@@ -1388,6 +1391,17 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
     }, [colorPopoverOpen])
+
+    useEffect(() => {
+        if (!highlightPopoverOpen) return
+        const close = (e: MouseEvent) => {
+            const container = highlightTriggerRef.current?.parentElement
+            if (container?.contains(e.target as Node)) return
+            setHighlightPopoverOpen(false)
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [highlightPopoverOpen])
 
     useEffect(() => {
         if (!insertTableOpen) return
@@ -1493,6 +1507,30 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
         }
     }
 
+    const HIGHLIGHT_PRESETS = [
+        { hex: '', label: 'No highlight' },
+        { hex: '#fde047', label: 'Yellow' },
+        { hex: '#bbf7d0', label: 'Green' },
+        { hex: '#a5f3fc', label: 'Cyan' },
+        { hex: '#bfdbfe', label: 'Blue' },
+        { hex: '#fecdd3', label: 'Pink' },
+        { hex: '#fed7aa', label: 'Orange' },
+        { hex: '#e9d5ff', label: 'Purple' },
+        { hex: '#fca5a5', label: 'Red' },
+    ]
+
+    const currentHighlightColor = (editor?.getAttributes('highlight') as any)?.color as string | undefined
+
+    function applyHighlightColor(hex: string) {
+        if (captionCmd('backColor', hex || 'transparent')) return
+        if (!editor) return
+        if (!hex) {
+            ;(editor.chain().focus() as any).unsetHighlight().run()
+        } else {
+            ;(editor.chain().focus() as any).setHighlight({ color: hex }).run()
+        }
+    }
+
     // Same nine groups, same order, as the previous always-inline toolbar —
     // just named and grouped now so `useToolbarOverflow` can measure and
     // relocate them as units (visual-fixes FIX 1) instead of individual
@@ -1535,7 +1573,79 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
             </>
         ) },
         { key: 'highlight', node: (
-            <TIconBtn title='Highlight' disabled={disabled} active={!!editor?.isActive('highlight')} onClick={() => { if (!captionCmd('backColor', 'rgba(253,224,71,0.5)')) editor?.chain().focus().toggleHighlight().run() }}><IconHighlight /></TIconBtn>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+                <input
+                    type='color'
+                    ref={customHighlightInputRef}
+                    defaultValue='#fde047'
+                    onChange={e => applyHighlightColor(e.target.value)}
+                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', top: 0, left: 0 }}
+                />
+                <button
+                    ref={highlightTriggerRef}
+                    type='button'
+                    title='Highlight Color'
+                    disabled={disabled}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => setHighlightPopoverOpen(v => !v)}
+                    style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        justifyContent: 'center', gap: 1,
+                        width: 26, height: 26, padding: 0,
+                        background: highlightPopoverOpen ? 'rgba(var(--acc-rgb),0.14)' : 'transparent',
+                        border: highlightPopoverOpen ? '1px solid rgba(var(--acc-rgb),0.3)' : '1px solid transparent',
+                        borderRadius: 'var(--r)', cursor: disabled ? 'default' : 'pointer',
+                        color: 'var(--ink-2)',
+                    }}
+                >
+                    <IconHighlight />
+                    <span style={{ display: 'block', height: 2, width: 13, background: currentHighlightColor || '#fde047', borderRadius: 1 }} />
+                </button>
+                {highlightPopoverOpen && (
+                    <div
+                        onMouseDown={e => e.stopPropagation()}
+                        style={{
+                            position: 'absolute', top: '110%', left: 0, zIndex: 50,
+                            background: 'var(--s2)', border: '1px solid var(--line-2)',
+                            borderRadius: 'var(--r)', padding: 8,
+                            display: 'grid', gridTemplateColumns: 'repeat(5, 20px)', gap: 4,
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+                        }}
+                    >
+                        {HIGHLIGHT_PRESETS.map(({ hex, label }) => (
+                            <button
+                                key={hex || 'none'}
+                                type='button'
+                                title={label}
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => { applyHighlightColor(hex); setHighlightPopoverOpen(false) }}
+                                style={{
+                                    width: 20, height: 20, padding: 0, borderRadius: 3, cursor: 'pointer',
+                                    background: hex || 'transparent',
+                                    border: hex ? '1px solid rgba(0,0,0,0.2)' : '1px dashed rgba(255,255,255,0.3)',
+                                    position: 'relative',
+                                    ...(currentHighlightColor === hex ? { outline: '2px solid var(--acc)', outlineOffset: 1 } : {}),
+                                }}
+                            >
+                                {!hex && (
+                                    <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'rgba(237,237,237,0.5)', lineHeight: 1 }}>✕</span>
+                                )}
+                            </button>
+                        ))}
+                        <button
+                            type='button'
+                            title='Custom highlight colour'
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => { setHighlightPopoverOpen(false); customHighlightInputRef.current?.click() }}
+                            style={{
+                                width: 20, height: 20, padding: 0, borderRadius: 3, cursor: 'pointer', flexShrink: 0,
+                                background: 'conic-gradient(red 0deg, yellow 60deg, lime 120deg, cyan 180deg, blue 240deg, magenta 300deg, red 360deg)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                            }}
+                        />
+                    </div>
+                )}
+            </div>
         ) },
         { key: 'color', node: (
             <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -1653,7 +1763,7 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                     {insertTableOpen && createPortal(
                         <div
                             ref={insertTableMenuRef}
-                            onMouseDown={e => e.stopPropagation()}
+                            onMouseDown={e => { e.preventDefault(); e.stopPropagation() }}
                             style={{
                                 position: 'fixed',
                                 top: (insertTableTriggerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,

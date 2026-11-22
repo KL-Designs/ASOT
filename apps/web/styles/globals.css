@@ -451,8 +451,8 @@ select option {
 .op-editor img.ProseMirror-selectednode { outline: 2px solid rgba(219, 0, 29, 0.6); }
 
 .op-editor mark {
-    background: rgba(219, 0, 29, 0.2);
-    color: rgba(237, 237, 237, 0.95);
+    background: #fde047;
+    color: rgba(10, 10, 10, 0.9);
     border-radius: 2px;
     padding: 0 2px;
 }
@@ -629,8 +629,8 @@ select option {
 }
 
 .op-doc mark {
-    /* background injected */
-    color: rgba(237, 237, 237, 0.95);
+    background: #fde047;
+    color: rgba(10, 10, 10, 0.9);
     border-radius: 2px;
     padding: 0 2px;
 }

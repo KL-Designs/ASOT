@@ -73,7 +73,7 @@ function runsToPMContent(runs: TextRun[]): PMTextNode[] {
                 if (r.fontSize) attrs.fontSize = r.fontSize
                 marks.push({ type: 'textStyle', attrs })
             }
-            if (r.highlight) marks.push({ type: 'highlight' })
+            if (r.highlightColor) marks.push({ type: 'highlight', attrs: { color: r.highlightColor } })
             if (r.linkHref) marks.push({ type: 'link', attrs: { href: r.linkHref, target: '_blank', rel: 'noopener noreferrer' } })
             return { type: 'text' as const, text: r.text, ...(marks.length ? { marks } : {}) }
         })

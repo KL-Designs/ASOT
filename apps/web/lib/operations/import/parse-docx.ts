@@ -23,8 +23,8 @@ export interface TextRun {
     italic?: boolean
     underline?: boolean
     strikethrough?: boolean
-    color?: string        // normalized hex like '#ff0000'
-    highlight?: boolean   // any background highlight color
+    color?: string         // normalized hex like '#ff0000'
+    highlightColor?: string // background highlight hex, e.g. '#fde047'
     fontSize?: string     // like '14px'
     linkHref?: string
 }
@@ -135,7 +135,7 @@ interface RunState {
     underline: boolean
     strike: boolean
     color: string
-    highlight: boolean
+    highlightColor: string
     fontSize: string
     linkHref: string
 }
@@ -150,7 +150,7 @@ export function htmlToRuns(html: string): TextRun[] {
         underline: false,
         strike: false,
         color: '',
-        highlight: false,
+        highlightColor: '',
         fontSize: '',
         linkHref: '',
     }
@@ -173,7 +173,7 @@ export function htmlToRuns(html: string): TextRun[] {
             state.underline = prev.underline
             state.strike = prev.strike
             state.color = prev.color
-            state.highlight = prev.highlight
+            state.highlightColor = prev.highlightColor
             state.fontSize = prev.fontSize
             state.linkHref = prev.linkHref
         }
@@ -189,7 +189,7 @@ export function htmlToRuns(html: string): TextRun[] {
             ...(state.underline ? { underline: true } : {}),
             ...(state.strike ? { strikethrough: true } : {}),
             ...(state.color ? { color: state.color } : {}),
-            ...(state.highlight ? { highlight: true } : {}),
+            ...(state.highlightColor ? { highlightColor: state.highlightColor } : {}),
             ...(state.fontSize ? { fontSize: state.fontSize } : {}),
             ...(state.linkHref ? { linkHref: state.linkHref } : {}),
         })
@@ -208,7 +208,7 @@ export function htmlToRuns(html: string): TextRun[] {
                 if (normalized) state.color = normalized
             } else if (prop === 'background-color' || prop === 'background') {
                 const normalized = normalizeColor(val)
-                if (normalized) state.highlight = true
+                if (normalized) state.highlightColor = normalized
             } else if (prop === 'font-size') {
                 const normalized = normalizeFontSize(val)
                 if (normalized) state.fontSize = normalized
@@ -317,7 +317,7 @@ export function htmlToRuns(html: string): TextRun[] {
             prev.underline === curr.underline &&
             prev.strikethrough === curr.strikethrough &&
             prev.color === curr.color &&
-            prev.highlight === curr.highlight &&
+            prev.highlightColor === curr.highlightColor &&
             prev.fontSize === curr.fontSize &&
             prev.linkHref === curr.linkHref
         ) {

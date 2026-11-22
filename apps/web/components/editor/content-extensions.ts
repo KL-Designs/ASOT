@@ -264,7 +264,7 @@ export function contentExtensions() {
         TableCell,
         TableHeader,
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
-        Highlight.configure({ multicolor: false }),
+        Highlight.configure({ multicolor: true }),
         Underline,
         TextStyle,
         Color,
