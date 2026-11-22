@@ -10,6 +10,12 @@ Dates reflect when changes were merged to `main` and deployed.
 ### Editor — Table grid picker
 - Selected cells now highlight white so the selection is clearly visible
 - Dimension label (e.g. "5 × 4") is now white on the dark background
+- Clicking a cell in the grid now correctly inserts the table (focus was being lost on mousedown)
+
+### Editor — Highlight colours
+- Highlight button replaced with a colour picker: 8 preset colours (yellow, green, cyan, blue, pink, orange, purple, red), a clear option, and a native custom colour picker
+- Default highlight is now a solid bright yellow — previously a nearly invisible 20% red
+- Imported and pasted highlighted text retains its original background colour
 
 ### Editor — Font size display
 - Font size selector now shows the current computed size on any line, not only empty paragraphs
