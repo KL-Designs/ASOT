@@ -480,9 +480,26 @@ select option {
 
 .op-editor .tableWrapper,
 .op-doc .tableWrapper {
-    overflow-x: auto;
+    /* overflow-x:hidden alone forces overflow-y to auto per CSS spec, producing a
+       vertical scrollbar when handles near the edge add 1px of overflow. */
+    overflow: hidden;
     margin: 1em 0;
+    position: relative;
 }
+
+.op-editor .table-corner-resize {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    cursor: se-resize;
+    background: var(--acc, #db001d);
+    border-radius: 2px 0 0 0;
+    opacity: 0.75;
+    z-index: 10;
+    transition: opacity 0.15s;
+    /* left/top set by ContentTableInteractions plugin */
+}
+.op-editor .table-corner-resize:hover { opacity: 1; }
 
 .op-editor table,
 .op-doc table {

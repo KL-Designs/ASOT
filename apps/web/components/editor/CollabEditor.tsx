@@ -1460,17 +1460,23 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
     // focused section's cursor is currently in.
     const currentHeadingLevel = editor ? (([1, 2, 3] as const).find(l => editor.isActive('heading', { level: l })) ?? 0) : 0
     const explicitFontSize = (editor?.getAttributes('textStyle').fontSize as string | undefined) || ''
-    const currentFontSize = explicitFontSize || (() => {
+    const SNAP_SIZES = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48]
+    const snapPx = (px: number) => `${SNAP_SIZES.reduce((a, b) => Math.abs(b - px) < Math.abs(a - px) ? b : a)}px`
+    const currentFontSize = (() => {
+        // Snap explicit mark value (e.g. 19px from 14pt paste) to nearest preset
+        // so the dropdown always shows a valid option instead of falling back to "Size"
+        if (explicitFontSize) {
+            const px = parseFloat(explicitFontSize)
+            if (!isNaN(px) && px > 0) return snapPx(px)
+        }
         if (typeof window === 'undefined' || !editor) return '16px'
-        const SIZES = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48]
-        const snap = (px: number) => `${SIZES.reduce((a, b) => Math.abs(b - px) < Math.abs(a - px) ? b : a)}px`
         const tryPos = (pos: number): string => {
             try {
                 const domInfo = editor.view.domAtPos(pos)
                 const el = (domInfo.node instanceof HTMLElement ? domInfo.node : domInfo.node?.parentElement) as HTMLElement | null
                 if (!el) return ''
                 const px = parseFloat(window.getComputedStyle(el).fontSize)
-                return (!isNaN(px) && px > 0) ? snap(px) : ''
+                return (!isNaN(px) && px > 0) ? snapPx(px) : ''
             } catch { return '' }
         }
         const { from, $from } = editor.state.selection
@@ -1509,14 +1515,14 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
 
     const HIGHLIGHT_PRESETS = [
         { hex: '', label: 'No highlight' },
-        { hex: '#fde047', label: 'Yellow' },
-        { hex: '#bbf7d0', label: 'Green' },
-        { hex: '#a5f3fc', label: 'Cyan' },
-        { hex: '#bfdbfe', label: 'Blue' },
-        { hex: '#fecdd3', label: 'Pink' },
-        { hex: '#fed7aa', label: 'Orange' },
-        { hex: '#e9d5ff', label: 'Purple' },
-        { hex: '#fca5a5', label: 'Red' },
+        { hex: '#ffffff', label: 'White' },
+        { hex: '#cccccc', label: 'Light gray' },
+        { hex: '#db001d', label: 'Red' },
+        { hex: '#f97316', label: 'Orange' },
+        { hex: '#ffd700', label: 'Yellow' },
+        { hex: '#22c55e', label: 'Green' },
+        { hex: '#06b6d4', label: 'Cyan' },
+        { hex: '#3b82f6', label: 'Blue' },
     ]
 
     const currentHighlightColor = (editor?.getAttributes('highlight') as any)?.color as string | undefined
@@ -2679,6 +2685,11 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
         ],
         editorProps: {
             attributes: { class: `op-editor op-editor-${sectionId}`, lang: 'en-GB', spellcheck: 'false' },
+            transformPastedHTML: (html: string) => html
+                // Normalise pt → px so pasted Word/Docs font sizes register in the size selector
+                .replace(/font-size:\s*([\d.]+)\s*pt\b/gi, (_, n) => `font-size:${Math.round(parseFloat(n) * 96 / 72)}px`)
+                // Normalise em → px (assume 16px base)
+                .replace(/font-size:\s*([\d.]+)\s*em\b/gi, (_, n) => `font-size:${Math.round(parseFloat(n) * 16)}px`),
             handlePaste(_view, event) {
                 const items = event.clipboardData?.items
                 if (!items) return false
