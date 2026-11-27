@@ -1,6 +1,6 @@
 interface Ticket {
     _id?: import('mongodb').ObjectId
-    type: 'j3-qualification' | 'j4-award' | 'j3-promotion' | 'move-request' | 'j4-discharge' | 'discipline' | 'department-membership' | 'performance-report' | 'j3-training'
+    type: 'j3-qualification' | 'j4-award' | 'j3-promotion' | 'move-request' | 'j4-discharge' | 'discipline' | 'department-membership' | 'performance-report' | 'j3-training' | 'name-change'
     department: 'j3' | 'j4' | 'allstaff' | 'j1' | 'j2' | 'j6' | 'j7'
     status: 'open' | 'actioned' | 'rejected'
     targetUserId: string
@@ -40,6 +40,9 @@ interface Ticket {
     /** J4's call on whether the member is welcome back; copied onto
      *  `user.discharged` when the ticket is approved. */
     rejoinStatus?: 'welcome' | 'review' | 'not_welcome'
+    // Name change fields (undefined on other types)
+    requestedName?: string
+    currentName?: string
     // Discipline fields (undefined on other types)
     disciplineReason?: string
     actionedPointsDeducted?: number

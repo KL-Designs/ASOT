@@ -1479,6 +1479,23 @@ const PERMISSIONS = {
         review: ['J7 - Community Development'],
     },
 
+    'mod-wiki': {
+        /**
+         * Edit, add, hide or restore articles in the ASOT Mod and Features wiki,
+         * and approve or reject member suggestions.
+         *
+         * J7 and J4 department members hold this by default (checked in
+         * `lib/mod-wiki/viewer.ts`). Can also be granted to anyone else via the
+         * Roles Manager without touching this file.
+         *
+         * Used by:
+         *  - `lib/mod-wiki/viewer.ts` (`canReview`)
+         *  - `app/api/mod-wiki/articles/**`, `app/api/mod-wiki/suggestions/**`
+         *  - `app/dashboard/j7/tabs/ModWikiTab.tsx` (via the routes above)
+         */
+        review: ['J7 - Community Development', 'J4 - Administration'],
+    },
+
     ai: {
         /**
          * Manage AI configuration — budgets, caps, provider settings,

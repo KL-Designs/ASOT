@@ -1,6 +1,7 @@
 import type { Tutorial, TutorialSummary } from './types'
 import { j1ApplicationsTutorial } from './tutorials/j1-applications'
 import { deptTicketsTutorial } from './tutorials/dept-tickets'
+import { staffInductionTutorial } from './tutorials/staff-induction'
 
 /**
  * Every guided tutorial. To add one: write it under ./tutorials, list it here,
@@ -10,6 +11,7 @@ import { deptTicketsTutorial } from './tutorials/dept-tickets'
 export const TUTORIAL_DEFINITIONS: Tutorial[] = [
     j1ApplicationsTutorial,
     deptTicketsTutorial,
+    staffInductionTutorial,
 ]
 
 /** Safe to list anywhere (the help wiki links to these by id). */

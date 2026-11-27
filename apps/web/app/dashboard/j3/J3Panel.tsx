@@ -19,6 +19,8 @@ import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import TrainingHub from '@/app/dashboard/unit/training-docs/TrainingHub'
 import EventsTab from '@/app/dashboard/unit/training-docs/EventsTab'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
+import DeptInductionTab from '@/app/dashboard/_components/DeptInductionTab'
+import TrainingDocAckTab from './tabs/TrainingDocAckTab'
 
 interface J3PanelProps {
     displayName: string
@@ -72,6 +74,8 @@ export default function J3Panel({ displayName, userId, canManageMembers, canMana
     const adminSections: DeptAdminSection[] = [
         { key: 'meetings', label: 'Meetings', render: () => <MeetingsTab department='j3' userId={userId} isLead={isLead} /> },
         { key: 'tickets',  label: 'Tickets',  render: () => <DeptTicketsTab department='j3' canManage={isLead} isJ4={isJ4} /> },
+        { key: 'induction', label: 'Staff Inductions', visible: isLead, render: () => <DeptInductionTab dept='j3' /> },
+        { key: 'doc-acks', label: 'Training Doc Acknowledgements', visible: isLead, render: () => <TrainingDocAckTab /> },
         { key: 'selection-countdown', label: 'Selection Countdown Post', visible: isLead, render: () => <SelectionCountdownTab /> },
     ]
 

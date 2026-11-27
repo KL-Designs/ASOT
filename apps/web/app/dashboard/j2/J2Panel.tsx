@@ -18,10 +18,13 @@ import IntelImagesTab from '@/app/dashboard/j2/tabs/IntelImagesTab'
 import EraOptionsTab from '@/app/dashboard/j2/tabs/EraOptionsTab'
 import MissionBibleTab from './tabs/MissionBibleTab'
 import DoctrineTab from './tabs/DoctrineTab'
+import MissionFilesTab from './tabs/MissionFilesTab'
+import MissionModFeedbackTab from './tabs/MissionModFeedbackTab'
 import TemplatesTab from './tabs/TemplatesTab'
 import ImportPanel from '@/app/dashboard/j2/import/ImportPanel'
 import ObjectiveSuggestions from '@/components/j2/ObjectiveSuggestions'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
+import DeptInductionTab from '@/app/dashboard/_components/DeptInductionTab'
 
 /** Old main-tab numbers of the tools that now live under Admin (row 84). */
 const MOVED_TABS: Record<number, string> = { 1: 'meetings', 2: 'tickets', 5: 'intel-images', 6: 'era-options' }
@@ -45,6 +48,7 @@ export default function J2Panel({
     const adminSections: DeptAdminSection[] = [
         { key: 'meetings',     label: 'Meetings',     render: () => <MeetingsTab department='j2' userId={userId} isLead={isLead} /> },
         { key: 'tickets',      label: 'Tickets',      render: () => <DeptTicketsTab department='j2' canManage={isLead} isJ4={isJ4} /> },
+        { key: 'induction',    label: 'Staff Inductions', visible: isLead, render: () => <DeptInductionTab dept='j2' /> },
         { key: 'intel-images', label: 'Intel Images', render: () => <IntelImagesTab /> },
         { key: 'era-options',  label: 'ERA Options',  visible: canManageMembers, render: () => <EraOptionsTab /> },
         { key: 'templates',    label: 'Templates',    render: () => <TemplatesTab /> },
@@ -132,6 +136,8 @@ export default function J2Panel({
                             <Tab value={7} label={<PinTabLabel label='Mission Bible' pinLabel='J2 — Mission Bible' href='/dashboard/j2' tabIndex={7} />} sx={tabSx} />
                             <Tab value={8} label={<PinTabLabel label='Objective Suggestions' pinLabel='J2 — Objectives' href='/dashboard/j2' tabIndex={8} />} sx={tabSx} />
                             <Tab value={9} label={<PinTabLabel label='Enemy Doctrine' pinLabel='J2 — Enemy Doctrine' href='/dashboard/j2' tabIndex={9} />} sx={tabSx} />
+                            <Tab value={10} label={<PinTabLabel label='Mission Files' pinLabel='J2 — Mission Files' href='/dashboard/j2' tabIndex={10} />} sx={tabSx} />
+                            <Tab value={11} label={<PinTabLabel label='Mod Feedback' pinLabel='J2 — Mod Feedback' href='/dashboard/j2' tabIndex={11} />} sx={tabSx} />
                             <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>
                     </div>
@@ -148,6 +154,8 @@ export default function J2Panel({
                             {tab === 7 && <MissionBibleTab />}
                             {tab === 8 && <ObjectiveSuggestions />}
                             {tab === 9 && <div className='h-full overflow-y-auto'><DoctrineTab /></div>}
+                            {tab === 10 && <MissionFilesTab canManage={canManageMembers || isJ4} />}
+                            {tab === 11 && <MissionModFeedbackTab />}
                         </div>
                     )}
                 </>

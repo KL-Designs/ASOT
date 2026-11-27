@@ -19,6 +19,15 @@
 # local backup snapshots — never tracked
 /_j3_backup_*/
 /_recruitment_backup_*/
+/_j1_backup_*/
+
+# Claude Code memory and conversation state — never tracked
+/.claude/
+
+# Local planning, requirements, and guide documents — never tracked
+/Documentation/
+/ASOT_Mission_Template_Player_Guide.txt
+/ASOT_Website_Development_Requirements*.pdf
 
 # per-app ignores live in apps/*/.gitignore
 

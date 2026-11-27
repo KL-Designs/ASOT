@@ -385,6 +385,22 @@ export default function TrainingRecordDetailPage() {
                 )}
             </div>
 
+            {/* Legacy Reference — historical imports only */}
+            {(instance.isHistoricalImport || instance.legacyTicketRef) && (
+                <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', marginBottom: 20, padding: '14px 16px' }}>
+                    <SectionHeader>Legacy Reference</SectionHeader>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px 24px' }}>
+                        {instance.legacyTicketRef && (
+                            <GridItem label='Ticket Reference' value={instance.legacyTicketRef} />
+                        )}
+                        {instance.importBatchId && (
+                            <GridItem label='Import Batch' value={<span style={{ fontFamily: 'monospace', fontSize: '0.6rem' }}>{instance.importBatchId}</span>} />
+                        )}
+                        <GridItem label='Imported' value={formatDate(instance.isHistoricalImport ? instance.createdAt : undefined)} />
+                    </div>
+                </div>
+            )}
+
             {/* Linked Course Workspace */}
             <div style={{ border: '1px solid var(--line-2)', background: 'rgba(255,255,255,0.01)', marginBottom: 20, padding: '14px 16px' }}>
                 <SectionHeader>Course Workspace</SectionHeader>

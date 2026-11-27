@@ -11,6 +11,9 @@ import { clearBctAvailabilityIfDone } from '@/lib/training/bct-availability'
 import { logAction } from '@/lib/logAction'
 import { queueMemberTeamspeakSync } from '@/lib/orbat/member-sync'
 import { onAwardsAdded } from '@/lib/military/award-postage-db'
+import { setGuildNickname } from '@/lib/discord/bot'
+import { buildNickname } from '@/lib/buildNickname'
+import { triggerStaffInduction } from '@/lib/staff-induction/trigger'
 
 // PATCH /api/admin/tickets/[id] — approve or reject a ticket
 /**
@@ -187,6 +190,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         queueMemberTeamspeakSync(ticket.targetUserId)
         // Rank drives the insignia, and generals get a different corps badge.
         await regenerateMilpac(ticket.targetUserId)
+        // New rank requires a fresh induction.
+        const memberName = member.guild?.nickname || member.guild?.displayName || (member as any).name || member.globalName || member.username || member.id
+        triggerStaffInduction({
+            userId: ticket.targetUserId!,
+            userName: memberName,
+            context: 'promotion',
+            triggerLabel: `Promoted to ${ticket.proposedRank}`,
+            triggeredById: me.id,
+            triggeredByName: displayName,
+        }).catch(err => console.error('[staff-induction] trigger after promotion failed:', err))
     } else if (ticket.type === 'j4-discharge') {
         const member = await Db.users.findOne({ id: ticket.targetUserId })
         if (!member) return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
@@ -306,6 +319,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             toPos,
             toIsReservist: ticket.toIsReservist ?? false,
             targetUserId: ticket.targetUserId,
+        })
+    } else if (ticket.type === 'name-change') {
+        await Db.users.updateOne({ id: ticket.targetUserId }, { $set: { name: ticket.requestedName } })
+        const fresh = await Db.users.findOne({ id: ticket.targetUserId })
+        if (fresh) {
+            const nick = buildNickname(fresh.milpac?.currentRank, ticket.requestedName ?? '', fresh.departments, fresh.isChaplain)
+            setGuildNickname(ticket.targetUserId, nick).catch(err =>
+                console.error('[name-change] nickname update failed:', err)
+            )
+        }
+        logAction({
+            action: 'member.name.changed',
+            category: 'member',
+            performedBy: me.id,
+            performedByName: displayName,
+            target: ticket.targetUserName,
+            details: { from: ticket.currentName, to: ticket.requestedName },
         })
     }
 

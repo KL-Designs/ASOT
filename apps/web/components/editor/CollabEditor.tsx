@@ -1339,6 +1339,9 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
     const [colorPopoverOpen, setColorPopoverOpen] = useState(false)
     const colorTriggerRef = useRef<HTMLButtonElement>(null)
     const customColorInputRef = useRef<HTMLInputElement>(null)
+    const [highlightPopoverOpen, setHighlightPopoverOpen] = useState(false)
+    const highlightTriggerRef = useRef<HTMLButtonElement>(null)
+    const customHighlightInputRef = useRef<HTMLInputElement>(null)
     const imageInputRef = useRef<HTMLInputElement>(null)
     const linkUrlInputRef = useRef<HTMLInputElement>(null)
     const linkTextInputRef = useRef<HTMLInputElement>(null)
@@ -1388,6 +1391,17 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
         document.addEventListener('mousedown', close)
         return () => document.removeEventListener('mousedown', close)
     }, [colorPopoverOpen])
+
+    useEffect(() => {
+        if (!highlightPopoverOpen) return
+        const close = (e: MouseEvent) => {
+            const container = highlightTriggerRef.current?.parentElement
+            if (container?.contains(e.target as Node)) return
+            setHighlightPopoverOpen(false)
+        }
+        document.addEventListener('mousedown', close)
+        return () => document.removeEventListener('mousedown', close)
+    }, [highlightPopoverOpen])
 
     useEffect(() => {
         if (!insertTableOpen) return
@@ -1446,20 +1460,33 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
     // focused section's cursor is currently in.
     const currentHeadingLevel = editor ? (([1, 2, 3] as const).find(l => editor.isActive('heading', { level: l })) ?? 0) : 0
     const explicitFontSize = (editor?.getAttributes('textStyle').fontSize as string | undefined) || ''
-    const currentFontSize = explicitFontSize || (() => {
-        if (typeof window === 'undefined' || !editor) return ''
-        try {
-            const { from } = editor.state.selection
-            const docSize = editor.state.doc.content.size
-            const domInfo = editor.view.domAtPos(Math.min(from, Math.max(0, docSize - 1)))
-            const el = (domInfo.node instanceof HTMLElement ? domInfo.node : domInfo.node?.parentElement) as HTMLElement | null
-            if (!el) return ''
-            const px = parseFloat(window.getComputedStyle(el).fontSize)
-            if (isNaN(px)) return ''
-            const nearest = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48]
-                .reduce((a, b) => Math.abs(b - px) < Math.abs(a - px) ? b : a)
-            return `${nearest}px`
-        } catch { return '' }
+    const SNAP_SIZES = [10, 11, 12, 13, 14, 16, 18, 20, 24, 28, 32, 36, 48]
+    const snapPx = (px: number) => `${SNAP_SIZES.reduce((a, b) => Math.abs(b - px) < Math.abs(a - px) ? b : a)}px`
+    const currentFontSize = (() => {
+        // Snap explicit mark value (e.g. 19px from 14pt paste) to nearest preset
+        // so the dropdown always shows a valid option instead of falling back to "Size"
+        if (explicitFontSize) {
+            const px = parseFloat(explicitFontSize)
+            if (!isNaN(px) && px > 0) return snapPx(px)
+        }
+        if (typeof window === 'undefined' || !editor) return '16px'
+        const tryPos = (pos: number): string => {
+            try {
+                const domInfo = editor.view.domAtPos(pos)
+                const el = (domInfo.node instanceof HTMLElement ? domInfo.node : domInfo.node?.parentElement) as HTMLElement | null
+                if (!el) return ''
+                const px = parseFloat(window.getComputedStyle(el).fontSize)
+                return (!isNaN(px) && px > 0) ? snapPx(px) : ''
+            } catch { return '' }
+        }
+        const { from, $from } = editor.state.selection
+        const docSize = editor.state.doc.content.size
+        const clamp = (p: number) => Math.min(Math.max(p, 1), Math.max(1, docSize - 1))
+        // Try cursor position, one step back (catches end-of-text-node), then block start
+        return tryPos(clamp(from))
+            || tryPos(clamp(from - 1))
+            || tryPos(clamp($from.start($from.depth) + 1))
+            || '16px'
     })()
 
     const COLOR_PRESETS = [
@@ -1483,6 +1510,30 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
             ;(editor.chain().focus() as any).unsetColor().run()
         } else {
             ;(editor.chain().focus() as any).setColor(hex).run()
+        }
+    }
+
+    const HIGHLIGHT_PRESETS = [
+        { hex: '', label: 'No highlight' },
+        { hex: '#ffffff', label: 'White' },
+        { hex: '#cccccc', label: 'Light gray' },
+        { hex: '#db001d', label: 'Red' },
+        { hex: '#f97316', label: 'Orange' },
+        { hex: '#ffd700', label: 'Yellow' },
+        { hex: '#22c55e', label: 'Green' },
+        { hex: '#06b6d4', label: 'Cyan' },
+        { hex: '#3b82f6', label: 'Blue' },
+    ]
+
+    const currentHighlightColor = (editor?.getAttributes('highlight') as any)?.color as string | undefined
+
+    function applyHighlightColor(hex: string) {
+        if (captionCmd('backColor', hex || 'transparent')) return
+        if (!editor) return
+        if (!hex) {
+            ;(editor.chain().focus() as any).unsetHighlight().run()
+        } else {
+            ;(editor.chain().focus() as any).setHighlight({ color: hex }).run()
         }
     }
 
@@ -1528,7 +1579,79 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
             </>
         ) },
         { key: 'highlight', node: (
-            <TIconBtn title='Highlight' disabled={disabled} active={!!editor?.isActive('highlight')} onClick={() => { if (!captionCmd('backColor', 'rgba(253,224,71,0.5)')) editor?.chain().focus().toggleHighlight().run() }}><IconHighlight /></TIconBtn>
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+                <input
+                    type='color'
+                    ref={customHighlightInputRef}
+                    defaultValue='#fde047'
+                    onChange={e => applyHighlightColor(e.target.value)}
+                    style={{ position: 'absolute', width: 1, height: 1, opacity: 0, pointerEvents: 'none', top: 0, left: 0 }}
+                />
+                <button
+                    ref={highlightTriggerRef}
+                    type='button'
+                    title='Highlight Color'
+                    disabled={disabled}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => setHighlightPopoverOpen(v => !v)}
+                    style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center',
+                        justifyContent: 'center', gap: 1,
+                        width: 26, height: 26, padding: 0,
+                        background: highlightPopoverOpen ? 'rgba(var(--acc-rgb),0.14)' : 'transparent',
+                        border: highlightPopoverOpen ? '1px solid rgba(var(--acc-rgb),0.3)' : '1px solid transparent',
+                        borderRadius: 'var(--r)', cursor: disabled ? 'default' : 'pointer',
+                        color: 'var(--ink-2)',
+                    }}
+                >
+                    <IconHighlight />
+                    <span style={{ display: 'block', height: 2, width: 13, background: currentHighlightColor || '#fde047', borderRadius: 1 }} />
+                </button>
+                {highlightPopoverOpen && (
+                    <div
+                        onMouseDown={e => e.stopPropagation()}
+                        style={{
+                            position: 'absolute', top: '110%', left: 0, zIndex: 50,
+                            background: 'var(--s2)', border: '1px solid var(--line-2)',
+                            borderRadius: 'var(--r)', padding: 8,
+                            display: 'grid', gridTemplateColumns: 'repeat(5, 20px)', gap: 4,
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+                        }}
+                    >
+                        {HIGHLIGHT_PRESETS.map(({ hex, label }) => (
+                            <button
+                                key={hex || 'none'}
+                                type='button'
+                                title={label}
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => { applyHighlightColor(hex); setHighlightPopoverOpen(false) }}
+                                style={{
+                                    width: 20, height: 20, padding: 0, borderRadius: 3, cursor: 'pointer',
+                                    background: hex || 'transparent',
+                                    border: hex ? '1px solid rgba(0,0,0,0.2)' : '1px dashed rgba(255,255,255,0.3)',
+                                    position: 'relative',
+                                    ...(currentHighlightColor === hex ? { outline: '2px solid var(--acc)', outlineOffset: 1 } : {}),
+                                }}
+                            >
+                                {!hex && (
+                                    <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: 'rgba(237,237,237,0.5)', lineHeight: 1 }}>✕</span>
+                                )}
+                            </button>
+                        ))}
+                        <button
+                            type='button'
+                            title='Custom highlight colour'
+                            onMouseDown={e => e.preventDefault()}
+                            onClick={() => { setHighlightPopoverOpen(false); customHighlightInputRef.current?.click() }}
+                            style={{
+                                width: 20, height: 20, padding: 0, borderRadius: 3, cursor: 'pointer', flexShrink: 0,
+                                background: 'conic-gradient(red 0deg, yellow 60deg, lime 120deg, cyan 180deg, blue 240deg, magenta 300deg, red 360deg)',
+                                border: '1px solid rgba(255,255,255,0.15)',
+                            }}
+                        />
+                    </div>
+                )}
+            </div>
         ) },
         { key: 'color', node: (
             <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -1646,7 +1769,7 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                     {insertTableOpen && createPortal(
                         <div
                             ref={insertTableMenuRef}
-                            onMouseDown={e => e.stopPropagation()}
+                            onMouseDown={e => { e.preventDefault(); e.stopPropagation() }}
                             style={{
                                 position: 'fixed',
                                 top: (insertTableTriggerRef.current?.getBoundingClientRect().bottom ?? 0) + 4,
@@ -1657,7 +1780,7 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                                 boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
                             }}
                         >
-                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink-3)', marginBottom: 8, textAlign: 'center' }}>
+                            <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#ffffff', marginBottom: 8, textAlign: 'center' }}>
                                 {tableGridHover ? `${tableGridHover.c} × ${tableGridHover.r}` : 'Insert Table'}
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 16px)', gap: 2 }}>
@@ -1677,8 +1800,8 @@ function EditorToolbar({ editor, uploadUrl, containerRef }: EditorToolbarProps) 
                                             }}
                                             style={{
                                                 width: 16, height: 16, borderRadius: 2, cursor: 'pointer',
-                                                background: lit ? 'rgba(var(--acc-rgb),0.35)' : 'rgba(255,255,255,0.07)',
-                                                border: `1px solid ${lit ? 'rgba(var(--acc-rgb),0.6)' : 'rgba(255,255,255,0.12)'}`,
+                                                background: lit ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.07)',
+                                                border: `1px solid ${lit ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)'}`,
                                             }}
                                         />
                                     )
@@ -2562,6 +2685,11 @@ function SectionEditor({ ydoc, sectionId, pageId, pageTitle, provider, user, upl
         ],
         editorProps: {
             attributes: { class: `op-editor op-editor-${sectionId}`, lang: 'en-GB', spellcheck: 'false' },
+            transformPastedHTML: (html: string) => html
+                // Normalise pt → px so pasted Word/Docs font sizes register in the size selector
+                .replace(/font-size:\s*([\d.]+)\s*pt\b/gi, (_, n) => `font-size:${Math.round(parseFloat(n) * 96 / 72)}px`)
+                // Normalise em → px (assume 16px base)
+                .replace(/font-size:\s*([\d.]+)\s*em\b/gi, (_, n) => `font-size:${Math.round(parseFloat(n) * 16)}px`),
             handlePaste(_view, event) {
                 const items = event.clipboardData?.items
                 if (!items) return false

@@ -13,7 +13,11 @@ import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import BoardTab from './tabs/BoardTab'
 import HelpWikiTab from './tabs/HelpWikiTab'
+import ModWikiTab from './tabs/ModWikiTab'
+import DutyAdminFilesTab from './tabs/DutyAdminFilesTab'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
+import DeptInductionTab from '@/app/dashboard/_components/DeptInductionTab'
+import GovernanceTab from './tabs/GovernanceTab'
 
 /** Old main-tab numbers of the tools that now live under Admin (row 84). */
 const MOVED_TABS: Record<number, string> = { 1: 'meetings', 2: 'tickets' }
@@ -37,6 +41,8 @@ export default function J7Panel({
     const adminSections: DeptAdminSection[] = [
         { key: 'meetings', label: 'Meetings', render: () => <MeetingsTab department='j7' userId={userId} isLead={isLead} /> },
         { key: 'tickets',  label: 'Tickets',  render: () => <DeptTicketsTab department='j7' canManage={isLead} isJ4={isJ4} /> },
+        { key: 'induction',   label: 'Staff Inductions',   visible: isLead, render: () => <DeptInductionTab dept='j7' /> },
+        { key: 'governance',  label: 'Website Governance',  visible: isLead, render: () => <GovernanceTab /> },
     ]
 
     const btnSx = (active: boolean): React.CSSProperties => ({
@@ -105,7 +111,9 @@ export default function J7Panel({
                         >
                             <Tab label={<PinTabLabel label='Board'    pinLabel='J7 — Board'    href='/dashboard/j7' tabIndex={0} />} sx={tabSx} />
                             {/* 3, not 1: tabs 1 and 2 are the old numbers of Meetings and Tickets, which MOVED_TABS sends to Admin. */}
-                            <Tab value={3} label={<PinTabLabel label='Help Wiki' pinLabel='J7 — Help Wiki' href='/dashboard/j7' tabIndex={3} />} sx={tabSx} />
+                            <Tab value={3} label={<PinTabLabel label='Help Wiki'     pinLabel='J7 — Help Wiki'     href='/dashboard/j7' tabIndex={3} />} sx={tabSx} />
+                            <Tab value={4} label={<PinTabLabel label='Mod & Features' pinLabel='J7 — Mod & Features' href='/dashboard/j7' tabIndex={4} />} sx={tabSx} />
+                            <Tab value={5} label={<PinTabLabel label='Mission Files' pinLabel='J7 — Mission Files' href='/dashboard/j7' tabIndex={5} />} sx={tabSx} />
                             <Tab value='admin' label={<span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Settings sx={{ fontSize: '0.85rem' }} />Admin</span>} sx={tabSx} />
                         </Tabs>
                     </div>
@@ -118,6 +126,8 @@ export default function J7Panel({
                         <div className='flex-1 min-h-0 mt-0'>
                             {tab === 0 && <BoardTab department='j7' canManageColumns={canManageMembers || isJ4} />}
                             {tab === 3 && <HelpWikiTab />}
+                            {tab === 4 && <ModWikiTab />}
+                            {tab === 5 && <DutyAdminFilesTab />}
                         </div>
                     )}
                 </>

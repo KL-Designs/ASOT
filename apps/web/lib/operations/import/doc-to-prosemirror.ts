@@ -7,7 +7,7 @@
  */
 
 import { randomUUID } from 'crypto'
-import type { IntermediateDoc, IntermediateElement } from './parse-docx'
+import type { IntermediateDoc, IntermediateElement, TextRun } from './parse-docx'
 
 export interface ConversionOptions {
     defaultVisibility?: Record<string, boolean>
@@ -58,6 +58,27 @@ function textNodeWithMarks(text: string, bold?: boolean, italic?: boolean, under
     return { type: 'text', text, ...(marks.length ? { marks } : {}) }
 }
 
+function runsToPMContent(runs: TextRun[]): PMTextNode[] {
+    return runs
+        .filter(r => r.text.length > 0)
+        .map(r => {
+            const marks: PMMarkType[] = []
+            if (r.bold) marks.push({ type: 'bold' })
+            if (r.italic) marks.push({ type: 'italic' })
+            if (r.underline) marks.push({ type: 'underline' })
+            if (r.strikethrough) marks.push({ type: 'strike' })
+            if (r.color || r.fontSize) {
+                const attrs: Record<string, unknown> = {}
+                if (r.color) attrs.color = r.color
+                if (r.fontSize) attrs.fontSize = r.fontSize
+                marks.push({ type: 'textStyle', attrs })
+            }
+            if (r.highlightColor) marks.push({ type: 'highlight', attrs: { color: r.highlightColor } })
+            if (r.linkHref) marks.push({ type: 'link', attrs: { href: r.linkHref, target: '_blank', rel: 'noopener noreferrer' } })
+            return { type: 'text' as const, text: r.text, ...(marks.length ? { marks } : {}) }
+        })
+}
+
 function elementToPMNodes(el: IntermediateElement, savedImages: Map<string, string>): PMBlockNode[] {
     switch (el.type) {
         case 'heading': {
@@ -72,9 +93,12 @@ function elementToPMNodes(el: IntermediateElement, savedImages: Map<string, stri
 
         case 'paragraph': {
             if (!el.text.trim()) return []
+            const content: PMTextNode[] = (el.runs && el.runs.length > 0)
+                ? runsToPMContent(el.runs)
+                : [textNodeWithMarks(el.text, el.bold, el.italic, el.underline)]
             const node: PMParagraphNode = {
                 type: 'paragraph',
-                content: [textNodeWithMarks(el.text, el.bold, el.italic, el.underline)],
+                content,
             }
             return [node]
         }
@@ -83,18 +107,28 @@ function elementToPMNodes(el: IntermediateElement, savedImages: Map<string, stri
             if (el.ordered) {
                 const node: PMOrderedListNode = {
                     type: 'orderedList',
-                    content: el.items.map(item => ({
+                    content: el.items.map((item, i) => ({
                         type: 'listItem' as const,
-                        content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: item }] }],
+                        content: [{
+                            type: 'paragraph' as const,
+                            content: (el.itemRuns && el.itemRuns[i] && el.itemRuns[i].length > 0)
+                                ? runsToPMContent(el.itemRuns[i])
+                                : [{ type: 'text' as const, text: item }],
+                        }],
                     })),
                 }
                 return [node]
             } else {
                 const node: PMBulletListNode = {
                     type: 'bulletList',
-                    content: el.items.map(item => ({
+                    content: el.items.map((item, i) => ({
                         type: 'listItem' as const,
-                        content: [{ type: 'paragraph' as const, content: [{ type: 'text' as const, text: item }] }],
+                        content: [{
+                            type: 'paragraph' as const,
+                            content: (el.itemRuns && el.itemRuns[i] && el.itemRuns[i].length > 0)
+                                ? runsToPMContent(el.itemRuns[i])
+                                : [{ type: 'text' as const, text: item }],
+                        }],
                     })),
                 }
                 return [node]
@@ -102,11 +136,32 @@ function elementToPMNodes(el: IntermediateElement, savedImages: Map<string, stri
         }
 
         case 'table': {
-            // TipTap table extension is not in the schema — represent as pipe-separated paragraphs
-            return el.rows.map(row => ({
-                type: 'paragraph' as const,
-                content: [{ type: 'text' as const, text: row.join(' | ') }],
-            }))
+            const tableNode = {
+                type: 'table' as const,
+                attrs: { borderColor: '#4a5060', borderWidth: 1, tableWidth: '100%' },
+                content: el.rows.map((row, rowIdx) => {
+                    const isHeaderRow = el.hasHeaderRow === true && rowIdx === 0
+                    return {
+                        type: 'tableRow' as const,
+                        content: row.map((cellText, colIdx) => {
+                            const cellRuns = el.cells?.[rowIdx]?.[colIdx]
+                            const paragraphContent: PMTextNode[] = (cellRuns && cellRuns.length > 0)
+                                ? runsToPMContent(cellRuns)
+                                : [{ type: 'text' as const, text: cellText }]
+                            const cellType: 'tableHeader' | 'tableCell' = isHeaderRow ? 'tableHeader' : 'tableCell'
+                            return {
+                                type: cellType,
+                                attrs: { colspan: 1, rowspan: 1, colwidth: null },
+                                content: [{
+                                    type: 'paragraph' as const,
+                                    content: paragraphContent,
+                                }],
+                            }
+                        }),
+                    }
+                }),
+            }
+            return [tableNode as unknown as PMBlockNode]
         }
 
         case 'image_ref': {

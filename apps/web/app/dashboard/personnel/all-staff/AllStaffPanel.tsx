@@ -7,6 +7,8 @@ import DisciplineTab from './tabs/DisciplineTab'
 import PerformanceReportTab from './tabs/PerformanceReportTab'
 import AarReportsTab from './tabs/AarReportsTab'
 import ObjectiveSuggestions from '@/components/j2/ObjectiveSuggestions'
+import NameChangeTab from './tabs/NameChangeTab'
+import LoaTab from './tabs/LoaTab'
 
 /** Also the HQ Staff dashboard, under its own title: the same tabs, AAR Reports included. */
 export default function AllStaffPanel({ userId, displayName, title = 'All Staff' }: { userId: string; displayName: string; title?: string }) {
@@ -29,7 +31,7 @@ export default function AllStaffPanel({ userId, displayName, title = 'All Staff'
                     {title}
                 </Typography>
                 <Typography fontSize='0.72rem' style={{ color: 'rgba(237,237,237,0.35)', marginTop: 4 }}>
-                    Move Requests · Discipline · Performance Reports · AAR Reports
+                    Move Requests · Discipline · Performance Reports · Leave of Absence · Name Change · AAR Reports
                 </Typography>
             </div>
 
@@ -57,6 +59,8 @@ export default function AllStaffPanel({ userId, displayName, title = 'All Staff'
                     <Tab label='Discipline' />
                     <Tab label='Performance Reports' />
                     <Tab label='Objective Suggestions' />
+                    <Tab label='Leave of Absence' />
+                    <Tab label='Name Change' />
                     <Tab label='AAR Reports' />
                 </Tabs>
             </div>
@@ -67,7 +71,9 @@ export default function AllStaffPanel({ userId, displayName, title = 'All Staff'
                 {tab === 2 && <PerformanceReportTab userId={userId} />}
                 {/* A read-only, live view of the J2 list. */}
                 {tab === 3 && <ObjectiveSuggestions mirror />}
-                {tab === 4 && <AarReportsTab />}
+                {tab === 4 && <LoaTab userId={userId} />}
+                {tab === 5 && <NameChangeTab userId={userId} />}
+                {tab === 6 && <AarReportsTab />}
             </div>
         </div>
     )

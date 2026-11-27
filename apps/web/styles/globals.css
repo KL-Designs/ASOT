@@ -451,13 +451,13 @@ select option {
 .op-editor img.ProseMirror-selectednode { outline: 2px solid rgba(219, 0, 29, 0.6); }
 
 .op-editor mark {
-    background: rgba(219, 0, 29, 0.2);
-    color: rgba(237, 237, 237, 0.95);
+    background: #fde047;
+    color: rgba(10, 10, 10, 0.9);
     border-radius: 2px;
     padding: 0 2px;
 }
 
-.op-editor strong { font-weight: 700; color: rgba(237, 237, 237, 0.95); }
+.op-editor strong { font-weight: 700; color: inherit; }
 
 .op-editor a { color: rgba(219, 0, 29, 0.85); text-decoration: underline; text-underline-offset: 3px; pointer-events: none; }
 .op-editor a:hover { color: rgba(237, 237, 237, 0.9); }
@@ -480,15 +480,35 @@ select option {
 
 .op-editor .tableWrapper,
 .op-doc .tableWrapper {
-    overflow-x: auto;
+    /* overflow-x:hidden alone forces overflow-y to auto per CSS spec, producing a
+       vertical scrollbar when handles near the edge add 1px of overflow. */
+    overflow: hidden;
     margin: 1em 0;
+    position: relative;
 }
+
+.op-editor .table-corner-resize {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    cursor: se-resize;
+    background: var(--acc, #db001d);
+    border-radius: 2px 0 0 0;
+    opacity: 0.75;
+    z-index: 10;
+    transition: opacity 0.15s;
+    /* left/top set by ContentTableInteractions plugin */
+}
+.op-editor .table-corner-resize:hover { opacity: 1; }
 
 .op-editor table,
 .op-doc table {
     border-collapse: collapse;
     table-layout: fixed;
     min-width: 60px;
+    /* Prevent the column-resize plugin from growing the table past its container.
+       TipTap sets table.style.width in px after each drag; max-width caps it. */
+    max-width: 100%;
 }
 
 .op-editor table td,
@@ -626,13 +646,13 @@ select option {
 }
 
 .op-doc mark {
-    /* background injected */
-    color: rgba(237, 237, 237, 0.95);
+    background: #fde047;
+    color: rgba(10, 10, 10, 0.9);
     border-radius: 2px;
     padding: 0 2px;
 }
 
-.op-doc strong { font-weight: 700; color: rgba(237, 237, 237, 0.95); }
+.op-doc strong { font-weight: 700; color: inherit; }
 
 /* Link color injected via themeCSS in DocBody */
 .op-doc a { text-decoration: underline; text-underline-offset: 3px; opacity: 0.9; }

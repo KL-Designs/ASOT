@@ -119,6 +119,14 @@ export async function POST(req: NextRequest) {
     const result = await Db.courseInstances.insertOne(doc as CourseInstance)
     const instanceId = String(result.insertedId)
 
+    // Phase 5: bidirectional training-record link — the course instance IS the
+    // training record for SEL/RC; store its own _id so the workspace can link
+    // back without knowing the routing convention.
+    await Db.courseInstances.updateOne(
+        { _id: result.insertedId },
+        { $set: { trainingRecordId: instanceId } },
+    ).catch(() => {})
+
     await logAction({
         action: 'course.create',
         category: 'J3',

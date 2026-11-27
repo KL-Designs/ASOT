@@ -39,6 +39,11 @@ interface CourseInstance {
     deletedAt?: Date
     deletedById?: string
     deletedByName?: string
+    /** Phase 5: self-referential training record ID — set at creation time.
+     *  For Selection / RC courses the courseInstance _is_ the training record;
+     *  this field holds its own _id as a string so the workspace can link back
+     *  without knowing the routing convention. */
+    trainingRecordId?: string
     // Historical import fields
     isHistoricalImport?: boolean
     importBatchId?: string

@@ -17,11 +17,23 @@ export interface ExtractedImage {
     captionText?: string
 }
 
+export interface TextRun {
+    text: string
+    bold?: boolean
+    italic?: boolean
+    underline?: boolean
+    strikethrough?: boolean
+    color?: string         // normalized hex like '#ff0000'
+    highlightColor?: string // background highlight hex, e.g. '#fde047'
+    fontSize?: string     // like '14px'
+    linkHref?: string
+}
+
 export type IntermediateElement =
     | { type: 'heading'; level: 1|2|3|4|5|6; text: string; rawHtml: string }
-    | { type: 'paragraph'; text: string; rawHtml: string; bold?: boolean; italic?: boolean; underline?: boolean }
-    | { type: 'list'; ordered: boolean; items: string[] }
-    | { type: 'table'; rows: string[][] }
+    | { type: 'paragraph'; text: string; rawHtml: string; bold?: boolean; italic?: boolean; underline?: boolean; runs?: TextRun[] }
+    | { type: 'list'; ordered: boolean; items: string[]; itemRuns?: TextRun[][] }
+    | { type: 'table'; rows: string[][]; cells?: TextRun[][][]; hasHeaderRow?: boolean }
     | { type: 'image_ref'; tempId: string }
     | { type: 'hr' }
 
@@ -50,6 +62,274 @@ function mimeToExt(mimeType: string): string {
     return 'jpg'
 }
 
+function decodeEntities(text: string): string {
+    return text
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+}
+
+/** Converts a CSS color value to a lowercase hex string, or '' if unrecognised. */
+function normalizeColor(css: string): string {
+    const trimmed = css.trim().toLowerCase()
+
+    // Already hex (#rrggbb or #rgb)
+    const hexMatch = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/)
+    if (hexMatch) {
+        const h = hexMatch[1]
+        if (h.length === 3) {
+            return '#' + h[0] + h[0] + h[1] + h[1] + h[2] + h[2]
+        }
+        return '#' + h
+    }
+
+    // rgb(r, g, b)
+    const rgbMatch = trimmed.match(/^rgb\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)$/)
+    if (rgbMatch) {
+        const r = parseInt(rgbMatch[1]).toString(16).padStart(2, '0')
+        const g = parseInt(rgbMatch[2]).toString(16).padStart(2, '0')
+        const b = parseInt(rgbMatch[3]).toString(16).padStart(2, '0')
+        return '#' + r + g + b
+    }
+
+    // Named colors
+    const namedColors: Record<string, string> = {
+        red: '#ff0000',
+        blue: '#0000ff',
+        green: '#008000',
+        yellow: '#ffff00',
+        black: '#000000',
+        white: '#ffffff',
+        gray: '#808080',
+        grey: '#808080',
+        orange: '#ffa500',
+        purple: '#800080',
+    }
+    if (trimmed in namedColors) return namedColors[trimmed]
+
+    return ''
+}
+
+/** Converts a CSS font-size value to a px string, or '' if unrecognised. */
+function normalizeFontSize(css: string): string {
+    const trimmed = css.trim()
+
+    const ptMatch = trimmed.match(/^([\d.]+)pt$/)
+    if (ptMatch) {
+        const px = Math.round(parseFloat(ptMatch[1]) * 1.333)
+        return px + 'px'
+    }
+
+    const pxMatch = trimmed.match(/^[\d.]+px$/)
+    if (pxMatch) return trimmed
+
+    return ''
+}
+
+interface RunState {
+    bold: boolean
+    italic: boolean
+    underline: boolean
+    strike: boolean
+    color: string
+    highlightColor: string
+    fontSize: string
+    linkHref: string
+}
+
+/** Parses inline HTML into an array of TextRun objects with marks. */
+export function htmlToRuns(html: string): TextRun[] {
+    const runs: TextRun[] = []
+
+    const state: RunState = {
+        bold: false,
+        italic: false,
+        underline: false,
+        strike: false,
+        color: '',
+        highlightColor: '',
+        fontSize: '',
+        linkHref: '',
+    }
+
+    const stack: RunState[] = []
+
+    function saveState(): RunState {
+        return { ...state }
+    }
+
+    function pushState() {
+        stack.push(saveState())
+    }
+
+    function popState() {
+        const prev = stack.pop()
+        if (prev) {
+            state.bold = prev.bold
+            state.italic = prev.italic
+            state.underline = prev.underline
+            state.strike = prev.strike
+            state.color = prev.color
+            state.highlightColor = prev.highlightColor
+            state.fontSize = prev.fontSize
+            state.linkHref = prev.linkHref
+        }
+    }
+
+    function emitText(raw: string) {
+        const text = decodeEntities(raw)
+        if (!text) return
+        runs.push({
+            text,
+            ...(state.bold ? { bold: true } : {}),
+            ...(state.italic ? { italic: true } : {}),
+            ...(state.underline ? { underline: true } : {}),
+            ...(state.strike ? { strikethrough: true } : {}),
+            ...(state.color ? { color: state.color } : {}),
+            ...(state.highlightColor ? { highlightColor: state.highlightColor } : {}),
+            ...(state.fontSize ? { fontSize: state.fontSize } : {}),
+            ...(state.linkHref ? { linkHref: state.linkHref } : {}),
+        })
+    }
+
+    // Parse style attribute for color / background-color / font-size
+    function applyStyle(styleAttr: string) {
+        const decls = styleAttr.split(';')
+        for (const decl of decls) {
+            const colonIdx = decl.indexOf(':')
+            if (colonIdx === -1) continue
+            const prop = decl.slice(0, colonIdx).trim().toLowerCase()
+            const val = decl.slice(colonIdx + 1).trim()
+            if (prop === 'color') {
+                const normalized = normalizeColor(val)
+                if (normalized) state.color = normalized
+            } else if (prop === 'background-color' || prop === 'background') {
+                const normalized = normalizeColor(val)
+                if (normalized) state.highlightColor = normalized
+            } else if (prop === 'font-size') {
+                const normalized = normalizeFontSize(val)
+                if (normalized) state.fontSize = normalized
+            }
+        }
+    }
+
+    let pos = 0
+    const len = html.length
+
+    while (pos < len) {
+        if (html[pos] !== '<') {
+            // Text content — find next tag or end
+            let end = pos
+            while (end < len && html[end] !== '<') end++
+            emitText(html.slice(pos, end))
+            pos = end
+            continue
+        }
+
+        // We're at a '<'
+        const tagEnd = html.indexOf('>', pos)
+        if (tagEnd === -1) {
+            // Malformed — treat rest as text
+            emitText(html.slice(pos))
+            break
+        }
+
+        const tagContent = html.slice(pos + 1, tagEnd)
+        pos = tagEnd + 1
+
+        // Closing tag?
+        if (tagContent.startsWith('/')) {
+            const closingTag = tagContent.slice(1).trim().toLowerCase().split(/\s/)[0]
+            // br doesn't use a stack
+            if (closingTag !== 'br') {
+                popState()
+            }
+            continue
+        }
+
+        // Self-closing or void?
+        const isSelfClosing = tagContent.endsWith('/')
+        const tagBody = isSelfClosing ? tagContent.slice(0, -1) : tagContent
+        const tagNameMatch = tagBody.match(/^([a-zA-Z][a-zA-Z0-9]*)/)
+        if (!tagNameMatch) continue
+        const tagName = tagNameMatch[1].toLowerCase()
+
+        if (tagName === 'br') {
+            runs.push({ text: '\n' })
+            continue
+        }
+
+        // Parse attributes from tagBody
+        const attrStr = tagBody.slice(tagName.length)
+
+        // Extract href for anchor tags
+        const hrefMatch = attrStr.match(/href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/)
+        const styleMatch = attrStr.match(/style\s*=\s*(?:"([^"]*)"|'([^']*)')/)
+
+        if (!isSelfClosing) {
+            pushState()
+        }
+
+        // Apply marks based on tag name
+        switch (tagName) {
+            case 'strong':
+            case 'b':
+                state.bold = true
+                break
+            case 'em':
+            case 'i':
+                state.italic = true
+                break
+            case 'u':
+                state.underline = true
+                break
+            case 's':
+            case 'del':
+            case 'strike':
+                state.strike = true
+                break
+            case 'a':
+                if (hrefMatch) {
+                    state.linkHref = hrefMatch[1] ?? hrefMatch[2] ?? hrefMatch[3] ?? ''
+                }
+                break
+            case 'span':
+                if (styleMatch) {
+                    applyStyle(styleMatch[1] ?? styleMatch[2] ?? '')
+                }
+                break
+        }
+    }
+
+    // Merge adjacent runs with identical marks
+    if (runs.length === 0) return runs
+
+    const merged: TextRun[] = [runs[0]]
+    for (let i = 1; i < runs.length; i++) {
+        const prev = merged[merged.length - 1]
+        const curr = runs[i]
+        if (
+            prev.bold === curr.bold &&
+            prev.italic === curr.italic &&
+            prev.underline === curr.underline &&
+            prev.strikethrough === curr.strikethrough &&
+            prev.color === curr.color &&
+            prev.highlightColor === curr.highlightColor &&
+            prev.fontSize === curr.fontSize &&
+            prev.linkHref === curr.linkHref
+        ) {
+            prev.text += curr.text
+        } else {
+            merged.push(curr)
+        }
+    }
+
+    return merged
+}
+
 function parseHtmlToElements(html: string, extractedImages: ExtractedImage[]): IntermediateElement[] {
     const elements: IntermediateElement[] = []
 
@@ -70,7 +350,7 @@ function parseHtmlToElements(html: string, extractedImages: ExtractedImage[]): I
             // bare text node — wrap as paragraph
             const end = normalized.indexOf('<', pos)
             const text = end === -1 ? normalized.slice(pos).trim() : normalized.slice(pos, end).trim()
-            if (text) elements.push({ type: 'paragraph', text, rawHtml: text })
+            if (text) elements.push({ type: 'paragraph', text, rawHtml: text, runs: [{ text }] })
             pos = end === -1 ? len : end
             continue
         }
@@ -140,7 +420,8 @@ function parseHtmlToElements(html: string, extractedImages: ExtractedImage[]): I
             const bold = /<strong>/i.test(inner)
             const italic = /<em>/i.test(inner)
             const underline = /<u>/i.test(inner)
-            elements.push({ type: 'paragraph', text, rawHtml: blockHtml, bold, italic, underline })
+            const runs = htmlToRuns(inner)
+            elements.push({ type: 'paragraph', text, rawHtml: blockHtml, bold, italic, underline, runs })
             pos = blockEnd
             continue
         }
@@ -148,13 +429,19 @@ function parseHtmlToElements(html: string, extractedImages: ExtractedImage[]): I
         // Parse unordered lists
         if (tagName === 'ul') {
             const items: string[] = []
+            const itemRuns: TextRun[][] = []
             const liPattern = /<li[^>]*>([\s\S]*?)<\/li>/gi
             let m: RegExpExecArray | null
             while ((m = liPattern.exec(blockHtml)) !== null) {
-                const text = stripTags(m[1]).trim()
-                if (text) items.push(text)
+                const liInner = m[1]
+                const runs = htmlToRuns(liInner)
+                const text = runs.map(r => r.text).join('').trim()
+                if (text) {
+                    items.push(text)
+                    itemRuns.push(runs)
+                }
             }
-            if (items.length) elements.push({ type: 'list', ordered: false, items })
+            if (items.length) elements.push({ type: 'list', ordered: false, items, itemRuns })
             pos = blockEnd
             continue
         }
@@ -162,13 +449,19 @@ function parseHtmlToElements(html: string, extractedImages: ExtractedImage[]): I
         // Parse ordered lists
         if (tagName === 'ol') {
             const items: string[] = []
+            const itemRuns: TextRun[][] = []
             const liPattern = /<li[^>]*>([\s\S]*?)<\/li>/gi
             let m: RegExpExecArray | null
             while ((m = liPattern.exec(blockHtml)) !== null) {
-                const text = stripTags(m[1]).trim()
-                if (text) items.push(text)
+                const liInner = m[1]
+                const runs = htmlToRuns(liInner)
+                const text = runs.map(r => r.text).join('').trim()
+                if (text) {
+                    items.push(text)
+                    itemRuns.push(runs)
+                }
             }
-            if (items.length) elements.push({ type: 'list', ordered: true, items })
+            if (items.length) elements.push({ type: 'list', ordered: true, items, itemRuns })
             pos = blockEnd
             continue
         }
@@ -176,18 +469,35 @@ function parseHtmlToElements(html: string, extractedImages: ExtractedImage[]): I
         // Parse tables
         if (tagName === 'table') {
             const rows: string[][] = []
+            const cells: TextRun[][][] = []
+
+            // Detect header row: check if first <tr> contains any <th>
+            let hasHeaderRow = false
+            const firstTrMatch = blockHtml.match(/<tr[^>]*>([\s\S]*?)<\/tr>/i)
+            if (firstTrMatch && /<th[^>]*>/i.test(firstTrMatch[1])) {
+                hasHeaderRow = true
+            }
+
             const trPattern = /<tr[^>]*>([\s\S]*?)<\/tr>/gi
             let trMatch: RegExpExecArray | null
             while ((trMatch = trPattern.exec(blockHtml)) !== null) {
-                const cells: string[] = []
+                const rowPlainCells: string[] = []
+                const rowRunCells: TextRun[][] = []
                 const tdPattern = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi
                 let tdMatch: RegExpExecArray | null
                 while ((tdMatch = tdPattern.exec(trMatch[1])) !== null) {
-                    cells.push(stripTags(tdMatch[1]).trim())
+                    const cellInner = tdMatch[1]
+                    const cellRuns = htmlToRuns(cellInner)
+                    const cellText = stripTags(cellInner).trim()
+                    rowPlainCells.push(cellText)
+                    rowRunCells.push(cellRuns)
                 }
-                if (cells.length) rows.push(cells)
+                if (rowPlainCells.length) {
+                    rows.push(rowPlainCells)
+                    cells.push(rowRunCells)
+                }
             }
-            if (rows.length) elements.push({ type: 'table', rows })
+            if (rows.length) elements.push({ type: 'table', rows, cells, hasHeaderRow })
             pos = blockEnd
             continue
         }

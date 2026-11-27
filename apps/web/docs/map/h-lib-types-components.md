@@ -138,6 +138,23 @@ This map documents every file under `lib/**` (60 files), `types/**` (32 files), 
 ### types/help.d.ts
 `HelpArticle`, `HelpSuggestion`, `HelpRevision`, `HelpQuestion` (`help_questions`), `HelpAudience`, `HelpCategory`, `HelpSuggestionKind/Status`.
 
+### lib/mod-wiki/ — ASOT Mod and Features wiki
+- `articles.ts` — `BUILT_IN_MOD_WIKI_ARTICLES` (the seed articles; a `mod_wiki_articles` document with the same `_id`/slug overrides one). Ships with the CBRN guide and the Mission Template player guide.
+- `store.ts` — `loadAllModWikiArticles` / `loadVisibleModWikiArticles(includeHidden)` / `loadModWikiArticle(slug)` merge built-ins with `Db.modWikiArticles`; `saveModWikiArticle` copies the replaced version to `Db.modWikiRevisions` and bumps `version_num`.
+- `viewer.ts` — `resolveModWikiViewer()`: `signedIn`, `canSuggest` (any dashboard user), `canReview` (J7 department OR J4 department OR granted `mod-wiki.review`).
+- `search.ts` (pure) — `ModWikiArticleView`, `MOD_WIKI_CATEGORIES`, `MOD_WIKI_CATEGORY_KEYS`, `articlesInCategory`, `searchModWikiArticles` (weighted title/keywords/summary/body, same stemming as help search).
+- `validate.ts` (pure) — `parseModWikiArticleFields`, `parseModWikiSuggestion`, `slugFromTitle`, `SLUG_RE`, `MOD_WIKI_LIMITS`.
+- `suggestions.ts` — `ModWikiSuggestionView`, `toModWikiSuggestionView`, `MOD_WIKI_SUGGESTION_KIND_LABEL`.
+
+### components/mod-wiki/
+- `ModWikiPage.tsx` — main client component: home view (category grid), article view (full GFM body, TOC sidebar, suggest/edit buttons), search results. URL-synced via `history.pushState`. Loaded at `/dashboard/unit/mod-features` and `/dashboard/unit/mod-features/[slug]`.
+- `ModWikiMarkdown.tsx` — custom GFM block + inline renderer (no external library). Headings (anchor ids), paragraphs, lists, blockquotes with callout detection (warning/note/tip/image-needed), tables, fenced code blocks, inline bold/italic/code/links/images. `extractHeadings(body)` for TOC.
+- `ModWikiArticleEditor.tsx` — in-page editor (title, category, summary, body textarea, pbos, requiredMods, version, keywords, hidden). Preview toggle uses `ModWikiMarkdown`. PUT to `/api/mod-wiki/articles/[slug]`.
+- `ModWikiSuggest.tsx` — member suggestion form (edit / bug report). POST to `/api/mod-wiki/suggestions`.
+
+### types/mod-wiki.d.ts
+`ModWikiCategory` (16 keys), `ModWikiArticle`, `ModWikiSuggestion`, `ModWikiRevision`, `ModWikiSuggestionKind/Status`.
+
 ### lib/mods/mod-database.ts + access.ts
 - The Mod Database (`Db.modDatabase`, type `ModEntry`): one entry per mod — name, Workshop link, status (approved / testing / known issues / rejected), notes, who tested it and when. `mod-database.ts` is pure and tested (`sanitiseMod` with a `partial` mode for edits, `cleanModUrl`, `normaliseModUrl` for spotting a mod already listed, `matchesModSearch`). `access.ts` — `canEditMods(me)` (J2 or J7) and `toModView`.
 - Routes: `GET/POST /api/mods` (`?ticketId=` answers "is there an entry from this ticket, may I make one"), `PATCH/DELETE /api/mods/[id]`. Read: dashboard access. Write: J2 / J7.

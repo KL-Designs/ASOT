@@ -255,6 +255,42 @@ export async function POST(req: NextRequest) {
         })
     }
 
+    // ── Name Change ───────────────────────────────────────────────────────────
+    if (type === 'name-change') {
+        const { requestedName, notes } = body
+
+        if (!requestedName?.trim()) {
+            return NextResponse.json({ error: 'requestedName is required.' }, { status: 400 })
+        }
+
+        const currentUser = await Db.users.findOne({ id: me.id })
+        const currentName = currentUser?.name ?? (me.guild?.nickname || me.guild?.displayName || me.globalName || me.username || me.id)
+
+        const ticket: Omit<Ticket, '_id'> = {
+            type: 'name-change',
+            department: 'j4',
+            status: 'open',
+            targetUserId: me.id,
+            targetUserName: displayName,
+            issuedById: me.id,
+            issuedByName: displayName,
+            issuedAt: new Date(),
+            requestedName: requestedName.trim(),
+            currentName,
+            ...(notes?.trim() ? { notes: notes.trim() } : {}),
+        }
+
+        const result = await Db.tickets.insertOne(ticket as Ticket)
+        await createNotificationForRole('J4-Administration', {
+            type: 'task_assigned',
+            title: 'Name change request',
+            body: `${displayName} has requested a callsign change to "${requestedName.trim()}"`,
+            actionUrl: '/dashboard/unit/tickets',
+            relatedId: result.insertedId.toString(),
+        })
+        return NextResponse.json({ ok: true, id: result.insertedId.toString() })
+    }
+
     // ── J4 Discharge ──────────────────────────────────────────────────────────
     if (type === 'j4-discharge') {
         // Any admin-page user may initiate; J4 must approve

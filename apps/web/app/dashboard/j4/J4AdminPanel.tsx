@@ -23,6 +23,8 @@ import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
 import { Badge, SectionLabel, Switch, ToolCard, ToolGrid } from '@/components/dashboard'
 import { defaultRejoinStatus, REJOIN_LABEL, REJOIN_STATUSES, type RejoinStatus } from '@/lib/j1/rejoin'
 import AwardPostageTab from './tabs/AwardPostageTab'
+import InductionContentTab from './tabs/InductionContentTab'
+import AllDeptInductionTab from './tabs/AllDeptInductionTab'
 
 const btnSx = (active: boolean): React.CSSProperties => ({
     fontSize: '0.62rem',
@@ -1081,6 +1083,8 @@ export default function J4AdminPanel({ userId, displayName, canManageLinks, canB
             </div>
         ) },
         { key: 'ai-admin',  label: 'AI Admin',  render: () => <AIAdminTab /> },
+        { key: 'induction-content', label: 'Staff Induction Content', render: () => <InductionContentTab /> },
+        { key: 'all-dept-inductions', label: 'All-Department Inductions', render: () => <AllDeptInductionTab /> },
         // Row 384: LT GEN Thomas only (plus OVERRIDE), not every J4 member. The API enforces the same.
         { key: 'award-postage', label: 'Awards and Citation Postage', visible: canAwardPostage, render: () => <AwardPostageTab /> },
     ]

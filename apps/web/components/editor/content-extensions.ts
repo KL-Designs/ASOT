@@ -1,4 +1,6 @@
 import { Extension, Node, mergeAttributes } from '@tiptap/core'
+import { Plugin, PluginKey } from 'prosemirror-state'
+import type { EditorView } from 'prosemirror-view'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import TextAlign from '@tiptap/extension-text-align'
@@ -7,7 +9,8 @@ import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import { TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-color'
-import { Table } from '@tiptap/extension-table'
+import { Table, TableView } from '@tiptap/extension-table'
+import { columnResizingPluginKey } from 'prosemirror-tables'
 import { TableRow } from '@tiptap/extension-table-row'
 import { TableCell } from '@tiptap/extension-table-cell'
 import { TableHeader } from '@tiptap/extension-table-header'
@@ -47,7 +50,21 @@ export const FontSize = Extension.create({
             attributes: {
                 fontSize: {
                     default: null,
-                    parseHTML: (el: HTMLElement) => el.style.fontSize || null,
+                    parseHTML: (el: HTMLElement) => {
+                        const raw = el.style.fontSize
+                        if (!raw) return null
+                        // Normalize pt → px (1pt = 96/72px at 96 DPI)
+                        if (raw.endsWith('pt')) {
+                            const pt = parseFloat(raw)
+                            if (!isNaN(pt)) return `${Math.round(pt * 96 / 72)}px`
+                        }
+                        // Normalize em/rem → px (assume 16px base)
+                        if (raw.endsWith('em')) {
+                            const em = parseFloat(raw)
+                            if (!isNaN(em)) return `${Math.round(em * 16)}px`
+                        }
+                        return raw
+                    },
                     renderHTML: (attrs: Record<string, any>) =>
                         attrs.fontSize ? { style: `font-size: ${attrs.fontSize}` } : {},
                 },
@@ -245,26 +262,351 @@ export const ContentTable = Table.extend({
                 parseHTML: (el: HTMLElement) => el.getAttribute('data-table-width') || '100%',
                 renderHTML: (attrs: Record<string, any>) => ({
                     'data-table-width': attrs.tableWidth || '100%',
-                    style: `--tbl-bc:${attrs.borderColor || '#4a5060'};--tbl-bw:${attrs.borderWidth ?? 1}px;width:${attrs.tableWidth || '100%'}`,
+                    style: `--tbl-bc:${attrs.borderColor || '#4a5060'};--tbl-bw:${attrs.borderWidth ?? 1}px;width:${attrs.tableWidth || '100%'}${attrs.tableMinHeight ? `;min-height:${attrs.tableMinHeight}` : ''}`,
                 }),
+            },
+            tableMinHeight: {
+                default: '',
+                parseHTML: (el: HTMLElement) => el.getAttribute('data-table-min-height') || '',
+                renderHTML: (attrs: Record<string, any>) => attrs.tableMinHeight
+                    ? { 'data-table-min-height': attrs.tableMinHeight }
+                    : {},
             },
         }
     },
+
 })
 
+// When resizable:true, TipTap's Table extension returns null from addNodeView() and
+// delegates entirely to prosemirror-tables' columnResizing plugin, which registers its
+// own nodeViews[table] entry directly. The only way to intercept that NodeView is to
+// pass a custom View class.
+//
+// Two problems this subclass solves:
+// 1. updateColumns() unconditionally overwrites table.style.width with a px total on
+//    every NodeView update — fixed by overriding update() to restore the percentage.
+// 2. displayColumnWidth() calls updateColumnsOnResize DIRECTLY on the DOM element
+//    during a column drag, bypassing update() entirely — fixed with a MutationObserver
+//    on table[style] that restores the percentage as a microtask (before paint).
+class PatchedTableView extends TableView {
+    private _observer: MutationObserver
+
+    constructor(node: any, cellMinWidth: number, _view?: any, HTMLAttributes: Record<string, any> = {}) {
+        super(node, cellMinWidth, _view, HTMLAttributes)
+        this._applyDeclaredSize(node)
+
+        // Intercept displayColumnWidth's direct DOM writes. It calls
+        // updateColumnsOnResize(table, ...) without going through the NodeView,
+        // setting table.style.width to a px total that makes the table shrink
+        // visually during the drag. We restore the declared percentage here as a
+        // microtask (MutationObserver fires before the browser paints).
+        //
+        // Only intercept absolute-px or empty-string widths — those come from
+        // displayColumnWidth/updateColumnsOnResize. Percentage widths come from the
+        // corner-handle live preview and must be left alone so horizontal drag works.
+        this._observer = new MutationObserver(() => {
+            const isAbsolute = this.table.style.width !== '' && !this.table.style.width.endsWith('%')
+            if (isAbsolute || this.table.style.minWidth) {
+                this.table.style.minWidth = ''
+                this.table.style.width = this.node.attrs?.tableWidth || '100%'
+            }
+        })
+        this._observer.observe(this.table, { attributes: true, attributeFilter: ['style'] })
+    }
+
+    override update(node: any): boolean {
+        const result = super.update(node)
+        if (result) this._applyDeclaredSize(node)
+        return result
+    }
+
+    destroy() {
+        this._observer.disconnect()
+    }
+
+    private _applyDeclaredSize(node: any) {
+        this.table.style.minWidth = ''
+        this.table.style.width = node.attrs?.tableWidth || '100%'
+        this.table.style.minHeight = node.attrs?.tableMinHeight || ''
+    }
+}
+
 export { TableRow as ContentTableRow, TableCell as ContentTableCell, TableHeader as ContentTableHeader }
+
+function normalizeColorValue(raw: string): string | null {
+    const v = raw.trim().toLowerCase()
+    if (!v || v === 'transparent' || v === 'rgba(0,0,0,0)' || v === 'rgba(0, 0, 0, 0)') return null
+    // Convert rgb(r, g, b) / rgba(r, g, b, a) to hex
+    const rgba = v.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*[\d.]+)?\s*\)$/)
+    if (rgba) {
+        const r = parseInt(rgba[1]).toString(16).padStart(2, '0')
+        const g = parseInt(rgba[2]).toString(16).padStart(2, '0')
+        const b = parseInt(rgba[3]).toString(16).padStart(2, '0')
+        const hex = `#${r}${g}${b}`
+        if (hex === '#ffffff' || hex === '#000000') return null
+        return hex
+    }
+    if (v.startsWith('#')) return v
+    return null
+}
+
+/**
+ * Extends the base Highlight mark so pasted content with inline background-color
+ * styles (from Word, Google Docs, etc.) also gets parsed as a highlight mark.
+ * The base Highlight extension only matches <mark> elements.
+ */
+export const ContentHighlight = Highlight.extend({
+    parseHTML() {
+        return [
+            ...(this.parent?.() ?? []),
+            {
+                style: 'background-color',
+                getAttrs: (value: string | HTMLElement) => {
+                    if (typeof value !== 'string') return false
+                    const hex = normalizeColorValue(value)
+                    if (!hex) return false
+                    return { color: hex }
+                },
+            },
+        ]
+    },
+})
+
+/**
+ * Adds a corner resize handle (bottom-right of each table) to resize the whole
+ * table width. Dragging the handle gives a live percentage preview; releasing
+ * commits a tableWidth attr change via a ProseMirror transaction.
+ *
+ * The outer edge lock (keeping the right border fixed during column drags) is
+ * handled by ContentTable.addNodeView(), which patches the TableView update()
+ * to re-apply the tableWidth percentage after prosemirror-tables' updateColumns()
+ * overwrites it with a px total.
+ */
+export const ContentTableInteractions = Extension.create({
+    name: 'tableInteractions',
+
+    addProseMirrorPlugins() {
+        const pluginKey = new PluginKey('tableInteractions')
+
+        return [new Plugin({
+            key: pluginKey,
+            view(editorView: EditorView) {
+                const handles = new Map<HTMLElement, HTMLElement>()
+
+                // --- Corner handle position ---
+                function placeHandle(wrapper: HTMLElement, handle: HTMLElement) {
+                    const tbl = wrapper.querySelector('table') as HTMLTableElement | null
+                    if (!tbl) return
+                    handle.style.left = `${tbl.offsetLeft + tbl.offsetWidth - 14}px`
+                    handle.style.top = `${tbl.offsetTop + tbl.offsetHeight - 14}px`
+                }
+
+                function attachToWrapper(wrapper: HTMLElement) {
+                    if (handles.has(wrapper)) return
+                    if (!wrapper.querySelector('table')) return
+
+                    const handle = document.createElement('div')
+                    handle.className = 'table-corner-resize'
+                    wrapper.appendChild(handle)
+                    handles.set(wrapper, handle)
+                    placeHandle(wrapper, handle)
+
+                    let startX = 0, startW = 0, containerW = 0
+                    let startY = 0, startH = 0
+
+                    function computeSizes(e: MouseEvent) {
+                        const pct = Math.max(10, Math.min(100, Math.round((startW + e.clientX - startX) / containerW * 100)))
+                        const newW = `${pct}%`
+                        const dy = e.clientY - startY
+                        const newH = dy > 0 ? `${Math.round(startH + dy)}px` : ''
+                        return { newW, newH }
+                    }
+
+                    function onMove(e: MouseEvent) {
+                        const tbl = wrapper.querySelector('table') as HTMLTableElement | null
+                        if (!tbl) return
+                        const { newW, newH } = computeSizes(e)
+                        tbl.style.width = newW
+                        tbl.style.minHeight = newH
+                        placeHandle(wrapper, handle)
+                    }
+
+                    function onUp(e: MouseEvent) {
+                        document.removeEventListener('mousemove', onMove)
+                        document.removeEventListener('mouseup', onUp)
+                        const tbl = wrapper.querySelector('table') as HTMLTableElement | null
+                        if (!tbl) return
+                        const { newW, newH } = computeSizes(e)
+                        tbl.style.width = newW
+                        tbl.style.minHeight = newH
+                        placeHandle(wrapper, handle)
+
+                        const { state } = editorView
+                        const { doc, tr } = state
+                        doc.descendants((node: any, pos: number) => {
+                            if (node.type.name !== 'table') return
+                            const dom = editorView.nodeDOM(pos)
+                            const domEl = dom instanceof HTMLElement ? dom : null
+                            if (domEl && (domEl === wrapper || wrapper.contains(domEl) || domEl.contains(tbl))) {
+                                editorView.dispatch(tr.setNodeMarkup(pos, undefined, {
+                                    ...node.attrs,
+                                    tableWidth: newW,
+                                    tableMinHeight: newH,
+                                }))
+                                return false
+                            }
+                        })
+                    }
+
+                    handle.addEventListener('mousedown', (e: MouseEvent) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        startX = e.clientX
+                        startY = e.clientY
+                        const tbl = wrapper.querySelector('table') as HTMLTableElement | null
+                        if (!tbl) return
+                        const rect = tbl.getBoundingClientRect()
+                        startW = rect.width
+                        startH = rect.height
+                        containerW = wrapper.parentElement?.getBoundingClientRect().width || startW
+                        document.addEventListener('mousemove', onMove)
+                        document.addEventListener('mouseup', onUp)
+                    })
+                }
+
+                function sync() {
+                    editorView.dom.querySelectorAll<HTMLElement>('.tableWrapper').forEach((w: HTMLElement) => attachToWrapper(w))
+                    handles.forEach((handle, wrapper) => {
+                        if (!wrapper.isConnected) {
+                            handle.remove()
+                            handles.delete(wrapper)
+                        } else {
+                            placeHandle(wrapper, handle)
+                        }
+                    })
+                }
+
+                // Intercepts column-resize mousedowns before prosemirror-tables gets them.
+                // Only the two columns adjacent to the dragged border redistribute width;
+                // all others stay fixed and the outer table width stays at its declared %.
+                //
+                // Uses columnResizingPluginKey.activeHandle (set by prosemirror-tables'
+                // mousemove handler) rather than a class check, because the handle widget
+                // is only in the DOM when the cursor has already hovered over a border —
+                // clicking the CSS cell divider directly would miss the class check.
+                function onColumnMouseDown(e: MouseEvent): void {
+                    if (e.button !== 0) return
+                    const resizeState = columnResizingPluginKey.getState(editorView.state) as { activeHandle: number; dragging: unknown } | null
+                    if (!resizeState || resizeState.activeHandle === -1 || resizeState.dragging) return
+
+                    // activeHandle is the ProseMirror pos of the left cell of the border
+                    const cellDom = editorView.nodeDOM(resizeState.activeHandle)
+                    if (!(cellDom instanceof HTMLElement) || !cellDom.matches('td, th')) return
+                    const tblEl = cellDom.closest('table') as HTMLTableElement | null
+                    if (!tblEl) return
+
+                    // Count which column this cell is in (left col of the dragged border)
+                    let leftCol = 0
+                    let prev = cellDom.previousElementSibling
+                    while (prev) { leftCol += (prev as HTMLTableCellElement).colSpan || 1; prev = prev.previousElementSibling }
+                    const rightCol = leftCol + 1
+
+                    const colEls = Array.from(tblEl.querySelectorAll('col')) as HTMLElement[]
+                    if (rightCol >= colEls.length) return
+
+                    // Measure starting widths from the first row's rendered cells
+                    const firstRow = tblEl.querySelector('tr')
+                    if (!firstRow) return
+                    const cells0 = Array.from(firstRow.children) as HTMLTableCellElement[]
+                    const leftStartW = cells0[leftCol]?.offsetWidth ?? 60
+                    const rightStartW = cells0[rightCol]?.offsetWidth ?? 60
+                    const minW = 20
+                    const startX = e.clientX
+
+                    function onMove(ev: MouseEvent): void {
+                        const dx = ev.clientX - startX
+                        const newLeft = Math.max(minW, Math.min(leftStartW + rightStartW - minW, leftStartW + dx))
+                        colEls[leftCol].style.width = `${Math.round(newLeft)}px`
+                        colEls[rightCol].style.width = `${Math.round(leftStartW + rightStartW - newLeft)}px`
+                    }
+
+                    function onUp(ev: MouseEvent): void {
+                        document.removeEventListener('mousemove', onMove)
+                        document.removeEventListener('mouseup', onUp)
+
+                        const dx = ev.clientX - startX
+                        const newLeft = Math.max(minW, Math.min(leftStartW + rightStartW - minW, leftStartW + dx))
+                        const newRight = leftStartW + rightStartW - newLeft
+
+                        const { state } = editorView
+                        const tr = state.tr
+
+                        function setCellColwidth(cellEl: Element, newW: number): void {
+                            if ((cellEl as HTMLTableCellElement).colSpan > 1) return
+                            try {
+                                const docPos = editorView.posAtDOM(cellEl as HTMLElement, 0)
+                                const $pos = state.doc.resolve(docPos)
+                                let cellPos: number | null = null
+                                for (let d = $pos.depth; d >= 0; d--) {
+                                    const n = $pos.node(d)
+                                    if (n.type.name === 'tableCell' || n.type.name === 'tableHeader') {
+                                        cellPos = $pos.before(d)
+                                        break
+                                    }
+                                }
+                                if (cellPos === null) return
+                                const cellNode = state.doc.nodeAt(cellPos)
+                                if (!cellNode) return
+                                tr.setNodeMarkup(cellPos, undefined, { ...cellNode.attrs, colwidth: [Math.round(newW)] })
+                            } catch { /* cell outside doc */ }
+                        }
+
+                        tblEl!.querySelectorAll('tr').forEach((row: Element) => {
+                            let col = 0
+                            for (const cellEl of Array.from(row.children)) {
+                                if (col === leftCol) setCellColwidth(cellEl, newLeft)
+                                else if (col === rightCol) setCellColwidth(cellEl, newRight)
+                                col += (cellEl as HTMLTableCellElement).colSpan || 1
+                                if (col > rightCol) break
+                            }
+                        })
+
+                        if (tr.docChanged) editorView.dispatch(tr)
+                    }
+
+                    e.stopPropagation()
+                    e.preventDefault()
+                    document.addEventListener('mousemove', onMove)
+                    document.addEventListener('mouseup', onUp)
+                }
+                editorView.dom.addEventListener('mousedown', onColumnMouseDown, true)
+
+                requestAnimationFrame(sync)
+
+                return {
+                    update() { sync() },
+                    destroy() {
+                        editorView.dom.removeEventListener('mousedown', onColumnMouseDown, true)
+                        handles.forEach(h => h.remove())
+                        handles.clear()
+                    },
+                }
+            },
+        })]
+    },
+})
 
 export function contentExtensions() {
     return [
         StarterKit.configure({ undoRedo: false }),
         ContentImage,
         ContentFlowchart,
-        ContentTable.configure({ resizable: true }),
+        ContentTable.configure({ resizable: true, View: PatchedTableView, lastColumnResizable: false }),
         TableRow,
         TableCell,
         TableHeader,
         TextAlign.configure({ types: ['heading', 'paragraph'] }),
-        Highlight.configure({ multicolor: false }),
+        ContentHighlight.configure({ multicolor: true }),
         Underline,
         TextStyle,
         Color,
@@ -273,5 +615,6 @@ export function contentExtensions() {
             openOnClick: false,
             HTMLAttributes: { target: '_blank', rel: 'noopener noreferrer' },
         }),
+        ContentTableInteractions,
     ]
 }
