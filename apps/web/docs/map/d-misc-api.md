@@ -40,6 +40,27 @@ All gates come from `resolveHelpViewer()` (`lib/help/viewer.ts`): signed-out rea
 
 ---
 
+### mod-wiki (5 files) — ASOT Mod and Features wiki (unit/mod-features)
+
+All gates come from `resolveModWikiViewer()` (`lib/mod-wiki/viewer.ts`): `canSuggest` is any signed-in dashboard user; `canReview` is J7 department **or** J4 department **or** the granted `mod-wiki.review` key. Articles overlaid on built-in seeds in `lib/mod-wiki/articles.ts` by `mod_wiki_articles` (same slug overrides, new slug adds). Collections: `modWikiArticles`, `modWikiSuggestions`, `modWikiRevisions`.
+
+#### /api/mod-wiki
+- **GET** — any authenticated user. Returns `{ viewer, articles }` — all visible articles (hidden ones only for reviewers) plus `ModWikiViewer` flags. `force-dynamic`, no-store.
+
+#### /api/mod-wiki/articles/[slug]
+- **PUT** `{...fields, baseVersion?, create?}` — reviewers only. Creates (`create:true`) or edits (409 on stale `baseVersion`). Copies to revisions before writing. Logs `mod-wiki.article.create|edit`.
+
+#### /api/mod-wiki/articles/[slug]/revisions
+- **GET** — reviewers; up to 50 revisions newest-first. **POST** `{revisionId}` — restore a revision. Logs `mod-wiki.article.restore`.
+
+#### /api/mod-wiki/suggestions
+- **GET** `?status=pending|approved|rejected&mine=1` — reviewers get all; others get their own. Returns `{ suggestions, counts }`. **POST** `{kind, articleSlug?, baseVersion?, title, body, summary?, category?, note?}` — any signed-in user. Max 15 pending per author.
+
+#### /api/mod-wiki/suggestions/[id]
+- **PATCH** `{action:'approve'|'reject', note?, force?, slug?}` — reviewers only. Reject marks status. Approve for `edit`/`new` calls `saveModWikiArticle` with reason `'suggestion'`; for `bug` just marks approved. Logs `mod-wiki.suggestion.approved|rejected`.
+
+---
+
 ### aar-reports (2 files)
 
 #### /api/aar-reports

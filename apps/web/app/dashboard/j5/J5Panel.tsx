@@ -19,6 +19,7 @@ import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
+import DeptInductionTab from '@/app/dashboard/_components/DeptInductionTab'
 
 export default function J5Panel({
     displayName,
@@ -92,6 +93,7 @@ export default function J5Panel({
     const adminSections: DeptAdminSection[] = [
         { key: 'meetings', label: 'Meetings', render: () => <MeetingsTab department='j5' userId={userId} isLead={isLead} /> },
         { key: 'tickets',  label: 'Tickets',  render: () => <DeptTicketsTab department='j5' canManage={isLead} isJ4={isJ4} /> },
+        { key: 'induction', label: 'Staff Inductions', visible: isLead, render: () => <DeptInductionTab dept='j5' /> },
     ]
 
     // A pinned/bookmarked tab index from the old FIXED_TABS ordering (or one

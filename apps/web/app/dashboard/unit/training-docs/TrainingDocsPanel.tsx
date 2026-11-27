@@ -47,6 +47,14 @@ function DocIcon({ iconName, type, size = 18, color }: { iconName?: string; type
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+type DocChangeEntry = {
+    version: number
+    summary: string
+    addedAt: string
+    addedByName: string
+    requiresAck: boolean
+}
+
 type DocItem = {
     _id: string
     type: 'folder' | 'document'
@@ -59,6 +67,7 @@ type DocItem = {
     updatedAt: string
     createdByName: string
     updatedByName?: string
+    changeLog?: DocChangeEntry[]
 }
 
 type BreadcrumbEntry = { id: string | null; name: string }
@@ -152,6 +161,15 @@ export default function TrainingDocsPanel({ isJ3, initialDocId }: { isJ3: boolea
     const editorHtmlRef = useRef('')
     const [savingContent, setSavingContent] = useState(false)
 
+    // Change log / acknowledgement state
+    const [ackStatus, setAckStatus] = useState<{ needsAck: boolean; latestVersion: number | null; latestSummary?: string } | null>(null)
+    const [acknowledging, setAcknowledging] = useState(false)
+    const [ackDone, setAckDone] = useState(false)
+    const [showAddChange, setShowAddChange] = useState(false)
+    const [changeSummary, setChangeSummary] = useState('')
+    const [changeRequiresAck, setChangeRequiresAck] = useState(false)
+    const [addingChange, setAddingChange] = useState(false)
+
     const router = useRouter()
     const openedDocRef = useRef<string | null>(null)  // prevents double-fetch when URL updates after openDocument
 
@@ -189,8 +207,14 @@ export default function TrainingDocsPanel({ isJ3, initialDocId }: { isJ3: boolea
                     originalFileName: doc.originalFileName,
                     createdAt: doc.createdAt, updatedAt: doc.updatedAt,
                     createdByName: doc.createdByName, updatedByName: doc.updatedByName,
+                    changeLog: doc.changeLog ?? [],
                 }
                 setView({ type: 'read', item, html: doc.htmlContent ?? '' })
+                setAckDone(false)
+                fetch(`/api/training-docs/${initialDocId}/acks`)
+                    .then(r => r.json())
+                    .then(d => setAckStatus(d))
+                    .catch(() => setAckStatus(null))
             })
             .catch(() => {})
     }, [initialDocId])
@@ -217,8 +241,14 @@ export default function TrainingDocsPanel({ isJ3, initialDocId }: { isJ3: boolea
         if (!res.ok) return
         const doc = await res.json()
         openedDocRef.current = item._id
-        setView({ type: 'read', item, html: doc.htmlContent ?? '' })
+        const fullItem: DocItem = { ...item, changeLog: doc.changeLog ?? [] }
+        setView({ type: 'read', item: fullItem, html: doc.htmlContent ?? '' })
         router.push(`/dashboard/unit/training-docs/${item._id}`)
+        setAckDone(false)
+        fetch(`/api/training-docs/${item._id}/acks`)
+            .then(r => r.json())
+            .then(d => setAckStatus(d))
+            .catch(() => setAckStatus(null))
     }
 
     function backToList() {
@@ -390,6 +420,36 @@ export default function TrainingDocsPanel({ isJ3, initialDocId }: { isJ3: boolea
         } finally { setSavingContent(false) }
     }
 
+    // ── Acknowledgement ───────────────────────────────────────────────────────
+
+    async function handleAcknowledge(docId: string) {
+        if (acknowledging) return
+        setAcknowledging(true)
+        try {
+            const res = await fetch(`/api/training-docs/${docId}/acks`, { method: 'POST' })
+            if (res.ok) { setAckDone(true); setAckStatus(s => s ? { ...s, needsAck: false } : s) }
+        } finally { setAcknowledging(false) }
+    }
+
+    async function handleAddChange(docId: string) {
+        if (!changeSummary.trim() || addingChange) return
+        setAddingChange(true)
+        try {
+            const res = await fetch(`/api/training-docs/${docId}/changes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ summary: changeSummary.trim(), requiresAck: changeRequiresAck }),
+            })
+            if (!res.ok) return
+            const data = await res.json()
+            setView(v => v.type === 'read' || v.type === 'edit'
+                ? { ...v, item: { ...v.item, changeLog: [...(v.item.changeLog ?? []), data.entry] } }
+                : v
+            )
+            setChangeSummary(''); setChangeRequiresAck(false); setShowAddChange(false)
+        } finally { setAddingChange(false) }
+    }
+
     // ── Drag and drop ─────────────────────────────────────────────────────────
 
     function handleDragStart(e: DragStartEvent) {
@@ -546,6 +606,83 @@ export default function TrainingDocsPanel({ isJ3, initialDocId }: { isJ3: boolea
                         </div>
                     )}
                 </div>
+
+                {/* Change log + acknowledgement section */}
+                {view.type === 'read' && (
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 24, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                        {/* Ack banner */}
+                        {ackStatus?.needsAck && !ackDone && (
+                            <div style={{ background: 'rgba(219,0,29,0.08)', border: '1px solid rgba(219,0,29,0.3)', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                                <div>
+                                    <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.9)', marginBottom: 4 }}>Acknowledgement Required</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'rgba(237,237,237,0.65)' }}>
+                                        v{ackStatus.latestVersion}: {ackStatus.latestSummary}
+                                    </div>
+                                </div>
+                                <button type='button' disabled={acknowledging} onClick={() => handleAcknowledge(item._id)}
+                                    style={{ padding: '8px 20px', background: 'rgba(219,0,29,0.75)', border: 'none', color: '#fff', fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.12em', textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0 }}>
+                                    {acknowledging ? 'Confirming…' : 'I Have Read & Acknowledged'}
+                                </button>
+                            </div>
+                        )}
+                        {ackDone && (
+                            <div style={{ background: 'rgba(46,125,50,0.1)', border: '1px solid rgba(46,125,50,0.3)', padding: '10px 16px', fontSize: '0.72rem', color: 'rgba(100,220,100,0.8)' }}>
+                                ✓ Acknowledged — thank you.
+                            </div>
+                        )}
+
+                        {/* Change log list */}
+                        {(item.changeLog?.length ?? 0) > 0 && (
+                            <div>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(237,237,237,0.3)', marginBottom: 10 }}>Document Change Log</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                    {[...(item.changeLog ?? [])].reverse().map(e => (
+                                        <div key={e.version} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', fontSize: '0.78rem', padding: '8px 12px', background: 'rgba(255,255,255,0.025)', borderLeft: `2px solid ${e.requiresAck ? 'rgba(219,0,29,0.5)' : 'rgba(255,255,255,0.1)'}` }}>
+                                            <span style={{ fontFamily: 'monospace', fontSize: '0.68rem', color: 'rgba(219,0,29,0.7)', flexShrink: 0 }}>v{e.version}</span>
+                                            <span style={{ flex: 1, color: 'rgba(237,237,237,0.75)' }}>{e.summary}</span>
+                                            <span style={{ fontSize: '0.6rem', color: 'rgba(237,237,237,0.3)', flexShrink: 0 }}>{e.addedByName} · {new Date(e.addedAt).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* J3: add change entry */}
+                        {isJ3 && !showAddChange && (
+                            <button type='button' onClick={() => setShowAddChange(true)}
+                                style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.4)', fontSize: '0.62rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                                + Add Change Entry
+                            </button>
+                        )}
+                        {isJ3 && showAddChange && (
+                            <div style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.1)', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 4 }}>Add Change Entry</div>
+                                <textarea
+                                    value={changeSummary}
+                                    onChange={e => setChangeSummary(e.target.value)}
+                                    placeholder='Brief description of what changed…'
+                                    rows={3}
+                                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(219,0,29,0.3)', color: 'rgba(237,237,237,0.85)', fontSize: '0.82rem', padding: '8px 12px', outline: 'none', resize: 'vertical' }}
+                                />
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: 'rgba(237,237,237,0.65)', cursor: 'pointer' }}>
+                                    <input type='checkbox' checked={changeRequiresAck} onChange={e => setChangeRequiresAck(e.target.checked)} />
+                                    Requires member acknowledgement
+                                </label>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button type='button' disabled={!changeSummary.trim() || addingChange} onClick={() => handleAddChange(item._id)}
+                                        style={{ padding: '6px 16px', background: 'rgba(219,0,29,0.75)', border: 'none', color: '#fff', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', opacity: !changeSummary.trim() || addingChange ? 0.5 : 1 }}>
+                                        {addingChange ? 'Saving…' : 'Add Entry'}
+                                    </button>
+                                    <button type='button' onClick={() => { setShowAddChange(false); setChangeSummary(''); setChangeRequiresAck(false) }}
+                                        style={{ padding: '6px 12px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(237,237,237,0.4)', fontSize: '0.62rem', cursor: 'pointer' }}>
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         )
     }

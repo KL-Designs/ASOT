@@ -104,6 +104,7 @@ const DbInterface = {
     notifPolicyConfig: db.collection('notif_policy_config') as MongoCollection<NotifPolicyConfig>,
     sops: db.collection('sops') as MongoCollection<SopDocument>,
     trainingDocs: db.collection('training_docs') as MongoCollection<TrainingDocItem>,
+    trainingDocAcks: db.collection('training_doc_acknowledgements') as MongoCollection<TrainingDocAcknowledgement>,
     teamspeakSnapshots: db.collection('teamspeak_snapshots') as MongoCollection<TsSnapshot>,
     recruitSessions: db.collection('recruit_sessions') as MongoCollection<RecruitSession>,
     tfarPlugins: db.collection('tfar_plugins'),
@@ -191,6 +192,28 @@ const DbInterface = {
     helpRevisions:   db.collection('help_revisions')   as MongoCollection<HelpRevision>,
     /** Every question asked on the help assistant, rewordings folded together: the living FAQ. */
     helpQuestions:   db.collection('help_questions')   as MongoCollection<HelpQuestion>,
+
+    // ── Staff Induction (callsign/promotion induction) ────────────────────────
+    staffInductions: db.collection('staff_induction_records') as MongoCollection<StaffInductionRecord>,
+
+    // ── Leave of Absence ──────────────────────────────────────────────────────
+    memberLoas: db.collection('member_loa') as MongoCollection<MemberLoa>,
+
+    // ── Mission File Submissions (J2 upload, J7 Duty Admin view) ─────────────
+    /** PBO / mission HTML files uploaded per operation for download by server admins. */
+    missionFiles: db.collection('mission_file_submissions') as MongoCollection<MissionFileSubmission>,
+
+    // ── Mission Mod Feedback (post-mission mod issue reports, J2) ────────────
+    /** Mod issues/observations submitted by J2 after a mission; can be promoted to ModEntry. */
+    operationModFeedback: db.collection('operation_mod_feedback') as MongoCollection<OperationModFeedback>,
+
+    // ── ASOT Mod and Features wiki (unit/mod-features, J7+J4 review) ──────────
+    /** Articles edited by J7/J4; overlay the built-in ones in lib/mod-wiki/articles.ts by slug. */
+    modWikiArticles:    db.collection('mod_wiki_articles')    as MongoCollection<ModWikiArticle>,
+    /** Edit suggestions and bug reports sent in by members. */
+    modWikiSuggestions: db.collection('mod_wiki_suggestions') as MongoCollection<ModWikiSuggestion>,
+    /** The previous copy of an article each time it changes. */
+    modWikiRevisions:   db.collection('mod_wiki_revisions')   as MongoCollection<ModWikiRevision>,
 }
 
 export default DbInterface

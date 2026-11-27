@@ -13,6 +13,7 @@ import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
+import DeptInductionTab from '@/app/dashboard/_components/DeptInductionTab'
 
 /** Old main-tab numbers of the tools that now live under Admin (row 84). */
 const MOVED_TABS: Record<number, string> = { 1: 'meetings', 2: 'tickets' }
@@ -36,6 +37,7 @@ export default function J6Panel({
     const adminSections: DeptAdminSection[] = [
         { key: 'meetings', label: 'Meetings', render: () => <MeetingsTab department='j6' userId={userId} isLead={isLead} /> },
         { key: 'tickets',  label: 'Tickets',  render: () => <DeptTicketsTab department='j6' canManage={isLead} isJ4={isJ4} /> },
+        { key: 'induction', label: 'Staff Inductions', visible: isLead, render: () => <DeptInductionTab dept='j6' /> },
     ]
 
     const tabSx = {

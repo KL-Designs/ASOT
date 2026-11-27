@@ -20,6 +20,7 @@ import MeetingsTab from '@/app/dashboard/_components/meetings/MeetingsTab'
 import ActivityLogTab from '@/app/dashboard/_components/ActivityLogTab'
 import DeptTicketsTab from '@/app/dashboard/_components/tickets/DeptTicketsTab'
 import DeptLinksRail from '@/app/dashboard/_components/dept-links/DeptLinksRail'
+import DeptInductionTab from '@/app/dashboard/_components/DeptInductionTab'
 
 interface J1PanelProps {
     displayName: string
@@ -74,6 +75,7 @@ export default function J1Panel({ displayName, userId, canManageMembers, canMana
         { key: 'statistics',    label: 'Statistics',    render: () => <StatisticsTab /> },
         { key: 'meetings',      label: 'Meetings',      render: () => <MeetingsTab department='j1' userId={userId} isLead={isLead} /> },
         { key: 'tickets',       label: 'Tickets',       render: () => <DeptTicketsTab department='j1' canManage={isLead} isJ4={isJ4} /> },
+        { key: 'induction',     label: 'Staff Inductions', visible: isLead, render: () => <DeptInductionTab dept='j1' /> },
         { key: 'tfar',          label: 'TFAR Plugin',   visible: isLead, render: () => <TFARPluginTab /> },
         { key: 'recruit-video', label: 'Recruit Video', visible: isLead, render: () => <RecruitVideoTab /> },
         { key: 'induction-pack', label: 'Induction Pack', render: () => <InductionPackTab /> },

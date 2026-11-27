@@ -189,6 +189,49 @@ interface TrainingReminderRecord {
     createdAt: Date
 }
 
+/**
+ * Phase 5 — fields added to TrainingEvent for Selection / RC linked records
+ * and future historical import (Phase 6).  Most of these fields live on
+ * CourseInstance for active courses; they are mirrored here so that BCT /
+ * Medical events can carry the same summary shape if needed.
+ */
+interface TrainingRecordExtensions {
+    // Link to course workspace (Selection / RC only)
+    linkedCourseInstanceId?: string
+    linkedCourseType?: 'selection' | 'reinforcement_cycle'
+
+    // Dates (TrainingEvent only has scheduledAt — add explicit range)
+    startDate?: Date
+    endDate?: Date
+
+    // Summary fields (synced from course workspace, or computed from attendance)
+    candidateCount?: number
+    staffCount?: number
+    passedCount?: number
+    failedCount?: number
+    withdrawnCount?: number
+
+    // Lead instructor (synced from course workspace or set manually)
+    leadInstructorId?: string
+    leadInstructorName?: string
+
+    // All assigned instructors / observers (synced)
+    instructors?: Array<{ userId: string; name: string; role: string }>
+
+    // Locked flag (set when linked course is completed)
+    isLocked?: boolean
+    lockedAt?: Date
+    lockedById?: string
+    lockedByName?: string
+
+    // For imported historical records (Phase 6)
+    isHistoricalImport?: boolean
+    legacyTicketRef?: string
+    importBatchId?: string
+    importedAt?: Date
+    importedById?: string
+}
+
 interface TrainingTicket {
     _id?: import('mongodb').ObjectId
     eventId: string

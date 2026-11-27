@@ -878,6 +878,27 @@ async function triggerDevCheckEscalationCron() {
 setInterval(triggerDevCheckEscalationCron, 60 * 60 * 1000)
 triggerDevCheckEscalationCron()
 
+// ── Training doc acknowledgement reminders (every 6 hours) ───────────────────
+
+async function triggerTrainingDocRemindersCron() {
+    await trackJob('cron:training-doc-reminders', async () => {
+        try {
+            const res = await fetch(`http://localhost:${port}/api/cron/training-doc-reminders`, { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+            if (!res.ok) {
+                console.error(`[cron/training-doc-reminders] HTTP ${res.status}`)
+                return
+            }
+            const data = await res.json()
+            if (data.reminded > 0) console.log(`[cron/training-doc-reminders] tick — reminded=${data.reminded}`)
+        } catch (e) {
+            console.error('[cron/training-doc-reminders] Error:', e.message)
+        }
+    })
+}
+
+setInterval(triggerTrainingDocRemindersCron, 6 * 60 * 60 * 1000)
+triggerTrainingDocRemindersCron()
+
 // msUntilNext3am is still used by the TeamSpeak daily snapshot scheduler below.
 function msUntilNext3am() {
     const now = new Date()

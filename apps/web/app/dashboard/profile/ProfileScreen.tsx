@@ -7,6 +7,7 @@ import BioCard from './_components/BioCard'
 import TimezoneCard from './_components/TimezoneCard'
 import TeamSpeakCard from './_components/TeamSpeakCard'
 import SecurityCard from './_components/SecurityCard'
+import HistoryTimeline from './_components/HistoryTimeline'
 
 /* ============================================================================
    The member's own profile.
@@ -113,6 +114,14 @@ export default function ProfileScreen({
                     <SecurityCard />
                 </Stack>
             </Grid2>
+
+            {/* Service history timeline */}
+            <div style={{ padding: '24px', background: 'var(--ink-1)', border: '1px solid var(--line-2)' }}>
+                <div style={{ fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'rgba(219,0,29,0.7)', marginBottom: 16 }}>
+                    Service History
+                </div>
+                <HistoryTimeline />
+            </div>
         </div>
     )
 }
