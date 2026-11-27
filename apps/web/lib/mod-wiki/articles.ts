@@ -1251,4 +1251,1467 @@ All spawned crates: ACE-draggable · ACE cargo size 1 · locked name.
 `,
     },
 
+    {
+        _id: 'tsp-systems',
+        title: 'TSP Breach & Entry Systems',
+        category: 'tsp',
+        summary: 'Complete guide to TSP Systems v0.34: breaching charges, door tools, melee entry, the breaching shotgun, and Speshal Core animations.',
+        pbos: ['tsp_breach', 'tsp_core', 'asot_breacher_shotgun', 'tsp_melee'],
+        requiredMods: ['CBA_A3', 'ACE3'],
+        version: 'v0.34 · November 2026',
+        keywords: ['tsp', 'breach', 'explosive', 'door', 'entry', 'halligan', 'shotgun', 'silhouette', 'linear', 'lock popper', 'speshal'],
+        order: 20,
+        body: `## Overview
+
+TSP Systems is a CQB suite covering explosive entry, door tools, melee entry, and a breaching shotgun. All components integrate with ACE's interaction system.
+
+**Requirements:** CBA_A3, ACE3. RHS and CUP compatibility packs are optional.
+
+---
+
+## Breach Charges — Surface Compatibility
+
+| Charge | Glass | Civil | Military | Reinforced | Wall | Mass | Ragdoll |
+|--------|-------|-------|----------|------------|------|------|---------|
+| Lock Popper | 10% | 100% | 20% | — | — | 0.23 | No |
+| Dip Charge | 10% | 100% | 100% | — | — | 0.23 | No |
+| Linear Charge | 100% | 100% | 100% | 100% | — | 0.23 | No |
+| Stick Charge | 100% | 100% | 100% | 50% | — | 0.23 | Yes |
+| Breaching Block | ✓ | ✓ | ✓ | — | — | 0.46 | No |
+| Package Charge | ✓ | ✓ | ✓ | ✓ | — | 0.91 | No |
+| Silhouette Charge | 100% | 100% | 100% | 100% | 100% | 0.91 | Yes |
+
+The **Silhouette Charge** is the only charge capable of breaching structural walls and MSWR panels.
+
+---
+
+## Available Triggers
+
+| Trigger | Description |
+|---------|-------------|
+| Timer | Countdown then detonate |
+| Clacker (Command) | Manual remote detonation |
+| MK16 Transmitter | Radio-frequency remote |
+| Shock5 / Shock15 / Shock30 | Impact-detonates after 3 s delay (Stick and Silhouette only) |
+
+---
+
+## Charge Details
+
+**Lock Popper** — Minimal charge for door locks. 1 m safe distance, 20° blast cone. Auto-fuse variant detonates on placement without a manual trigger.
+
+**Dip Charge** — Hinge-side shaped charge. 100% on civil and military doors. 1 m safe distance.
+
+**Linear Charge** — Full-height cutting charge. 100% on all door types including reinforced. Best all-purpose door charge. Stand at 90° to the door, 2 m back.
+
+**Stick Charge** — Adhesive charge with 270° blast arc. Only 50% on reinforced. Ragdoll effect. Stack behind the wall — the arc covers both sides of the door.
+
+**Breaching Block** — C4 demolition block. Mid-weight, reliable on civil and military. 2 m safe distance.
+
+**Package Charge** — Heaviest standard door charge. Reliable on reinforced. 3 m safe distance. Consider Silhouette instead if you also need wall capability.
+
+**Silhouette Charge** — 120° front cone, 4 m blast radius, ragdoll. The only wall-capable charge. Use for MSWR panel breaches and new entry points through structural walls. 5 m safe distance behind solid cover.
+
+---
+
+## Safe Distance Summary
+
+| Charge | Safe Distance | Notes |
+|--------|--------------|-------|
+| Lock Popper | 1 m | Side of door frame only |
+| Dip Charge | 1 m | Side of door |
+| Linear Charge | 2 m | At 90° to blast direction |
+| Stick Charge | 2 m | Behind cover — 270° arc |
+| Breaching Block | 2 m | Behind cover |
+| Package Charge | 3 m | Behind cover |
+| Silhouette Charge | 5 m | Solid cover required — 4 m ragdoll radius |
+
+---
+
+## Door Tools
+
+**Paperclip** (0.05 kg) — Improvised lock manipulation. Lower success chance. ACE interact on door → Use Paperclip.
+
+**Lock Pick Kit** (0.14 kg) — Professional kit with higher success rate. ACE interact on door → Use Lockpick.
+
+**Clacker (Detonator)** — ACE item for command-trigger detonation. Fires all command-linked charges simultaneously.
+
+---
+
+## Melee Entry Tools
+
+Three melee tools provide silent forced entry via ACE door interaction:
+
+| Tool | Best Use |
+|------|----------|
+| Halligan Bar | Prying doors, gates, hatches — silent entry |
+| Fire Axe | Rapid entry on civil/wooden doors |
+| Sledgehammer | High-impact for knocking doors off hinges |
+
+Requires the **asot_melee_doors** PBO for ACE door interactions.
+
+---
+
+## Breaching Shotgun
+
+Load breaching shells into a compatible shotgun and aim at the lock/handle area at point-blank range. Works on civil doors, light military doors, and MSWR doorway frames (from v0.34). Does not work on reinforced doors or wall panels.
+
+---
+
+## Speshal Core Animations
+
+Speshal Core (**tsp_core**) provides carry pose animations, item-draw gestures, and obstruction detection that modifies stance when long weapons are near walls.
+
+| PBO | Description |
+|-----|-------------|
+| tsp_animate | Standard carry poses |
+| tsp_animate_ace | ACE-compatible carry poses |
+| tsp_animate_butt | Weapon butt-strike animation |
+| tsp_animate_loose | Loose/non-combat carry pose |
+| tsp_animate_viper | Viper plate-carrier holster animations |
+
+---
+
+## MSWR Shoot House Notes
+
+All charges work on MSWR doorways. The Silhouette Charge opens doorways without damaging the frame, and destroys plain wall panels to create new entry points. The breaching shotgun works on MSWR doorways (from v0.34).
+`,
+    },
+
+    {
+        _id: 'special-equipment',
+        title: 'Special Equipment',
+        category: 'special-equipment',
+        summary: 'M224 60mm mortar, MK13 EGLM secondary grenade launcher, EODS mine detectors, APOBS minefield breaching, Fulton recovery, and static line parachute jumps.',
+        pbos: ['nds_m224', 'mk13_eglm', 'eods_mine_detector', 'eods_apobs', 'fulton_recovery', 'ra_staticline_core'],
+        requiredMods: ['CBA_A3', 'ACE3'],
+        version: 'November 2026',
+        keywords: ['mortar', 'm224', 'eglm', 'grenade launcher', 'mine detector', 'apobs', 'fulton', 'static line', 'parachute', 'eods'],
+        order: 30,
+        body: `## M224 60mm Mortar
+
+The M224 is a 60mm lightweight mortar carried as a backpack (mass 310). Two soldiers carry the mortar and ammunition into position, then assemble it.
+
+**Setup:**
+1. Equip the M224 60mm Mortar (pack) as your backpack
+2. Scroll-menu → **Assemble M224**
+3. Get in as gunner and use the artillery computer map overlay
+
+**Realign:** Exit the mortar, stand near it, scroll-menu → **Realign Mortar** to re-orient to your facing direction.
+
+**Rearm:** Bring ammo boxes near the mortar, scroll-menu → **Rearm from ammo boxes** (loads up to 6 rounds per type).
+
+### Ammunition
+
+| Magazine | Type | Speed | Notes |
+|----------|------|-------|-------|
+| M768 HE Charge 1 (6Rnd) | High Explosive | 222 m/s | Standard fire mission |
+| M768 HE Charge 0 (6Rnd) | High Explosive | 124 m/s | Reduced charge, shorter range |
+| M761 Illumination (6Rnd) | Illumination | 222 m/s | ~60 s burn |
+| M722 WP (6Rnd) | White Phosphorus | 222 m/s | Dense smoke on impact |
+
+HE blast: **~12.5 m indirect radius**, 125 direct damage, 32.5 indirect damage.
+
+---
+
+## MK13 EGLM — Secondary Grenade Launcher
+
+Standalone 40mm grenade launcher carried in the **secondary/sidearm slot**, freeing the primary weapon for other uses.
+
+- Accepts all standard UGL 40×46mm rounds including BT01 less-lethal ammunition
+- Four zeroing ranges: **100 / 200 / 300 / 400 m** (cycle with standard zero keybind)
+- Available in Tan and Black variants
+
+---
+
+## EODS Mine Detectors
+
+Three handheld detectors as primary-slot weapons. Activate and walk slowly — beep frequency increases as you approach a buried mine. The system checks every **0.5 seconds** in an arc in front of you.
+
+| Detector | Radius | Angle | UXO Detection |
+|----------|--------|-------|---------------|
+| Handheld Mine Detector | 5 m | 60° | No |
+| Vallon VMH3CS | 4 m | 50° | No |
+| Vallon VMH3CS (UXO head) | 4 m | 70° | Yes |
+
+**Using a detector:**
+1. Equip as primary weapon
+2. Scroll-menu → **Turn on mine detector**
+3. Walk slowly in a sweeping pattern
+4. Stop when beeps become rapid, mark the location
+
+---
+
+## EODS APOBS — Anti-Personnel Obstacle Breaching
+
+The M136 APOBS launches a line charge across a minefield to clear a safe lane. Requires two soldiers — one carries each pack.
+
+| Pack | Mass |
+|------|------|
+| APOBS RearPack | 320 |
+| APOBS FrontPack | 180 |
+
+**Setup:** Both soldiers use the standard Arma assemble action. **Firing:** Align with the lane, fire, wait ~5 seconds for the system to arm, then the rocket launches and detonates along the lane. Keep all personnel **behind and to the side** during firing.
+
+---
+
+## Fulton Surface-to-Air Recovery
+
+Lifts a person to 100 m altitude where a passing aircraft catches the rope.
+
+**Deploy:** Have a **Fulton Recovery Harness** (mass 10) in inventory, stand within 5 m of the target, CBA item context menu → **Deploy Fulton Harness**.
+
+**Abort:** "Cancel Fulton Lift" action appears at 100 m altitude (refunds harness).
+
+**Aircraft requirement:** Must fly under **250 km/h** when passing through the cable.
+
+---
+
+## Static Line Parachute Jump (ra_staticline_core)
+
+Adds ACE-integrated static line jumps from aircraft with automatic parachute deployment.
+
+**Requirements:** Compatible parachute in backpack slot, **RA_StaticEquipped** = true (default).
+
+**Jump sequence:**
+1. Board aircraft and sit in cargo seat
+2. ACE self-interaction → **Static Line → Stand Up**
+3. ACE self-interaction → **Static Line → Hook Up**
+4. At ≥100 m AGL: ACE self-interaction → **Static Line → Static Line Jump**
+5. Parachute **opens automatically** on exit
+
+**Abort:** Unhook → Sit Down (via ACE self-interaction).
+
+| CBA Setting | Default | Description |
+|-------------|---------|-------------|
+| RA_StaticEquipped | true | Require parachute equipped to jump |
+| RA_MinAltitude | 100 m | Minimum AGL to allow jump |
+| RA_doAnimation | false | Stand-up animation (disabled due to known bugs) |
+`,
+    },
+
+    {
+        _id: 'vehicles',
+        title: 'Vehicles & Deployable Equipment',
+        category: 'vehicles',
+        summary: 'Vehicle unflipping, Driver Dismount Sensor, civilian vessels, Dega armoured SUV, NDS 6x6 ATV, snowmobiles, and deployable stretcher, foxhole, and portable seat.',
+        pbos: ['ASOT_Vehicles', 'lexx', 'dega_vehicles_suv', 'NDS_6x6_ATV', 'xs_Snowmobile', 'vurtual_seat'],
+        requiredMods: ['CBA_A3', 'ACE3'],
+        version: 'November 2026',
+        keywords: ['vehicle', 'unflip', 'DDS', 'vessel', 'boat', 'SUV', 'ATV', 'snowmobile', 'stretcher', 'foxhole', 'lexx', 'dega'],
+        order: 40,
+        body: `## Vehicle Unflipping
+
+Overturned vehicles can be righted by a group of soldiers via ACE interaction.
+
+1. Stand within **5 metres** of the overturned vehicle
+2. ACE-interact → **Unflip vehicle**
+3. All nearby soldiers also interact to contribute
+4. Vehicle rights itself when enough soldiers are participating
+
+**Requirements:** 2+ soldiers; toolkit for some vehicles. Heavier vehicles require more people.
+
+---
+
+## Driver Dismount Sensor (DDS)
+
+Adds a **Vehicle Systems Display (VSD)** panel showing infantry units within **20 metres** of the vehicle. Activates automatically when you sit in a driver or commander seat. Most useful in AFVs, APCs, and tanks where visibility is restricted.
+
+---
+
+## Civilian Vessels (Lexx)
+
+| Vessel | Size | Description |
+|--------|------|-------------|
+| Civilian Jetboat | Small (8–12 m) | Fast open-top runabout |
+| Civilian Fishing Boat (Large) | Medium (15–25 m) | Large open-deck fishing vessel |
+| Civilian Yacht | Medium (12–20 m) | Sailing/motor yacht |
+| Container Ship | Large (120+ m) | Cargo container ship |
+| Cruise Ship | Very large | Passenger cruise liner |
+| Oil Tanker | Very large | Petroleum tanker |
+
+All vessels are passenger-capable and driver-controllable.
+
+---
+
+## Dega Armoured SUV
+
+Armoured SUV with 4 passengers + 1 driver. Suited for urban convoy operations and as a command vehicle.
+
+| Variant | Description |
+|---------|-------------|
+| Dega SUV (unarmed) | Armoured 5-seat transport |
+| Dega SUV (armed) | Minigun-equipped turret variant |
+
+---
+
+## NDS 6×6 All-Terrain Vehicle
+
+Military/civilian six-wheel ATV with fire-from-vehicle (FFV) capability. Available in **Woodland**, **Desert**, and **Snow** camouflage. Compatible with VIV cargo loading for airmobile insertion (see Echo Systems).
+
+---
+
+## Snowmobile
+
+1 driver + 1 passenger, both FFV capable. No armour — keep away from direct fire.
+
+| Variant | Description |
+|---------|-------------|
+| White | Arctic/snow camouflage |
+| Sport | Civilian coloured |
+| Camo | Military camouflage |
+| Combat | Tactical dark variant |
+
+---
+
+## Deployable Field Items
+
+### Tactical Stretcher
+
+Carry the **Stretcher Bag** (mass 60) as your backpack.
+
+1. ACE self-interaction → **Equipment → Deploy Stretcher**
+2. Scroll-menu on stretcher → **Load Patient** to load an ACE-incapacitated casualty
+3. Carry, drag, or sling-load for aeromedical evacuation
+4. Scroll-menu → **Unload Stretcher** then **Disassemble Stretcher** to repack
+
+### Foxhole
+
+Enter by walking into the foxhole position. Inside: scroll-menu → **Turn** to toggle standing/crouching. Fire over the rim while standing. Exit by walking backward.
+
+### Portable Seat
+
+Mission-maker-placed standalone seat for forward operating bases and command posts.
+`,
+    },
+
+    {
+        _id: 'weapons-systems',
+        title: 'Weapons & Combat Systems',
+        category: 'weapons',
+        summary: 'Advanced Urban Rappelling from buildings and helicopters, vehicle grenading via ACE throwing, BT01 less-lethal weapons suite, and breaching shotgun rounds.',
+        pbos: ['ASOT_Weapons', 'BT01'],
+        requiredMods: ['CBA_A3', 'ACE3'],
+        version: 'November 2026',
+        keywords: ['rappel', 'rappelling', 'grenade', 'vehicle grenade', 'taser', 'less-lethal', 'beanbag', 'BT01', 'breaching round'],
+        order: 50,
+        body: `## Advanced Urban Rappelling (AUR)
+
+Descend from buildings and helicopters on a rope. You can aim and fire your weapon while suspended.
+
+**From a building:**
+1. Stand near the edge of a suitable rooftop or high ledge
+2. Scroll-menu → **Rappel**
+3. Hold **S** (backward) to descend; hold **W** to ascend
+4. Release to stop at any height
+5. Walk toward the wall to extend rope, away to shorten
+6. Land at a window ledge or ground level and move away to disconnect
+
+**From a helicopter:**
+1. Pilot enables the rappel anchor on the aircraft
+2. Approach the rope inside the helicopter and use the scroll-menu to attach
+3. The helicopter can fly slowly while you hang and descend
+
+Helicopter descents are most reliable below 15 m AGL.
+
+---
+
+## Vehicle Grenading
+
+Throw grenades through vehicle windows and hatches when adjacent to a vehicle. Requires **ACE Advanced Throwing** (enabled by default in ASOT operations).
+
+1. Ready a grenade via ACE Advanced Throwing (default **G**)
+2. Move within **1–2 metres** of a vehicle door, window, or hatch
+3. The throwing arc indicator shows the trajectory entering the vehicle
+4. Release — the grenade enters the vehicle and detonates inside
+
+All throwable types work. Best uses:
+- **Smoke:** forces crew to dismount without destroying the vehicle
+- **Flash:** suppresses crew hearing and vision
+- **Frag:** lethal interior blast
+
+---
+
+## BT01 Less-Lethal Weapons
+
+A full suite of less-lethal ammunition integrating with ACE Medical (hits cause bruising and contusions, not lethal wounds).
+
+### Taser BT01 Pistol
+
+| Weapon | Slot | Effect |
+|--------|------|--------|
+| Taser BT01 | Handgun/sidearm | 2-dart magazine; incapacitating electroshock |
+
+### 40mm Grenade Launcher Rounds
+
+| Magazine | Count | Notes |
+|----------|-------|-------|
+| 40mm Beanbag Round | 1 | All 40mm launchers |
+| 40mm 6Rnd Beanbag Rounds | 6 | 6-round 40mm launchers |
+| 40mm Rubber Shot Round | 1 | Burst spread, 3.5° cone, ~62 pellets |
+| 40mm 6Rnd Rubber Shot | 6 | 6-round 40mm launchers |
+
+### 12 Gauge Shotgun Rounds
+
+| Magazine | Count |
+|----------|-------|
+| 12 Gauge Beanbag | 1 / 2 / 6 / 8 round variants |
+| 12 Gauge Taser | 1 / 2 / 6 / 8 round variants |
+| 12 Gauge 20Rnd AA12 Beanbag | 20 (AA12 auto-shotgun) |
+
+### ACE Medical Injuries from Beanbag Hits
+
+Beanbag impacts cause **Contusion** (non-bleeding bruising), **Crush** (joint/bone compression), and **Laceration** (minor tears). Treat with standard ACE bandaging and pain management.
+
+---
+
+## Breaching Rounds
+
+Special shotgun shells that destroy door hinges and locks at point-blank range, used alongside the TSP Breach System.
+
+1. Load a breaching round into a compatible shotgun
+2. Stand within **1 metre** of the hinge or lock
+3. Aim at the hinge point and fire
+4. Repeat for the second hinge if needed
+`,
+    },
+
+    {
+        _id: 'gear-uniforms',
+        title: 'Gear, Uniforms & Insignia',
+        category: 'gear',
+        summary: 'Complete gear catalogue: 25 camouflage patterns, four uniform cuts, ADF/RC gear, Fat Pack backpacks, MilGP Airframe helmets and vests, unit insignia, and face paint.',
+        pbos: ['ASOT_Uniforms', 'ASOT_ADFRC_Gear', 'ASOT_CTRG', 'milgp_headgear', 'milgp_uniforms', 'milgp_vests', 'ASOT_Insignia', 'sor_camofaces'],
+        requiredMods: ['CBA_A3'],
+        version: 'November 2026',
+        keywords: ['uniform', 'gear', 'camo', 'beret', 'helmet', 'vest', 'backpack', 'fat pack', 'milgp', 'insignia', 'face paint', 'ARC-210', 'TFAR', 'airframe'],
+        order: 60,
+        body: `## Camouflage Patterns
+
+25 patterns available across all gear categories:
+
+Arctic · Arctic Multi · Arid · Arid Multi · Black · Black Multi · Highlander · Jungle · Mandrake · Neptune · Red Desert · Red Desert Multi · Tropic · Tropic Multi · Typhoon · Urban · Woodland · Woodland Multi · Solid Black · Solid Desert · Solid Green · Solid Grey · Solid Light Green · Solid Light Green 2 · Solid White
+
+---
+
+## ASOT Uniforms
+
+### Uniform Cuts (all in 25 camo patterns)
+
+| Cut | Description |
+|-----|-------------|
+| Massif | Standard combat uniform (full sleeve) |
+| Massif Rolled | Massif with rolled sleeves |
+| Coveralls | One-piece coverall/flight suit |
+| Crye | Crye Precision-style cut |
+
+### Wetsuits
+
+| Variant | Based On |
+|---------|----------|
+| Wetsuit (Blue) | NATO diver wetsuit |
+| Wetsuit (Orange) | CSAT diver wetsuit |
+| Wetsuit (Tan) | AAF/independent diver wetsuit |
+
+### Corps Berets (11 variants)
+
+HQ 01 · HQ 02 · All Corps · Infantry · Armoured · Artillery · Aviation · Engineers · Medical · SF · Zeus
+
+### AN/ARC-210 Radio Backpacks (TFAR)
+
+Multi-band radio carried as a backpack, integrated with TFAR for long-range communications. Available in 25 camo patterns.
+
+| Variant | Role |
+|---------|------|
+| FO | Field Officer / Forward Observer |
+| Staff | Staff officer radio operator |
+| Hotel | Hotel element / JTAC role |
+
+---
+
+## ASOT ADF/RC Gear
+
+ADF-pattern helmets and vests. Only active when ADF_Core, ADF_Gear, and adfrc_helmets mods are loaded.
+
+### Protection Values
+
+| Hit Zone | Armour | Pass-Through |
+|----------|--------|-------------|
+| Vest (Chest/Diaphragm/Abdomen) | 16 | 30% |
+| Helmet (Head) | 10 | 50% |
+
+### Role Load Capacities
+
+| Role | Max Load | Role | Max Load |
+|------|----------|------|----------|
+| Rifleman (RF) | 80 | Golf | 960 |
+| LMG | 160 | Echo | 400 |
+| MMG | 380 | Mike | 250 |
+| MAAWS | 200 | Hotel | 220 |
+| Medic | 180 | Staff | 130 |
+
+---
+
+## Fat Pack Backpacks (ASOT_CTRG)
+
+Role-specific medium-volume backpacks worn on the lower back over a vest. Mass 20, max load 80, in all 25 camo patterns.
+
+**8 role variants:** Standard · LMG · MMG · Medic · MAAWS · Golf · Echo · Mike
+
+---
+
+## MilGP Headgear
+
+Three Airframe-style ballistic helmets in 25 camos × 2 versions (plain and + goggles) = 150 items total.
+
+| Property | Value |
+|----------|-------|
+| Helmet armour | 10 (Head) |
+| Pass-through | 50% |
+| Mass | 40 |
+| Hearing protection | 75% (ACE ear protection) |
+
+Models: **Airframe 01**, **Airframe 02**, **Airframe 03**
+
+---
+
+## MilGP Vests
+
+Role-specific Back Panel Hydration vests in 25 camo patterns. Armour 16 (Chest/Diaphragm/Abdomen), 30% pass-through.
+
+**8 role variants:** Standard · LMG · MMG · Medic · MAAWS · Golf · Echo · Mike
+
+---
+
+## MilGP Uniforms
+
+Two combat uniform styles in 25 × 25 top/trousers camo combinations:
+
+| Style | Description |
+|-------|-------------|
+| Fleece | Cold-weather fleece top + matching combat trousers |
+| G3 Field Set | Crye G3-inspired field combat uniform |
+
+---
+
+## Unit Insignia (ASOT_Insignia)
+
+24 shoulder patch insignia applied via ACE Arsenal → Insignia slot.
+
+| ID | Unit |
+|----|------|
+| insignia_asot | ASOT (all) |
+| insignia_OA | OA element |
+| insignia_10 / 10A / 10B / 10F | Platoon HQ |
+| insignia_11 / 11alpha / 11bravo / 11charlie | 1 Section |
+| insignia_12 / 12P / 12alpha / 12bravo / 12charlie / 12charlie_vis | 2 Section |
+| insignia_13 / 13echo / 13golf / 13hotel / 13mike / 13victor / 13victor_vis | 3 Section |
+| insignia_zeus | Zeus/GOD |
+
+Low-visibility (LowVis) variants use subdued colouring for night operations and special reconnaissance.
+
+---
+
+## Camouflage Face Paint
+
+| Item | Pattern | Mass |
+|------|---------|------|
+| [ASOT] Facepaint (Woodland) | Woodland | 1 |
+| [ASOT] Facepaint (Urban) | Urban | 1 |
+| [ASOT] Facepaint (Desert) | Desert | 1 |
+
+**Apply:** Have item in inventory → ACE self-interaction → **Apply Facepaint** → select pattern.
+**Remove:** ACE self-interaction → **Apply Facepaint → Remove Facepaint**.
+Cannot apply while swimming.
+`,
+    },
+
+    {
+        _id: 'advanced-airborne',
+        title: 'Advanced Airborne Mod',
+        category: 'airborne',
+        summary: 'Realistic parachute malfunction system: four malfunction types with recovery procedures, AAD integration, landing injuries, and Zeus/Eden training tools with jump debrief table.',
+        pbos: ['asot_parachute', 'asot_parachute_training'],
+        requiredMods: ['CBA_A3', 'ACE3', 'KAT Advanced Medical', 'MRH Parachute'],
+        version: 'v0.2+ · November 2026',
+        keywords: ['airborne', 'parachute', 'malfunction', 'line twist', 'partial canopy', 'pilot chute', 'catastrophic', 'cutaway', 'AAD', 'freefall', 'HALO', 'static line'],
+        order: 70,
+        body: `## Overview
+
+The ASOT Advanced Airborne Mod adds a realistic parachute malfunction system. When a jumper deploys their main canopy there is a configurable chance of receiving a malfunction that must be identified and acted on. All events are logged to a live debrief table accessible to a designated instructor.
+
+**Supported parachutes:**
+- **CUP T10** (CUP_T10_Parachute_backpack) — static line, non-steerable, no AAD
+- **MRH AAD-Equipped Parachute** (MRH_AADEquippedParachute) — freefall, steerable, with AAD
+- **MRH AAD-Equipped Non-Steerable** (MRH_AADEquippedNSParachute) — freefall, round canopy, with AAD
+
+---
+
+## Keybinds
+
+| Action | Default | Use |
+|--------|---------|-----|
+| Parachute Action | Space | Deploy canopy / shake partial canopy / deploy reserve after cutaway |
+| Cutaway / Reserve | Shift + Space | Cut away main canopy; then press Space to deploy reserve |
+| A / D keys | (built-in) | Recover LINE TWIST — alternate left and right |
+| Q / E keys | (built-in) | Recover PILOT CHUTE IN TOW — alternate in freefall |
+
+Configurable in CBA → Configure Addons → ASOT Parachute.
+
+---
+
+## Malfunctions
+
+### Line Twist
+Canopy open but spinning. **Recovery:** Alternate **A** then **D** (each full alternation = one attempt, 35% default success). **Cut away if** recovery fails before reaching dangerously low altitude.
+
+### Partial Canopy
+Canopy partially collapsed — faster descent and spinning. **Recovery:** Press **Space** repeatedly (minimum 3 presses before recovery can succeed; 30% default per attempt from press 3 on). **Cut away if** recovery fails.
+
+### Pilot Chute In Tow
+No canopy opens — remains in freefall after pressing Space. **Recovery:** Alternate **Q** then **E** in freefall (30% default per attempt). Only occurs on freefall (MRH) parachutes.
+
+### Catastrophic Failure
+Canopy does not inflate. **No recovery possible.** Immediately press **Shift + Space** to cut away, then **Space** for reserve.
+
+---
+
+## Cutaway and Reserve Procedure
+
+1. Press **Shift + Space** — cuts away main canopy, enters freefall
+2. Press **Space** — deploys reserve (ACE NonSteerable Reserve Parachute)
+3. Land normally under the reserve
+
+Reserve deployment caps downward velocity to 8 m/s before the canopy opens (prevents ejection at HALO speeds).
+
+---
+
+## Automatic Activation Device (AAD)
+
+Built into MRH freefall parachutes. Monitors and integrates with the malfunction system.
+
+- 4 audible warning beeps as you descend past 200 m above the AAD trigger altitude
+- AAD fires at trigger altitude if you are in freefall with no active malfunction
+- If a malfunction is active when the AAD fires, it does **not** deploy — cut away first, then deploy reserve manually
+- Trigger altitude set via MRH CBA settings (default: 250 m above sea level)
+
+---
+
+## Landing Injuries
+
+| Impact Speed | Result |
+|-------------|--------|
+| Below 5 m/s | No injury |
+| 5–7 m/s | Roll 40% chance of moderate fracture |
+| ≥7 m/s | Roll 75% chance of severe fracture |
+
+Water landings halve the fracture chance (0.5× multiplier). Fractures apply leg injuries via ACE/KAT — medical treatment required to walk normally.
+
+---
+
+## Prompt Modes
+
+| Mode | Display |
+|------|---------|
+| Training (0) | Malfunction name as hint + instruction text at screen bottom |
+| Hint Only (1, default) | Malfunction name as hint only |
+| Realism (2) | No display (Pilot Chute in Tow always shows — no visual difference from normal freefall) |
+
+---
+
+## Training Tools
+
+**Set Airborne Instructor** — Designates one player as instructor. That player gets a scroll action to open the jump debrief table. Place module in Eden and sync to player unit, or place in Zeus near the target player.
+
+**Force Malfunction** — Forces a specific malfunction type (LINE_TWIST / PARTIAL_CANOPY / PILOT_CHUTE_TOW / CATASTROPHIC / NONE) on the next deployment. In Zeus, a dialog lets you target individual players, groups, sides, or all players globally.
+
+**Clear Forced Malfunction** — Removes any active forced malfunction override.
+
+### Jump Debrief Table Columns
+
+| Column | Content |
+|--------|---------|
+| JUMPER | Player name |
+| EXIT | Exit altitude (m AGL) |
+| DEPLOY | Deployment altitude (m AGL) |
+| MALFUNC | Malfunction type (or NONE) |
+| TIMELINE | MAL / RA / RR / CA / RC events with time and altitude |
+| AAD | ACT if AAD fired |
+| IMPACT | Vertical impact speed (m/s) |
+| INJURY | CLEAR or FRACTURE |
+
+Export All copies all jump data as a tab-separated file for Excel/Sheets.
+
+---
+
+## CBA Settings Reference
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| Overall malfunction chance | 1% | Set to 100% for training scenarios |
+| Line twist weight | 40 | Relative weight in malfunction distribution |
+| Partial canopy weight | 30 | — |
+| Pilot chute in tow weight | 20 | Freefall parachutes only |
+| Catastrophic failure weight | 10 | — |
+| Reserve malfunction chance | 0% | Default: reserves always open cleanly |
+| Line twist recovery per attempt | 35% | — |
+| Partial canopy recovery per attempt | 30% | — |
+| Pilot chute in tow recovery per attempt | 30% | — |
+| Moderate fracture speed | 5 m/s | — |
+| Severe fracture speed | 7 m/s | — |
+| Moderate fracture chance | 40% | — |
+| Severe fracture chance | 75% | — |
+| Water injury multiplier | 0.5 | Halves fracture chance on water landing |
+`,
+    },
+
+    {
+        _id: 'echo-systems',
+        title: 'Echo Systems (ASOT_Echo)',
+        category: 'echo',
+        summary: 'Personal fortification, ADVENT multi-trigger explosives, group explosive trigger, Zeus minefields, Vehicle-in-Vehicle cargo, wreck restoration, and vehicle recolouring.',
+        pbos: ['ASOT_Echo'],
+        requiredMods: ['CBA_A3', 'ACE3'],
+        version: 'November 2026',
+        keywords: ['echo', 'fortify', 'fortification', 'ADVENT', 'explosive', 'minefield', 'VIV', 'vehicle in vehicle', 'wreck', 'repair', 'recolour'],
+        order: 80,
+        body: `## Personal Fortification
+
+Extends ACE Fortify — soldiers construct field fortifications (sandbags, barbed wire, walls) from a shared material budget. Build speed is penalised when enemies are nearby.
+
+**To build:**
+1. ACE self-interaction (hold **Windows key**) → **Build objects**
+2. Select category and object — a ghost preview appears
+3. Left-click to place and confirm
+
+Use **Set category** in the ACE build menu to filter the build list. The active category is highlighted in a configurable colour (default: green).
+
+**Enemy proximity penalty:** Build time increases when enemies are within the penalty distance (CBA setting). The closer the enemy, the slower you build.
+
+| CBA Setting | Default |
+|-------------|---------|
+| Build speed penalty distance | 0 m |
+| Build speed penalty multiplier | 0× |
+| Build category colour | green |
+| Build category run on hover | false |
+
+---
+
+## Advanced Demolition (ADVENT)
+
+Extends ACE Explosives with **multiple triggers per explosive** and **timer status checking** for EOD operators.
+
+**Add multiple triggers:**
+1. Place an ACE explosive as normal
+2. ACE-interact on the placed explosive → **Add Trigger**
+3. Select a trigger type to add — repeat to add multiple types
+4. The explosive detonates when **any** assigned trigger fires
+
+**Check timer status (EOD):** ACE-interact on explosive → **Check time** to see the countdown remaining. Requires an ACE EOD qualification.
+
+**UAV attachment:** ADVENT enables attaching explosives to UAVs via standard ACE explosives workflow.
+
+---
+
+## Group Explosive Trigger
+
+A "Select from your group" trigger type for ACE explosives. Any group member can be assigned as a remote triggering source.
+
+**To assign:**
+1. Place an ACE explosive
+2. ACE-interact → **Set Trigger → Select from your group**
+3. Select the group member who will fire the device
+4. That person can detonate from their ACE explosives menu
+
+Useful for simultaneous multi-point breaching — all breachers place charges, one signaller fires them all at once.
+
+---
+
+## Area Denial Minefields (Zeus Only)
+
+Zeus/Curator tool for placing minefields via a dialog rather than individually placing mines.
+
+**To place:**
+1. Zeus → Objects → **Lay Area Denial Minefield**
+2. Place module on the map
+3. Configure mine type, area dimensions, density, and orientation
+4. Confirm — mines are placed in the defined area
+
+---
+
+## Vehicle-in-Vehicle (VIV) Cargo
+
+Extends the ACE cargo system to load ATVs, quad bikes, and small vehicles into larger aircraft and vehicles. Mission maker determines which vehicles are VIV-capable.
+
+**Load:** ACE-interact on the small vehicle → **Load into [vehicle name]**
+
+**Unload:** ACE-interact on the cargo vehicle → **Unload VIV cargo**
+
+---
+
+## Vehicle Wreck Restoration (Zeus)
+
+**Zeus module:** Zeus → Objects → **Restore Vehicle Damaged** or **Restore Vehicle New** → attach to the wrecked vehicle.
+
+**Zeus right-click:** Right-click on the wrecked vehicle → **Restore Wreck → Damaged** or **Like new**.
+
+---
+
+## Vehicle Repair & Recolour
+
+Extends ACE Repair with an optional **vehicle recolouring** step during the repair process.
+
+1. Have a Repair Specialist near the vehicle
+2. ACE-interact → **Repair** → begin repair
+3. If colour options are available, a selection appears during repair
+4. Select the desired colour — takes effect on completion
+
+Which vehicles support recolouring depends on the vehicle config and mission setup.
+`,
+    },
+
+    {
+        _id: 'enhancement-addons',
+        title: 'Enhancement Addons',
+        category: 'enhancement-addons',
+        summary: 'Advanced Sling Loading (ASLR), vehicle knocking, brush clearing, Quick Triage Interface, PLP Map Tools, water landing protection, zombie encounters, and passive improvement PBOs.',
+        pbos: ['AdvancedSlingLoadingRefactored', 'BRIDGE_vehicleknock', 'ClearBrush', 'lala_qti', 'PLP_MapTools', 'nmab', 'ryanzombies', 'zad_ace_int'],
+        requiredMods: ['CBA_A3', 'ACE3'],
+        version: 'November 2026',
+        keywords: ['sling load', 'knock', 'brush', 'triage', 'QTI', 'map tools', 'NMAB', 'zombie', 'zombies', 'ASLR', 'clear brush'],
+        order: 90,
+        body: `## Advanced Sling Loading Refactored (ASLR)
+
+Full control over external cargo rope operations with keybind-driven workflow.
+
+| Action | Default Keybind |
+|--------|----------------|
+| Deploy single rope | Down Arrow |
+| Deploy double rope | Shift + Down Arrow |
+| Deploy triple rope | Alt + Down Arrow |
+| Retract all ropes | Up Arrow |
+| Extend ropes (lengthen) | Right Arrow |
+| Shorten ropes | Left Arrow |
+| Release cargo | Shift + Alt + Left Arrow |
+
+All keybinds are configurable via CBA settings.
+
+**Basic procedure:**
+1. Hover above the cargo object
+2. **Down Arrow** — lower single rope
+3. Descend until rope attaches
+4. **Right/Left Arrow** — extend/shorten as needed for clearance
+5. Fly to destination
+6. Descend and **Shift + Alt + Left Arrow** — release cargo
+7. **Up Arrow** — retract ropes before landing
+
+Extend ropes to full length before pickup — a short rope requires very low hover height.
+
+---
+
+## Knock on Vehicles
+
+ACE interaction to alert vehicle crews by knocking on the hull. Stand within **4 metres** of an occupied vehicle → ACE-interact → **Knock**. Produces an audible metallic impact audible to both the soldier outside and the crew inside.
+
+Only available on occupied vehicles. Useful for signalling halt or announcing proximity without breaking radio silence.
+
+---
+
+## Clear Brush
+
+ACE self-interaction to destroy vegetation and bushes in the immediate vicinity.
+
+**To clear:** Face the vegetation → ACE self-interaction → **Equipment → Clear Brush** → hold until complete.
+
+Clearing is irreversible during the mission. Coordinate before clearing large areas that may affect concealment for other units.
+
+---
+
+## Quick Triage Interface (QTI)
+
+Rapid medical status display showing health states of all units within a configurable radius. Default keybind: **L**.
+
+| CBA Setting | Default | Description |
+|-------------|---------|-------------|
+| Quick Triage radius | 10 m | Scan range for patients |
+| Quick Triage duration | 5 s | Panel display time |
+| Visibility restriction | Everyone | Everyone / Medics + Doctors / Doctors only |
+
+Press **L** immediately on arrival at a casualty collection point to triage before interacting with individual patients.
+
+---
+
+## PLP Map Tools
+
+Four interactive tools accessible by right-clicking on the map display.
+
+| Tool | Use |
+|------|-----|
+| Distance Measurement | Left-click to place points; cumulative distance shown |
+| Compass Tool | Bearing, cardinal direction, and mils between two points |
+| Height Profile | Cross-section elevation graph along a drawn line |
+| Search Grid | Enter a grid reference to mark it on the map |
+
+**Access:** Open map → right-click anywhere → select tool.
+
+---
+
+## NMAB — Water Landing Protection
+
+Softens vehicle collision response on water surfaces, allowing emergency water landings at survivable speeds. Passive — no interaction required.
+
+| Situation | Without NMAB | With NMAB |
+|-----------|-------------|-----------|
+| Helicopter forced water landing | Immediate crash | Soft landing possible |
+| Plane ditching on water | Immediate crash | Soft landing possible |
+| Wheeled vehicle into water | Moderate damage | Reduced damage |
+
+NMAB reduces, it does not eliminate, water landing damage. High-speed uncontrolled impacts can still destroy aircraft.
+
+---
+
+## Zombies & Demons (Ryan)
+
+Full zombie and demon enemy system for ASOT horror scenarios. Only present in missions that include them.
+
+| Type | Speed | Notes |
+|------|-------|-------|
+| Walker | Slow | Standard shambling zombie |
+| Crawler | Slow | Prone, leg-damaged |
+| Medium | Moderate | Alert; faster when targeting |
+| Fast | Fast | Sprint-capable; dangerous at close range |
+| Spider | Fast | Climbing/erratic movement |
+| Demon | Very fast | Can throw vehicles |
+
+**Infection:** Zombie contact can infect players. Administer **Antivirus** (found as loot on killed zombies) via ACE medical interaction before the timer expires or the player transforms.
+
+**zad_ace_int** integrates antivirus items into the ACE medical interaction menu.
+
+---
+
+## Passive Enhancement PBOs
+
+| PBO | Effect |
+|-----|--------|
+| 3CB Enhancements | Corrects 40mm GL magazine weights for 3CB BAF weapons |
+| ABI Smoke Fix | Improves 40mm smoke grenade ballistics |
+| ITC Land Systems Enhancements | Improves howitzer reload, COBRA fire control, missile FCS accuracy |
+| More Smoke Screens | Adds 8-round extended vehicle smoke launcher magazines |
+| Realistic Ragdoll Physics | More natural body behaviour on death and impacts |
+
+---
+
+## Zeus End Key (WBK)
+
+Zeus-only tool. Select a unit or object in Zeus → press **End** key → instantly deleted. Only functional in Zeus Curator mode.
+`,
+    },
+
+    {
+        _id: 'asot-systems',
+        title: 'ASOT Systems & Utilities',
+        category: 'systems',
+        summary: 'Custom GPS minimap, Intel diary reference cards, physical booklets, ASOT Arsenal with Load Items, triage hotkeys, atropine injector, body bag weight fix, and the ASOT main menu.',
+        pbos: ['ASOT_gps', 'ASOT_Utilities', 'ASOTMedia', 'ASOT_Medical', 'ASOT_MainMenu'],
+        requiredMods: ['CBA_A3', 'ACE3'],
+        version: 'November 2026',
+        keywords: ['GPS', 'minimap', 'diary', 'intel', 'booklet', 'arsenal', 'triage', 'atropine', 'main menu', 'server connect', 'RATEL', 'medical'],
+        order: 100,
+        body: `## ASOT GPS — Custom Minimap
+
+Replaces the default minimap with a custom-styled cartographic display. Colours, satellite layer, and zoom speed are individually adjustable per player.
+
+**Zoom keybinds:** **Numpad +** (zoom in) and **Numpad −** (zoom out). Rebind in Options → Controls → Configure Addons → ASOT GPS Style.
+
+**Customise colours:** Every map layer has its own colour picker in CBA Addon Options. Set "Max Satellite Alpha" to 0 for a printed paper map look.
+
+---
+
+## Intel Diary — Reference Cards
+
+Two subjects are automatically added to your in-game diary (Map → Intel tab) at mission start. No action required.
+
+### Medical Cards (5 entries)
+
+| Entry | Images | Content |
+|-------|--------|---------|
+| Section Member DRSCABC | 2 | Section-level first aid |
+| Section Medic DRSCABC | 3 | Medic-level trauma care |
+| Advanced Medic DRSCABC | 4 | Advanced trauma and intervention |
+| Drugs Cheatsheet | 3 | ACE medication reference |
+| Surgeries | 1 | Surgical procedure flowcharts |
+
+### Comms Cards (14 entries)
+
+Signifiers, Immediate Fire Mission, REDEP, MOVREQ, OPDEM, Close Air Support, Rotary Recon, All Arms Call For Fire, Adjust Fires, Fire Mission Transfer, Broken Arrow, CASEVAC 9-line, OPDEM Crate Info, Logistics Crate Info.
+
+---
+
+## Physical Reference Booklets
+
+Two physical in-game booklet items. Carry in inventory and open via ACE self-interaction → **Equipment → Booklets**. Scroll wheel to turn pages.
+
+| Item | Pages | Contents |
+|------|-------|---------|
+| Medical Procedures Booklet | 11 | DRSCABC, MCI, Blood/pH reference, Bandage/Medication/Surgery guides |
+| RATEL Proforma Booklet | 22 | All RATEL formats: markers, OPDEM variants, REDEP, MOVREQ, CASEVAC, CAS, fire missions, Broken Arrow |
+
+Booklets must be supplied by the mission maker in your starting loadout or found in mission crates.
+
+---
+
+## ASOT Arsenal (ADArsenal)
+
+A custom wrapper around ACE Arsenal with enhanced loadout management. Functions identically to standard ACE Arsenal from the player perspective.
+
+### Load Items Button
+
+The ASOT Arsenal adds a **Load Items** button to the loadout panel. This loads only weapons, magazines, and attachments from a saved loadout — without replacing your current uniform, vest, or backpack.
+
+**To use:** Open ASOT Arsenal → Loadout tab → select a saved loadout → click **Load Items**.
+
+---
+
+## ASOT Medical Additions
+
+### Triage Hotkeys
+
+Keybinds to change a patient triage status without opening the full ACE medical menu. Configure in Options → Controls → Configure Addons → Triage Hotkeys.
+
+| Action | Description |
+|--------|-------------|
+| Triage Status Up | Advances one triage level (look at patient first) |
+| Triage Status Down | Lowers one triage level |
+| Set Triage: None / Minimal / Delayed / Immediate / Deceased | Direct status assignment |
+
+### Atropine Autoinjector
+
+If the mission includes KAT Medical (Pharma module), an atropine autoinjector may appear in Arsenal. Administer via the KAT treatment menu on the patient.
+
+### Body Bag Weight Fix
+
+ACE body bags now have a **mass of 4** (previously weightless). Account for this when moving casualties.
+
+### Unconscious Hitbox Fix
+
+Unconscious and dead players no longer have a standing-man-sized collision box, preventing bodies from blocking movement in corridors and doorways.
+
+---
+
+## ASOT Main Menu
+
+Custom ASOT-branded main menu with quick-connect server buttons:
+
+| Button | Server |
+|--------|--------|
+| Main Operations | Primary operations server |
+| Primary Training | Primary training server |
+| Secondary Training | Secondary training server |
+| Gun Range | Gun Range server |
+| Medical Camp | Medical Camp server |
+| Primary/Secondary/Tertiary Auxiliary | Auxiliary servers |
+
+Click any button to open the Arma join dialog pre-filled for that server.
+
+---
+
+## Music and Sounds
+
+**ASOT_Music** and **ASOTSounds** provide large libraries for mission makers and Zeus operators — no player interaction required.
+
+Music categories: ASOT Songs (ANZAC, Waltzing Matilda, Gallipoli), Vietnam-era (Fortunate Son, Paint It Black, Riders on the Storm), WWII, Action (BFG Division), AC/DC (Thunderstruck, Back in Black), Classical/Epic, Zombie, Military Marches (Prussian Glory March, Erika, Panzerlied).
+
+Sound library: city ambience, distant firefights, animal sounds, crowd noise, alarms, medical event sounds, radio chatter (BBC, insurgent, Vietnam-era, WWII).
+`,
+    },
+
+    {
+        _id: 'official-addons',
+        title: 'ASOT Official Addons Mod',
+        category: 'misc',
+        summary: 'Flashbang tweaks, 13 chemlight variants, Zeus crate spawner, vehicle auxiliary lighting, 50+ custom map markers, AI ignore mode, HuntIR fix, swim speed increase, and re-enabled character faces.',
+        pbos: ['ASOT_Flashbangs', 'ASOT_Chemlights', 'ASOT_CrateSpawner', 'ASOT_AuxLights', 'ASOT_MapMarkers', 'ASOT_AIIgnore'],
+        requiredMods: ['CBA_A3', 'ACE3', 'Zen (Zeus Enhanced)'],
+        version: 'Workshop ID: 3842842131 · November 2026',
+        keywords: ['flashbang', 'chemlight', 'crate spawner', 'aux lighting', 'map markers', 'AI ignore', 'HuntIR', 'swim speed', 'official addons'],
+        order: 110,
+        body: `## Flashbang & 9-Banger Tweaks
+
+ASOT-branded flashbang grenades at **half the weight** of their originals. The key difference: the **whiteout and direction flinch effects on the throwing player are suppressed by default**. AI units are still fully affected.
+
+| Grenade | Classname | Detonations | Mass |
+|---------|-----------|-------------|------|
+| ASOT M84 Stun | ASOT_M84 | 1 | 2 (vs 4) |
+| ASOT CTS 7290 9-bang | ASOT_CTS9 | 9 | 2 (vs 4) |
+| ASOT CTS 7290 2-bang | ASOT_CTS2 | 2 | 2 |
+| ASOT Fakel-S | ASOT_FakelS | 1 | 1 (vs 2) |
+
+**To use:** Add to inventory → press **6** to cycle to it → hold **G** to prime and throw.
+
+| CBA Setting | Default | Description |
+|-------------|---------|-------------|
+| Enable ASOT Flashbang Tweaks | ON | Master switch for all tweaks |
+| Remove Player White Screen | ON | Suppresses full-screen whiteout |
+| Remove Player Direction Flinch | ON | Suppresses random camera flinch |
+
+---
+
+## ASOT Chemlight Variants
+
+13 ASOT-branded chemlights at **mass 1** each (originals are mass 2):
+
+**Vanilla:** Blue · Green · Red · Yellow
+
+**ACE Hi-Intensity:** Blue · Green · Red · Yellow · White · IR · Orange · Ultra Hi-Intensity Orange · White
+
+Same function as originals — throw or place by hand via ACE self-interaction.
+
+---
+
+## Zeus Crate Spawner
+
+Right-click context menu in Zeus (via Zen) to instantly spawn pre-configured supply crates. **Requires Zen (Zeus Enhanced).**
+
+**To use:** Zeus → right-click on map/3D view → **Spawn Crate → [Category] → [Type]**
+
+The crate spawns at the right-clicked position and is automatically added to your editable object list.
+
+### Crate Categories
+
+**Echo:** Demolitions · Mines · Engineering Tools (Small/Medium/Large) · Fuel (Barrel/Pallet/Container) · Ammo (Box/Crate/Container) · Spare Parts · SCUBA Gear · APOBS Packs · LVL1/2 CBRN Gear · LVL1/2 Less-Lethal Gear · UAV · UGV · RHIB · QuadBike · MotorBike
+
+**Hotel:** Ammo Supplies · Medical Supplies · FOB Arsenal · NVG · Spectrum Devices · Section Explosives
+
+**Golf:** AA/AT Launchers · Static Weapons (GMG/HMG/MMG) · Indirect Fire (Mortars, L16/M6/82mm/M119/Sholef ammo)
+
+**Empty:** Empty Box · Empty Pallet · Empty Container
+
+---
+
+## Vehicle Auxiliary Lighting
+
+Configurable lights attached to vehicles by mission makers using Eden Editor modules. Players toggle lights via ACE self-interaction.
+
+**Setup (Eden):** Place module(s) from Modules → ASOT → Vehicle Auxiliary Lights and sync to the vehicle and to light objects. Modules: **High Beams · Lights Left · Lights Right · Lights Rear** (each independently controllable).
+
+**In-game:** ACE self-interaction → **Vehicle Lighting → [Group] → OFF / WHITE / IR**
+
+IR mode is only visible through NVGs. If all lamps in a group are already in a mode, selecting it again toggles the group OFF. Light states are JIP-safe and persist for the mission duration.
+
+---
+
+## Custom Tactical Map Markers
+
+50+ custom map markers using standardised ASOT tactical symbology. Available in Eden Editor and Zeus. Search "ASOT" in the marker selector to filter.
+
+**Tactical positions:** CP · ABF · Block · CATK · CATKBF · CCP · CL · DOA · EA · FPL · FSA · FSL · LOA · LOD · OBJ · OP · PA · PB · PLT · PR · REI · SBF · SP
+
+**Drop/Extraction zones:** DZ · EZ · LZ · PZ
+
+**Waypoints/Rally:** WP · RLY · RP
+
+**Unit callsigns:** 1-0 · 1-1 Alpha/Bravo · 1-2 Pronto/Alpha/Bravo/Charlie · 1-3 Echo/Golf/Hotel/Mike/Victor
+
+---
+
+## AI Ignore Mode (Zeus)
+
+Zeus right-click action (via Zen) to toggle AI units between combat-aware and passive "ignore" states.
+
+When set to **Ignore**, the AI: disregards threats, does not engage, does not seek cover, disables target acquisition, and stands up.
+
+**To use:** Zeus → right-click on unit/group → **AI ignore mode → Set to Ignore** (or Set to Aware to restore). Applies to all units in the selected group. Does not apply to player-controlled units.
+
+---
+
+## HuntIR Vehicle Compatibility
+
+Removes the "not in vehicle" restriction from ACE HuntIR reconnaissance rounds. Players can now operate HuntIR while seated in a vehicle. No configuration required — fix applies automatically.
+
+---
+
+## Swim Speed Adjustment
+
+| Mode | Increase |
+|------|----------|
+| Surface swimming | ~26% faster than vanilla |
+| SCUBA diving | ~63% faster than vanilla |
+
+Passive — applies equally to all factions. No interaction required.
+
+---
+
+## Re-enabled Character Heads
+
+Several character face variants disabled in vanilla Arma 3 are re-enabled, including Ben Kerry variants, Dwarden, Hladas, Ivan, Jay, Miller, Pettka, and TanoanBossHead. Selectable in the standard Arma 3 face selection screen.
+`,
+    },
+
+    {
+        _id: 'training-range-targets',
+        title: 'Training Range Targets',
+        category: 'training-targets',
+        summary: 'Blinktroll oscillating target, Gonger reactive steel plates, Hostage Toggle shoot/no-shoot target, Wind Paddle 9-paddle array, and VTAC plywood barricades.',
+        pbos: ['FM_Blinktroll', 'FM_Gonger_Material', 'FM_HostageTarget', 'FM_WindTarget', 'VTAC_wall'],
+        requiredMods: [],
+        version: 'November 2026',
+        keywords: ['training', 'range', 'target', 'blinktroll', 'gonger', 'hostage', 'wind paddle', 'VTAC', 'barricade', 'reactive', 'steel plate'],
+        order: 120,
+        body: `## Overview
+
+Five reactive and static training target systems for marksmanship, reflex, and CQB drills. All are mission-maker-placed objects.
+
+---
+
+## Blinktroll Oscillating Target
+
+A motorised target that swings left and right continuously. Used for moving-target engagement training.
+
+| Property | Value |
+|----------|-------|
+| Oscillation cycle | ~14.6 s per full left-right-left sweep |
+| Control range | 300 m (scroll-menu actions visible within this range) |
+| Hit registration | None (indestructible) |
+
+**Operate:** Stand within 300 m → scroll-menu → **Start Target** to begin oscillation. **Stop Target** to halt.
+
+The Blinktroll does not register hits — a range observer scores visually or with binoculars. Technique: "trap the target" by shooting at the outer edge of its swing when it is momentarily still.
+
+---
+
+## Gonger Plate Targets
+
+Reactive steel plates that swing backward and produce an audible gong sound on hit. Sound is directional and carries up to **1,000 metres** — instructors anywhere on the range can confirm hits.
+
+| Variant | Diameter | Best Use |
+|---------|---------|---------|
+| Gonger Steel 30 cm | 30 cm | Standard rifle target |
+| Gonger Steel 25 cm | 25 cm | Pistol/carbine range |
+| Gonger Steel 15 cm | 15 cm | Precision or long-range |
+
+Also includes **2×4 Timber Barricade** panels for cover-to-shoot drills.
+
+**Hit feedback:** Plate swings physically → audible gong → plate resets automatically.
+
+---
+
+## Hostage Toggle Target
+
+A dual-plate shoot/no-shoot target. Each plate independently toggles between visible (up) and concealed (down) when struck. **Indestructible** — indefinite range use.
+
+| Plate | Hit Result | Reset |
+|-------|-----------|-------|
+| Threat plate | Toggles: up → down | Hit again: down → up |
+| Hostage plate | Toggles: up → down | Hit again: down → up |
+
+Both plates start in the **up (visible)** state. A hit sends a plate to **down (concealed)**. A second hit returns it to up.
+
+**Standard drill:** Both plates up. Shoot only the threat plate. Penalty if hostage plate is hit.
+
+**Decision drill:** Instructor calls "threat" or "no-shoot" just before the shot.
+
+**Reset:** Shoot the downed plate to return it to up for the next shooter.
+
+Scoring is entirely visual — a range officer observes which plate was hit.
+
+---
+
+## Wind Paddle Target
+
+A 9-paddle reactive array: 1 centre paddle + 8 peripheral paddles. Each paddle flips on hit and resets after **~0.5 seconds** automatically.
+
+| Zone | Colour | Description |
+|------|--------|-------------|
+| Centre | — | Axis reference paddle |
+| Peripheral | Blue | Standard engagement zone |
+| Peripheral | Red | Precision/restricted engagement zone |
+
+**Drill types:**
+
+| Drill | Description |
+|-------|-------------|
+| Sequence | Engage paddles in a specific order as fast as possible |
+| Colour | Engage only blue paddles; ignore red |
+| Scan | Engage all 9 paddles in rapid fire; time to completion |
+
+Target: clear all 9 paddles in under 10 seconds. The 0.5 s reset allows one hit per second without paddles resetting before you get back to them.
+
+---
+
+## VTAC Plywood Barricades
+
+Seven static plywood shooting barricades modelled on VTAC competition/training barricades. All are **indestructible** — permanent range fixtures with no scripting.
+
+Each variant has different port cutouts for standing, kneeling, and prone shooting positions.
+
+**Variants:** Vtac_Wall1 through Vtac_Wall7
+
+**Standard drills:**
+- **Port shooting:** Fire through barricade ports from cover
+- **Lateral transitions:** Move from one side to the other between engagements
+- **Snap drills:** Expose, acquire, fire, return to cover in a single movement
+
+When shooting through a VTAC port, minimise exposure — only the muzzle and sights should extend past the barricade edge.
+`,
+    },
+
+    {
+        _id: 'afcm-medical-simulator',
+        title: 'AFCM Medical Simulator',
+        category: 'medical-simulator',
+        summary: 'Tasman Dynamics v0.1.0: spawn patients with configured injuries, run mass casualty incidents, track treatment via Session Manager, and use the Injury Editor with 8 built-in presets.',
+        pbos: ['AFCM_Medical_Simulator'],
+        requiredMods: ['CBA_A3', 'ACE3', 'Zen (Zeus Enhanced)'],
+        version: 'v0.1.0 (Tasman Dynamics)',
+        keywords: ['AFCM', 'medical', 'simulator', 'MCI', 'mass casualty', 'patient', 'injury', 'KAT', 'training', 'Zeus', 'Eden', 'triage'],
+        order: 130,
+        body: `## Overview
+
+AFCM Medical Simulator is a training and scenario-authoring tool for structured medical exercises. Instructors spawn patients with specific or randomly generated injuries and monitor treatment in real time. The mod sits on top of **ACE3 or KAT Advanced Medical** — the treatment experience is entirely ACE/KAT while AFCM handles the authoring and scenario-management layer.
+
+**Required:** CBA_A3, ACE3, Zen · **Optional (extends features):** KAT Advanced Medical
+
+---
+
+## Quick Start
+
+1. Open Zeus (Shift+Y) → AFCM Medical Simulator → **Spawn Patient**
+2. Place on the map at the target location
+3. Choose Faction and Unit Type → click **Spawn Patient**
+4. The **Injury Editor** opens automatically — configure wounds per body part → click **Apply**
+5. Patient appears unconscious with configured injuries
+6. Players treat the patient using normal ACE3/KAT interactions
+7. After treatment: scroll-menu on patient → **AFCM: Mark as Treated**
+
+---
+
+## Patient Spawning Methods
+
+### Eden Module (Pre-planned)
+
+Place an **AFCM Patient** module from the AFCM Medical Simulator category.
+
+| Attribute | Description |
+|-----------|-------------|
+| Casualty Type | Civilian / BLUFOR / OPFOR / Independent (cosmetic only) |
+| Session Name | Optional label for Session Manager grouping |
+| Title | Labels the interaction button (never applied to the patient unit) |
+| Training Preset | Quick-pick a built-in injury scenario |
+| Injury Preset (paste) | Paste an exported injury string to spawn with exact injuries |
+| Spawn Marker Name(s) | Comma-separated marker names; one patient per marker |
+
+**Auto-spawn mode:** Nothing synced to module → spawns at mission start.
+**On-demand mode:** Sync an object to the module → adds "Spawn Patient" interaction to that object; repeatable for the entire mission.
+
+### Zeus Spawn Patient
+
+Zeus → AFCM Medical Simulator → **Spawn Patient** → place → choose faction → Injury Editor opens automatically.
+
+### Zeus MCI Spawner
+
+Zeus → **MCI Spawner** → place at incident location → MCI Creator dialog opens with location pre-set.
+
+---
+
+## Injury Editor
+
+Navigate using body-part tabs: **Head / Chest / Left Arm / Right Arm / Left Leg / Right Leg**. For each wound, set type (Gunshot/Shrapnel/Blast), severity, and bleeding status. Nothing is applied until you click **Apply**.
+
+**If KAT is loaded**, additional controls appear:
+- **Head:** Airway type (None / Obstruction / Occlusion)
+- **Chest:** Pneumothorax type (None / Simple / Hemopneumothorax / Tension Pneumothorax)
+- **Arms/Legs:** Fracture severity (None / Simple / Compound / Comminuted)
+
+### Injury Levels (for Randomize)
+
+| Level | Wounds | Severity | Bleeding chance |
+|-------|--------|----------|-----------------|
+| Easy (0) | 1 | 0.1–0.3 | 20% |
+| Medium (1) | 1–2 | 0.2–0.5 | 50% |
+| Hard (2) | 2–3 | 0.4–0.7 | 80% |
+| Extreme (3) | 3–4 | 0.6–0.9 | 80% |
+| F*CKED! (4) | 4–6 | 0.8–1.0 | 95% |
+
+### Built-in Presets
+
+| Preset | Injuries |
+|--------|---------|
+| GSW — Chest | Single gunshot to chest, severity 0.6, bleeding |
+| GSW — Limb (Tourniquet) | Gunshot to left arm, severity 0.5, bleeding |
+| Blast Casualty | Chest + left leg blast, both bleeding |
+| Frag Wounds (Multiple) | Shrapnel across right arm, left leg, chest |
+| Training — Minor Laceration | Low-severity, non-bleeding; ideal for new trainees |
+| Airway — Obstruction | Head blast + KAT airway obstruction (requires KAT) |
+| Fractures — Multiple Limb | Blast wounds + KAT fractures on left arm/leg/right leg (requires KAT) |
+| Severe Hemorrhage (Multi-Site) | Heavy bleeding on left arm, right leg, chest |
+
+**Export/Import:** Copy staged injuries as a string (clipboard). Paste into an Eden module Injury Preset Import field or the Preset Library to reproduce the patient in future missions.
+
+---
+
+## Medical Terminal
+
+An Eden/Zeus module attached to any placed object. Adds four scroll-menu interactions for every player:
+
+| Interaction | Function |
+|-------------|---------|
+| AFCM: Open MCI Creator | Opens the MCI Creator dialog |
+| AFCM: Open Session Manager | Opens the Session Manager dialog |
+| AFCM: Authorize Injury Editing | Grants this player permission to edit injuries on all patients |
+| AFCM: Revoke Injury Editing | Removes this player injury-editing authorization |
+
+Authorization is mission-wide and per-player. Required when "Require Injury Edit Permission" CBA setting is ON (default).
+
+---
+
+## MCI Creator
+
+Build and spawn a mass casualty incident. Open with **Ctrl+Shift+M** or via Medical Terminal.
+
+1. Set **Patient Count** (1–10), **Casualty Type**, and **Spawn Radius** (m)
+2. For each patient slot: assign a preset (or leave as "random" for a fresh injury roll)
+3. Enter optional **Session Name**
+4. Click **Choose Location on Map** (or use the Zeus MCI Spawner module to pre-set location)
+5. Click **Spawn MCI** — all patients spawn in one server request
+
+**Built-in MCI presets:** HE Shell (3 casualties) · IED Strike (4 casualties) · Ambush (2 casualties)
+
+---
+
+## Session Manager
+
+Shows all active Spawn Sessions. Open with **Ctrl+Shift+O** or via Medical Terminal.
+
+Each row shows: Session Label — N patient(s), spawned Xm ago.
+
+**Delete Session:** Removes tracking; does not delete patient units from the game world. **Clear All** removes all sessions at once.
+
+---
+
+## MCI Scenario System
+
+Automatically monitors sessions and notifies all players when every patient in a session is **treated** AND **physically near a registered stretcher zone**.
+
+**Setup (Eden):** Place "MCI Scenario System" module → sync real stretcher props to it → set Stretcher Radius (1/2/3/5/8 m, default 2 m).
+
+**Setup (Zeus):** Use "Place Stretcher Zone" module — drag onto a stretcher prop to register it as the zone centre.
+
+When a session resolves, all players receive a toast notification. The session is never re-checked after resolving.
+
+---
+
+## CBA Settings
+
+| Setting | Default | Notes |
+|---------|---------|-------|
+| Default Injury Level | Medium (1) | Used for "random" patients in MCI Creator |
+| Default Casualty Type | Civilian (0) | Clothing default |
+| Remember Last-Used Injuries | Off | Pre-fills new patient mode with last-applied injuries |
+| Patient Terminal Interaction Method | Scroll Wheel (0) | Scroll Wheel / ACE Menu / Both |
+| Require Injury Edit Permission | On | Players must authorize via Medical Terminal |
+| Enable "Mark as Treated" Action | On | Adds manual treated flag action to patients |
+| Enable "Export Patient State" Action | On | Adds clipboard export of patient injuries |
+`,
+    },
+
 ]
